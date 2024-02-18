@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@nuxt/ui": "^2.13.0",
+    "@vercel/analytics": "^1.2.0",
     "ai": "^2.2.33",
     "ollama": "^0.4.5",
     "openai": "^4.26.1",
