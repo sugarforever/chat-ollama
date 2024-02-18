@@ -56,8 +56,6 @@ const select = (row) => {
   } else {
     selectedRows.value.splice(index, 1)
   }
-
-  console.log('Selected rows: ', selectedRows.value);
 };
 
 const actions = [
@@ -66,7 +64,6 @@ const actions = [
     label: 'Delete',
     icon: 'i-heroicons-trash-20-solid',
     click: async () => {
-      console.log('Deleting models: ', selectedRows.value);
       isOpen.value = true;
     }
   }]
@@ -96,7 +93,6 @@ const isOpen = ref(false);
 const onDeleteModel = async () => {
   resetModal();
   selectedRows.value.forEach(async ({ name }) => {
-    console.log('Deleting model: ', name)
     const status = await $fetch(`/api/models/`, {
       method: 'DELETE',
       body: {
@@ -106,7 +102,6 @@ const onDeleteModel = async () => {
         'x_ollama_host': host.value
       }
     });
-    console.log('Status: ', status);
 
     if (status?.status === 'success') {
       models.value = models.value.filter((m) => m.name !== name);

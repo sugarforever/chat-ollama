@@ -26,7 +26,6 @@ const fetchStream = async (url, options) => {
       if (done) break;
 
       const chunk = new TextDecoder().decode(value);
-      console.log(chunk);
       chunk.split("\n\n").forEach(async (line) => {
         if (line) {
           const chatMessage = JSON.parse(line);
@@ -49,7 +48,6 @@ const onSend = async () => {
     return;
   }
 
-  console.log("Sending message: ", state.input);
   sending.value = true;
 
   const { input } = state;

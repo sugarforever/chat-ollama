@@ -19,7 +19,6 @@ const fetchStream = async (url, options) => {
       if (done) break;
 
       const chunk = new TextDecoder().decode(value);
-      console.log(chunk);
       chunk.split("\n\n").forEach((line) => {
         if (line) {
           const progress = JSON.parse(line);
@@ -35,7 +34,6 @@ const fetchStream = async (url, options) => {
           } else {
             progresses.value.push(progress);
           }
-          console.log("Progress: ", progresses.value);
         }
       });
     }
@@ -48,7 +46,6 @@ const onDownload = async () => {
   downloading.value = true;
   progresses.value = [];
   const { modelName } = state;
-  console.log("Downloading model: ", modelName);
   await fetchStream('/api/models/pull', {
     method: 'POST',
     body: JSON.stringify({

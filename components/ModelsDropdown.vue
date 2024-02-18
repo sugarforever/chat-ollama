@@ -24,7 +24,6 @@ onMounted(async () => {
       return {
         label: m.name,
         click: () => {
-          console.log("Model selected: ", m.name);
           selectedModel.value = m.name;
           emit("modelSelected", m.name);
         }
