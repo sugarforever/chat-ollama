@@ -1,6 +1,5 @@
 <script setup>
-
-import ollama from 'ollama';
+import { loadOllamaHost } from '@/utils/settings'
 
 const emit = defineEmits(["modelDownloaded"])
 
@@ -10,36 +9,60 @@ const state = reactive({
 const downloading = ref(false);
 const progresses = ref([]);
 
+const fetchStream = async (url, options) => {
+  const response = await fetch(url, options);
+
+  if (response.body) {
+    const reader = response.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = new TextDecoder().decode(value);
+      console.log(chunk);
+      chunk.split("\n\n").forEach((line) => {
+        if (line) {
+          const progress = JSON.parse(line);
+
+          const { total, completed = 0 } = progress;
+          if (total && completed) {
+            progress.percentage = `${parseInt((completed / total) * 100)}%`;
+          }
+
+          const existing = progresses.value.find((p) => p.status === progress.status);
+          if (existing) {
+            Object.assign(existing, progress);
+          } else {
+            progresses.value.push(progress);
+          }
+          console.log("Progress: ", progresses.value);
+        }
+      });
+    }
+  } else {
+    console.log("The browser doesn't support streaming responses.");
+  }
+}
+
 const onDownload = async () => {
   downloading.value = true;
   progresses.value = [];
   const { modelName } = state;
   console.log("Downloading model: ", modelName);
-
-  try {
-    const response = await ollama.pull({ model: modelName, stream: true });
-    for await (const progress of response) {
-      const { total, completed = 0 } = progress;
-      if (total && completed) {
-        progress.percentage = `${parseInt((completed / total) * 100)}%`;
-      }
-
-      const existing = progresses.value.find((p) => p.status === progress.status);
-      if (existing) {
-        Object.assign(existing, progress);
-      } else {
-        progresses.value.push(progress);
-      }
-      console.log("Progress: ", progresses.value);
-    }
-
-    emit("modelDownloaded", modelName);
-  } catch (error) {
-    console.error("Error downloading model: ", error);
-  }
-
+  await fetchStream('/api/models/pull', {
+    method: 'POST',
+    body: JSON.stringify({
+      model: modelName,
+      stream: true,
+    }),
+    headers: {
+      'x_ollama_host': loadOllamaHost(),
+      'Content-Type': 'application/json',
+    },
+  });
+  emit("modelDownloaded", modelName);
   downloading.value = false;
-}
+};
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup>
-import { loadOllamaHost, saveOllamaHost } from '../../utils/settings';
+import { loadOllamaHost, saveOllamaHost } from '@/utils/settings';
 
 const toast = useToast();
 

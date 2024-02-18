@@ -1,9 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { loadOllamaHost } from '../utils/settings'
-import { Ollama } from 'ollama';
-
-const ollama = new Ollama({ host: loadOllamaHost() });
+import { loadOllamaHost } from '@/utils/settings'
 
 const emit = defineEmits(["modelSelected"])
 
@@ -11,10 +8,19 @@ const models = ref([]);
 const selectedModel = ref(null);
 const label = computed(() => selectedModel.value ? selectedModel.value : "Models");
 
+const loadModels = async () => {
+  const response = await $fetch('/api/models/', {
+    headers: {
+      'x_ollama_host': loadOllamaHost()
+    }
+  });
+  return response.models;
+};
+
 onMounted(async () => {
-  const response = await ollama.list();
+  const responseModels = await loadModels();
   models.value = [
-    response.models.map(m => {
+    responseModels.map(m => {
       return {
         label: m.name,
         click: () => {

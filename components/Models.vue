@@ -1,17 +1,10 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { loadOllamaHost } from '../utils/settings'
-import { Ollama } from 'ollama';
-
-const ollama = new Ollama({ host: loadOllamaHost() });
+import { loadOllamaHost } from '@/utils/settings'
 
 const emit = defineEmits(["modelChanged"])
 
-const loadModels = async () => {
-  const { models } = await ollama.list();
-  return models;
-};
-
+const host = ref(null);
 const models = ref([]);
 const modelRows = computed(() => {
   return models.value.map((model) => {
@@ -46,6 +39,15 @@ const columns = [{
   label: 'Quantization Level'
 }];
 
+const loadModels = async () => {
+  const response = await $fetch('/api/models/', {
+    headers: {
+      'x_ollama_host': host.value
+    }
+  });
+  models.value = response.models;
+};
+
 const selectedRows = ref([]);
 const select = (row) => {
   const index = selectedRows.value.findIndex((item) => item.name === row.name)
@@ -72,11 +74,10 @@ const actions = [
 
 const selectedModelName = ref(null);
 
-loadModels().then((data) => {
-  models.value = data;
-  selectedModelName.value = data[0]?.name;
-  onModelChange();
-});
+// loadModels().then(() => {
+//  selectedModelName.value = models.value[0]?.name;
+//  onModelChange();
+//});
 
 const modelOptions = computed(() => {
   return models.value.map((model) => model.name);
@@ -87,9 +88,7 @@ const onModelChange = () => {
 };
 
 const onModelDownloaded = () => {
-  loadModels().then((data) => {
-    models.value = data;
-  });
+  loadModels();
 };
 
 // Modal
@@ -98,7 +97,15 @@ const onDeleteModel = async () => {
   resetModal();
   selectedRows.value.forEach(async ({ name }) => {
     console.log('Deleting model: ', name)
-    const status = await ollama.delete({ model: name })
+    const status = await $fetch(`/api/models/`, {
+      method: 'DELETE',
+      body: {
+        model: name
+      },
+      headers: {
+        'x_ollama_host': host.value
+      }
+    });
     console.log('Status: ', status);
 
     if (status?.status === 'success') {
@@ -114,6 +121,11 @@ const onCancel = () => {
 const resetModal = () => {
   isOpen.value = false;
 };
+
+onMounted(() => {
+  host.value = loadOllamaHost();
+  loadModels();
+});
 </script>
 
 <template>

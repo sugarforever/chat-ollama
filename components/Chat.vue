@@ -1,10 +1,8 @@
 <script setup>
 
-import { Ollama } from 'ollama';
-import { loadOllamaHost } from '../utils/settings';
+import { loadOllamaHost } from '@/utils/settings';
 
 const ollamaHost = ref(null);
-const ollama = ref(null);
 
 const model = ref(null);
 const messages = ref([]);
@@ -18,8 +16,36 @@ watch(model, async (newModel) => {
   messages.value = [];
 })
 
+const fetchStream = async (url, options) => {
+  const response = await fetch(url, options);
+
+  if (response.body) {
+    const reader = response.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = new TextDecoder().decode(value);
+      console.log(chunk);
+      chunk.split("\n\n").forEach(async (line) => {
+        if (line) {
+          const chatMessage = JSON.parse(line);
+          const content = chatMessage?.message?.content;
+          if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant') {
+            messages.value[messages.value.length - 1].content += content;
+          } else {
+            messages.value.push({ role: 'assistant', content });
+          }
+        }
+      });
+    }
+  } else {
+    console.log("The browser doesn't support streaming responses.");
+  }
+}
+
 const onSend = async () => {
-  if (sending.value || !state.input?.trim() || !model.value || !ollama.value) {
+  if (sending.value || !state.input?.trim() || !model.value) {
     return;
   }
 
@@ -36,16 +62,18 @@ const onSend = async () => {
     content: input
   });
 
-  const response = await ollama.value.chat({ model: model.value, messages: [...messages.value], stream: true });
-
-  for await (const chunk of response) {
-    const content = chunk?.message?.content;
-    if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant') {
-      messages.value[messages.value.length - 1].content += content;
-    } else {
-      messages.value.push({ role: 'assistant', content });
-    }
-  }
+  await fetchStream('/api/models/chat', {
+    method: 'POST',
+    body: JSON.stringify({
+      model: model.value,
+      messages: [...messages.value],
+      stream: true,
+    }),
+    headers: {
+      'x_ollama_host': loadOllamaHost(),
+      'Content-Type': 'application/json',
+    },
+  });
 
   sending.value = false;
 }
@@ -55,13 +83,6 @@ const onModelSelected = (modelName) => {
 }
 
 const rows = ref(1);
-
-watch(ollamaHost, async (newHost) => {
-  if (newHost) {
-    console.log("Switching Ollama host: ", newHost);
-    ollama.value = new Ollama({ host: newHost });
-  }
-});
 
 onMounted(() => {
   ollamaHost.value = loadOllamaHost();

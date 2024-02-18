@@ -10,8 +10,6 @@ const onModelChanged = (newModel) => {
 
 <template>
   <div class="flex flex-col w-full">
-    <ClientOnly>
-      <models @model-changed="onModelChanged" />
-    </ClientOnly>
+    <models @model-changed="onModelChanged" />
   </div>
 </template>
