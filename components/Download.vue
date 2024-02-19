@@ -54,6 +54,8 @@ const onDownload = async () => {
     }),
     headers: {
       'x_ollama_host': loadOllamaHost(),
+      'x_ollama_username': loadOllamaUserName(),
+      'x_ollama_password': loadOllamaPassword(),
       'Content-Type': 'application/json',
     },
   });

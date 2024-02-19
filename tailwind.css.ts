@@ -9,5 +9,11 @@ export default <Partial<Config>>{
         video: '16 / 9'
       }
     }
+  },
+  purge: {
+    content: [
+      // ...
+      './content/**/*.md'
+    ]
   }
 }

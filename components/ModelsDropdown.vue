@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { loadOllamaHost } from '@/utils/settings'
+import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword } from '@/utils/settings'
 
 const emit = defineEmits(["modelSelected"])
 
@@ -11,7 +11,9 @@ const label = computed(() => selectedModel.value ? selectedModel.value : "Models
 const loadModels = async () => {
   const response = await $fetch('/api/models/', {
     headers: {
-      'x_ollama_host': loadOllamaHost()
+      'x_ollama_host': loadOllamaHost(),
+      'x_ollama_username': loadOllamaUserName(),
+      'x_ollama_password': loadOllamaPassword()
     }
   });
   return response.models;

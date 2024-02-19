@@ -1,6 +1,25 @@
 <script setup>
 
-import { loadOllamaHost } from '@/utils/settings';
+import MarkdownIt from "markdown-it";
+import MarkdownItAbbr from "markdown-it-abbr";
+import MarkdownItAnchor from "markdown-it-anchor";
+import MarkdownItFootnote from "markdown-it-footnote";
+import MarkdownItHighlightjs from "markdown-it-highlightjs";
+import MarkdownItSub from "markdown-it-sub";
+import MarkdownItSup from "markdown-it-sup";
+import MarkdownItTasklists from "markdown-it-task-lists";
+import MarkdownItTOC from "markdown-it-toc-done-right";
+import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword } from '@/utils/settings';
+
+const markdown = new MarkdownIt()
+  .use(MarkdownItAbbr)
+  .use(MarkdownItAnchor)
+  .use(MarkdownItFootnote)
+  .use(MarkdownItHighlightjs)
+  .use(MarkdownItSub)
+  .use(MarkdownItSup)
+  .use(MarkdownItTasklists)
+  .use(MarkdownItTOC);
 
 const ollamaHost = ref(null);
 
@@ -69,6 +88,8 @@ const onSend = async () => {
     }),
     headers: {
       'x_ollama_host': loadOllamaHost(),
+      'x_ollama_username': loadOllamaUserName(),
+      'x_ollama_password': loadOllamaPassword(),
       'Content-Type': 'application/json',
     },
   });
@@ -100,9 +121,9 @@ onMounted(() => {
       <ul className="flex flex-1 flex-col">
         <li v-for="(message, index) in messages" :key="index">
           <div
-            :class="`${message.role == 'assistant' ? 'bg-white' : 'bg-primary-50'} border border-slate-150 rounded my-4 px-3 py-2`">
+            :class="`${message.role == 'assistant' ? 'bg-white' : 'bg-primary-50'} border border-slate-150 rounded my-4 px-3 py-2 text-sm`">
             <h3 class="font-bold">{{ message.role }}</h3>
-            <p class="mt-2">{{ message.content }}</p>
+            <div v-html="markdown.render(message.content)" />
           </div>
         </li>
       </ul>
@@ -119,3 +140,13 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style>
+.hljs {
+  display: block;
+  padding: 8px;
+  background-color: #e5e5e5;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+</style>

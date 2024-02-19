@@ -3,13 +3,17 @@ const route = useRoute()
 
 const links = [
   [{
+    label: 'Home',
+    icon: 'i-heroicons-home',
+    to: '/'
+  }, {
     label: 'Models',
     icon: 'i-heroicons-home',
     to: '/models'
   }, {
     label: 'Chat',
     icon: 'i-heroicons-chart-bar',
-    to: '/'
+    to: '/chat'
   }, {
     label: 'Settings',
     icon: 'i-heroicons-chart-bar',
