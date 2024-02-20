@@ -142,6 +142,9 @@ onMounted(() => {
 </template>
 
 <style>
+code {
+  color: rgb(37 99 235);
+}
 .hljs {
   display: block;
   padding: 8px;
