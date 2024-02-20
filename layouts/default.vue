@@ -8,15 +8,19 @@ const links = [
     to: '/'
   }, {
     label: 'Models',
-    icon: 'i-heroicons-home',
+    icon: 'i-heroicons-rectangle-stack',
     to: '/models'
   }, {
+    label: 'Instructions',
+    icon: 'i-heroicons-document-text',
+    to: '/instructions'
+  }, {
     label: 'Chat',
-    icon: 'i-heroicons-chart-bar',
+    icon: 'i-heroicons-pencil-square',
     to: '/chat'
   }, {
     label: 'Settings',
-    icon: 'i-heroicons-chart-bar',
+    icon: 'i-heroicons-cog-6-tooth',
     to: '/settings'
   }], [{
     label: 'ChatOllama',

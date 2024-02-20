@@ -10,8 +10,6 @@ const onModelChanged = (newModel) => {
 
 <template>
   <div class="flex flex-1">
-    
       <chat :model="model" />
-    
   </div>
 </template>

@@ -1,6 +1,7 @@
 const OLLAMA_HOST = 'ollama.host';
 const OLLAMA_USERNAME = 'ollama.username';
 const OLLAMA_PASSWORD = 'ollama.password';
+const OLLAMA_INSTRUCTIONS = 'ollama.instructions';
 
 export const loadOllamaHost = () => {
   const host = localStorage.getItem(OLLAMA_HOST);
@@ -39,4 +40,30 @@ export const saveOllamaPassword = (password: string) => {
   } else {
     localStorage.removeItem(OLLAMA_PASSWORD);
   }
+}
+
+export const loadOllamaInstructions = () => {
+  const instructions = localStorage.getItem(OLLAMA_INSTRUCTIONS);
+  if (instructions) {
+    try {
+      return JSON.parse(instructions);
+    } catch (e) {
+      console.error('Failed to parse Ollama instructions', e);
+      return [];
+    }
+  } else {
+    return [];
+  }
+}
+
+export const saveOllamaInstruction = (name, instruction) => {
+  const instructions = loadOllamaInstructions();
+  const existing = instructions.find((i) => i.name === name);
+  if (existing) {
+    existing.instruction = instruction;
+  } else {
+    instructions.push({ name, instruction });
+  }
+
+  localStorage.setItem(OLLAMA_INSTRUCTIONS, JSON.stringify(instructions));
 }
