@@ -15,6 +15,10 @@ const links = [
     icon: 'i-heroicons-document-text',
     to: '/instructions'
   }, {
+    label: 'Knowledge Bases',
+    icon: 'i-heroicons-book-open',
+    to: '/knowledgebases'
+  }, {
     label: 'Chat',
     icon: 'i-heroicons-pencil-square',
     to: '/chat'

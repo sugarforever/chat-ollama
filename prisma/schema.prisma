@@ -1,0 +1,18 @@
+datasource sqlite {
+  provider          = "sqlite"
+  url               = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model KnowledgeBase {
+  id            Int     @id @default(autoincrement())
+  name          String  @unique
+  filename      String
+  embedding     String?
+  description   String?
+  created       DateTime?
+  updated       DateTime?
+}

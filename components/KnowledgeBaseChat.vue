@@ -11,10 +11,6 @@ import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItTOC from "markdown-it-toc-done-right";
 import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword, loadOllamaInstructions } from '@/utils/settings';
 
-const props = defineProps({
-  knowledgebase: Object
-});
-
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
   .use(MarkdownItAnchor)
@@ -105,7 +101,7 @@ const onSend = async () => {
   });
 
   const body = JSON.stringify({
-    knowledgebaseId: props.knowledgebase.id,
+    knowledgebase: props.knowledgebase,
     model: model.value,
     messages: [...messages.value],
     stream: true,
