@@ -1,0 +1,33 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Generate a timestamp and store it in a variable
+    - name: Generate Timestamp
+      id: timestamp
+      run: echo "::set-output name=timestamp::$(date +%s)"
+
+    - name: Build the Docker image
+      run: |
+        TIMESTAMP="${{ steps.timestamp.outputs.timestamp }}"
+        docker build . --file Dockerfile --tag 0001coder/chatollama:${TIMESTAMP}
+        docker tag 0001coder/chatollama:${TIMESTAMP} 0001coder/chatollama:latest
+    - name: Log in to Docker Hub
+      run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Push Docker image to registry
+      run: |
+        TIMESTAMP="${{ steps.timestamp.outputs.timestamp }}"
+        docker push 0001coder/chatollama:${TIMESTAMP}
+        docker push 0001coder/chatollama:latest
