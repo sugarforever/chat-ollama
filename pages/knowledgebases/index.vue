@@ -13,16 +13,21 @@ const validate = (state) => {
   return errors
 }
 
-const selectedFile = ref(null);
+const selectedFiles = ref([]);
 const onFileChange = async (e) => {
-  selectedFile.value = e.target.files[0];
+  console.log(e.target.files);
+  selectedFiles.value = e.target.files;
   console.log('changed');
 };
 const loading = ref(false);
 const onSubmit = async () => {
   loading.value = true;
   const formData = new FormData();
-  formData.append("file", selectedFile.value);
+  Array.from(selectedFiles.value).forEach((file, index) => {
+    console.log(`Index ${index}`, file);
+    formData.append(`file_${index}`, file);
+  });
+
   formData.append("name", state.name);
   formData.append("description", state.description);
   formData.append("embedding", state.embedding);
@@ -38,7 +43,7 @@ const onSubmit = async () => {
   });
 
   loading.value = false;
-  state.selectedFile = null;
+  state.selectedFiles = [];
   refresh();
 }
 
@@ -52,8 +57,8 @@ const columns = [{
   key: 'name',
   label: 'Name'
 }, {
-  key: 'filename',
-  label: 'File Name'
+  key: 'files',
+  label: 'Files'
 }, {
   key: 'description',
   label: 'Description'
@@ -67,7 +72,7 @@ const knowlegeBases = computed(() => {
     return {
       id: knowledgebase.id,
       name: knowledgebase.name,
-      filename: knowledgebase.filename,
+      files: knowledgebase.files.map((file) => file.url).join(','),
       description: knowledgebase.description,
       embedding: knowledgebase.embedding,
     }
@@ -93,7 +98,7 @@ const knowlegeBases = computed(() => {
         </UFormGroup>
 
         <UFormGroup label="File as Knowledge Base" name="file">
-          <UInput type="file" size="sm" v-model="state.selectedFile" @change="onFileChange" />
+          <UInput multiple type="file" size="sm" v-model="state.selectedFile" @change="onFileChange" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
