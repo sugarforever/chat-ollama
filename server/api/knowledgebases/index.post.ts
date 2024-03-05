@@ -20,12 +20,19 @@ const ingestDocument = async (file, collectionName, embedding) => {
     model: embedding,
     baseUrl: "http://localhost:11434",
   });
-  await Chroma.fromDocuments(splits, embeddings, {
+
+  const dbConfig = {
     collectionName: collectionName,
     url: "http://localhost:8000"
-  });
-
-  console.log(`Chroma collection ${collectionName} created`);
+  };
+  const existingCollection = await Chroma.fromExistingCollection(embeddings, dbConfig);
+  if (existingCollection) {
+    await existingCollection.addDocuments(splits);
+    console.log(`Chroma collection ${collectionName} updated`);
+  } else {
+    await Chroma.fromDocuments(splits, embeddings, dbConfig);
+    console.log(`Chroma collection ${collectionName} created`);
+  }
 }
 
 export default defineEventHandler(async (event) => {
