@@ -8,28 +8,24 @@ import { PrismaClient } from '@prisma/client';
 const ingestDocument = async (file, collectionName, embedding) => {
   const tmp_file_path = `tmp/${file.filename}`;
 
-  try {
-    const status = await writeFile(tmp_file_path, file.data)
-    console.log(`Writing data to file ${tmp_file_path}: ${status}`);
+  const status = await writeFile(tmp_file_path, file.data)
+  console.log(`Writing data to file ${tmp_file_path}: ${status}`);
 
-    const loader = new PDFLoader(tmp_file_path);
-    const docs = await loader.load();
+  const loader = new PDFLoader(tmp_file_path);
+  const docs = await loader.load();
 
-    const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
-    const splits = await textSplitter.splitDocuments(docs);
-    const embeddings = new OllamaEmbeddings({
-      model: embedding,
-      baseUrl: "http://localhost:11434",
-    });
-    await Chroma.fromDocuments(splits, embeddings, {
-      collectionName: collectionName,
-      url: "http://localhost:8000"
-    });
+  const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
+  const splits = await textSplitter.splitDocuments(docs);
+  const embeddings = new OllamaEmbeddings({
+    model: embedding,
+    baseUrl: "http://localhost:11434",
+  });
+  await Chroma.fromDocuments(splits, embeddings, {
+    collectionName: collectionName,
+    url: "http://localhost:8000"
+  });
 
-    console.log(`Chroma collection ${collectionName} created`);
-  } catch (err) {
-    console.error(err)
-  }
+  console.log(`Chroma collection ${collectionName} created`);
 }
 
 export default defineEventHandler(async (event) => {
@@ -37,13 +33,12 @@ export default defineEventHandler(async (event) => {
 
   const knowledgeBase: { [key: string]: string | Date } = {};
   const decoder = new TextDecoder("utf-8");
-  let uploadedFile = null;
+  const uploadedFiles = [];
   items?.forEach((item) => {
     const { name, data, filename } = item;
     if (name) {
-      if (name === "file") {
-        uploadedFile = item;
-        knowledgeBase["filename"] = filename;
+      if (name.startsWith("file_")) {
+        uploadedFiles.push(item);
       }
       if (["name", "description", "embedding"].includes(name)) {
         knowledgeBase[name] = decoder.decode(data);
@@ -56,13 +51,22 @@ export default defineEventHandler(async (event) => {
   const affected = await prisma.knowledgeBase.create({
     data: knowledgeBase
   });
-  console.log(`Created knowledge base ${knowledgeBase.name} for ${knowledgeBase.filename}: ${affected}`);
+  console.log(`Created knowledge base ${knowledgeBase.name}: ${affected}`);
 
-  if (uploadedFile) {
-    await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding);
+  if (uploadedFiles.length > 0) {
+    for (const uploadedFile of uploadedFiles) {
+      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding);
+
+      const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
+        data: {
+          url: uploadedFile.filename,
+          knowledgeBaseId: affected.id
+        }
+      });
+
+      console.log(createdKnowledgeBaseFile);
+    }
   }
-
-  console.log(knowledgeBase);
 
   return {
     status: "success"

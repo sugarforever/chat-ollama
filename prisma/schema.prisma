@@ -10,9 +10,16 @@ generator client {
 model KnowledgeBase {
   id            Int     @id @default(autoincrement())
   name          String  @unique
-  filename      String
   embedding     String?
   description   String?
   created       DateTime?
   updated       DateTime?
+  files         KnowledgeBaseFile[] @relation("Files")
+}
+
+model KnowledgeBaseFile {
+  id            Int            @id @default(autoincrement())
+  url           String
+  knowledgeBase KnowledgeBase  @relation("Files", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  knowledgeBaseId Int
 }
