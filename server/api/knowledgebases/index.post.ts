@@ -1,4 +1,5 @@
-import { writeFile } from 'fs/promises';
+import path from 'node:path'
+import fs from 'node:fs/promises'
 import { PDFLoader } from "langchain/document_loaders/fs/pdf";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
@@ -6,9 +7,15 @@ import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { PrismaClient } from '@prisma/client';
 
 const ingestDocument = async (file, collectionName, embedding) => {
-  const tmp_file_path = `tmp/${file.filename}`;
+  const tmpDir = path.resolve('tmp');
+  try {
+    await fs.access(tmpDir);
+  } catch (error) {
+    await fs.mkdir(tmpDir);
+  }
+  const tmp_file_path = path.join(tmpDir, file.filename);
 
-  const status = await writeFile(tmp_file_path, file.data)
+  const status = await fs.writeFile(tmp_file_path, file.data)
   console.log(`Writing data to file ${tmp_file_path}: ${status}`);
 
   const loader = new PDFLoader(tmp_file_path);
