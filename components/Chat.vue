@@ -162,7 +162,7 @@ onMounted(() => {
       <ul className="flex flex-1 flex-col">
         <li v-for="(message, index) in visibleMessages" :key="index">
           <div
-            :class="`${message.role == 'assistant' ? 'bg-white' : 'bg-primary-50'} border border-slate-150 rounded my-4 px-3 py-2 text-sm`">
+            :class="`${message.role == 'assistant' ? 'bg-white/10' : 'bg-primary/20'} border border-primary/20 rounded my-4 px-3 py-2 text-sm`">
             <h3 class="font-bold">{{ message.role }}</h3>
             <div v-html="markdown.render(message.content)" />
           </div>
@@ -172,7 +172,7 @@ onMounted(() => {
     <div class="mt-4">
       <UForm :state="state" @submit="onSend" @keydown.shift.enter="onSend">
         <div class="flex flex-row w-full gap-2">
-          <UTextarea class="flex-1" autoresize :rows="rows" v-model="state.input" />
+          <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input" />
           <UButton type="submit" :disabled="!model" :loading="sending" class="h-fit">
             Send
           </UButton>
