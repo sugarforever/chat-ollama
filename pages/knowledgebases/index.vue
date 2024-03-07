@@ -98,7 +98,7 @@ const knowlegeBases = computed(() => {
         </UFormGroup>
 
         <UFormGroup label="File as Knowledge Base" name="file">
-          <UInput multiple type="file" size="sm" v-model="state.selectedFile" @change="onFileChange" />
+          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFile" @change="onFileChange" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
