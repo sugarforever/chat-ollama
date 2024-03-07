@@ -105,7 +105,7 @@ const onSend = async () => {
   });
 
   const body = JSON.stringify({
-    knowledgebaseId: props.knowledgebase.id,
+    knowledgebaseId: props.knowledgebase?.id,
     model: model.value,
     messages: [...messages.value],
     stream: true,
