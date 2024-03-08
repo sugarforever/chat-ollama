@@ -185,6 +185,7 @@ onMounted(() => {
 <style>
 code {
   color: rgb(37 99 235);
+  white-space: pre-wrap;
 }
 
 .hljs {
