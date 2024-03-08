@@ -1,18 +1,17 @@
-import { PrismaClient, type KnowledgeBase } from '@prisma/client';
+import { PrismaClient, type KnowledgeBase } from "@prisma/client";
 
-const listKnowledgeBase = async (id?: string): Promise<KnowledgeBase | null> => {
+const listKnowledgeBase = async (
+  id?: string
+): Promise<KnowledgeBase | null> => {
   const prisma = new PrismaClient();
   try {
-
-    console.log("Knowledge Base ID: ", id);
-
     let knowledgeBase = null;
 
     if (id) {
       knowledgeBase = await prisma.knowledgeBase.findUnique({
         where: {
-          id: parseInt(id)
-        }
+          id: parseInt(id),
+        },
       });
     }
 
@@ -21,10 +20,39 @@ const listKnowledgeBase = async (id?: string): Promise<KnowledgeBase | null> => 
     console.error(`Error fetching knowledge base with id ${id}:`, error);
     return null;
   }
-}
+};
+
+const deleteKnowledgeBase = async (
+  id?: string
+): Promise<KnowledgeBase | null> => {
+  const prisma = new PrismaClient();
+  try {
+    let deletedKnowledgeBase = null;
+    if (id) {
+      deletedKnowledgeBase = await prisma.knowledgeBase.delete({
+        where: {
+          id: parseInt(id),
+        },
+      });
+    }
+
+    return deletedKnowledgeBase;
+  } catch (error) {
+    console.error(`Error fetching knowledge base with id ${id}:`, error);
+    return null;
+  }
+};
 
 export default defineEventHandler(async (event) => {
   const id = event?.context?.params?.id;
-  const knowledgeBase = await listKnowledgeBase(id);
-  return { knowledgeBase }
-})
+  switch (event.method) {
+    case "GET":
+      const knowledgeBase = await listKnowledgeBase(id);
+      return { knowledgeBase };
+    case "DELETE":
+      const deletedKnowledgeBase = await deleteKnowledgeBase(id);
+      return { deletedKnowledgeBase };
+    default:
+      return { message: "Method not allowed" };
+  }
+});
