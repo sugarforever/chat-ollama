@@ -65,6 +65,8 @@ const columns = [{
 }, {
   key: 'embedding',
   label: 'Embedding'
+}, {
+  key: 'actions'
 }];
 
 const knowlegeBases = computed(() => {
@@ -78,6 +80,23 @@ const knowlegeBases = computed(() => {
     }
   });
 });
+
+
+const actionsItems = (row) => {
+  return [[{
+    label: 'Delete',
+    icon: 'i-heroicons-trash-20-solid',
+    click: () => onDelete(row.id)
+  }]]
+}
+
+const onDelete = async (id) => {
+  await $fetch(`/api/knowledgebases/${id}`, {
+    method: 'DELETE',
+    body: { id },
+  });
+  refresh();
+}
 </script>
 
 <template>
@@ -98,7 +117,8 @@ const knowlegeBases = computed(() => {
         </UFormGroup>
 
         <UFormGroup label="File as Knowledge Base" name="file">
-          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFile" @change="onFileChange" />
+          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFile"
+            @change="onFileChange" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
@@ -110,9 +130,15 @@ const knowlegeBases = computed(() => {
       <h2 class="font-bold text-xl mb-4">Knowledge Bases</h2>
       <UTable :columns="columns" :rows="knowlegeBases">
         <template #name-data="{ row }">
-          <ULink :to="`/knowledgebases/${row.id}`" class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
+          <ULink :to="`/knowledgebases/${row.id}`"
+            class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
             {{ row.name }}
           </ULink>
+        </template>
+        <template #actions-data="{ row }">
+          <UDropdown :items="actionsItems(row)">
+            <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
+          </UDropdown>
         </template>
       </UTable>
     </div>
