@@ -10,6 +10,8 @@ import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts
 import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
 import { setEventStreamResponse, FetchWithAuth } from '@/server/utils';
 import { PrismaClient } from '@prisma/client';
+import { OPENAI_MODELS } from '@/server/utils/models';
+import { ChatOpenAI } from '@langchain/openai';
 
 const SYSTEM_TEMPLATE = `Answer the user's questions based on the below context.
 Your answer should be in the format of Markdown.
@@ -25,6 +27,7 @@ export default defineEventHandler(async (event) => {
   setEventStreamResponse(event);
 
   const { host, username, password } = event.context.ollama;
+  const { x_openai_api_key: openai_api_key, x_anthropic_api_key } = event.context.keys;
   const { knowledgebaseId, model, messages, stream } = await readBody(event);
 
   if (knowledgebaseId) {
@@ -43,7 +46,7 @@ export default defineEventHandler(async (event) => {
 
     const embeddings = new OllamaEmbeddings({
       model: `${knowledgebase.embedding}`,
-      baseUrl: "http://localhost:11434",
+      baseUrl: host,
     });
     const retriever = new Chroma(embeddings, {
       collectionName: `collection_${knowledgebase.id}`
@@ -54,10 +57,20 @@ export default defineEventHandler(async (event) => {
       new MessagesPlaceholder("messages"),
     ]);
 
-    const chat = new ChatOllama({
-      baseUrl: "http://localhost:11434",
-      model: model,
-    });
+    let chat = null;
+    if (OPENAI_MODELS.includes(model)) {
+      console.log("Chat with OpenAI");
+      chat = new ChatOpenAI({
+        openAIApiKey: openai_api_key,
+        modelName: model
+      })
+    } else {
+      console.log("Chat with Ollama");
+      chat = new ChatOllama({
+        baseUrl: host,
+        model: model,
+      })
+    };
 
     const query = messages[messages.length - 1].content
     console.log("User query: ", query);

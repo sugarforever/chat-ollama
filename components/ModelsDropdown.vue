@@ -11,9 +11,11 @@ const label = computed(() => selectedModel.value ? selectedModel.value : "Models
 const loadModels = async () => {
   const response = await $fetch('/api/models/', {
     headers: {
-      'x_ollama_host': loadOllamaHost(),
-      'x_ollama_username': loadOllamaUserName(),
-      'x_ollama_password': loadOllamaPassword()
+      'x_ollama_host': loadOllamaHost() || '',
+      'x_ollama_username': loadOllamaUserName() || '',
+      'x_ollama_password': loadOllamaPassword() || '',
+      'x_openai_api_key': loadKey(OPENAI_API_KEY) || '',
+      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || ''
     }
   });
   return response.models;
@@ -35,6 +37,7 @@ onMounted(async () => {
 })
 
 </script>
+
 <template>
   <ClientOnly>
     <UDropdown :items="models" :popper="{ placement: 'bottom-start' }">
