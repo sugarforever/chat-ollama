@@ -9,7 +9,15 @@ import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItTOC from "markdown-it-toc-done-right";
-import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword, loadOllamaInstructions } from '@/utils/settings';
+import {
+  loadOllamaHost,
+  loadOllamaUserName,
+  loadOllamaPassword,
+  loadOllamaInstructions,
+  loadKey,
+  OPENAI_API_KEY,
+  ANTHROPIC_API_KEY
+} from '@/utils/settings';
 
 const props = defineProps({
   knowledgebase: Object
@@ -114,9 +122,11 @@ const onSend = async () => {
     method: 'POST',
     body: body,
     headers: {
-      'x_ollama_host': loadOllamaHost(),
-      'x_ollama_username': loadOllamaUserName(),
-      'x_ollama_password': loadOllamaPassword(),
+      'x_ollama_host': loadOllamaHost() || '',
+      'x_ollama_username': loadOllamaUserName() || '',
+      'x_ollama_password': loadOllamaPassword() || '',
+      'x_openai_api_key': loadKey(OPENAI_API_KEY) || '',
+      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || '',
       'Content-Type': 'application/json',
     },
   });
@@ -143,6 +153,7 @@ onMounted(() => {
 });
 
 </script>
+
 <template>
   <div class="flex flex-col flex-1 p-4">
     <div class="flex flex-row items-center justify-between mb-4 pb-4">
@@ -153,10 +164,12 @@ onMounted(() => {
       <ModelsDropdown @modelSelected="onModelSelected" />
     </div>
     <div class="flex flex-row items-center justify-between mb-4 pb-4 border-b border-b-gray-200">
-      <UDropdown :items="instructions" :popper="{ placement: 'bottom-start' }">
-        <UButton color="white" :label="`${selectedInstruction ? selectedInstruction.name : 'Select Instruction'}`"
-          trailing-icon="i-heroicons-chevron-down-20-solid" />
-      </UDropdown>
+      <ClientOnly>
+        <UDropdown :items="instructions" :popper="{ placement: 'bottom-start' }">
+          <UButton color="white" :label="`${selectedInstruction ? selectedInstruction.name : 'Select Instruction'}`"
+            trailing-icon="i-heroicons-chevron-down-20-solid" />
+        </UDropdown>
+      </ClientOnly>
     </div>
     <div dir="ltr" class="relative overflow-y-scroll flex-1 space-y-4">
       <ul className="flex flex-1 flex-col">

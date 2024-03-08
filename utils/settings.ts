@@ -2,6 +2,20 @@ const OLLAMA_HOST = 'ollama.host';
 const OLLAMA_USERNAME = 'ollama.username';
 const OLLAMA_PASSWORD = 'ollama.password';
 const OLLAMA_INSTRUCTIONS = 'ollama.instructions';
+export const OPENAI_API_KEY = 'keys.openai_api_key';
+export const ANTHROPIC_API_KEY = 'keys.anthropic_api_key';
+
+export const loadKey = (name: string) => {
+  return localStorage.getItem(name);
+};
+
+export const saveKey = (name: string, value: string | null) => {
+  if (value) {
+    localStorage.setItem(name, value);
+  } else {
+    localStorage.removeItem(name);
+  }
+}
 
 export const loadOllamaHost = () => {
   const host = localStorage.getItem(OLLAMA_HOST);

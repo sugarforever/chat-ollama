@@ -1,11 +1,15 @@
 <script setup>
 import {
+  loadKey,
+  saveKey,
   loadOllamaHost,
   saveOllamaHost,
   loadOllamaUserName,
   saveOllamaUserName,
   loadOllamaPassword,
-  saveOllamaPassword
+  saveOllamaPassword,
+  OPENAI_API_KEY,
+  ANTHROPIC_API_KEY
 } from '@/utils/settings';
 
 const toast = useToast();
@@ -21,7 +25,9 @@ const save = (host, authorization, username, password) => {
 const state = reactive({
   host: undefined,
   username: undefined,
-  password: undefined
+  password: undefined,
+  openaiApiKey: undefined,
+  anthropicApiKey: undefined
 });
 
 const saving = ref(false);
@@ -40,6 +46,8 @@ const validate = (state) => {
 const onSubmit = async () => {
   console.log("Submitting: ", state.host.trim());
   save(state.host.trim(), authorization.value, state.username, state.password);
+  saveKey(OPENAI_API_KEY, state.openaiApiKey);
+  saveKey(ANTHROPIC_API_KEY, state.anthropicApiKey);
   toast.add({ title: `Ollama server set to ${state.host.trim()} successfully!` });
 };
 
@@ -47,6 +55,8 @@ onMounted(() => {
   state.host = loadOllamaHost();
   state.username = loadOllamaUserName();
   state.password = loadOllamaPassword();
+  state.openaiApiKey = loadKey(OPENAI_API_KEY);
+  state.anthropicApiKey = loadKey(ANTHROPIC_API_KEY);
 
   if (state.username && state.password) {
     authorization.value = true;
@@ -59,8 +69,8 @@ onMounted(() => {
 
 <template>
   <div class="w-[640px]">
-    <Heading label="Ollama Server Setting" />
     <UForm :validate="validate" :state="state" class="space-y-4" @submit="onSubmit">
+      <Heading label="Ollama Server Setting" />
       <UFormGroup label="Host" name="host">
         <UInput v-model="state.host" />
       </UFormGroup>
@@ -75,7 +85,19 @@ onMounted(() => {
           <UInput v-model="state.password" type="password" />
         </UFormGroup>
       </UFormGroup>
-      
+
+      <Heading label="API Keys" class="pt-4" />
+
+      <UFormGroup>
+        <UFormGroup label="OpenAI" name="openai" class="mb-2">
+          <UInput v-model="state.openaiApiKey" type="password" />
+        </UFormGroup>
+
+        <UFormGroup label="Anthropic" name="anthropic">
+          <UInput v-model="state.anthropicApiKey" type="password" />
+        </UFormGroup>
+      </UFormGroup>
+
       <UButton type="submit" :loading="saving">
         Save
       </UButton>
