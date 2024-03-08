@@ -131,7 +131,8 @@ dist
 .pnp.*
 
 #sqlite
-**/.sqlite
+*.sqlite
+*.sqlite-journal
 
 tmp
 

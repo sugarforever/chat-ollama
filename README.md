@@ -6,9 +6,31 @@ Feature list:
 - Models management (list, download, delete)
 - Chat with models
 
+## Ollama Server
+
+You will need an Ollama server running. You can run it in local environment following the installation guide of [Ollama](https://github.com/ollama/ollama).
+
+By default, Ollama server is running on http://localhost:11434.
+
+## Install ChromaDB and startup
+
+```bash
+#https://hub.docker.com/r/chromadb/chroma/tags
+
+docker pull chromadb/chroma
+docker run -d -p 8000:8000 chromadb/chroma
+```
+Now, ChromaDB is running on http://localhost:8000
+
 ## Setup
 
-Make sure to install the dependencies:
+1. Copy the `.env.example` file to `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+2. Make sure to install the dependencies:
 
 ```bash
 # npm
@@ -24,13 +46,24 @@ yarn install
 bun install
 ```
 
-## Ollama Server
+3. Run a migration to create your database tables with Prisma Migrate
+```bash
+# npm
+npm run prisma-migrate
 
-You will need an Ollama server running. You can run it in local environment following the installation guide of [Ollama](https://github.com/ollama/ollama).
+# pnpm
+pnpm prisma-migrate
 
-By default, Ollama server is running on http://localhost:11434.
+# yarn
+yarn prisma-migrate
+
+# bun
+bun run prisma-migrate
+```
 
 ## Development Server
+
+> Make sure both __[Ollama Server](#ollama-server)__ and __[ChromaDB](#install-chromadb-and-startup)__ are running.
 
 Start the development server on `http://localhost:3000`:
 
@@ -39,7 +72,7 @@ Start the development server on `http://localhost:3000`:
 npm run dev
 
 # pnpm
-pnpm run dev
+pnpm dev
 
 # yarn
 yarn dev
