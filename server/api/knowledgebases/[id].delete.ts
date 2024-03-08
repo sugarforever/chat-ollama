@@ -16,7 +16,7 @@ const deleteKnowledgeBase = async (
 
     return deletedKnowledgeBase;
   } catch (error) {
-    console.error(`Error fetching knowledge base with id ${id}:`, error);
+    console.error(`Error deleting knowledge base with id ${id}:`, error);
     return null;
   }
 };
