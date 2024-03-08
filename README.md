@@ -63,6 +63,8 @@ bun run prisma-migrate
 
 ## Development Server
 
+> Make sure both __[Ollama Server](#ollama-server)__ and __[ChromaDB](#install-chromadb-and-startup)__ are running.
+
 Start the development server on `http://localhost:3000`:
 
 ```bash
