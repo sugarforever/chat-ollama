@@ -26,6 +26,8 @@
     "@nuxt/ui": "^2.13.0",
     "@prisma/client": "^5.10.2",
     "@vercel/analytics": "^1.2.0",
+    "@vueuse/core": "^10.9.0",
+    "@vueuse/nuxt": "^10.9.0",
     "ai": "^2.2.33",
     "chromadb": "^1.8.1",
     "langchain": "^0.1.23",

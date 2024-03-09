@@ -1,5 +1,5 @@
 <script setup>
-
+import { useStorage } from '@vueuse/core'
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";
@@ -37,7 +37,7 @@ const ollamaHost = ref(null);
 const instructions = ref([]);
 const selectedInstruction = ref(null);
 
-const model = ref(null);
+const model = useStorage(`model${props.knowledgebase?.id || ''}`, null);
 const messages = ref([]);
 const sending = ref(false);
 const state = reactive({
@@ -134,10 +134,6 @@ const onSend = async () => {
   sending.value = false;
 }
 
-const onModelSelected = (modelName) => {
-  model.value = modelName;
-}
-
 const rows = ref(1);
 
 onMounted(() => {
@@ -156,20 +152,19 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col flex-1 p-4">
-    <div class="flex flex-row items-center justify-between mb-4 pb-4">
-      <div class="flex flex-row" v-if="model">
-        <span>Chat with</span>
-        <h1 class="font-bold pl-1">{{ model }}</h1>
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center">
+        <span class="mr-2">Chat with</span>
+        <ModelsDropdown v-model="model" placeholder="Select a model" />
       </div>
-      <ModelsDropdown @modelSelected="onModelSelected" />
-    </div>
-    <div class="flex flex-row items-center justify-between mb-4 pb-4 border-b border-b-gray-200">
-      <ClientOnly>
-        <UDropdown :items="instructions" :popper="{ placement: 'bottom-start' }">
-          <UButton color="white" :label="`${selectedInstruction ? selectedInstruction.name : 'Select Instruction'}`"
-            trailing-icon="i-heroicons-chevron-down-20-solid" />
-        </UDropdown>
-      </ClientOnly>
+      <div>
+        <ClientOnly>
+          <UDropdown :items="instructions" :popper="{ placement: 'bottom-start' }">
+            <UButton color="white" :label="`${selectedInstruction ? selectedInstruction.name : 'Select Instruction'}`"
+              trailing-icon="i-heroicons-chevron-down-20-solid" />
+          </UDropdown>
+        </ClientOnly>
+      </div>
     </div>
     <div dir="ltr" class="relative overflow-y-scroll flex-1 space-y-4">
       <ul className="flex flex-1 flex-col">

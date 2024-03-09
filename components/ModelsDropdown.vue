@@ -1,12 +1,13 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword } from '@/utils/settings'
 
-const emit = defineEmits(["modelSelected"])
+defineProps({
+  placeholder: String
+})
+const currentModel = defineModel()
 
 const models = ref([]);
-const selectedModel = ref(null);
-const label = computed(() => selectedModel.value ? selectedModel.value : "Models");
 
 const loadModels = async () => {
   const response = await $fetch('/api/models/', {
@@ -18,30 +19,22 @@ const loadModels = async () => {
       'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || ''
     }
   });
-  return response.models;
+
+  models.value = response.models.map(el => {
+    return { label: `${el.name}`, value: el.name }
+  })
+
+  // 如果当前模型为空并且模型列表不为空，则设置当前模型为第一个模型
+  if (!currentModel.value && models.value.length > 0) {
+    currentModel.value = models.value[0].value
+  }
 };
 
-onMounted(async () => {
-  const responseModels = await loadModels();
-  models.value = [
-    responseModels.map(m => {
-      return {
-        label: m.name,
-        click: () => {
-          selectedModel.value = m.name;
-          emit("modelSelected", m.name);
-        }
-      }
-    })
-  ];
-})
-
+loadModels()
 </script>
 
 <template>
   <ClientOnly>
-    <UDropdown :items="models" :popper="{ placement: 'bottom-start' }">
-      <UButton color="white" :label="label" trailing-icon="i-heroicons-chevron-down-20-solid" />
-    </UDropdown>
+    <USelect v-model="currentModel" :options="models" :placeholder="placeholder" />
   </ClientOnly>
 </template>
