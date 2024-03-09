@@ -24,8 +24,13 @@ const loadModels = async () => {
     return { label: `${el.name}`, value: el.name }
   })
 
-  // 如果当前模型为空并且模型列表不为空，则设置当前模型为第一个模型
-  if (!currentModel.value && models.value.length > 0) {
+  if (models.value.length === 0) return
+
+  if (
+    (currentModel.value && !models.value.some(el => el.name === currentModel.value)) // 已设置当前模型但不存在
+    ||
+    !currentModel.value // 未设置当前模型
+  ) {
     currentModel.value = models.value[0].value
   }
 };
