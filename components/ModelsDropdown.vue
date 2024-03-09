@@ -27,7 +27,7 @@ const loadModels = async () => {
   if (models.value.length === 0) return
 
   if (
-    (currentModel.value && !models.value.some(el => el.name === currentModel.value)) // 已设置当前模型但不存在
+    (currentModel.value && !models.value.some(el => el.value === currentModel.value)) // 已设置当前模型但不存在
     ||
     !currentModel.value // 未设置当前模型
   ) {
