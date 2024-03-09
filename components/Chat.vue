@@ -178,14 +178,16 @@ onMounted(() => {
       </ul>
     </div>
     <div class="mt-4">
-      <UForm :state="state" @submit="onSend" @keydown.shift.enter="onSend">
-        <div class="flex flex-row w-full gap-2">
-          <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input" />
-          <UButton type="submit" :disabled="!model" :loading="sending" class="h-fit">
-            Send
-          </UButton>
-        </div>
-      </UForm>
+      <ClientOnly>
+        <UForm :state="state" @submit="onSend" @keydown.shift.enter="onSend">
+          <div class="flex flex-row w-full gap-2">
+            <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input" />
+            <UButton type="submit" :disabled="!model" :loading="sending" class="h-fit">
+              Send
+            </UButton>
+          </div>
+        </UForm>
+      </ClientOnly>
     </div>
   </div>
 </template>
