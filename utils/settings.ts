@@ -1,9 +1,8 @@
-const OLLAMA_HOST = 'ollama.host';
-const OLLAMA_USERNAME = 'ollama.username';
-const OLLAMA_PASSWORD = 'ollama.password';
-const OLLAMA_INSTRUCTIONS = 'ollama.instructions';
-export const OPENAI_API_KEY = 'keys.openai_api_key';
-export const ANTHROPIC_API_KEY = 'keys.anthropic_api_key';
+const OLLAMA_HOST = "ollama.host";
+const OLLAMA_USERNAME = "ollama.username";
+const OLLAMA_PASSWORD = "ollama.password";
+export const OPENAI_API_KEY = "keys.openai_api_key";
+export const ANTHROPIC_API_KEY = "keys.anthropic_api_key";
 
 export const loadKey = (name: string) => {
   return localStorage.getItem(name);
@@ -15,12 +14,12 @@ export const saveKey = (name: string, value: string | null) => {
   } else {
     localStorage.removeItem(name);
   }
-}
+};
 
 export const loadOllamaHost = () => {
   const host = localStorage.getItem(OLLAMA_HOST);
   return host;
-}
+};
 
 export const saveOllamaHost = (host: string) => {
   if (host) {
@@ -28,12 +27,12 @@ export const saveOllamaHost = (host: string) => {
   } else {
     localStorage.removeItem(OLLAMA_HOST);
   }
-}
+};
 
 export const loadOllamaUserName = () => {
   const host = localStorage.getItem(OLLAMA_USERNAME);
   return host;
-}
+};
 
 export const saveOllamaUserName = (username: string) => {
   if (username) {
@@ -41,12 +40,12 @@ export const saveOllamaUserName = (username: string) => {
   } else {
     localStorage.removeItem(OLLAMA_USERNAME);
   }
-}
+};
 
 export const loadOllamaPassword = () => {
   const host = localStorage.getItem(OLLAMA_PASSWORD);
   return host;
-}
+};
 
 export const saveOllamaPassword = (password: string) => {
   if (password) {
@@ -54,30 +53,15 @@ export const saveOllamaPassword = (password: string) => {
   } else {
     localStorage.removeItem(OLLAMA_PASSWORD);
   }
-}
+};
 
-export const loadOllamaInstructions = () => {
-  const instructions = localStorage.getItem(OLLAMA_INSTRUCTIONS);
-  if (instructions) {
-    try {
-      return JSON.parse(instructions);
-    } catch (e) {
-      console.error('Failed to parse Ollama instructions', e);
-      return [];
-    }
-  } else {
-    return [];
+export const loadOllamaInstructions = async () => {
+  try {
+    const { instructions } = (await $fetch(`/api/instruction/`, {
+      method: "GET",
+    })) as Record<string, any>;
+    return instructions;
+  } catch (e) {
+    console.error("Failed to fetch Ollama instructions", e);
   }
-}
-
-export const saveOllamaInstruction = (name, instruction) => {
-  const instructions = loadOllamaInstructions();
-  const existing = instructions.find((i) => i.name === name);
-  if (existing) {
-    existing.instruction = instruction;
-  } else {
-    instructions.push({ name, instruction });
-  }
-
-  localStorage.setItem(OLLAMA_INSTRUCTIONS, JSON.stringify(instructions));
-}
+};

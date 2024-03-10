@@ -136,9 +136,9 @@ const onSend = async () => {
 
 const rows = ref(1);
 
-onMounted(() => {
+onMounted(async () => {
   ollamaHost.value = loadOllamaHost();
-  instructions.value = [loadOllamaInstructions().map(i => {
+  instructions.value = [(await loadOllamaInstructions()).map(i => {
     return {
       label: i.name,
       click: () => {
