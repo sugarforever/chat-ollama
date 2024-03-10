@@ -1,10 +1,10 @@
 import { Ollama } from 'ollama'
 import { FetchWithAuth } from '@/server/utils';
-import { OPENAI_MODELS } from '@/server/utils/models';
+import { OPENAI_MODELS, ANTHROPIC_MODELS } from '@/server/utils/models';
 
 export default defineEventHandler(async (event) => {
   const { host, username, password } = event.context.ollama;
-  const { x_openai_api_key: openai_api_key, x_anthropic_api_key } = event.context.keys;
+  const { x_openai_api_key: openai_api_key, x_anthropic_api_key: anthropic_api_key } = event.context.keys;
   const ollama = new Ollama({ host, fetch: FetchWithAuth.bind({ username, password }) });
   const response = await ollama.list();
 
@@ -18,10 +18,19 @@ export default defineEventHandler(async (event) => {
         }
       });
     });
-
   }
 
-  console.log(response);
+  if (anthropic_api_key) {
+    ANTHROPIC_MODELS.forEach((model) => {
+      response.models.push({
+        name: model,
+        model: model,
+        details: {
+          family: 'Anthropic'
+        }
+      });
+    });
+  }
 
   return response
 })
