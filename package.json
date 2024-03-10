@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@iconify-json/heroicons": "^1.1.20",
+    "@langchain/anthropic": "^0.1.5",
     "@langchain/community": "^0.0.33",
     "@langchain/core": "^0.1.40",
     "@langchain/openai": "^0.0.15",
