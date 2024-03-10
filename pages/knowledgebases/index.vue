@@ -70,7 +70,7 @@ const columns = [{
 }];
 
 const knowlegeBases = computed(() => {
-  return data.value.knowledgeBases.map((knowledgebase) => {
+  return data.value.knowledgeBases?.map((knowledgebase) => {
     return {
       id: knowledgebase.id,
       name: knowledgebase.name,
@@ -78,7 +78,7 @@ const knowlegeBases = computed(() => {
       description: knowledgebase.description,
       embedding: knowledgebase.embedding,
     }
-  });
+  }) ?? [];
 });
 
 

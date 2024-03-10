@@ -6,13 +6,13 @@ const isOpen = ref(false);
 
 const loading = ref(false);
 const tableRows = computed(() => {
-  return instructions.value.map((instruction) => {
+  return instructions.value?.map((instruction) => {
     return {
       id: instruction.id,
       name: instruction.name,
       instruction: instruction.instruction,
     };
-  });
+  }) ?? [];
 });
 
 const state = reactive({
