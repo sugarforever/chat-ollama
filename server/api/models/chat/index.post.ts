@@ -50,7 +50,8 @@ export default defineEventHandler(async (event) => {
       baseUrl: host,
     });
     const retriever = new Chroma(embeddings, {
-      collectionName: `collection_${knowledgebase.id}`
+      collectionName: `collection_${knowledgebase.id}`,
+      url: process.env.CHROMADB_URL
     }).asRetriever(4);
 
     const questionAnsweringPrompt = ChatPromptTemplate.fromMessages([
