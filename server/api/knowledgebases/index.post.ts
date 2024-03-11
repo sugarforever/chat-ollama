@@ -15,12 +15,12 @@ const ingestDocument = async (file: MultiPartData, collectionName: string, embed
   const splits = await textSplitter.splitDocuments(docs);
   const embeddings = new OllamaEmbeddings({
     model: embedding,
-    baseUrl: "http://localhost:11434",
+    baseUrl: process.env.OLLAMA_URL
   });
 
   const dbConfig = {
     collectionName: collectionName,
-    url: "http://localhost:8000"
+    url: process.env.CHROMADB_URL
   };
   const existingCollection = await Chroma.fromExistingCollection(embeddings, dbConfig);
   if (existingCollection) {

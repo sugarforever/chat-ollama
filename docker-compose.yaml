@@ -1,0 +1,29 @@
+version: '3.1'
+services:
+  # startup ChromaDB
+  chromadb:
+    image: chromadb/chroma
+    ports:
+      - "8000:8000"
+    restart: always
+    container_name: chromadb
+
+  # startup ChatOllama
+  chatollama:
+    image: xmx0632/chatollama:0.0.1
+    ports:
+      - "3000:3000"
+    restart: always
+    container_name: chat_ollama
+    environment:
+      - DISABLE_VERCEL_ANALYTICS=false
+      - OPENAI_API_KEY=
+      - DATABASE_URL=file:/sqlite_data/chatollama.sqlite
+      - OLLAMA_URL=http://ollama_server:11434
+      - CHROMADB_URL=http://chromadb:8000
+
+    # specify the hostname and IP address of the ollama_server
+    extra_hosts:
+      -  "ollama_server:192.168.3.3"
+#    volumes:
+#      - ./prisma/sqlite_data/chatollama.sqlite:/sqlite_data/chatollama.sqlite
