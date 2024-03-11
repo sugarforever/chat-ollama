@@ -15,8 +15,8 @@ dependencies:
     specifier: ^0.0.33
     version: 0.0.33(chromadb@1.8.1)(ws@8.16.0)
   '@langchain/core':
-    specifier: ^0.1.40
-    version: 0.1.40
+    specifier: ^0.1.44
+    version: 0.1.44
   '@langchain/openai':
     specifier: ^0.0.15
     version: 0.0.15
@@ -1287,7 +1287,7 @@ packages:
       ws:
         optional: true
     dependencies:
-      '@langchain/core': 0.1.40
+      '@langchain/core': 0.1.44
       '@langchain/openai': 0.0.15
       chromadb: 1.8.1(openai@4.26.1)
       flat: 5.0.2
@@ -1297,23 +1297,6 @@ packages:
       zod: 3.22.4
     transitivePeerDependencies:
       - encoding
-    dev: false
-
-  /@langchain/core@0.1.40:
-    resolution: {integrity: sha512-TNX7swnPNFNXftsFMuXLkPhk+9/tE2veLFzuiiuIi0Mz/+jgPi4klHx9jxS8+DHPgMvKzmwsoE8U879iPByXjw==}
-    engines: {node: '>=18'}
-    dependencies:
-      ansi-styles: 5.2.0
-      camelcase: 6.3.0
-      decamelize: 1.2.0
-      js-tiktoken: 1.0.10
-      langsmith: 0.1.13
-      ml-distance: 4.0.1
-      p-queue: 6.6.2
-      p-retry: 4.6.2
-      uuid: 9.0.1
-      zod: 3.22.4
-      zod-to-json-schema: 3.22.4(zod@3.22.4)
     dev: false
 
   /@langchain/core@0.1.44:
@@ -1337,7 +1320,7 @@ packages:
     resolution: {integrity: sha512-ILecml9YopmQxfpaquYEG+KfEz7svJqpcla671J1tVngqtPwRqg9PLUOa2eDrPsunScxKUeLd8HjAGLd/eaefQ==}
     engines: {node: '>=18'}
     dependencies:
-      '@langchain/core': 0.1.40
+      '@langchain/core': 0.1.44
       js-tiktoken: 1.0.10
       openai: 4.26.1
       zod: 3.22.4
@@ -4956,7 +4939,7 @@ packages:
     dependencies:
       '@anthropic-ai/sdk': 0.9.1
       '@langchain/community': 0.0.33(chromadb@1.8.1)(ws@8.16.0)
-      '@langchain/core': 0.1.40
+      '@langchain/core': 0.1.44
       '@langchain/openai': 0.0.15
       binary-extensions: 2.2.0
       chromadb: 1.8.1(openai@4.26.1)

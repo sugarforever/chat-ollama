@@ -22,7 +22,7 @@
     "@iconify-json/heroicons": "^1.1.20",
     "@langchain/anthropic": "^0.1.5",
     "@langchain/community": "^0.0.33",
-    "@langchain/core": "^0.1.40",
+    "@langchain/core": "^0.1.44",
     "@langchain/openai": "^0.0.15",
     "@nuxt/ui": "^2.13.0",
     "@prisma/client": "^5.10.2",
