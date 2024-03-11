@@ -8,10 +8,8 @@ services:
     container_name: chromadb
 
   chatollama:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: chatollama
+    image: 0001coder/chatollama:latest
+    pull_policy: always
     ports:
       - "3000:3000"
     restart: always
