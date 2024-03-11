@@ -6,6 +6,14 @@ Feature list:
 - Models management (list, download, delete)
 - Chat with models
 
+## Join Our Community
+
+If you are a user, contributor, or even just new to `ChatOllama`, you are more than welcome to join our community on Discord by clicking the [invite link](https://discord.gg/CrvTBVrxXy).
+
+If you are a contributor, the channel `technical-discussion` is for you, where we discuss technical stuff.
+
+If you have any issue in `ChatOllama` usage, please report to channel `customer-support`. We will help you out as soon as we can.
+
 ## Developers Guide
 
 As ChatOllama is still under active development, features, interfaces and database schema may be changed. Please follow the instructions below in your every `git pull` to make sure your dependencies and database schema are always in sync.
