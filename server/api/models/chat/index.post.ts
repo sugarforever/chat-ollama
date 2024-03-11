@@ -2,6 +2,7 @@ import { Ollama } from 'ollama';
 import { Readable } from 'stream';
 import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
+import { ChatAnthropic } from "@langchain/anthropic";
 import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
@@ -10,7 +11,7 @@ import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts
 import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
 import { setEventStreamResponse, FetchWithAuth } from '@/server/utils';
 import { PrismaClient } from '@prisma/client';
-import { OPENAI_MODELS } from '@/server/utils/models';
+import { OPENAI_MODELS, ANTHROPIC_MODELS } from '@/server/utils/models';
 import { ChatOpenAI } from '@langchain/openai';
 
 const SYSTEM_TEMPLATE = `Answer the user's questions based on the below context.
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
   setEventStreamResponse(event);
 
   const { host, username, password } = event.context.ollama;
-  const { x_openai_api_key: openai_api_key, x_anthropic_api_key } = event.context.keys;
+  const { x_openai_api_key: openai_api_key, x_anthropic_api_key: anthropic_api_key } = event.context.keys;
   const { knowledgebaseId, model, messages, stream } = await readBody(event);
 
   if (knowledgebaseId) {
@@ -62,6 +63,12 @@ export default defineEventHandler(async (event) => {
       console.log("Chat with OpenAI");
       chat = new ChatOpenAI({
         openAIApiKey: openai_api_key,
+        modelName: model
+      })
+    } else if (ANTHROPIC_MODELS.includes(model)) {
+      console.log("Chat with Anthropic");
+      chat = new ChatAnthropic({
+        anthropicApiKey: anthropic_api_key,
         modelName: model
       })
     } else {

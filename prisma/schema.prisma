@@ -1,6 +1,6 @@
 datasource sqlite {
-  provider          = "sqlite"
-  url               = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -8,18 +8,24 @@ generator client {
 }
 
 model KnowledgeBase {
-  id            Int     @id @default(autoincrement())
-  name          String  @unique
-  embedding     String?
-  description   String?
-  created       DateTime?
-  updated       DateTime?
-  files         KnowledgeBaseFile[] @relation("Files")
+  id          Int                 @id @default(autoincrement())
+  name        String              @unique
+  embedding   String?
+  description String?
+  created     DateTime?
+  updated     DateTime?
+  files       KnowledgeBaseFile[] @relation("Files")
 }
 
 model KnowledgeBaseFile {
-  id            Int            @id @default(autoincrement())
-  url           String
-  knowledgeBase KnowledgeBase  @relation("Files", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  id              Int           @id @default(autoincrement())
+  url             String
+  knowledgeBase   KnowledgeBase @relation("Files", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   knowledgeBaseId Int
+}
+
+model Instruction {
+  id          Int    @id @default(autoincrement())
+  name        String @unique
+  instruction String
 }
