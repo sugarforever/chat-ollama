@@ -8,14 +8,19 @@ import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { PrismaClient } from '@prisma/client';
 import { MultiPartData } from 'h3'
 
-const ingestDocument = async (file: MultiPartData, collectionName: string, embedding: string) => {
+const ingestDocument = async (
+  file: MultiPartData,
+  collectionName: string,
+  embedding: string,
+  ollamaHost: string
+) => {
   const docs = await loadDocuments(file)
 
   const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
   const splits = await textSplitter.splitDocuments(docs);
   const embeddings = new OllamaEmbeddings({
     model: embedding,
-    baseUrl: process.env.OLLAMA_URL
+    baseUrl: ollamaHost
   });
 
   const dbConfig = {
@@ -52,6 +57,7 @@ async function loadDocuments(file: MultiPartData) {
 
 export default defineEventHandler(async (event) => {
   const items = await readMultipartFormData(event);
+  const { host, username, password } = event.context.ollama;
 
   const decoder = new TextDecoder("utf-8");
   const uploadedFiles: MultiPartData[] = [];
@@ -89,7 +95,7 @@ export default defineEventHandler(async (event) => {
 
   if (uploadedFiles.length > 0) {
     for (const uploadedFile of uploadedFiles) {
-      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!);
+      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host);
 
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {
