@@ -14,37 +14,51 @@ If you are a contributor, the channel `technical-discussion` is for you, where w
 
 If you have any issue in `ChatOllama` usage, please report to channel `customer-support`. We will help you out as soon as we can.
 
-## Developers Guide
-
-As ChatOllama is still under active development, features, interfaces and database schema may be changed. Please follow the instructions below in your every `git pull` to make sure your dependencies and database schema are always in sync.
-
-1. Install the latest dependencies
-    - `npm install` OR
-    - `pnpm install`
-2. Prisma migrate
-    - `pnpm run prisma-migrate` OR
-    - `npm run prisma-migrate`
-
-## Change logs:
-
-Here we summarize what's done and released in our day-to-day development.
-
-### 03/10/2024
-
-1. Instructions data will be stored in SQLite database.
-2. `vueuse` is introduced for storage management.
-
 ## Users Guide
 
 As a user of `ChatOllama`, please walk through the document below, to make sure you get all the components up and running before starting using `ChatOllama`.
 
-### Ollama Server
+### Use with Docker
+
+This is the easist way to use `ChatOllama`.
+
+The only thing you need is a copy of [docker-compose.yaml](./docker-compose.yaml). Please download a copy of `docker-compose.yaml` and execute the command below to launch `ChatOllama`.
+
+```shell
+$ docker compose up
+```
+
+Make sure you initialize the SQLite database as below if you are launching the dockerized `ChatOllama` for the first time:
+
+```shell
+# In the folder of docker-compose.yaml
+
+$ docker compose exec chatollama npx prisma migrate dev
+```
+
+#### Data Storage with Docker Containers
+
+There are 2 types of data storage, vector data and relational data. See the summary below and for more details, please refer to [docker-compose.yaml](./docker-compose.yaml) for the settings.
+
+##### Chromadb
+
+With `docker-compose.yaml`, a dockerized Chroma database is run side by side with `ChatOllama`. The data is persisted in a docker volume.
+
+##### SQLite
+
+The SQLite database file is persisted and mounted from `~/.chatollama/chatollama.sqlite`.
+
+### Use with Git Clone
+
+If you'd like to run with the latest code base and apply changes as needed, you can clone this repository and follow the steps below.
+
+#### Ollama Server
 
 You will need an Ollama server running. You can run it in local environment following the installation guide of [Ollama](https://github.com/ollama/ollama).
 
 By default, Ollama server is running on http://localhost:11434.
 
-### Install ChromaDB and startup
+#### Install ChromaDB and startup
 
 ```bash
 #https://hub.docker.com/r/chromadb/chroma/tags
@@ -54,7 +68,7 @@ docker run -d -p 8000:8000 chromadb/chroma
 ```
 Now, ChromaDB is running on http://localhost:8000
 
-### Setup
+#### Setup
 
 1. Copy the `.env.example` file to `.env` file:
 
@@ -93,7 +107,7 @@ yarn prisma-migrate
 bun run prisma-migrate
 ```
 
-### Development Server
+#### Development Server
 
 > Make sure both __[Ollama Server](#ollama-server)__ and __[ChromaDB](#install-chromadb-and-startup)__ are running.
 
@@ -112,3 +126,23 @@ yarn dev
 # bun
 bun run dev
 ```
+
+## Developers Guide
+
+As ChatOllama is still under active development, features, interfaces and database schema may be changed. Please follow the instructions below in your every `git pull` to make sure your dependencies and database schema are always in sync.
+
+1. Install the latest dependencies
+    - `npm install` OR
+    - `pnpm install`
+2. Prisma migrate
+    - `pnpm run prisma-migrate` OR
+    - `npm run prisma-migrate`
+
+## Change logs:
+
+Here we summarize what's done and released in our day-to-day development.
+
+### 03/10/2024
+
+1. Instructions data will be stored in SQLite database.
+2. `vueuse` is introduced for storage management.
