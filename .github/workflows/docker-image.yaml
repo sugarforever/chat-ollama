@@ -18,13 +18,10 @@ jobs:
       id: timestamp
       run: echo "::set-output name=timestamp::$(date +%s)"
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-
     - name: Build the Docker image
       run: |
         TIMESTAMP="${{ steps.timestamp.outputs.timestamp }}"
-        docker build . --file Dockerfile --tag 0001coder/chatollama:${TIMESTAMP} --platform darwin/amd64
+        docker build . --file Dockerfile --tag 0001coder/chatollama:${TIMESTAMP}
         docker tag 0001coder/chatollama:${TIMESTAMP} 0001coder/chatollama:latest
 
     - name: Log in to Docker Hub
