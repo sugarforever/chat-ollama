@@ -9,6 +9,9 @@ services:
 
   chatollama:
     image: 0001coder/chatollama:latest
+    #build:
+    #  context: .
+    #  dockerfile: Dockerfile
     pull_policy: always
     ports:
       - "3000:3000"
