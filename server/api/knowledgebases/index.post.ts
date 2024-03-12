@@ -83,6 +83,15 @@ export default defineEventHandler(async (event) => {
   });
 
   const prisma = new PrismaClient();
+
+  const exist = await prisma.knowledgeBase.count({ where: { name: _name } }) > 0;
+  if (exist) {
+    return {
+      status: false,
+      message: "Knowledge Base's Name already exist"
+    }
+  }
+
   const affected = await prisma.knowledgeBase.create({
     data: {
       name: _name,
@@ -109,6 +118,6 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    status: "success"
+    status: true
   }
 })

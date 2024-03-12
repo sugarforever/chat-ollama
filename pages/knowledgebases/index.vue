@@ -1,4 +1,6 @@
 <script setup>
+const toast = useToast()
+
 const state = reactive({
   selectedFile: undefined,
   name: undefined,
@@ -32,7 +34,7 @@ const onSubmit = async () => {
   formData.append("description", state.description);
   formData.append("embedding", state.embedding);
 
-  await $fetch(`/api/knowledgebases/`, {
+  const res = await $fetch(`/api/knowledgebases/`, {
     method: 'POST',
     body: formData,
     headers: {
@@ -43,6 +45,12 @@ const onSubmit = async () => {
   });
 
   loading.value = false;
+
+  if (!res.status) {
+    toast.add({ color: 'red', title: 'Tips', description: res.message })
+    return
+  }
+
   state.selectedFiles = [];
   refresh();
 }
