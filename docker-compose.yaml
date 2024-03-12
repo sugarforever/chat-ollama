@@ -1,7 +1,6 @@
 version: '3.1'
 services:
   chromadb:
-    container_name: chromadb
     image: chromadb/chroma
     ports:
       - "8000:8000"
@@ -10,7 +9,6 @@ services:
       - chromadb_data:/chroma/.chroma/index
 
   chatollama:
-    container_name: chatollama
     environment:
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=file:/app/sqlite/chatollama.sqlite
