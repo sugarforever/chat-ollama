@@ -28,6 +28,8 @@ The only thing you need is a copy of [docker-compose.yaml](./docker-compose.yaml
 $ docker compose up
 ```
 
+As `ChatOllama` is running within a docker container, you should set Ollama server to `http://host.docker.internal:11434` in the Settings section, assuming your Ollama server is running locally with default port.
+
 Make sure you initialize the SQLite database as below if you are launching the dockerized `ChatOllama` for the first time:
 
 ```shell
