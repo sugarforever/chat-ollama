@@ -108,47 +108,49 @@ const onDelete = async (id) => {
 </script>
 
 <template>
-  <div class="flex flex-row w-full">
-    <div class="px-6 w-[400px]">
-      <h2 class="font-bold text-xl mb-4">Create a New Knowledge Base</h2>
-      <UForm :state="state" :validate="validate" class="space-y-4" @submit="onSubmit">
-        <UFormGroup label="Name" name="name" required>
-          <UInput type="text" v-model="state.name" />
-        </UFormGroup>
+  <ClientOnly>
+    <div class="flex flex-row w-full">
+      <div class="px-6 w-[400px]">
+        <h2 class="font-bold text-xl mb-4">Create a New Knowledge Base</h2>
+        <UForm :state="state" :validate="validate" class="space-y-4" @submit="onSubmit">
+          <UFormGroup label="Name" name="name" required>
+            <UInput type="text" v-model="state.name" />
+          </UFormGroup>
 
-        <UFormGroup label="Embedding" name="embedding" required>
-          <UInput type="text" v-model="state.embedding" />
-        </UFormGroup>
+          <UFormGroup label="Embedding" name="embedding" required>
+            <UInput type="text" v-model="state.embedding" />
+          </UFormGroup>
 
-        <UFormGroup label="Description" name="description">
-          <UTextarea autoresize :rows="2" v-model="state.description" />
-        </UFormGroup>
+          <UFormGroup label="Description" name="description">
+            <UTextarea autoresize :rows="2" v-model="state.description" />
+          </UFormGroup>
 
-        <UFormGroup label="File as Knowledge Base" name="file">
-          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFile"
-            @change="onFileChange" />
-        </UFormGroup>
+          <UFormGroup label="File as Knowledge Base" name="file">
+            <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFile"
+              @change="onFileChange" />
+          </UFormGroup>
 
-        <UButton type="submit" :loading="loading">
-          Save
-        </UButton>
-      </UForm>
+          <UButton type="submit" :loading="loading">
+            Save
+          </UButton>
+        </UForm>
+      </div>
+      <div class="flex flex-col flex-1 px-6">
+        <h2 class="font-bold text-xl mb-4">Knowledge Bases</h2>
+        <UTable :columns="columns" :rows="knowlegeBases">
+          <template #name-data="{ row }">
+            <ULink :to="`/knowledgebases/${row.id}`"
+              class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
+              {{ row.name }}
+            </ULink>
+          </template>
+          <template #actions-data="{ row }">
+            <UDropdown :items="actionsItems(row)">
+              <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
+            </UDropdown>
+          </template>
+        </UTable>
+      </div>
     </div>
-    <div class="flex flex-col flex-1 px-6">
-      <h2 class="font-bold text-xl mb-4">Knowledge Bases</h2>
-      <UTable :columns="columns" :rows="knowlegeBases">
-        <template #name-data="{ row }">
-          <ULink :to="`/knowledgebases/${row.id}`"
-            class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
-            {{ row.name }}
-          </ULink>
-        </template>
-        <template #actions-data="{ row }">
-          <UDropdown :items="actionsItems(row)">
-            <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
-          </UDropdown>
-        </template>
-      </UTable>
-    </div>
-  </div>
+  </ClientOnly>
 </template>

@@ -6,7 +6,7 @@ const listInstructions = async (): Promise<Instruction[] | null> => {
     return await prisma.instruction.findMany({});
   } catch (error) {
     console.error("Error fetching instructions: ", error);
-    return null;
+    return [];
   }
 };
 
