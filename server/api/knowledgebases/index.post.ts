@@ -83,28 +83,42 @@ export default defineEventHandler(async (event) => {
   });
 
   const prisma = new PrismaClient();
-  const affected = await prisma.knowledgeBase.create({
-    data: {
+// Check if an entry with the same name already exists
+  const existingEntry = await prisma.knowledgeBase.findUnique({
+    where: {
       name: _name,
-      description: _description,
-      embedding: _embedding,
-      created: new Date(),
-    }
+    },
   });
-  console.log(`Created knowledge base ${_name}: ${affected}`);
 
-  if (uploadedFiles.length > 0) {
-    for (const uploadedFile of uploadedFiles) {
-      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host);
+  if (existingEntry) {
+    // Entry with the same name already exists, handle this case here
+    // For example, you can throw an error
+    throw new Error(`Knowledge base with name ${_name} already exists`);
+  } else {
+    // Entry with the same name does not exist, create a new one
+    const affected = await prisma.knowledgeBase.create({
+      data: {
+        name: _name,
+        description: _description,
+        embedding: _embedding,
+        created: new Date(),
+      },
+    });
+    console.log(`Created knowledge base ${_name}: ${affected}`);
 
-      const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
-        data: {
-          url: uploadedFile.filename!,
-          knowledgeBaseId: affected.id
-        }
-      });
+    if (uploadedFiles.length > 0) {
+      for (const uploadedFile of uploadedFiles) {
+        await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host);
 
-      console.log(createdKnowledgeBaseFile);
+        const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
+          data: {
+            url: uploadedFile.filename!,
+            knowledgeBaseId: affected.id
+          }
+        });
+
+        console.log(createdKnowledgeBaseFile);
+      }
     }
   }
 
