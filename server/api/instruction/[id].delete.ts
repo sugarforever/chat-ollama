@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/server/utils/prisma";
 
 const deleteInstructions = async (id: string) => {
-  const prisma = new PrismaClient();
-
   try {
     return await prisma.instruction.delete({
       where: { id: parseInt(id) },

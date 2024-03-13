@@ -1,12 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/server/utils/prisma";
 
 const updateInstructions = async (
   id: string,
   name: string,
   instruction: string
 ) => {
-  const prisma = new PrismaClient();
-
   try {
     return await prisma.instruction.upsert({
       where: { id: parseInt(id) },

@@ -5,23 +5,22 @@ import { DocxLoader } from "langchain/document_loaders/fs/docx";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { Chroma } from "@langchain/community/vectorstores/chroma";
-import { PrismaClient } from '@prisma/client';
-import { MultiPartData } from 'h3'
+import { MultiPartData } from 'h3';
+import prisma from '@/server/utils/prisma';
+import { createEmbeddings } from '@/server/utils/models';
 
 const ingestDocument = async (
   file: MultiPartData,
   collectionName: string,
   embedding: string,
-  ollamaHost: string
+  ollamaHost: string,
+  event
 ) => {
   const docs = await loadDocuments(file)
 
   const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
   const splits = await textSplitter.splitDocuments(docs);
-  const embeddings = new OllamaEmbeddings({
-    model: embedding,
-    baseUrl: ollamaHost
-  });
+  const embeddings = createEmbeddings(embedding, event);
 
   const dbConfig = {
     collectionName: collectionName,
@@ -82,7 +81,6 @@ export default defineEventHandler(async (event) => {
     }
   });
 
-  const prisma = new PrismaClient();
   const affected = await prisma.knowledgeBase.create({
     data: {
       name: _name,
@@ -95,7 +93,7 @@ export default defineEventHandler(async (event) => {
 
   if (uploadedFiles.length > 0) {
     for (const uploadedFile of uploadedFiles) {
-      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host);
+      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host, event);
 
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {
