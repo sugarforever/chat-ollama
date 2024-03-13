@@ -22,12 +22,6 @@ services:
 
   ollama:
     image: ollama/ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - driver: nvidia
-            capabilities: [gpu]
     ports:
       - "11434:11434"
     volumes:

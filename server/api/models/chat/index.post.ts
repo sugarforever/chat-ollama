@@ -3,16 +3,15 @@ import { Readable } from 'stream';
 import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { HumanMessage } from "@langchain/core/messages";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
-import { ChatMessageHistory } from "langchain/stores/message/in_memory";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
 import { setEventStreamResponse, FetchWithAuth } from '@/server/utils';
-import { PrismaClient } from '@prisma/client';
-import { OPENAI_MODELS, ANTHROPIC_MODELS } from '@/server/utils/models';
+import { OPENAI_GPT_MODELS, ANTHROPIC_MODELS } from '@/server/utils/models';
 import { ChatOpenAI } from '@langchain/openai';
+import prisma from "@/server/utils/prisma";
+import { createEmbeddings } from '@/server/utils/models';
 
 const SYSTEM_TEMPLATE = `Answer the user's questions based on the below context.
 Your answer should be in the format of Markdown.
@@ -33,7 +32,6 @@ export default defineEventHandler(async (event) => {
 
   if (knowledgebaseId) {
     console.log("Chat with knowledge base with id: ", knowledgebaseId);
-    const prisma = new PrismaClient();
     const knowledgebase = await prisma.knowledgeBase.findUnique({
       where: {
         id: knowledgebaseId,
@@ -45,10 +43,7 @@ export default defineEventHandler(async (event) => {
       return;
     }
 
-    const embeddings = new OllamaEmbeddings({
-      model: `${knowledgebase.embedding}`,
-      baseUrl: host,
-    });
+    const embeddings = createEmbeddings(knowledgebase.embedding, event);
     const retriever = new Chroma(embeddings, {
       collectionName: `collection_${knowledgebase.id}`,
       url: process.env.CHROMADB_URL
@@ -60,7 +55,7 @@ export default defineEventHandler(async (event) => {
     ]);
 
     let chat = null;
-    if (OPENAI_MODELS.includes(model)) {
+    if (OPENAI_GPT_MODELS.includes(model)) {
       console.log("Chat with OpenAI");
       chat = new ChatOpenAI({
         openAIApiKey: openai_api_key,

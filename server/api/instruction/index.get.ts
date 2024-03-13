@@ -1,7 +1,7 @@
-import { PrismaClient, type Instruction } from "@prisma/client";
+import { type Instruction } from "@prisma/client";
+import prisma from "@/server/utils/prisma";
 
 const listInstructions = async (): Promise<Instruction[] | null> => {
-  const prisma = new PrismaClient();
   try {
     return await prisma.instruction.findMany({});
   } catch (error) {
