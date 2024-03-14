@@ -1,6 +1,10 @@
 import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { Embeddings } from "@langchain/core/embeddings";
 import { OpenAIEmbeddings } from "@langchain/openai";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatOllama } from "@langchain/community/chat_models/ollama";
+import { ChatOpenAI } from '@langchain/openai';
 
 export const OPENAI_GPT_MODELS = [
   "gpt-3.5-turbo",
@@ -37,4 +41,31 @@ export const createEmbeddings = (embeddingModelName: string, event): Embeddings 
       baseUrl: event.context?.ollama?.host
     });
   }
+}
+
+export const createChatModel = (modelName: string, event): BaseChatModel => {
+  const { host } = event.context.ollama;
+  const { x_openai_api_key: openai_api_key, x_anthropic_api_key: anthropic_api_key } = event.context.keys;
+  let chat = null;
+  if (OPENAI_GPT_MODELS.includes(modelName)) {
+    console.log("Chat with OpenAI");
+    chat = new ChatOpenAI({
+      openAIApiKey: openai_api_key,
+      modelName: modelName
+    })
+  } else if (ANTHROPIC_MODELS.includes(modelName)) {
+    console.log("Chat with Anthropic");
+    chat = new ChatAnthropic({
+      anthropicApiKey: anthropic_api_key,
+      modelName: modelName
+    })
+  } else {
+    console.log("Chat with Ollama");
+    chat = new ChatOllama({
+      baseUrl: host,
+      model: modelName,
+    })
+  };
+
+  return chat;
 }

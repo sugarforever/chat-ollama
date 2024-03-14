@@ -122,13 +122,13 @@ const onSend = async () => {
     method: 'POST',
     body: body,
     headers: {
-      'x_ollama_host': loadOllamaHost() || '',
-      'x_ollama_username': loadOllamaUserName() || '',
-      'x_ollama_password': loadOllamaPassword() || '',
-      'x_openai_api_key': loadKey(OPENAI_API_KEY) || '',
-      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || '',
+      'x_ollama_host': loadOllamaHost() || "",
+      'x_ollama_username': loadOllamaUserName() || "",
+      'x_ollama_password': loadOllamaPassword() || "",
+      'x_openai_api_key': loadKey(OPENAI_API_KEY) || "",
+      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || "",
       'Content-Type': 'application/json',
-    },
+    }
   });
 
   sending.value = false;

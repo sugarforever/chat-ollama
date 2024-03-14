@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
       created: new Date(),
     }
   });
-  console.log(`Created knowledge base ${_name}: ${affected}`);
+  console.log(`Created knowledge base ${_name}: ${affected.id}`);
 
   if (uploadedFiles.length > 0) {
     for (const uploadedFile of uploadedFiles) {
@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
         }
       });
 
-      console.log(createdKnowledgeBaseFile);
+      console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id);
     }
   }
 
