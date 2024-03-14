@@ -30,21 +30,26 @@ const onSubmit = async () => {
   formData.append("description", state.description);
   formData.append("embedding", state.embedding);
 
-  await $fetch(`/api/knowledgebases/`, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      'x_ollama_host': loadOllamaHost() || "",
-      'x_ollama_username': loadOllamaUserName() || "",
-      'x_ollama_password': loadOllamaPassword() || "",
-      'x_openai_api_key': loadKey(OPENAI_API_KEY) || "",
-      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || "",
-    }
-  });
+  try {
+    await $fetch(`/api/knowledgebases/`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'x_ollama_host': loadOllamaHost() || "",
+        'x_ollama_username': loadOllamaUserName() || "",
+        'x_ollama_password': loadOllamaPassword() || "",
+        'x_openai_api_key': loadKey(OPENAI_API_KEY) || "",
+        'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || "",
+      }
+    });
 
-  loading.value = false;
-  state.selectedFiles = [];
-  refresh();
+    state.selectedFiles = [];
+    refresh();
+  } catch (err) {
+    console.log(`Create Knowledge Base Error: ${err}`)
+  } finally {
+    loading.value = false;
+  }
 }
 
 const { data, refresh } = await useFetch('/api/knowledgebases');
