@@ -1,26 +1,13 @@
 <script setup>
 import {
-  loadKey,
-  saveKey,
-  loadOllamaHost,
-  saveOllamaHost,
-  loadOllamaUserName,
-  saveOllamaUserName,
-  loadOllamaPassword,
-  saveOllamaPassword,
-  OPENAI_API_KEY,
-  ANTHROPIC_API_KEY
+  ollamaHost,
+  ollamaUsername,
+  ollamaPassword,
+  openAiApiKey,
+  anthropicApiKey,
 } from '@/utils/settings';
 
 const toast = useToast();
-
-const save = (host, authorization, username, password) => {
-  saving.value = true;
-  saveOllamaHost(host);
-  saveOllamaUserName(authorization ? username : null);
-  saveOllamaPassword(authorization ? password : null);
-  saving.value = false;
-}
 
 const state = reactive({
   host: undefined,
@@ -45,24 +32,23 @@ const validate = (state) => {
 
 const onSubmit = async () => {
   console.log("Submitting: ", state.host.trim());
-  save(state.host.trim(), authorization.value, state.username, state.password);
-  saveKey(OPENAI_API_KEY, state.openaiApiKey);
-  saveKey(ANTHROPIC_API_KEY, state.anthropicApiKey);
+  ollamaHost.value = state.host.trim();
+  ollamaUsername.value = state.username;
+  ollamaPassword.value = state.password;
+  openAiApiKey.value = state.openaiApiKey;
+  anthropicApiKey.value = state.anthropicApiKey;
+
   toast.add({ title: `Ollama server set to ${state.host.trim()} successfully!` });
 };
 
 onMounted(() => {
-  state.host = loadOllamaHost();
-  state.username = loadOllamaUserName();
-  state.password = loadOllamaPassword();
-  state.openaiApiKey = loadKey(OPENAI_API_KEY);
-  state.anthropicApiKey = loadKey(ANTHROPIC_API_KEY);
+  state.host = ollamaHost.value;
+  state.username = ollamaUsername.value;
+  state.password = ollamaPassword.value;
+  state.openaiApiKey = openAiApiKey.value;
+  state.anthropicApiKey = anthropicApiKey.value;
 
-  if (state.username && state.password) {
-    authorization.value = true;
-  } else {
-    authorization.value = false;
-  }
+  authorization.value = !!(state.username && state.password);
 });
 
 </script>

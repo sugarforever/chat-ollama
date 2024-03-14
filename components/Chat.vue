@@ -10,13 +10,9 @@ import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItTOC from "markdown-it-toc-done-right";
 import {
-  loadOllamaHost,
-  loadOllamaUserName,
-  loadOllamaPassword,
+  fetchHeadersOllama,
+  fetchHeadersThirdApi,
   loadOllamaInstructions,
-  loadKey,
-  OPENAI_API_KEY,
-  ANTHROPIC_API_KEY
 } from '@/utils/settings';
 
 const props = defineProps({
@@ -33,7 +29,6 @@ const markdown = new MarkdownIt()
   .use(MarkdownItTasklists)
   .use(MarkdownItTOC);
 
-const ollamaHost = ref(null);
 const instructions = ref([]);
 const selectedInstruction = ref(null);
 
@@ -122,11 +117,8 @@ const onSend = async () => {
     method: 'POST',
     body: body,
     headers: {
-      'x_ollama_host': loadOllamaHost() || "",
-      'x_ollama_username': loadOllamaUserName() || "",
-      'x_ollama_password': loadOllamaPassword() || "",
-      'x_openai_api_key': loadKey(OPENAI_API_KEY) || "",
-      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || "",
+      ...fetchHeadersOllama.value,
+      ...fetchHeadersThirdApi.value,
       'Content-Type': 'application/json',
     }
   });
@@ -137,7 +129,6 @@ const onSend = async () => {
 const rows = ref(1);
 
 onMounted(async () => {
-  ollamaHost.value = loadOllamaHost();
   instructions.value = [(await loadOllamaInstructions()).map(i => {
     return {
       label: i.name,
