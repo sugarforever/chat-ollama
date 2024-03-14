@@ -1,5 +1,5 @@
 <script setup>
-import { useStorage } from '@vueuse/core'
+import { useStorage, useMutationObserver } from '@vueuse/core'
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";
@@ -148,6 +148,17 @@ onMounted(async () => {
   })];
 });
 
+
+const messageListEl = ref(null);
+useMutationObserver(messageListEl, () => {
+  console.dir(messageListEl.value)
+  console.log(document.body.scrollHeight)
+  messageListEl.value.scrollTo({
+    top: messageListEl.value.scrollHeight,
+    behavior: 'smooth'
+  });
+}, { childList: true, subtree: true });
+
 </script>
 
 <template>
@@ -166,7 +177,7 @@ onMounted(async () => {
         </ClientOnly>
       </div>
     </div>
-    <div dir="ltr" class="relative overflow-y-scroll flex-1 space-y-4">
+    <div ref="messageListEl" dir="ltr" class="relative overflow-y-scroll flex-1 space-y-4">
       <ul className="flex flex-1 flex-col">
         <li v-for="(message, index) in visibleMessages" :key="index">
           <div
@@ -181,7 +192,8 @@ onMounted(async () => {
       <ClientOnly>
         <UForm :state="state" @submit="onSend" @keydown.shift.enter="onSend">
           <div class="flex flex-row w-full gap-2">
-            <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input" />
+            <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input"
+              placeholder="Press shift + enter to send" />
             <UButton type="submit" :disabled="!model" :loading="sending" class="h-fit">
               Send
             </UButton>
