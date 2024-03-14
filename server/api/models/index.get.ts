@@ -1,6 +1,6 @@
 import { Ollama } from 'ollama'
 import { FetchWithAuth } from '@/server/utils';
-import { OPENAI_MODELS, ANTHROPIC_MODELS } from '@/server/utils/models';
+import { OPENAI_GPT_MODELS, ANTHROPIC_MODELS } from '@/server/utils/models';
 
 export default defineEventHandler(async (event) => {
   const { host, username, password } = event.context.ollama;
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const response = await ollama.list();
 
   if (openai_api_key) {
-    OPENAI_MODELS.forEach((model) => {
+    OPENAI_GPT_MODELS.forEach((model) => {
       response.models.push({
         name: model,
         model: model,

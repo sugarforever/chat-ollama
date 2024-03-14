@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/server/utils/prisma";
 
 const saveInstructions = async (name: string, instruction: string) => {
-  const prisma = new PrismaClient();
-
   try {
     return await prisma.instruction.create({ data: { name, instruction } });
   } catch (error) {

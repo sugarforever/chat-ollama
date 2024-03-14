@@ -1,7 +1,7 @@
-import { PrismaClient, type KnowledgeBase } from '@prisma/client';
+import { type KnowledgeBase } from '@prisma/client';
+import prisma from '@/server/utils/prisma';
 
 const listKnowledgeBases = async (): Promise<KnowledgeBase[] | null> => {
-  const prisma = new PrismaClient();
   try {
     return await prisma.knowledgeBase.findMany({
       include: {

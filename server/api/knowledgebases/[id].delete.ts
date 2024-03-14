@@ -1,9 +1,9 @@
-import { PrismaClient, type KnowledgeBase } from "@prisma/client";
+import { type KnowledgeBase } from "@prisma/client";
+import prisma from "@/server/utils/prisma";
 
 const deleteKnowledgeBase = async (
   id?: string
 ): Promise<KnowledgeBase | null> => {
-  const prisma = new PrismaClient();
   try {
     let deletedKnowledgeBase = null;
     if (id) {

@@ -9,9 +9,11 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "prisma-migrate": "prisma migrate dev",
-    "prisma-generate": "prisma generate"
+    "prisma-generate": "prisma generate",
+    "prisma-push": "prisma db push"
   },
   "devDependencies": {
+    "@types/node": "^20.11.27",
     "@types/ws": "^8.5.10",
     "h3": "^1.11.1",
     "nuxt": "^3.10.0",

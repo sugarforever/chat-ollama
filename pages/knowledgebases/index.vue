@@ -17,9 +17,7 @@ const validate = (state) => {
 
 const selectedFiles = ref([]);
 const onFileChange = async (e) => {
-  console.log(e.target.files);
   selectedFiles.value = e.target.files;
-  console.log('changed');
 };
 const loading = ref(false);
 const onSubmit = async () => {
@@ -39,9 +37,11 @@ const onSubmit = async () => {
       method: 'POST',
       body: formData,
       headers: {
-        'x_ollama_host': loadOllamaHost(),
-        'x_ollama_username': loadOllamaUserName(),
-        'x_ollama_password': loadOllamaPassword()
+        'x_ollama_host': loadOllamaHost() || "",
+        'x_ollama_username': loadOllamaUserName() || "",
+        'x_ollama_password': loadOllamaPassword() || "",
+        'x_openai_api_key': loadKey(OPENAI_API_KEY) || "",
+        'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || "",
       }
     });
     state.selectedFiles = [];
@@ -149,5 +149,4 @@ const onDelete = async (id) => {
         </UTable>
       </div>
     </div>
-  </ClientOnly>
 </template>
