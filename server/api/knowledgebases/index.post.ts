@@ -114,7 +114,7 @@ export default defineEventHandler(async (event) => {
   });
   console.log(`Created knowledge base ${_name}: ${affected.id}`);
 
-  if (uploadedFiles.length > 0) {
+  try {
     for (const uploadedFile of uploadedFiles) {
       await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host, event);
 
@@ -127,6 +127,13 @@ export default defineEventHandler(async (event) => {
 
       console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id);
     }
+  } catch (e) {
+    await prisma.knowledgeBase.delete({
+      where: {
+        id: affected.id
+      }
+    });
+    return;
   }
 
   return {
