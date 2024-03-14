@@ -133,7 +133,7 @@ export default defineEventHandler(async (event) => {
         id: affected.id
       }
     });
-    return;
+    throw e;
   }
 
   return {
