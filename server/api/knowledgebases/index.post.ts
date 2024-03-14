@@ -86,6 +86,7 @@ export default defineEventHandler(async (event) => {
 
   const exist = await prisma.knowledgeBase.count({ where: { name: _name } }) > 0;
   if (exist) {
+    event.node.res.statusCode = 409;
     return {
       status: false,
       message: "Knowledge Base's Name already exist"

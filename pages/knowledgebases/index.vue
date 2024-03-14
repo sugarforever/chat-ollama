@@ -34,6 +34,7 @@ const onSubmit = async () => {
   formData.append("description", state.description);
   formData.append("embedding", state.embedding);
 
+  try {
   const res = await $fetch(`/api/knowledgebases/`, {
     method: 'POST',
     body: formData,
@@ -43,16 +44,14 @@ const onSubmit = async () => {
       'x_ollama_password': loadOllamaPassword()
     }
   });
-
-  loading.value = false;
-
-  if (!res.status) {
-    toast.add({ color: 'red', title: 'Tips', description: res.message })
-    return
+    state.selectedFiles = [];
+    refresh();
+  } catch (e) {
+    const msg = e.response._data?.message || e.message;
+    toast.add({ color: 'red', title: 'Tips', description: msg })
   }
 
-  state.selectedFiles = [];
-  refresh();
+  loading.value = false;
 }
 
 const { data, refresh } = await useFetch('/api/knowledgebases');
