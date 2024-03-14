@@ -24,7 +24,6 @@ const loadModels = async () => {
     // 过滤掉 nomic-bert 模型，因为embedding models do not support chat
     .filter(el => el?.details?.family !== 'nomic-bert')
     .map(el => {
-    console.log(response.models)
     return { label: `${el.name}`, value: el.name }
   })
 
