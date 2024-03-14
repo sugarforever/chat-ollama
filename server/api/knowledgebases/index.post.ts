@@ -88,6 +88,14 @@ export default defineEventHandler(async (event) => {
     }
   });
 
+  if (uploadedFiles.length === 0) {
+    setResponseStatus(event, 403);
+    return {
+      status: "error",
+      message: "Must upload at least one file"
+    }
+  }
+
   if (!(await isOllamaModelExists(ollama, _embedding))) {
     setResponseStatus(event, 404);
     return {
