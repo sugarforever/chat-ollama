@@ -151,8 +151,6 @@ onMounted(async () => {
 
 const messageListEl = ref(null);
 useMutationObserver(messageListEl, () => {
-  console.dir(messageListEl.value)
-  console.log(document.body.scrollHeight)
   messageListEl.value.scrollTo({
     top: messageListEl.value.scrollHeight,
     behavior: 'smooth'
