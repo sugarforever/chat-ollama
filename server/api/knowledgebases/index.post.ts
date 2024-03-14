@@ -5,7 +5,7 @@ import { DocxLoader } from "langchain/document_loaders/fs/docx";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { Chroma } from "@langchain/community/vectorstores/chroma";
-import { MultiPartData } from 'h3';
+import { MultiPartData, type H3Event } from 'h3';
 import prisma from '@/server/utils/prisma';
 import { createEmbeddings } from '@/server/utils/models';
 
@@ -14,7 +14,7 @@ const ingestDocument = async (
   collectionName: string,
   embedding: string,
   ollamaHost: string,
-  event
+  event: H3Event
 ) => {
   const docs = await loadDocuments(file)
 
@@ -80,6 +80,15 @@ export default defineEventHandler(async (event) => {
       _embedding = decodeData
     }
   });
+
+  const exist = await prisma.knowledgeBase.count({ where: { name: _name } }) > 0;
+  if (exist) {
+    event.node.res.statusCode = 409;
+    return {
+      status: false,
+      message: "Knowledge Base's Name already exist"
+    }
+  }
 
   const affected = await prisma.knowledgeBase.create({
     data: {
