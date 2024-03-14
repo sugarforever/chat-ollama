@@ -2,10 +2,10 @@
 const toast = useToast()
 
 const state = reactive({
-  selectedFile: undefined,
-  name: undefined,
-  embedding: undefined,
-  description: "",
+  selectedFile: [],
+  name: '',
+  embedding: '',
+  description: '',
 })
 
 const validate = (state) => {
@@ -35,15 +35,15 @@ const onSubmit = async () => {
   formData.append("embedding", state.embedding);
 
   try {
-  const res = await $fetch(`/api/knowledgebases/`, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      'x_ollama_host': loadOllamaHost(),
-      'x_ollama_username': loadOllamaUserName(),
-      'x_ollama_password': loadOllamaPassword()
-    }
-  });
+    const res = await $fetch(`/api/knowledgebases/`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'x_ollama_host': loadOllamaHost(),
+        'x_ollama_username': loadOllamaUserName(),
+        'x_ollama_password': loadOllamaPassword()
+      }
+    });
     state.selectedFiles = [];
     refresh();
   } catch (e) {
@@ -55,7 +55,6 @@ const onSubmit = async () => {
 }
 
 const { data, refresh } = await useFetch('/api/knowledgebases');
-const selectedKnowledgeBase = ref(null);
 
 const columns = [{
   key: 'id',
@@ -125,8 +124,7 @@ const onDelete = async (id) => {
           </UFormGroup>
 
           <UFormGroup label="File as Knowledge Base" name="file">
-            <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFile"
-              @change="onFileChange" />
+            <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" @change="onFileChange" />
           </UFormGroup>
 
           <UButton type="submit" :loading="loading">
