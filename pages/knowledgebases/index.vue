@@ -1,4 +1,6 @@
 <script setup>
+import { fetchHeadersOllama, fetchHeadersThirdApi } from '@/utils/settings'
+
 const state = reactive({
   selectedFile: undefined,
   name: undefined,
@@ -35,11 +37,8 @@ const onSubmit = async () => {
       method: 'POST',
       body: formData,
       headers: {
-        'x_ollama_host': loadOllamaHost() || "",
-        'x_ollama_username': loadOllamaUserName() || "",
-        'x_ollama_password': loadOllamaPassword() || "",
-        'x_openai_api_key': loadKey(OPENAI_API_KEY) || "",
-        'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || "",
+        ...fetchHeadersOllama.value,
+        ...fetchHeadersThirdApi.value,
       }
     });
 

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword } from '@/utils/settings'
+import { fetchHeadersOllama, fetchHeadersThirdApi } from '@/utils/settings'
 
 defineProps({
   placeholder: String
@@ -12,15 +12,15 @@ const models = ref([]);
 const loadModels = async () => {
   const response = await $fetch('/api/models/', {
     headers: {
-      'x_ollama_host': loadOllamaHost() || '',
-      'x_ollama_username': loadOllamaUserName() || '',
-      'x_ollama_password': loadOllamaPassword() || '',
-      'x_openai_api_key': loadKey(OPENAI_API_KEY) || '',
-      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || ''
+      ...fetchHeadersOllama.value,
+      ...fetchHeadersThirdApi.value,
     }
   });
 
-  models.value = response.models.map(el => {
+  models.value = response.models
+    // 过滤掉 nomic-bert 模型，因为embedding models do not support chat
+    .filter(el => el?.details?.family !== 'nomic-bert')
+    .map(el => {
     return { label: `${el.name}`, value: el.name }
   })
 

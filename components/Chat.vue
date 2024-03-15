@@ -1,5 +1,5 @@
 <script setup>
-import { useStorage } from '@vueuse/core'
+import { useStorage, useMutationObserver } from '@vueuse/core'
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";
@@ -10,13 +10,9 @@ import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItTOC from "markdown-it-toc-done-right";
 import {
-  loadOllamaHost,
-  loadOllamaUserName,
-  loadOllamaPassword,
+  fetchHeadersOllama,
+  fetchHeadersThirdApi,
   loadOllamaInstructions,
-  loadKey,
-  OPENAI_API_KEY,
-  ANTHROPIC_API_KEY
 } from '@/utils/settings';
 
 const props = defineProps({
@@ -33,7 +29,6 @@ const markdown = new MarkdownIt()
   .use(MarkdownItTasklists)
   .use(MarkdownItTOC);
 
-const ollamaHost = ref(null);
 const instructions = ref([]);
 const selectedInstruction = ref(null);
 
@@ -122,11 +117,8 @@ const onSend = async () => {
     method: 'POST',
     body: body,
     headers: {
-      'x_ollama_host': loadOllamaHost() || "",
-      'x_ollama_username': loadOllamaUserName() || "",
-      'x_ollama_password': loadOllamaPassword() || "",
-      'x_openai_api_key': loadKey(OPENAI_API_KEY) || "",
-      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || "",
+      ...fetchHeadersOllama.value,
+      ...fetchHeadersThirdApi.value,
       'Content-Type': 'application/json',
     }
   });
@@ -137,7 +129,6 @@ const onSend = async () => {
 const rows = ref(1);
 
 onMounted(async () => {
-  ollamaHost.value = loadOllamaHost();
   instructions.value = [(await loadOllamaInstructions()).map(i => {
     return {
       label: i.name,
@@ -147,6 +138,15 @@ onMounted(async () => {
     }
   })];
 });
+
+
+const messageListEl = ref(null);
+useMutationObserver(messageListEl, () => {
+  messageListEl.value.scrollTo({
+    top: messageListEl.value.scrollHeight,
+    behavior: 'smooth'
+  });
+}, { childList: true, subtree: true });
 
 </script>
 
@@ -166,7 +166,7 @@ onMounted(async () => {
         </ClientOnly>
       </div>
     </div>
-    <div dir="ltr" class="relative overflow-y-scroll flex-1 space-y-4">
+    <div ref="messageListEl" dir="ltr" class="relative overflow-y-scroll flex-1 space-y-4">
       <ul className="flex flex-1 flex-col">
         <li v-for="(message, index) in visibleMessages" :key="index">
           <div
@@ -181,7 +181,8 @@ onMounted(async () => {
       <ClientOnly>
         <UForm :state="state" @submit="onSend" @keydown.shift.enter="onSend">
           <div class="flex flex-row w-full gap-2">
-            <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input" />
+            <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input"
+              placeholder="Press shift + enter to send" />
             <UButton type="submit" :disabled="!model" :loading="sending" class="h-fit">
               Send
             </UButton>
