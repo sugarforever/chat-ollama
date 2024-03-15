@@ -1,10 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword } from '@/utils/settings'
+import { fetchHeadersOllama } from '@/utils/settings'
 
 const emit = defineEmits(["modelChanged"])
 
-const host = ref(null);
 const models = ref([]);
 const modelRows = computed(() => {
   return models.value.map((model) => {
@@ -41,11 +40,7 @@ const columns = [{
 
 const loadModels = async () => {
   const response = await $fetch('/api/models/', {
-    headers: {
-      'x_ollama_host': host.value,
-      'x_ollama_username': loadOllamaUserName(),
-      'x_ollama_password': loadOllamaPassword()
-    }
+    headers: fetchHeadersOllama.value
   });
   models.value = response.models;
 };
@@ -100,11 +95,7 @@ const onDeleteModel = async () => {
       body: {
         model: name
       },
-      headers: {
-        'x_ollama_host': loadOllamaHost(),
-        'x_ollama_username': loadOllamaUserName(),
-        'x_ollama_password': loadOllamaPassword()
-      }
+      headers: fetchHeadersOllama.value
     });
 
     if (status?.status === 'success') {
@@ -122,7 +113,6 @@ const resetModal = () => {
 };
 
 onMounted(() => {
-  host.value = loadOllamaHost();
   loadModels();
 });
 </script>

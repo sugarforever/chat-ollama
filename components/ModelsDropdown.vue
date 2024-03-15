@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword } from '@/utils/settings'
+import { fetchHeadersOllama, fetchHeadersThirdApi } from '@/utils/settings'
 
 defineProps({
   placeholder: String
@@ -12,11 +12,8 @@ const models = ref([]);
 const loadModels = async () => {
   const response = await $fetch('/api/models/', {
     headers: {
-      'x_ollama_host': loadOllamaHost() || '',
-      'x_ollama_username': loadOllamaUserName() || '',
-      'x_ollama_password': loadOllamaPassword() || '',
-      'x_openai_api_key': loadKey(OPENAI_API_KEY) || '',
-      'x_anthropic_api_key': loadKey(ANTHROPIC_API_KEY) || ''
+      ...fetchHeadersOllama.value,
+      ...fetchHeadersThirdApi.value,
     }
   });
 

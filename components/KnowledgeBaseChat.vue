@@ -9,7 +9,7 @@ import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
 import MarkdownItTOC from "markdown-it-toc-done-right";
-import { loadOllamaHost, loadOllamaUserName, loadOllamaPassword, loadOllamaInstructions } from '@/utils/settings';
+import { fetchHeadersOllama, loadOllamaInstructions } from '@/utils/settings';
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -21,7 +21,6 @@ const markdown = new MarkdownIt()
   .use(MarkdownItTasklists)
   .use(MarkdownItTOC);
 
-const ollamaHost = ref(null);
 const instructions = ref([]);
 const selectedInstruction = ref(null);
 
@@ -110,9 +109,7 @@ const onSend = async () => {
     method: 'POST',
     body: body,
     headers: {
-      'x_ollama_host': loadOllamaHost(),
-      'x_ollama_username': loadOllamaUserName(),
-      'x_ollama_password': loadOllamaPassword(),
+      ...fetchHeadersOllama.value,
       'Content-Type': 'application/json',
     },
   });
@@ -126,9 +123,8 @@ const onModelSelected = (modelName) => {
 
 const rows = ref(1);
 
-onMounted(() => {
-  ollamaHost.value = loadOllamaHost();
-  instructions.value = [loadOllamaInstructions().map(i => {
+onMounted(async () => {
+  instructions.value = [await loadOllamaInstructions().map(i => {
     return {
       label: i.name,
       click: () => {

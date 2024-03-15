@@ -1,5 +1,5 @@
 <script setup>
-import { loadOllamaHost } from '@/utils/settings'
+import { fetchHeadersOllama } from '@/utils/settings'
 
 const emit = defineEmits(["modelDownloaded"])
 
@@ -53,9 +53,7 @@ const onDownload = async () => {
       stream: true,
     }),
     headers: {
-      'x_ollama_host': loadOllamaHost(),
-      'x_ollama_username': loadOllamaUserName(),
-      'x_ollama_password': loadOllamaPassword(),
+      ...fetchHeadersOllama.value,
       'Content-Type': 'application/json',
     },
   });
