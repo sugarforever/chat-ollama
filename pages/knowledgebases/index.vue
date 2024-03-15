@@ -32,18 +32,23 @@ const onSubmit = async () => {
   formData.append("description", state.description);
   formData.append("embedding", state.embedding);
 
-  await $fetch(`/api/knowledgebases/`, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      ...fetchHeadersOllama.value,
-      ...fetchHeadersThirdApi.value,
-    }
-  });
+  try {
+    await $fetch(`/api/knowledgebases/`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        ...fetchHeadersOllama.value,
+        ...fetchHeadersThirdApi.value,
+      }
+    });
 
-  loading.value = false;
-  state.selectedFiles = [];
-  refresh();
+    state.selectedFiles = [];
+    refresh();
+  } catch (err) {
+    console.log(`Create Knowledge Base Error: ${err}`)
+  } finally {
+    loading.value = false;
+  }
 }
 
 const { data, refresh } = await useFetch('/api/knowledgebases');
