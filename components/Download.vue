@@ -3,6 +3,7 @@ import { fetchHeadersOllama } from '@/utils/settings'
 
 const emit = defineEmits(["modelDownloaded"])
 
+const toast = useToast()
 const state = reactive({
   modelName: undefined
 });
@@ -22,6 +23,10 @@ const fetchStream = async (url, options) => {
       chunk.split("\n\n").forEach((line) => {
         if (line) {
           const progress = JSON.parse(line);
+
+          if (progress.error) {
+            throw new Error(progress.error);
+          }
 
           const { total, completed = 0 } = progress;
           if (total && completed) {
@@ -46,18 +51,25 @@ const onDownload = async () => {
   downloading.value = true;
   progresses.value = [];
   const { modelName } = state;
-  await fetchStream('/api/models/pull', {
-    method: 'POST',
-    body: JSON.stringify({
-      model: modelName,
-      stream: true,
-    }),
-    headers: {
-      ...fetchHeadersOllama.value,
-      'Content-Type': 'application/json',
-    },
-  });
-  emit("modelDownloaded", modelName);
+
+  try {
+    await fetchStream('/api/models/pull', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: modelName,
+        stream: true,
+      }),
+      headers: {
+        ...fetchHeadersOllama.value,
+        'Content-Type': 'application/json',
+      },
+    });
+    emit("modelDownloaded", modelName);
+  } catch (error) {
+    progresses.value = [];
+    toast.add({ color: 'red', title: "Failed to download model", description: error.message});
+  }
+
   downloading.value = false;
 };
 </script>
