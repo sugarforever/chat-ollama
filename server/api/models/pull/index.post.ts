@@ -12,8 +12,13 @@ export default defineEventHandler(async (event) => {
     const response = await ollama.pull({ model, stream });
 
     const readableStream = Readable.from((async function* () {
-        for await (const chunk of response) {
-            yield `${JSON.stringify(chunk)}\n\n`;
+        try {
+            for await (const chunk of response) {
+                yield `${JSON.stringify(chunk)}\n\n`;
+            }
+        } catch (error) {
+            const error_response = JSON.stringify({ "error": error.message })
+            yield `${error_response}\n\n`;// You can choose to yield an empty string or any other value to indicate the error
         }
     })());
     return sendStream(event, readableStream);

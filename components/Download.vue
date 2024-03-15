@@ -3,6 +3,7 @@ import { fetchHeadersOllama } from '@/utils/settings'
 
 const emit = defineEmits(["modelDownloaded"])
 
+const toast = useToast()
 const state = reactive({
   modelName: undefined
 });
@@ -22,6 +23,10 @@ const fetchStream = async (url, options) => {
       chunk.split("\n\n").forEach((line) => {
         if (line) {
           const progress = JSON.parse(line);
+
+          if (progress.error) {
+            throw new Error(progress.error);
+          }
 
           const { total, completed = 0 } = progress;
           if (total && completed) {
@@ -46,18 +51,25 @@ const onDownload = async () => {
   downloading.value = true;
   progresses.value = [];
   const { modelName } = state;
-  await fetchStream('/api/models/pull', {
-    method: 'POST',
-    body: JSON.stringify({
-      model: modelName,
-      stream: true,
-    }),
-    headers: {
-      ...fetchHeadersOllama.value,
-      'Content-Type': 'application/json',
-    },
-  });
-  emit("modelDownloaded", modelName);
+
+  try {
+    await fetchStream('/api/models/pull', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: modelName,
+        stream: true,
+      }),
+      headers: {
+        ...fetchHeadersOllama.value,
+        'Content-Type': 'application/json',
+      },
+    });
+    emit("modelDownloaded", modelName);
+  } catch (error) {
+    progresses.value = [];
+    toast.add({ color: 'red', title: "Failed to download model", description: error.message});
+  }
+
   downloading.value = false;
 };
 </script>
@@ -65,10 +77,14 @@ const onDownload = async () => {
 <template>
   <UForm :state="state" @submit="onDownload">
     <div class="flex flex-row w-full gap-2">
-      <UInput class="flex-1" size="lg" v-model="state.modelName" placeholder="Enter the model name to download" />
+      <UInput class="flex-1" size="lg" v-model="state.modelName" placeholder="Enter the model name to download" required/>
       <UButton type="submit" :loading="downloading">
         Download
       </UButton>
+    </div>
+    <div class="text-sm text-gray-500 mt-4 mx-2">
+      Discover models in the
+      <a href="https://ollama.com/library" target="_blank" class="text-blue-500 underline">Ollama Model Library</a>.
     </div>
     <ul class="flex flex-col gap-2 mt-4 px-3.5 py-2.5 bg-gray-100" v-if="progresses.length > 0">
       <li v-for="(progress, index) in progresses" :key="index">
