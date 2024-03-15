@@ -38,10 +38,8 @@ const onSubmit = async () => {
       method: 'POST',
       body: formData,
       headers: {
-        headers: {
-          ...fetchHeadersOllama.value,
-          ...fetchHeadersThirdApi.value,
-        }
+        ...fetchHeadersOllama.value,
+        ...fetchHeadersThirdApi.value,
       }
     });
     reset()

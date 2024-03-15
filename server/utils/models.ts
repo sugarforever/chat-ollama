@@ -5,6 +5,8 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { ChatOpenAI } from '@langchain/openai';
+import { type H3Event } from 'h3'
+import { type KEYS } from '@/server/middleware/keys'
 
 export const OPENAI_GPT_MODELS = [
   "gpt-3.5-turbo",
@@ -27,12 +29,16 @@ export const ANTHROPIC_MODELS = [
   "claude-instant-1.2"
 ];
 
-export const createEmbeddings = (embeddingModelName: string, event): Embeddings => {
+export const createEmbeddings = (embeddingModelName: string, event: H3Event): Embeddings => {
   if (OPENAI_EMBEDDING_MODELS.includes(embeddingModelName)) {
-    console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}`);
+    console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}, host: keys.x_openai_api_host`);
+    const keys = event.context.keys as Record<KEYS, string>;
     return new OpenAIEmbeddings({
+      configuration: {
+        baseURL: keys.x_openai_api_host || undefined,
+      },
       modelName: embeddingModelName,
-      openAIApiKey: event.context?.keys?.x_openai_api_key
+      openAIApiKey: keys.x_openai_api_key
     });
   } else {
     console.log(`Creating embeddings for Ollama served model: ${embeddingModelName}`);
@@ -43,24 +49,28 @@ export const createEmbeddings = (embeddingModelName: string, event): Embeddings 
   }
 }
 
-export const createChatModel = (modelName: string, event): BaseChatModel => {
+export const createChatModel = (modelName: string, event: H3Event): BaseChatModel => {
   const { host } = event.context.ollama;
-  const { x_openai_api_key: openai_api_key, x_anthropic_api_key: anthropic_api_key } = event.context.keys;
+  const keys = event.context.keys as Record<KEYS, string>;
   let chat = null;
   if (OPENAI_GPT_MODELS.includes(modelName)) {
-    console.log("Chat with OpenAI");
+    console.log("Chat with OpenAI, host:", keys.x_openai_api_host);
     chat = new ChatOpenAI({
-      openAIApiKey: openai_api_key,
+      configuration: {
+        baseURL: keys.x_openai_api_host || undefined,
+      },
+      openAIApiKey: keys.x_openai_api_key,
       modelName: modelName
     })
   } else if (ANTHROPIC_MODELS.includes(modelName)) {
-    console.log("Chat with Anthropic");
+    console.log("Chat with Anthropic, host:", keys.x_anthropic_api_host);
     chat = new ChatAnthropic({
-      anthropicApiKey: anthropic_api_key,
+      anthropicApiUrl: keys.x_anthropic_api_host || undefined,
+      anthropicApiKey: keys.x_anthropic_api_key,
       modelName: modelName
     })
   } else {
-    console.log("Chat with Ollama");
+    console.log("Chat with Ollama, host:", host);
     chat = new ChatOllama({
       baseUrl: host,
       model: modelName,

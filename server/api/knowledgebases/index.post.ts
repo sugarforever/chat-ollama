@@ -1,3 +1,4 @@
+import { Ollama } from 'ollama'
 import { PDFLoader } from "langchain/document_loaders/fs/pdf";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { JSONLoader } from "langchain/document_loaders/fs/json";
@@ -8,6 +9,11 @@ import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { MultiPartData, type H3Event } from 'h3';
 import prisma from '@/server/utils/prisma';
 import { createEmbeddings } from '@/server/utils/models';
+
+const isOllamaModelExists = async (ollama: Ollama, modelName: string) => {
+  const res = await ollama.list();
+  return res.models.some(model => model.name.includes(modelName));
+}
 
 const ingestDocument = async (
   file: MultiPartData,
@@ -60,6 +66,7 @@ export default defineEventHandler(async (event) => {
 
   const decoder = new TextDecoder("utf-8");
   const uploadedFiles: MultiPartData[] = [];
+  const ollama: Ollama = new Ollama({ host, fetch: FetchWithAuth.bind({ username, password }) });
 
   let _name = ''
   let _description = ''
@@ -81,11 +88,27 @@ export default defineEventHandler(async (event) => {
     }
   });
 
+  if (uploadedFiles.length === 0) {
+    setResponseStatus(event, 400);
+    return {
+      status: "error",
+      message: "Must upload at least one file"
+    }
+  }
+
+  if (!(await isOllamaModelExists(ollama, _embedding))) {
+    setResponseStatus(event, 404);
+    return {
+      status: "error",
+      message: "Embedding model does not exist in Ollama"
+    }
+  }
+
   const exist = await prisma.knowledgeBase.count({ where: { name: _name } }) > 0;
   if (exist) {
     setResponseStatus(event, 409);
     return {
-      status: false,
+      status: "error",
       message: "Knowledge Base's Name already exist"
     }
   }
@@ -100,7 +123,7 @@ export default defineEventHandler(async (event) => {
   });
   console.log(`Created knowledge base ${_name}: ${affected.id}`);
 
-  if (uploadedFiles.length > 0) {
+  try {
     for (const uploadedFile of uploadedFiles) {
       await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host, event);
 
@@ -113,6 +136,13 @@ export default defineEventHandler(async (event) => {
 
       console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id);
     }
+  } catch (e) {
+    await prisma.knowledgeBase.delete({
+      where: {
+        id: affected.id
+      }
+    });
+    throw e;
   }
 
   return {
