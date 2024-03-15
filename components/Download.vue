@@ -65,7 +65,7 @@ const onDownload = async () => {
 <template>
   <UForm :state="state" @submit="onDownload">
     <div class="flex flex-row w-full gap-2">
-      <UInput class="flex-1" size="lg" v-model="state.modelName" placeholder="Enter the model name to download" />
+      <UInput class="flex-1" size="lg" v-model="state.modelName" placeholder="Enter the model name to download" required/>
       <UButton type="submit" :loading="downloading">
         Download
       </UButton>
