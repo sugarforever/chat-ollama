@@ -1,6 +1,6 @@
 import { Ollama } from 'ollama';
 import { Readable } from 'stream';
-import { HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
@@ -20,8 +20,6 @@ If the context doesn't contain any relevant information to the question, don't m
 `;
 
 export default defineEventHandler(async (event) => {
-  setEventStreamResponse(event);
-
   const { host, username, password } = event.context.ollama;
   const { knowledgebaseId, model, messages, stream } = await readBody(event);
 
@@ -70,6 +68,19 @@ export default defineEventHandler(async (event) => {
       answer: documentChain,
     });
 
+    if (!stream) {
+      const response = await retrievalChain.invoke({
+        messages: [new HumanMessage(query)],
+      });
+      return {
+        message: {
+          role: 'assistant',
+          content: response?.answer
+        }
+      };
+    }
+
+    setEventStreamResponse(event);
     const response = await retrievalChain.stream({
       messages: [new HumanMessage(query)],
     });
@@ -83,6 +94,7 @@ export default defineEventHandler(async (event) => {
             content: chunk?.answer
           }
         };
+        console.log(message);
         yield `${JSON.stringify(message)}\n\n`;
       }
     })());
