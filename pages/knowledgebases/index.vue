@@ -1,11 +1,12 @@
 <script setup>
 import { fetchHeadersOllama, fetchHeadersThirdApi } from '@/utils/settings'
 
+const toast = useToast()
 const state = reactive({
-  selectedFile: undefined,
-  name: undefined,
-  embedding: undefined,
-  description: "",
+  selectedFiles: '',
+  name: '',
+  embedding: '',
+  description: '',
 });
 
 const validate = (state) => {
@@ -41,14 +42,14 @@ const onSubmit = async () => {
         ...fetchHeadersThirdApi.value,
       }
     });
-
-    state.selectedFiles = [];
+    reset()
     refresh();
-  } catch (err) {
-    console.log(`Create Knowledge Base Error: ${err}`)
-  } finally {
-    loading.value = false;
+  } catch (e) {
+    const msg = e.response._data?.message || e.message;
+    toast.add({ color: 'red', title: 'Tips', description: msg })
   }
+
+  loading.value = false;
 }
 
 const { data, refresh } = await useFetch('/api/knowledgebases');
@@ -100,6 +101,13 @@ const onDelete = async (id) => {
   });
   refresh();
 }
+
+function reset() {
+  state.name = '';
+  state.embedding = '';
+  state.description = '';
+  state.selectedFiles = '';
+}
 </script>
 
 <template>
@@ -120,8 +128,7 @@ const onDelete = async (id) => {
         </UFormGroup>
 
         <UFormGroup label="File as Knowledge Base" name="file">
-          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFile"
-            @change="onFileChange" />
+          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFiles" @change="onFileChange" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
@@ -131,20 +138,22 @@ const onDelete = async (id) => {
     </div>
     <div class="flex flex-col flex-1 px-6">
       <h2 class="font-bold text-xl mb-4">Knowledge Bases</h2>
-      <UTable :columns="columns" :rows="knowlegeBases">
-        <template #name-data="{ row }">
-          <ULink :to="`/knowledgebases/${row.id}`"
-            class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
-            {{ row.name }}
-          </ULink>
-        </template>
+      <ClientOnly>
+        <UTable :columns="columns" :rows="knowlegeBases">
+          <template #name-data="{ row }">
+            <ULink :to="`/knowledgebases/${row.id}`"
+              class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
+              {{ row.name }}
+            </ULink>
+          </template>
 
-        <template #actions-data="{ row }">
-          <UDropdown :items="actionsItems(row)">
-            <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
-          </UDropdown>
-        </template>
-      </UTable>
+          <template #actions-data="{ row }">
+            <UDropdown :items="actionsItems(row)">
+              <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
+            </UDropdown>
+          </template>
+        </UTable>
+      </ClientOnly>
     </div>
   </div>
 </template>
