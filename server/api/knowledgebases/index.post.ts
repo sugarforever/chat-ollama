@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
   });
 
   if (uploadedFiles.length === 0) {
-    setResponseStatus(event, 403);
+    setResponseStatus(event, 400);
     return {
       status: "error",
       message: "Must upload at least one file"
