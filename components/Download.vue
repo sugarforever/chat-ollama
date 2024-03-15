@@ -70,6 +70,10 @@ const onDownload = async () => {
         Download
       </UButton>
     </div>
+    <div class="text-sm text-gray-500 mt-4 mx-2">
+      Discover models in the
+      <a href="https://ollama.com/library" target="_blank" class="text-blue-500 underline">Ollama Model Library</a>.
+    </div>
     <ul class="flex flex-col gap-2 mt-4 px-3.5 py-2.5 bg-gray-100" v-if="progresses.length > 0">
       <li v-for="(progress, index) in progresses" :key="index">
         <UProgress :value="parseInt(progress.percentage)" indicator v-if="progress.percentage">
