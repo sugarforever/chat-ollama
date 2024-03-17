@@ -27,7 +27,8 @@ const authorization = ref(false);
 const validate = (state) => {
   const errors = [];
 
-  if (!/^https?:\/\//i.test(state.host.trim())) {
+  const host = state.host.trim();
+  if (host.length !== 0 && !/^https?:\/\//i.test(host)) {
     errors.push({ path: 'host', message: 'Host must start with http:// or https://' });
   }
 
@@ -41,7 +42,8 @@ const onSubmit = async () => {
   if (!checkHost(state.openaiApiHost, 'OpenAI host')) return
   if (!checkHost(state.anthropicApiHost, 'Anthropic host')) return
 
-  ollamaHost.value = state.host.trim();
+  const host = state.host.trim();
+  ollamaHost.value = host.length > 0 ? host : null;
   ollamaUsername.value = state.username;
   ollamaPassword.value = state.password;
   openAiApiKey.value = state.openaiApiKey;
