@@ -24,7 +24,6 @@ services:
       - chromadb_data:/chroma/.chroma/index
 
   chatollama:
-    container_name: chatollama
     environment:
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=file:/app/sqlite/chatollama.sqlite
