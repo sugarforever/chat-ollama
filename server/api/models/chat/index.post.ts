@@ -100,15 +100,23 @@ export default defineEventHandler(async (event) => {
     })());
     return sendStream(event, readableStream);
   } else {
-    const ollama = new Ollama({ host, fetch: FetchWithAuth.bind({ username, password }) });
-
-    const response = await ollama.chat({ model, messages, stream });
+    const llm = createChatModel(model, event);
+    const response = await llm?.stream(messages.map((message) => {
+      return [message.role, message.content];
+    }));
 
     const readableStream = Readable.from((async function* () {
       for await (const chunk of response) {
-        yield `${JSON.stringify(chunk)}\n\n`;
+        const message = {
+          message: {
+            role: 'assistant',
+            content: chunk?.content
+          }
+        };
+        yield `${JSON.stringify(message)}\n\n`;
       }
     })());
+
     return sendStream(event, readableStream);
   }
 })
