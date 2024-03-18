@@ -12,7 +12,7 @@ import {
 const toast = useToast();
 
 const state = reactive({
-  host: undefined,
+  ollamaHost: undefined,
   username: undefined,
   password: undefined,
   openaiApiKey: undefined,
@@ -27,21 +27,15 @@ const authorization = ref(false);
 const validate = (state) => {
   const errors = [];
 
-  if (!/^https?:\/\//i.test(state.host.trim())) {
-    errors.push({ path: 'host', message: 'Host must start with http:// or https://' });
-  }
+  errors.push(checkHost('host', 'Ollama host'))
+  errors.push(checkHost('openaiApiHost', 'OpenAI host'))
+  errors.push(checkHost('anthropicApiHost', 'Anthropic host'))
 
-  return errors
+  return errors.filter(Boolean)
 };
 
 const onSubmit = async () => {
-  console.log("Submitting: ", state.host.trim());
-
-  if (!checkHost(state.host, 'Ollama host')) return
-  if (!checkHost(state.openaiApiHost, 'OpenAI host')) return
-  if (!checkHost(state.anthropicApiHost, 'Anthropic host')) return
-
-  ollamaHost.value = state.host.trim();
+  ollamaHost.value = state.ollamaHost;
   ollamaUsername.value = state.username;
   ollamaPassword.value = state.password;
   openAiApiKey.value = state.openaiApiKey;
@@ -49,11 +43,11 @@ const onSubmit = async () => {
   anthropicApiKey.value = state.anthropicApiKey;
   anthropicApiHost.value = state.anthropicApiHost;
 
-  toast.add({ title: `Ollama server set to ${state.host.trim()} successfully!` });
+  toast.add({ title: `Set successfully!` });
 };
 
 onMounted(() => {
-  state.host = ollamaHost.value;
+  state.ollamaHost = ollamaHost.value;
   state.username = ollamaUsername.value;
   state.password = ollamaPassword.value;
   state.openaiApiKey = openAiApiKey.value;
@@ -64,22 +58,13 @@ onMounted(() => {
   authorization.value = !!(state.username && state.password);
 });
 
-function checkHost(url, name) {
-  if (!url) return true
+function checkHost(path, name) {
+  const url = state[path]
+  if (!url) return null
 
-  if (/^https?:\/\//i.test(url)) return true
+  if (/^https?:\/\//i.test(url)) return null
 
-  toast.add({
-    id: name,
-    title: 'Invalid host',
-    description: `${name} must start with http:// or https://`,
-    status: 'error',
-    color: 'red',
-    duration: 3000,
-    isClosable: true,
-  })
-
-  return false
+  return { path, message: `${name} must start with http:// or https://` }
 }
 
 </script>
@@ -89,8 +74,8 @@ function checkHost(url, name) {
     <UForm :validate="validate" :state="state" class="space-y-4" @submit="onSubmit">
       <UCard>
         <template #header>Ollama Server Setting</template>
-        <UFormGroup label="Host" name="host" class="mb-4">
-          <UInput v-model.trim="state.host" />
+        <UFormGroup label="Host" name="ollamaHost" class="mb-4">
+          <UInput v-model.trim="state.ollamaHost" />
         </UFormGroup>
         <UCheckbox v-model="authorization" name="authorization" label="Authorization" class="mb-4" />
         <template v-if="authorization">
@@ -105,20 +90,20 @@ function checkHost(url, name) {
 
       <UCard>
         <template #header>OpenAI</template>
-        <UFormGroup label="Key" name="openAiKey" class="mb-4">
+        <UFormGroup label="Key" name="openaiApiKey" class="mb-4">
           <UInput v-model="state.openaiApiKey" type="password" />
         </UFormGroup>
-        <UFormGroup label="Custom API host" name="openAiHost">
+        <UFormGroup label="Custom API host" name="openaiApiHost">
           <UInput v-model.trim="state.openaiApiHost" />
         </UFormGroup>
       </UCard>
 
       <UCard>
         <template #header>Anthropic</template>
-        <UFormGroup label="Anthropic" name="anthropic" class="mb-4">
+        <UFormGroup label="Anthropic" name="anthropicApiKey" class="mb-4">
           <UInput v-model="state.anthropicApiKey" type="password" />
         </UFormGroup>
-        <UFormGroup label="Custom API host" name="anthropicHost">
+        <UFormGroup label="Custom API host" name="anthropicApiHost">
           <UInput v-model.trim="state.anthropicApiHost" />
         </UFormGroup>
       </UCard>
