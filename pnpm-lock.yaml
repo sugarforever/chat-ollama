@@ -41,6 +41,9 @@ dependencies:
   chromadb:
     specifier: ^1.8.1
     version: 1.8.1(openai@4.26.1)
+  highlight.js:
+    specifier: ^11.9.0
+    version: 11.9.0
   langchain:
     specifier: ^0.1.23
     version: 0.1.23(chromadb@1.8.1)(mammoth@1.7.0)(pdf-parse@1.1.1)(ws@8.16.0)

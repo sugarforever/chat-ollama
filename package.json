@@ -33,6 +33,7 @@
     "@vueuse/nuxt": "^10.9.0",
     "ai": "^2.2.33",
     "chromadb": "^1.8.1",
+    "highlight.js": "^11.9.0",
     "langchain": "^0.1.23",
     "langsmith": "^0.1.13",
     "mammoth": "^1.7.0",

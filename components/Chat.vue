@@ -5,6 +5,7 @@ import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";
 import MarkdownItFootnote from "markdown-it-footnote";
 import MarkdownItHighlightjs from "markdown-it-highlightjs";
+import 'highlight.js/styles/github.css';
 import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
@@ -197,13 +198,5 @@ useMutationObserver(messageListEl, () => {
 code {
   color: rgb(37 99 235);
   white-space: pre-wrap;
-}
-
-.hljs {
-  display: block;
-  padding: 8px;
-  background-color: #e5e5e5;
-  margin-top: 8px;
-  margin-bottom: 8px;
 }
 </style>
