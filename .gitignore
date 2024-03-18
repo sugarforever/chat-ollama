@@ -137,3 +137,5 @@ dist
 tmp
 
 chroma_data
+
+.DS_Store
