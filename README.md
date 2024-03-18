@@ -38,10 +38,13 @@ Make sure you initialize the SQLite database as below if you are launching the d
 $ docker compose exec chatollama npx prisma migrate dev
 ```
 #### Prerequisites for knowledge bases
-When using KnowledgeBases, we need the nomic-embed-text:latest model.
-```
+When using KnowledgeBases, we need the nomic-embed-text:latest model,Also have 
+a bunch of other options.
+ ```
 # In the folder of docker-compose.yaml
+
 docker compose exec ollama ollama pull nomic-embed-text:latest
+
 ```
 
 #### Data Storage with Docker Containers
