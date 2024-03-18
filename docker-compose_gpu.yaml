@@ -1,6 +1,22 @@
 version: '3.1'
+
 services:
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
   chromadb:
+    container_name: chromadb
     image: chromadb/chroma
     ports:
       - "8000:8000"
@@ -9,23 +25,16 @@ services:
       - chromadb_data:/chroma/.chroma/index
 
   chatollama:
+    container_name: chatollama
     environment:
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=file:/app/sqlite/chatollama.sqlite
-    image: 0001coder/chatollama:latest
+    image: chatollama:vgh4
     ports:
       - "3000:3000"
-    pull_policy: always
     restart: always
     volumes:
       - ~/.chatollama:/app/sqlite
-
-  ollama:
-    image: ollama/ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ~/.ollama:/root/.ollama
 
 volumes:
   chromadb_data:
