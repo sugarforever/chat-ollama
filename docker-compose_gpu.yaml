@@ -16,7 +16,6 @@ services:
               count: all
               capabilities: [gpu]
   chromadb:
-    container_name: chromadb
     image: chromadb/chroma
     ports:
       - "8000:8000"
@@ -29,9 +28,10 @@ services:
     environment:
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=file:/app/sqlite/chatollama.sqlite
-    image: chatollama:vgh4
+    image: 0001coder/chatollama:latest
     ports:
       - "3000:3000"
+    pull_policy: always
     restart: always
     volumes:
       - ~/.chatollama:/app/sqlite
