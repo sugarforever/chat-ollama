@@ -4,5 +4,8 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
     '@vueuse/nuxt',
-  ]
+  ],
+  devServer: {
+    host: '0.0.0.0',
+  },
 })
