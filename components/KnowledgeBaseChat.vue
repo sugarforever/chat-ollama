@@ -162,7 +162,7 @@ onMounted(async () => {
       </ul>
     </div>
     <div class="mt-4">
-      <UForm :state="state" @submit="onSend" @keydown.shift.enter="onSend">
+      <UForm :state="state" @submit="onSend" @keydown.enter="onSend">
         <div class="flex flex-row w-full gap-2">
           <UTextarea class="flex-1" autoresize :rows="rows" v-model="state.input" />
           <UButton type="submit" :disabled="!model" :loading="sending" class="h-fit">
