@@ -1,6 +1,11 @@
 const KEYS = [
   'x_openai_api_key',
   'x_openai_api_host',
+
+  'x_azure_openai_api_key',
+  'x_azure_openai_endpoint',
+  'x_azure_openai_deployment_name',
+
   'x_anthropic_api_key',
   'x_anthropic_api_host',
 ] as const;

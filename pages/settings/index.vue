@@ -5,6 +5,9 @@ import {
   ollamaPassword,
   openAiApiKey,
   openAiApiHost,
+  azureOpenaiApiKey,
+  azureOpenaiEndpoint,
+  azureOpenaiDeploymentName,
   anthropicApiKey,
   anthropicApiHost,
 } from '@/utils/settings';
@@ -15,8 +18,14 @@ const state = reactive({
   ollamaHost: undefined,
   username: undefined,
   password: undefined,
+
   openaiApiKey: undefined,
   openaiApiHost: undefined,
+
+  azureOpenaiApiKey: undefined,
+  azureOpenaiEndpoint: undefined,
+  azureOpenaiDeploymentName: undefined,
+
   anthropicApiKey: undefined,
   anthropicApiHost: undefined,
 });
@@ -38,8 +47,14 @@ const onSubmit = async () => {
   ollamaHost.value = state.ollamaHost;
   ollamaUsername.value = state.username;
   ollamaPassword.value = state.password;
+
   openAiApiKey.value = state.openaiApiKey;
   openAiApiHost.value = state.openaiApiHost;
+
+  azureOpenaiApiKey.value = state.azureOpenaiApiKey;
+  azureOpenaiEndpoint.value = state.azureOpenaiEndpoint;
+  azureOpenaiDeploymentName.value = state.azureOpenaiDeploymentName;
+
   anthropicApiKey.value = state.anthropicApiKey;
   anthropicApiHost.value = state.anthropicApiHost;
 
@@ -47,18 +62,28 @@ const onSubmit = async () => {
 };
 
 onMounted(() => {
+  // Ollama
   state.ollamaHost = ollamaHost.value;
   state.username = ollamaUsername.value;
   state.password = ollamaPassword.value;
+
+  // OpenAI
   state.openaiApiKey = openAiApiKey.value;
   state.openaiApiHost = openAiApiHost.value;
+
+  // Azure OpenAI
+  state.azureOpenaiApiKey = azureOpenaiApiKey.value;
+  state.azureOpenaiEndpoint = azureOpenaiEndpoint.value;
+  state.azureOpenaiDeploymentName = azureOpenaiDeploymentName.value;
+
+  // Anthropic
   state.anthropicApiKey = anthropicApiKey.value;
   state.anthropicApiHost = anthropicApiHost.value;
 
   authorization.value = !!(state.username && state.password);
 });
 
-function checkHost(path, name) {
+const checkHost = (path, name) => {
   const url = state[path]
   if (!url) return null
 
@@ -67,12 +92,19 @@ function checkHost(path, name) {
   return { path, message: `${name} must start with http:// or https://` }
 }
 
+const ui = {
+  header: {
+    base: 'font-bold',
+    background: '',
+    padding: 'px-4 py-3 sm:px-6',
+  }
+}
 </script>
 
 <template>
   <div class="w-[640px]">
     <UForm :validate="validate" :state="state" class="space-y-4" @submit="onSubmit">
-      <UCard>
+      <UCard :ui="ui">
         <template #header>Ollama Server Setting</template>
         <UFormGroup label="Host" name="ollamaHost" class="mb-4">
           <UInput v-model.trim="state.ollamaHost" />
@@ -88,9 +120,9 @@ function checkHost(path, name) {
         </template>
       </UCard>
 
-      <UCard>
+      <UCard :ui="ui">
         <template #header>OpenAI</template>
-        <UFormGroup label="Key" name="openaiApiKey" class="mb-4">
+        <UFormGroup label="API Key" name="openaiApiKey" class="mb-4">
           <UInput v-model="state.openaiApiKey" type="password" />
         </UFormGroup>
         <UFormGroup label="Custom API host" name="openaiApiHost">
@@ -98,9 +130,22 @@ function checkHost(path, name) {
         </UFormGroup>
       </UCard>
 
-      <UCard>
+      <UCard :ui="ui">
+        <template #header>Azure OpenAI</template>
+        <UFormGroup label="API Key" name="azureOpenaiApiKey" class="mb-4">
+          <UInput v-model="state.azureOpenaiApiKey" type="password" />
+        </UFormGroup>
+        <UFormGroup label="Endpoint" name="azureOpenaiEndpoint" class="mb-4">
+          <UInput v-model="state.azureOpenaiEndpoint" />
+        </UFormGroup>
+        <UFormGroup label="Deployment Name" name="azureOpenaiDeploymentName" class="mb-4">
+          <UInput v-model="state.azureOpenaiDeploymentName" />
+        </UFormGroup>
+      </UCard>
+
+      <UCard :ui="ui">
         <template #header>Anthropic</template>
-        <UFormGroup label="Anthropic" name="anthropicApiKey" class="mb-4">
+        <UFormGroup label="API Key" name="anthropicApiKey" class="mb-4">
           <UInput v-model="state.anthropicApiKey" type="password" />
         </UFormGroup>
         <UFormGroup label="Custom API host" name="anthropicApiHost">

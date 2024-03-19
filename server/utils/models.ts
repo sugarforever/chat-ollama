@@ -5,6 +5,7 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { ChatOpenAI } from '@langchain/openai';
+import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { type H3Event } from 'h3'
 import { type KEYS } from '@/server/middleware/keys'
 
@@ -13,6 +14,14 @@ export const OPENAI_GPT_MODELS = [
   "gpt-4",
   "gpt-4-32k",
   "gpt-4-turbo-preview"
+];
+
+export const AZURE_OPENAI_GPT_MODELS = [
+  "gpt-3.5-turbo",
+  "gpt-35-turbo-16k",
+  "gpt-35-turbo-instruct",
+  "gpt-4",
+  "gpt-4-32k"
 ];
 
 export const OPENAI_EMBEDDING_MODELS = [
@@ -62,6 +71,14 @@ export const createChatModel = (modelName: string, event: H3Event): BaseChatMode
       },
       openAIApiKey: keys.x_openai_api_key,
       modelName: modelName
+    })
+  } else if (AZURE_OPENAI_GPT_MODELS.includes(modelName)) {
+    console.log(`Chat with Azure OpenAI endpoint: ${keys.x_azure_openai_endpoint} , deployment: ${keys.x_azure_openai_deployment_name}`);
+    chat = new AzureChatOpenAI({
+      azureOpenAIEndpoint: keys.x_azure_openai_endpoint,
+      azureOpenAIApiKey: keys.x_azure_openai_api_key,
+      azureOpenAIApiDeploymentName: keys.x_azure_openai_deployment_name,
+      modelName: modelName,
     })
   } else if (ANTHROPIC_MODELS.includes(modelName)) {
     console.log("Chat with Anthropic, host:", keys.x_anthropic_api_host);
