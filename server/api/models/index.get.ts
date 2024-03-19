@@ -1,10 +1,18 @@
 import { Ollama } from 'ollama'
 import { FetchWithAuth } from '@/server/utils';
-import { OPENAI_GPT_MODELS, ANTHROPIC_MODELS } from '@/server/utils/models';
+import { OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS } from '@/server/utils/models';
 
 export default defineEventHandler(async (event) => {
   const { host, username, password } = event.context.ollama;
-  const { x_openai_api_key: openai_api_key, x_anthropic_api_key: anthropic_api_key } = event.context.keys;
+  const {
+    x_openai_api_key: openai_api_key,
+
+    x_azure_openai_api_key: azure_openai_api_key,
+    x_azure_openai_endpoint: azure_openai_endpoint,
+    x_azure_openai_deployment_name: azure_openai_deployment_name,
+
+    x_anthropic_api_key: anthropic_api_key
+  } = event.context.keys;
   const ollama = new Ollama({ host, fetch: FetchWithAuth.bind({ username, password }) });
   const response = await ollama.list();
 
@@ -15,6 +23,18 @@ export default defineEventHandler(async (event) => {
         model: model,
         details: {
           family: 'OpenAI'
+        }
+      });
+    });
+  }
+
+  if (azure_openai_api_key && azure_openai_endpoint && azure_openai_deployment_name) {
+    AZURE_OPENAI_GPT_MODELS.forEach((model) => {
+      response.models.push({
+        name: model,
+        model: model,
+        details: {
+          family: 'Azure OpenAI'
         }
       });
     });
