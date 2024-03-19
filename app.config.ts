@@ -4,6 +4,6 @@ export default defineAppConfig({
       position: 'top-0 bottom-auto'
     },
     primary: 'indigo',
-    gray: 'cool'
+    gray: 'zinc'
   }
 })

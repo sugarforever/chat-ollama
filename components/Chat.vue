@@ -32,14 +32,11 @@ const markdown = new MarkdownIt()
 
 const instructions = ref([]);
 const selectedInstruction = ref(null);
+const chatInputBoxRef = shallowRef()
 
 const model = useStorage(`model${props.knowledgebase?.id || ''}`, null);
 const messages = ref([]);
 const sending = ref(false);
-const state = reactive({
-  instruction: "",
-  input: ""
-})
 
 const visibleMessages = computed(() => {
   return messages.value.filter((message) => message.role !== 'system');
@@ -79,18 +76,14 @@ const fetchStream = async (url, options) => {
   }
 }
 
-const onSend = async () => {
-  if (sending.value || !state.input?.trim() || !model.value) {
+const onSend = async (data) => {
+  const input = data.content.trim()
+  if (sending.value || !input || !model.value) {
     return;
   }
 
   sending.value = true;
-
-  const { input } = state;
-  rows.value = 1;
-  setTimeout(() => {
-    state.input = "";
-  }, 50);
+  chatInputBoxRef.value?.reset()
 
   if (selectedInstruction.value) {
     if (messages.value.length > 0 && messages.value[0].role === 'system') {
@@ -126,8 +119,6 @@ const onSend = async () => {
 
   sending.value = false;
 }
-
-const rows = ref(1);
 
 onMounted(async () => {
   instructions.value = [(await loadOllamaInstructions()).map(i => {
@@ -179,17 +170,7 @@ useMutationObserver(messageListEl, () => {
       </ul>
     </div>
     <div class="mt-4">
-      <ClientOnly>
-        <UForm :state="state" @submit="onSend" @keydown.shift.enter="onSend">
-          <div class="flex flex-row w-full gap-2">
-            <UTextarea class="flex-1" autoresize :rows="rows" :disabled="!model" v-model="state.input"
-              placeholder="Press shift + enter to send" />
-            <UButton type="submit" :disabled="!model" :loading="sending" class="h-fit">
-              Send
-            </UButton>
-          </div>
-        </UForm>
-      </ClientOnly>
+      <ChatInputBox ref="chatInputBoxRef" :disabled="!model" :loading="sending" @submit="onSend" />
     </div>
   </div>
 </template>
