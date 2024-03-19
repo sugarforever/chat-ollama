@@ -38,14 +38,27 @@ Make sure you initialize the SQLite database as below if you are launching the d
 $ docker compose exec chatollama npx prisma migrate dev
 ```
 #### Prerequisites for knowledge bases
-When using KnowledgeBases, we need the nomic-embed-text:latest model,Also have 
-a bunch of other options.
- ```
+When using KnowledgeBases, we need a valid embedding model in place. It can be one of the models downloaded by Ollama or from 3rd party service provider for example, OpenAI.
+
+**Ollama Managed Embedding Model**
+
+We recommand you download `nomic-embed-text` model for embedding purpose.
+
+You can do so on Models page http://localhost:3000/models, or via CLI as below if you are using Docker.
+
+```
 # In the folder of docker-compose.yaml
 
 docker compose exec ollama ollama pull nomic-embed-text:latest
-
 ```
+
+**OpenAI Embedding Model**
+
+If you prefer to use OpenAI, please make sure you set a valid OpenAI API Key in Settings, and fill with one of the OpenAI embedding models listed below:
+
+- `text-embedding-3-large`
+- `text-embedding-3-small`
+- `text-embedding-ada-002`
 
 #### Data Storage with Docker Containers
 
