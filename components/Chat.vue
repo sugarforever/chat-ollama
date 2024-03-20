@@ -143,7 +143,7 @@ useMutationObserver(messageListEl, () => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 p-4">
+  <div class="flex flex-col flex-1 p-4 box-border">
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center">
         <span class="mr-2">Chat with</span>
@@ -158,18 +158,16 @@ useMutationObserver(messageListEl, () => {
         </ClientOnly>
       </div>
     </div>
-    <div ref="messageListEl" dir="ltr" class="relative overflow-y-scroll flex-1 space-y-4">
-      <ul className="flex flex-1 flex-col">
-        <li v-for="(message, index) in visibleMessages" :key="index">
-          <div
-            :class="`${message.role == 'assistant' ? 'bg-white/10' : 'bg-primary/20'} border border-primary/20 rounded my-4 px-3 py-2 text-sm`">
-            <h3 class="font-bold">{{ message.role }}</h3>
-            <div v-html="markdown.render(message.content)" />
-          </div>
-        </li>
-      </ul>
+    <div ref="messageListEl" dir="ltr" class="relative flex-1">
+      <template v-for="(message, index) in visibleMessages" :key="index">
+        <div class="text-gray-500 dark:text-gray-400">{{ message.role }}</div>
+        <div
+          :class="`${message.role == 'assistant' ? 'bg-white/10' : 'bg-primary-50 dark:bg-primary-400/20'} border border-primary/20 rounded mb-4 px-3 py-2`">
+          <div v-html="markdown.render(message.content)" />
+        </div>
+      </template>
     </div>
-    <div class="mt-4">
+    <div class="shrink-0 sticky bottom-2 pt-4">
       <ChatInputBox ref="chatInputBoxRef" :disabled="!model" :loading="sending" @submit="onSend" />
     </div>
   </div>
@@ -177,7 +175,12 @@ useMutationObserver(messageListEl, () => {
 
 <style>
 code {
-  color: rgb(37 99 235);
+  color: rgb(31, 64, 226);
   white-space: pre-wrap;
+  margin: 0 0.4em;
+}
+
+.dark code {
+  color: rgb(125, 179, 250);
 }
 </style>
