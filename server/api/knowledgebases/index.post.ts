@@ -3,12 +3,10 @@ import { PDFLoader } from "langchain/document_loaders/fs/pdf";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { JSONLoader } from "langchain/document_loaders/fs/json";
 import { DocxLoader } from "langchain/document_loaders/fs/docx";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
-import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { MultiPartData, type H3Event } from 'h3';
 import prisma from '@/server/utils/prisma';
 import { createEmbeddings } from '@/server/utils/models';
+import { createRetriever } from '@/server/retriever';
 
 const isOllamaModelExists = async (ollama: Ollama, modelName: string) => {
   const res = await ollama.list();
@@ -19,27 +17,20 @@ const ingestDocument = async (
   file: MultiPartData,
   collectionName: string,
   embedding: string,
-  ollamaHost: string,
   event: H3Event
 ) => {
   const docs = await loadDocuments(file)
 
-  const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
-  const splits = await textSplitter.splitDocuments(docs);
+  // const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
+  // const splits = await textSplitter.splitDocuments(docs);
   const embeddings = createEmbeddings(embedding, event);
 
-  const dbConfig = {
-    collectionName: collectionName,
-    url: process.env.CHROMADB_URL
-  };
-  const existingCollection = await Chroma.fromExistingCollection(embeddings, dbConfig);
-  if (existingCollection) {
-    await existingCollection.addDocuments(splits);
-    console.log(`Chroma collection ${collectionName} updated`);
-  } else {
-    await Chroma.fromDocuments(splits, embeddings, dbConfig);
-    console.log(`Chroma collection ${collectionName} created`);
-  }
+  // await chromaClient.addDocuments(splits);
+  const retriever = await createRetriever(embeddings, collectionName);
+
+  await retriever.addDocuments(docs);
+
+  console.log(`${docs.length} documents added to Chroma collection ${collectionName}.`);
 }
 
 async function loadDocuments(file: MultiPartData) {
@@ -125,7 +116,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     for (const uploadedFile of uploadedFiles) {
-      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, host, event);
+      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, event);
 
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {
