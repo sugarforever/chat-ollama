@@ -7,5 +7,8 @@ export default defineNuxtConfig({
   ],
   ui: {
     icons: ['heroicons', 'iconoir']
-  }
+  },
+  css: [
+    '~/assets/index.scss',
+  ]
 })
