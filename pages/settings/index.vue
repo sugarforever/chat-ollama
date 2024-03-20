@@ -109,7 +109,9 @@ const ui = {
         <UFormGroup label="Host" name="ollamaHost" class="mb-4">
           <UInput v-model.trim="state.ollamaHost" />
         </UFormGroup>
-        <UCheckbox v-model="authorization" name="authorization" label="Authorization" class="mb-4" />
+        <ClientOnly>
+          <UCheckbox v-model="authorization" name="authorization" label="Authorization" class="mb-4" />
+        </ClientOnly>
         <template v-if="authorization">
           <UFormGroup label="User Name" name="username" class="mb-4">
             <UInput v-model.trim="state.username" />
