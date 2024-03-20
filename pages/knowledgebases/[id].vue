@@ -15,8 +15,8 @@ const links = [{
 }]
 </script>
 <template>
-  <div class="flex flex-col w-full">
-    <UBreadcrumb :links="links" class="px-4 mb-4"/>
+  <div class="h-full flex flex-col w-full">
+    <UBreadcrumb :links="links" class="px-4 mb-4" />
     <ClientOnly>
       <chat :knowledgebase="knowledgebase" />
     </ClientOnly>

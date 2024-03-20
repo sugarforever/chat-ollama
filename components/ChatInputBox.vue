@@ -54,7 +54,8 @@ function onReset() {
 </script>
 
 <template>
-  <div class="chat-box border rounded-lg p-2 transition-all transition-300 dark:bg-gray dark:border-gray-800"
+  <div
+    class="chat-box border rounded-lg p-2 transition-all transition-300 dark:bg-gray dark:border-gray-800 bg-white dark:bg-gray-700"
     :class="[isFocus ? 'shadow-lg' : 'shadow-md', { 'border-primary-400 dark:border-primary-900': isFocus }]">
     <UForm :state="state" @submit="onSubmit">
       <TheTextarea v-model="state.content" :max-rows="15" :min-rows="1" :submit-mode="submitMode"

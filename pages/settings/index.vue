@@ -102,7 +102,7 @@ const ui = {
 </script>
 
 <template>
-  <div class="w-[640px]">
+  <div class="w-[640px] mx-auto">
     <UForm :validate="validate" :state="state" class="space-y-4" @submit="onSubmit">
       <UCard :ui="ui">
         <template #header>Ollama Server Setting</template>
@@ -155,7 +155,7 @@ const ui = {
         </UFormGroup>
       </UCard>
 
-      <div class="text-center">
+      <div class="">
         <UButton type="submit" :loading="saving">
           Save
         </UButton>
