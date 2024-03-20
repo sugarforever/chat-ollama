@@ -5,7 +5,6 @@ import MarkdownItAbbr from "markdown-it-abbr";
 import MarkdownItAnchor from "markdown-it-anchor";
 import MarkdownItFootnote from "markdown-it-footnote";
 import MarkdownItHighlightjs from "markdown-it-highlightjs";
-import 'highlight.js/styles/github.css';
 import MarkdownItSub from "markdown-it-sub";
 import MarkdownItSup from "markdown-it-sup";
 import MarkdownItTasklists from "markdown-it-task-lists";
@@ -146,7 +145,7 @@ useMutationObserver(messageListEl, () => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 p-4 box-border">
+  <div class="flex flex-col flex-1 p-4 box-border dark:text-gray-300">
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center">
         <span class="mr-2">Chat with</span>

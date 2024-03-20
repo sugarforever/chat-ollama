@@ -1,0 +1,11 @@
+@import 'highlight.js/scss/github.scss';
+
+pre code.hljs {
+  background-color: #f8fafc;
+  border-radius: 8px;
+  margin: 0.5em 0;
+}
+
+.dark {
+    @import 'highlight.js/scss/github-dark.scss';
+}
