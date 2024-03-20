@@ -8,12 +8,7 @@ import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { MultiPartData, type H3Event } from 'h3';
 import prisma from '@/server/utils/prisma';
-import { createEmbeddings } from '@/server/utils/models';
-
-const isOllamaModelExists = async (ollama: Ollama, modelName: string) => {
-  const res = await ollama.list();
-  return res.models.some(model => model.name.includes(modelName));
-}
+import { createEmbeddings, isOllamaModelExists } from '@/server/utils/models';
 
 const ingestDocument = async (
   file: MultiPartData,
