@@ -36,6 +36,7 @@ const chatInputBoxRef = shallowRef()
 const model = useStorage(`model${props.knowledgebase?.id || ''}`, null);
 const messages = ref([]);
 const sending = ref(false);
+let mainEl = null;
 
 const visibleMessages = computed(() => {
   return messages.value.filter((message) => message.role !== 'system');
@@ -120,6 +121,8 @@ const onSend = async (data) => {
 }
 
 onMounted(async () => {
+  mainEl = document.getElementById('main');
+
   instructions.value = [(await loadOllamaInstructions()).map(i => {
     return {
       label: i.name,
@@ -133,8 +136,8 @@ onMounted(async () => {
 
 const messageListEl = ref(null);
 useMutationObserver(messageListEl, () => {
-  messageListEl.value.scrollTo({
-    top: messageListEl.value.scrollHeight,
+  mainEl.scrollTo({
+    top: mainEl.scrollHeight,
     behavior: 'smooth'
   });
 }, { childList: true, subtree: true });
