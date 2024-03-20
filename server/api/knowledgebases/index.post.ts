@@ -5,13 +5,8 @@ import { JSONLoader } from "langchain/document_loaders/fs/json";
 import { DocxLoader } from "langchain/document_loaders/fs/docx";
 import { MultiPartData, type H3Event } from 'h3';
 import prisma from '@/server/utils/prisma';
-import { createEmbeddings } from '@/server/utils/models';
+import { createEmbeddings, isOllamaModelExists } from '@/server/utils/models';
 import { createRetriever } from '@/server/retriever';
-
-const isOllamaModelExists = async (ollama: Ollama, modelName: string) => {
-  const res = await ollama.list();
-  return res.models.some(model => model.name.includes(modelName));
-}
 
 const ingestDocument = async (
   file: MultiPartData,

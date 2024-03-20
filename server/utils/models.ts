@@ -39,6 +39,15 @@ export const ANTHROPIC_MODELS = [
   "claude-instant-1.2"
 ];
 
+export const isOllamaModelExists = async (ollama: Ollama, embeddingModelName: string) => {
+  if (!OPENAI_EMBEDDING_MODELS.includes(embeddingModelName)) {
+    const res = await ollama.list();
+    return res.models.some(model => model.name.includes(embeddingModelName));
+  }
+
+  return true
+}
+
 export const createEmbeddings = (embeddingModelName: string, event: H3Event): Embeddings => {
   if (OPENAI_EMBEDDING_MODELS.includes(embeddingModelName)) {
     console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}, host: keys.x_openai_api_host`);
