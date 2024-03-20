@@ -4,7 +4,7 @@ import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
 import { setEventStreamResponse, FetchWithAuth } from '@/server/utils';
-import { ParentDocumentRetriever } from "langchain/retrievers/parent_document";
+import { BaseRetriever } from "@langchain/core/retrievers";
 import prisma from "@/server/utils/prisma";
 import { createChatModel, createEmbeddings } from '@/server/utils/models';
 import { createRetriever } from '@/server/retriever';
@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
 
     const embeddings = createEmbeddings(knowledgebase.embedding, event);
     // const vectorStore = createChromaVectorStore(embeddings, `collection_${knowledgebase.id}`);
-    const retriever: ParentDocumentRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`);
+    const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`);
 
     const questionAnsweringPrompt = ChatPromptTemplate.fromMessages([
       ["system", SYSTEM_TEMPLATE],
