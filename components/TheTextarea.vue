@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { useEventListener } from '@vueuse/core'
 export type SubmitMode = 'enter' | 'shift-enter'
 
 const emits = defineEmits<{
@@ -19,7 +20,17 @@ const rows = computed(() => {
   return Math.max(props.minRows, r)
 })
 
+const composing = ref(false)
+useEventListener(textareaRef, 'compositionstart', () => {
+  composing.value = true
+})
+useEventListener(textareaRef, 'compositionend', () => {
+  composing.value = false
+})
+
 function onEnter(e: KeyboardEvent) {
+  if (composing.value) return
+
   e.preventDefault()
   if (props.submitMode === 'enter') {
     if (e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
