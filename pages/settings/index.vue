@@ -10,6 +10,9 @@ import {
   azureOpenaiDeploymentName,
   anthropicApiKey,
   anthropicApiHost,
+
+  moonshotApiKey,
+  moonshotApiHost,
 } from '@/utils/settings';
 
 const toast = useToast();
@@ -28,6 +31,9 @@ const state = reactive({
 
   anthropicApiKey: undefined,
   anthropicApiHost: undefined,
+
+  moonshotApiKey: undefined,
+  moonshotApiHost: undefined,
 });
 
 const saving = ref(false);
@@ -39,6 +45,7 @@ const validate = (state) => {
   errors.push(checkHost('host', 'Ollama host'))
   errors.push(checkHost('openaiApiHost', 'OpenAI host'))
   errors.push(checkHost('anthropicApiHost', 'Anthropic host'))
+  errors.push(checkHost('moonshotApiHost', 'Moonshot host'))
 
   return errors.filter(Boolean)
 };
@@ -57,6 +64,9 @@ const onSubmit = async () => {
 
   anthropicApiKey.value = state.anthropicApiKey;
   anthropicApiHost.value = state.anthropicApiHost;
+
+  moonshotApiKey.value = state.moonshotApiKey;
+  moonshotApiHost.value = state.moonshotApiHost;
 
   toast.add({ title: `Set successfully!` });
 };
@@ -79,6 +89,10 @@ onMounted(() => {
   // Anthropic
   state.anthropicApiKey = anthropicApiKey.value;
   state.anthropicApiHost = anthropicApiHost.value;
+
+  // Moonshot
+  state.moonshotApiKey = moonshotApiKey.value;
+  state.moonshotApiHost = moonshotApiHost.value;
 
   authorization.value = !!(state.username && state.password);
 });
@@ -152,6 +166,16 @@ const ui = {
         </UFormGroup>
         <UFormGroup label="Custom API host" name="anthropicApiHost">
           <UInput v-model.trim="state.anthropicApiHost" />
+        </UFormGroup>
+      </UCard>
+
+      <UCard :ui="ui">
+        <template #header>Moonshot</template>
+        <UFormGroup label="API Key" name="moonshotApiKey" class="mb-4">
+          <UInput v-model="state.moonshotApiKey" type="password" />
+        </UFormGroup>
+        <UFormGroup label="Custom API host" name="moonshotApiHost">
+          <UInput v-model.trim="state.moonshotApiHost" />
         </UFormGroup>
       </UCard>
 
