@@ -78,7 +78,7 @@ const knowlegeBases = computed(() => {
     return {
       id: knowledgebase.id,
       name: knowledgebase.name,
-      files: knowledgebase.files.map((file) => file.url).join(','),
+      files: knowledgebase.files.map((file) => file.url).join(', '),
       description: knowledgebase.description,
       embedding: knowledgebase.embedding,
     }
@@ -128,7 +128,8 @@ function reset() {
         </UFormGroup>
 
         <UFormGroup label="File as Knowledge Base" name="file">
-          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFiles" @change="onFileChange" />
+          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFiles"
+            @change="onFileChange" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
@@ -142,11 +143,16 @@ function reset() {
         <UTable :columns="columns" :rows="knowlegeBases">
           <template #name-data="{ row }">
             <ULink :to="`/knowledgebases/${row.id}`"
-              class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
+              class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline text-wrap">
               {{ row.name }}
             </ULink>
           </template>
-
+          <template #files-data="{ row }">
+            <span class="text-wrap">{{ row.files }}</span>
+          </template>
+          <template #description-data="{ row }">
+            <span class="text-wrap">{{ row.description }}</span>
+          </template>
           <template #actions-data="{ row }">
             <UDropdown :items="actionsItems(row)">
               <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
