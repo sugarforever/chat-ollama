@@ -7,5 +7,10 @@ pre code.hljs {
 }
 
 .dark {
-    @import 'highlight.js/scss/github-dark.scss';
+  @import 'highlight.js/scss/github-dark.scss';
+}
+
+html, body, #__nuxt {
+  height: 100%;
+  font-family: Noto Sans, SF Pro SC, SF Pro Text, SF Pro Icons, PingFang SC, Helvetica Neue, Helvetica, Arial, sans-serif;
 }

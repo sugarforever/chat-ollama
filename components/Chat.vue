@@ -36,7 +36,6 @@ const chatInputBoxRef = shallowRef()
 const model = useStorage(`model${props.knowledgebase?.id || ''}`, null);
 const messages = ref([]);
 const sending = ref(false);
-let mainEl = null;
 
 const visibleMessages = computed(() => {
   return messages.value.filter((message) => message.role !== 'system');
@@ -121,8 +120,6 @@ const onSend = async (data) => {
 }
 
 onMounted(async () => {
-  mainEl = document.getElementById('main');
-
   instructions.value = [(await loadOllamaInstructions()).map(i => {
     return {
       label: i.name,
@@ -133,11 +130,10 @@ onMounted(async () => {
   })];
 });
 
-
 const messageListEl = ref(null);
 useMutationObserver(messageListEl, () => {
-  mainEl.scrollTo({
-    top: mainEl.scrollHeight,
+  messageListEl.value.scrollTo({
+    top: messageListEl.value.scrollHeight,
     behavior: 'smooth'
   });
 }, { childList: true, subtree: true });
@@ -145,8 +141,8 @@ useMutationObserver(messageListEl, () => {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 p-4 box-border dark:text-gray-300">
-    <div class="flex items-center justify-between mb-4">
+  <div class="flex flex-col flex-1 box-border dark:text-gray-300 -mx-4">
+    <div class="flex items-center justify-between mb-4 px-4 shrink-0">
       <div class="flex items-center">
         <span class="mr-2">Chat with</span>
         <ModelsDropdown v-model="model" placeholder="Select a model" />
@@ -160,16 +156,18 @@ useMutationObserver(messageListEl, () => {
         </ClientOnly>
       </div>
     </div>
-    <div ref="messageListEl" dir="ltr" class="relative flex-1">
-      <template v-for="(message, index) in visibleMessages" :key="index">
+    <div ref="messageListEl" class="relative flex-1 overflow-auto px-4">
+      <div v-for="(message, index) in visibleMessages" :key="index" :class="{ 'text-right': message.role === 'user' }">
         <div class="text-gray-500 dark:text-gray-400">{{ message.role }}</div>
-        <div
-          :class="`${message.role == 'assistant' ? 'bg-white/10' : 'bg-primary-50 dark:bg-primary-400/20'} border border-primary/20 rounded mb-4 px-3 py-2`">
-          <div v-html="markdown.render(message.content)" />
+        <div class="mb-4">
+          <div
+            :class="`inline-flex ${message.role == 'assistant' ? 'bg-white/10' : 'bg-primary-50 dark:bg-primary-400/20'} border border-primary/20 rounded-lg px-3 py-2`">
+            <div v-html="markdown.render(message.content)" />
+          </div>
         </div>
-      </template>
+      </div>
     </div>
-    <div class="shrink-0 sticky bottom-2 pt-4">
+    <div class="shrink-0 pt-4 px-4">
       <ChatInputBox ref="chatInputBoxRef" :disabled="!model" :loading="sending" @submit="onSend" />
     </div>
   </div>

@@ -33,12 +33,10 @@ const links = [
 ]
 </script>
 <template>
-  <div class="h-screen flex flex-col w-full">
-    <UHorizontalNavigation :links="links" class="flex-shrink-0 border-b border-gray-200 dark:border-gray-800" />
+  <UHorizontalNavigation :links="links" class="border-b border-gray-200 dark:border-gray-800" />
 
-    <div id="main" class="p-4 flex-1 box-border overflow-auto">
-      <slot />
-    </div>
-    <UNotifications />
+  <div id="main" class="p-4 box-border overflow-auto" style="height: calc(100% - 61px)">
+    <slot />
   </div>
+  <UNotifications />
 </template>
