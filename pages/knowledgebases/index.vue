@@ -78,7 +78,7 @@ const knowlegeBases = computed(() => {
     return {
       id: knowledgebase.id,
       name: knowledgebase.name,
-      files: knowledgebase.files.map((file) => file.url).join(','),
+      files: knowledgebase.files,
       description: knowledgebase.description,
       embedding: knowledgebase.embedding,
     }
@@ -145,6 +145,13 @@ function reset() {
               class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline">
               {{ row.name }}
             </ULink>
+          </template>
+
+          <template #files-data="{ row }">
+            <ul class="space-y-1">
+              <li v-for="(file, index) in row.files.slice(0, 8)" :key="index">{{ file.url }}</li>
+              <li v-if="row.files.length > 8">...</li>
+            </ul>
           </template>
 
           <template #actions-data="{ row }">
