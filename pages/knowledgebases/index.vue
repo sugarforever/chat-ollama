@@ -58,7 +58,7 @@ const { data, refresh } = await useFetch('/api/knowledgebases');
 const columns = [
   { key: 'id', label: 'ID' },
   { key: 'name', label: 'Name' },
-  { key: 'files', label: 'Files' },
+  { key: 'files', label: 'No. of Files' },
   { key: 'description', label: 'Description' },
   { key: 'embedding', label: 'Embedding' },
   { key: 'actions' }
@@ -108,7 +108,7 @@ function reset() {
           <UTextarea autoresize :rows="2" v-model="state.description" />
         </UFormGroup>
 
-        <UFormGroup label="File as Knowledge Base" name="file">
+        <UFormGroup label="Files as Knowledge Base" name="file">
           <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFiles"
             @change="onFileChange" />
         </UFormGroup>
@@ -132,11 +132,11 @@ function reset() {
           <template #files-data="{ row }">
             <div class="inline-flex">
               <UPopover mode="hover" :popper="{ placement: 'right' }">
-                <UButton color="gray" :label="row.files.length" />
+                <UButton color="gray" variant="soft" :label="'' + row.files.length" />
                 <template #panel>
-                  <ol class="p-2 list-decimal list-inside">
+                  <ul class="p-2 list-inside">
                     <li v-for="el in row.files" :key="el.id" class="my-1">{{ el.url }}</li>
-                  </ol>
+                  </ul>
                 </template>
               </UPopover>
             </div>
