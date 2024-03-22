@@ -8,6 +8,9 @@ const KEYS = [
 
   'x_anthropic_api_key',
   'x_anthropic_api_host',
+
+  'x_moonshot_api_key',
+  'x_moonshot_api_host',
 ] as const;
 
 export type KEYS = typeof KEYS[number];

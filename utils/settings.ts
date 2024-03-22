@@ -15,6 +15,9 @@ const AZURE_OPEN_AI_DEPLOYMENT_NAME = "keys.azure_openai_deployment_name";
 const ANTHROPIC_API_KEY = "keys.anthropic_api_key";
 const ANTHROPIC_API_HOST = 'keys.anthropic_api_host';
 
+const MOONSHOT_API_KEY = "keys.moonshot_api_key";
+const MOONSHOT_API_HOST = 'keys.moonshot_api_host';
+
 export const ollamaHost = useStorage(OLLAMA_HOST, '');
 export const ollamaUsername = useStorage(OLLAMA_USERNAME, '');
 export const ollamaPassword = useStorage(OLLAMA_PASSWORD, '');
@@ -28,6 +31,9 @@ export const azureOpenaiDeploymentName = useStorage(AZURE_OPEN_AI_DEPLOYMENT_NAM
 
 export const anthropicApiHost = useStorage(ANTHROPIC_API_HOST, '');
 export const anthropicApiKey = useStorage(ANTHROPIC_API_KEY, '');
+
+export const moonshotApiKey = useStorage(MOONSHOT_API_KEY, '');
+export const moonshotApiHost = useStorage(MOONSHOT_API_HOST, '');
 
 export const fetchHeadersOllama = computed(() => {
   return {
@@ -48,6 +54,9 @@ export const fetchHeadersThirdApi = computed(() => {
 
     'x_anthropic_api_key': anthropicApiKey.value,
     'x_anthropic_api_host': anthropicApiHost.value,
+
+    'x_moonshot_api_key': moonshotApiKey.value,
+    'x_moonshot_api_host': moonshotApiHost.value,
   }
 })
 

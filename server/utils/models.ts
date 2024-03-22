@@ -39,6 +39,12 @@ export const ANTHROPIC_MODELS = [
   "claude-instant-1.2"
 ];
 
+export const MOONSHOT_MODELS = [
+  "moonshot-v1-8k",
+  "moonshot-v1-32k",
+  "moonshot-v1-128k"
+];
+
 export const isOllamaModelExists = async (ollama: Ollama, embeddingModelName: string) => {
   if (!OPENAI_EMBEDDING_MODELS.includes(embeddingModelName)) {
     const res = await ollama.list();
@@ -94,6 +100,16 @@ export const createChatModel = (modelName: string, event: H3Event): BaseChatMode
     chat = new ChatAnthropic({
       anthropicApiUrl: keys.x_anthropic_api_host || undefined,
       anthropicApiKey: keys.x_anthropic_api_key,
+      modelName: modelName
+    })
+  } else if (MOONSHOT_MODELS.includes(modelName)) {
+    // Reuse openai's sdk
+    console.log("Chat with Moonshot, host:", keys.x_moonshot_api_host);
+    chat = new ChatOpenAI({
+      configuration: {
+        baseURL: keys.x_moonshot_api_host || "https://api.moonshot.cn/v1",
+      },
+      openAIApiKey: keys.x_moonshot_api_key,
       modelName: modelName
     })
   } else {
