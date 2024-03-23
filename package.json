@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "@nuxtjs/google-fonts": "^3.2.0",
+    "@types/markdown-it": "^13.0.7",
     "@types/node": "^20.11.28",
     "@types/ws": "^8.5.10",
     "h3": "^1.11.1",

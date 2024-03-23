@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { useStorage, useMutationObserver } from '@vueuse/core'
 import MarkdownIt from "markdown-it";
 import MarkdownItAbbr from "markdown-it-abbr";
@@ -14,6 +14,7 @@ import {
   fetchHeadersThirdApi,
   loadOllamaInstructions,
 } from '@/utils/settings';
+import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 
 const props = defineProps({
   knowledgebase: Object
@@ -29,12 +30,12 @@ const markdown = new MarkdownIt()
   .use(MarkdownItTasklists)
   .use(MarkdownItTOC);
 
-const instructions = ref([]);
-const selectedInstruction = ref(null);
+const instructions = ref<{ label: string, click: () => void }[][]>([]);
+const selectedInstruction = ref<Awaited<ReturnType<typeof loadOllamaInstructions>>[number]>();
 const chatInputBoxRef = shallowRef()
 
 const model = useStorage(`model${props.knowledgebase?.id || ''}`, null);
-const messages = ref([]);
+const messages = ref<Array<{ role: 'system' | 'assistant' | 'user', content: string }>>([]);
 const sending = ref(false);
 
 const visibleMessages = computed(() => {
@@ -45,7 +46,7 @@ watch(model, async (newModel) => {
   messages.value = [];
 })
 
-const fetchStream = async (url, options) => {
+const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetch(url, options);
 
   if (response.body) {
@@ -75,7 +76,7 @@ const fetchStream = async (url, options) => {
   }
 }
 
-const onSend = async (data) => {
+const onSend = async (data: ChatBoxFormData) => {
   const input = data.content.trim()
   if (sending.value || !input || !model.value) {
     return;
@@ -113,7 +114,7 @@ const onSend = async (data) => {
       ...fetchHeadersOllama.value,
       ...fetchHeadersThirdApi.value,
       'Content-Type': 'application/json',
-    }
+    },
   });
 
   sending.value = false;
@@ -130,9 +131,9 @@ onMounted(async () => {
   })];
 });
 
-const messageListEl = ref(null);
+const messageListEl = shallowRef<HTMLElement>();
 useMutationObserver(messageListEl, () => {
-  messageListEl.value.scrollTo({
+  messageListEl.value?.scrollTo({
     top: messageListEl.value.scrollHeight,
     behavior: 'smooth'
   });
