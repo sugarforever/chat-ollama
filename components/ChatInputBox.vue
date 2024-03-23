@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const emits = defineEmits<{
   submit: [data: ChatBoxFormData]
+  stop: []
 }>()
 
 const submitMode = useStorage<SubmitMode>('sendMode', 'enter')
@@ -20,7 +21,8 @@ const state = reactive<ChatBoxFormData>({
   content: '',
 })
 const tip = computed(() => {
-  return sendModeList[0].find(el => el.value === submitMode.value)?.label
+  const s = sendModeList[0].find(el => el.value === submitMode.value)?.label || ''
+  return `(${s})`
 })
 const isFocus = ref(false)
 const sendModeList = [
@@ -30,7 +32,7 @@ const sendModeList = [
   ]
 ] as const
 const disabledBtn = computed(() => {
-  return props.disabled || !state.content.trim()
+  return props.disabled || (!props.loading && !state.content.trim())
 })
 
 defineExpose({
@@ -45,6 +47,13 @@ function onSubmit() {
   if (props.disabled) return
 
   emits('submit', { ...state })
+}
+
+function onStop(e: Event) {
+  if (props.loading) {
+    e.preventDefault()
+    emits('stop')
+  }
 }
 
 function onReset() {
@@ -63,10 +72,9 @@ function onReset() {
       <div class="flex">
         <div class="flex items-center ml-auto">
           <ClientOnly>
-            <UButton type="submit" :disabled="disabledBtn" class="send-btn" icon="i-iconoir-send-diagonal"
-              :loading="loading" loading-icon="i-iconoir-lens">
-              <span class="text-xs tip-text" v-show="!loading">({{
-      tip }})</span>
+            <UButton type="submit" :disabled="disabledBtn" class="send-btn"
+              :icon="loading ? 'i-iconoir-square' : 'i-iconoir-send-diagonal'" @click="onStop">
+              <span class="text-xs tip-text">{{ loading ? ' Stop' : tip }}</span>
             </UButton>
             <UDropdown :items="sendModeList" :popper="{ placement: 'top-end' }">
               <UButton trailing-icon="i-heroicons-chevron-down-20-solid" class="arrow-btn" />
