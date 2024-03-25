@@ -79,7 +79,7 @@ If you'd like to run with the latest code base and apply changes as needed, you 
         ```
 
     3.3 Run a migration to create your database tables with Prisma Migrate
-    
+
         ```bash
         # npm
         npm run prisma-migrate
@@ -94,25 +94,25 @@ If you'd like to run with the latest code base and apply changes as needed, you 
         bun run prisma-migrate
         ```
 
-#### Development Server
+4. Launch Development Server
 
-> Make sure both __[Ollama Server](#ollama-server)__ and __[ChromaDB](#install-chromadb-and-startup)__ are running.
+    > Make sure both __[Ollama Server](#ollama-server)__ and __[ChromaDB](#install-chromadb-and-startup)__ are running.
 
-Start the development server on `http://localhost:3000`:
+    Start the development server on `http://localhost:3000`:
 
-```bash
-# npm
-npm run dev
+    ```bash
+    # npm
+    npm run dev
 
-# pnpm
-pnpm dev
+    # pnpm
+    pnpm dev
 
-# yarn
-yarn dev
+    # yarn
+    yarn dev
 
-# bun
-bun run dev
-```
+    # bun
+    bun run dev
+    ```
 
 ### Use with Docker
 
