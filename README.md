@@ -26,7 +26,7 @@ If you are a contributor, the channel `technical-discussion` is for you, where w
 
 If you have any issue in `ChatOllama` usage, please report to channel `customer-support`. We will help you out as soon as we can.
 
-## Users Guide
+## Quick Start
 
 As a user of `ChatOllama`, please walk through the document below, to make sure you get all the components up and running before starting using `ChatOllama`.
 
