@@ -112,7 +112,7 @@ const onSend = async (data: ChatBoxFormData) => {
   const body = JSON.stringify({
     knowledgebaseId: props.knowledgebase?.id,
     model: model.value,
-    messages: [...messages.value],
+    messages: [...messages.value.filter(m => m.type !== 'loading')],
     stream: true,
   })
   const controller = new AbortController();
