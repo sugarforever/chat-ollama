@@ -17,12 +17,12 @@ const loadModels = async () => {
     }
   });
 
-  models.value = response.models
+  models.value = response
     // filter out nomic-bert family models，as they as embedding models do not support chat apparently.
     .filter(el => el?.details?.family !== 'nomic-bert')
     .map(el => {
-    return { label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`, value: el.name }
-  })
+      return { label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`, value: el.name }
+    })
 
   if (models.value.length === 0) return
 
