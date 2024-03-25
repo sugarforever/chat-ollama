@@ -87,14 +87,16 @@ export default defineEventHandler(async (event) => {
     console.log(response);
     const readableStream = Readable.from((async function* () {
       for await (const chunk of response) {
-        const message = {
-          message: {
-            role: 'assistant',
-            content: chunk?.answer
-          }
-        };
-        console.log(message);
-        yield `${JSON.stringify(message)}\n\n`;
+        if (chunk?.answer !== undefined) {
+          const message = {
+            message: {
+              role: 'assistant',
+              content: chunk?.answer
+            }
+          };
+          console.log(message);
+          yield `${JSON.stringify(message)}\n\n`;
+        }
       }
     })());
     return sendStream(event, readableStream);
