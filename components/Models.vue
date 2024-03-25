@@ -42,7 +42,7 @@ const loadModels = async () => {
   const response = await $fetch('/api/models/', {
     headers: fetchHeadersOllama.value
   });
-  models.value = response.models;
+  models.value = response;
 };
 
 const selectedRows = ref([]);
