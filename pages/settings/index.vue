@@ -42,7 +42,7 @@ const authorization = ref(false);
 const validate = (state) => {
   const errors = [];
 
-  errors.push(checkHost('host', 'Ollama host'))
+  errors.push(checkHost('ollamaHost', 'Ollama host'))
   errors.push(checkHost('openaiApiHost', 'OpenAI host'))
   errors.push(checkHost('anthropicApiHost', 'Anthropic host'))
   errors.push(checkHost('moonshotApiHost', 'Moonshot host'))
