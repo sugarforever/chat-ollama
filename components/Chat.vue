@@ -51,6 +51,7 @@ const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetch(url, options);
 
   if (response.body) {
+    messages.value = messages.value.filter((message) => message.type !== 'loading');
     const reader = response.body.getReader();
     while (true) {
       const { done, value } = await reader.read();
@@ -62,13 +63,9 @@ const fetchStream = async (url: string, options: RequestInit) => {
           console.log('line: ', line);
           const chatMessage = JSON.parse(line);
           const content = chatMessage?.message?.content;
-          const count = messages.value.length;
           if (content) {
-            if (messages.value[count - 1]?.type === 'loading') {
-              messages.value.pop()
-            }
-            if (count > 0 && messages.value[count - 1].role === 'assistant') {
-              messages.value[count - 1].content += content;
+            if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant') {
+              messages.value[messages.value.length - 1].content += content;
             } else {
               messages.value.push({ role: 'assistant', content });
             }

@@ -84,7 +84,6 @@ export default defineEventHandler(async (event) => {
       messages: [new HumanMessage(query)],
     });
 
-    console.log(response);
     const readableStream = Readable.from((async function* () {
       for await (const chunk of response) {
         if (chunk?.answer !== undefined) {
@@ -94,7 +93,6 @@ export default defineEventHandler(async (event) => {
               content: chunk?.answer
             }
           };
-          console.log(message);
           yield `${JSON.stringify(message)}\n\n`;
         }
       }
