@@ -1,15 +1,18 @@
 import { Readable } from 'stream';
-import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, BaseMessage } from "@langchain/core/messages";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
+import { formatDocumentsAsString } from "langchain/util/document";
+import { PromptTemplate } from "@langchain/core/prompts";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
 import { setEventStreamResponse, FetchWithAuth } from '@/server/utils';
 import { BaseRetriever } from "@langchain/core/retrievers";
+import { StringOutputParser } from "@langchain/core/output_parsers";
 import prisma from "@/server/utils/prisma";
 import { createChatModel, createEmbeddings } from '@/server/utils/models';
 import { createRetriever } from '@/server/retriever';
 
-const SYSTEM_TEMPLATE = `Answer the user's questions based on the below context.
+const SYSTEM_TEMPLATE = `Answer the user's question based on the context below.
 Your answer should be in the format of Markdown.
 
 If the context doesn't contain any relevant information to the question, don't make something up and just say "I don't know":
@@ -17,7 +20,20 @@ If the context doesn't contain any relevant information to the question, don't m
 <context>
 {context}
 </context>
+
+<chat_history>
+{chatHistory}
+</chat_history>
+
+<question>
+{question}
+</question>
+
+Answer:
 `;
+
+const serializeMessages = (messages: Array<BaseMessage>): string =>
+  messages.map((message) => `${message.role}: ${message.content}`).join("\n");
 
 export default defineEventHandler(async (event) => {
   const { knowledgebaseId, model, messages, stream } = await readBody(event);
@@ -36,62 +52,57 @@ export default defineEventHandler(async (event) => {
     }
 
     const embeddings = createEmbeddings(knowledgebase.embedding, event);
-    // const vectorStore = createChromaVectorStore(embeddings, `collection_${knowledgebase.id}`);
     const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`);
-
-    const questionAnsweringPrompt = ChatPromptTemplate.fromMessages([
-      ["system", SYSTEM_TEMPLATE],
-      new MessagesPlaceholder("messages"),
-    ]);
 
     const chat = createChatModel(model, event);
 
     const query = messages[messages.length - 1].content
     console.log("User query: ", query);
 
-    const relevant_docs = await retriever.getRelevantDocuments(query);
-    console.log("Relevant documents: ", relevant_docs);
-
-    const documentChain = await createStuffDocumentsChain({
-      llm: chat,
-      prompt: questionAnsweringPrompt,
-    });
-
-    const parseRetrieverInput = (params) => {
-      return params.messages[params.messages.length - 1].content;
-    };
-
-    const retrievalChain = RunnablePassthrough.assign({
-      context: RunnableSequence.from([parseRetrieverInput, retriever]),
-    }).assign({
-      answer: documentChain,
-    });
+    const chain = RunnableSequence.from([
+      {
+        question: (input: { question: string; chatHistory?: string }) =>
+          input.question,
+        chatHistory: (input: { question: string; chatHistory?: string }) =>
+          input.chatHistory ?? "",
+        context: async (input: { question: string; chatHistory?: string }) => {
+          const relevant_docs = await retriever.getRelevantDocuments(input.question);
+          console.log("Relevant documents: ", relevant_docs);
+          return formatDocumentsAsString(relevant_docs);
+        },
+      },
+      PromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
+      chat
+    ]);
 
     if (!stream) {
-      const response = await retrievalChain.invoke({
-        messages: [new HumanMessage(query)],
+      const response = await chain.invoke({
+        question: query,
+        chatHistory: serializeMessages(messages),
       });
+
       return {
         message: {
           role: 'assistant',
-          content: response?.answer
+          content: response?.content
         }
       };
     }
 
     setEventStreamResponse(event);
-    const response = await retrievalChain.stream({
-      messages: [new HumanMessage(query)],
+    const response = await chain.stream({
+      question: query,
+      chatHistory: serializeMessages(messages),
     });
 
     console.log(response);
     const readableStream = Readable.from((async function* () {
       for await (const chunk of response) {
-        if (chunk?.answer !== undefined) {
+        if (chunk?.content !== undefined) {
           const message = {
             message: {
               role: 'assistant',
-              content: chunk?.answer
+              content: chunk?.content
             }
           };
           console.log(message);
@@ -102,7 +113,7 @@ export default defineEventHandler(async (event) => {
     return sendStream(event, readableStream);
   } else {
     const llm = createChatModel(model, event);
-    const response = await llm?.stream(messages.map((message) => {
+    const response = await llm?.stream(messages.map((message: BaseMessage) => {
       return [message.role, message.content];
     }));
 
