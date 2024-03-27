@@ -1,4 +1,3 @@
-import { Ollama } from 'ollama'
 import { PDFLoader } from "langchain/document_loaders/fs/pdf";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { JSONLoader } from "langchain/document_loaders/fs/json";
@@ -7,6 +6,7 @@ import { MultiPartData, type H3Event } from 'h3';
 import prisma from '@/server/utils/prisma';
 import { createEmbeddings, isOllamaModelExists } from '@/server/utils/models';
 import { createRetriever } from '@/server/retriever';
+import { getOllama } from '@/server/utils/ollama'
 
 const ingestDocument = async (
   file: MultiPartData,
@@ -48,11 +48,9 @@ async function loadDocuments(file: MultiPartData) {
 
 export default defineEventHandler(async (event) => {
   const items = await readMultipartFormData(event);
-  const { host, username, password } = event.context.ollama;
 
   const decoder = new TextDecoder("utf-8");
   const uploadedFiles: MultiPartData[] = [];
-  const ollama: Ollama = new Ollama({ host, fetch: FetchWithAuth.bind({ username, password }) });
 
   let _name = ''
   let _description = ''
@@ -82,6 +80,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const ollama = await getOllama(event, true);
+  if (!ollama) return
   if (!(await isOllamaModelExists(ollama, _embedding))) {
     setResponseStatus(event, 404);
     return {
