@@ -26,8 +26,8 @@ function createOllama(host: string, username: string | null, password: string | 
 }
 
 async function pingOllama(host: string) {
-  const res = await $fetch<string>(host, { ignoreResponseError: true }).catch(() => null)
-  if (res !== 'Ollama is running') {
+  const res = await $fetch.raw(host, { ignoreResponseError: true }).catch(() => null)
+  if (res?.status !== 200) {
     const errMsg = [
       `ChatOllama is unable to establish a connection with ${host}, please check:`,
       '  1. Is Ollama server running ? (run `ollama serve` in terminal to start the server)',
