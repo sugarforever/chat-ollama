@@ -1,13 +1,12 @@
-import { Ollama, type ModelResponse, type ModelDetails } from 'ollama'
-import { FetchWithAuth } from '@/server/utils';
-import { OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS } from '@/server/utils/models';
+import { type ModelResponse, type ModelDetails } from 'ollama'
+import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS } from '@/server/utils/models';
+import { getOllama } from '@/server/utils/ollama'
 
 export interface ModelItem extends Partial<Omit<ModelResponse, 'details'>> {
   details: Partial<ModelDetails> & { family: string }
 }
 
 export default defineEventHandler(async (event) => {
-  const { host, username, password } = event.context.ollama;
   const {
     x_openai_api_key: openai_api_key,
 
@@ -22,17 +21,18 @@ export default defineEventHandler(async (event) => {
   } = event.context.keys;
   const models: ModelItem[] = []
 
-  const ollama = new Ollama({ host, fetch: FetchWithAuth.bind({ username, password }) });
-  const response = await ollama.list();
-
-  models.push(...response.models)
+  const ollama = await getOllama(event)
+  if (ollama) {
+    const response = await ollama.list();
+    models.push(...response.models)
+  }
 
   if (openai_api_key) {
     OPENAI_GPT_MODELS.forEach((model) => {
       models.push({
         name: model,
         details: {
-          family: 'OpenAI'
+          family: MODEL_FAMILIES.openai
         }
       });
     });
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
       models.push({
         name: model,
         details: {
-          family: 'Azure OpenAI'
+          family: MODEL_FAMILIES.azureOpenai
         }
       });
     });
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
       models.push({
         name: model,
         details: {
-          family: 'Anthropic'
+          family: MODEL_FAMILIES.anthropic
         }
       });
     });
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
       models.push({
         name: model,
         details: {
-          family: 'Moonshot'
+          family: MODEL_FAMILIES.moonshot
         }
       });
     });

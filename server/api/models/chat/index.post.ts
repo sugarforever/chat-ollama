@@ -36,7 +36,7 @@ const serializeMessages = (messages: Array<BaseMessage>): string =>
   messages.map((message) => `${message.role}: ${message.content}`).join("\n");
 
 export default defineEventHandler(async (event) => {
-  const { knowledgebaseId, model, messages, stream } = await readBody(event);
+  const { knowledgebaseId, model, family, messages, stream } = await readBody(event);
 
   if (knowledgebaseId) {
     console.log("Chat with knowledge base with id: ", knowledgebaseId);
@@ -54,8 +54,7 @@ export default defineEventHandler(async (event) => {
     const embeddings = createEmbeddings(knowledgebase.embedding, event);
     const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`);
 
-    const chat = createChatModel(model, event);
-
+    const chat = createChatModel(model, family, event);
     const query = messages[messages.length - 1].content
     console.log("User query: ", query);
 
@@ -95,7 +94,6 @@ export default defineEventHandler(async (event) => {
       chatHistory: serializeMessages(messages),
     });
 
-    console.log(response);
     const readableStream = Readable.from((async function* () {
       for await (const chunk of response) {
         if (chunk?.content !== undefined) {
@@ -105,14 +103,13 @@ export default defineEventHandler(async (event) => {
               content: chunk?.content
             }
           };
-          console.log(message);
           yield `${JSON.stringify(message)}\n\n`;
         }
       }
     })());
     return sendStream(event, readableStream);
   } else {
-    const llm = createChatModel(model, event);
+    const llm = createChatModel(model, family, event);
     const response = await llm?.stream(messages.map((message: BaseMessage) => {
       return [message.role, message.content];
     }));

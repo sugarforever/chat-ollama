@@ -1,10 +1,11 @@
-import { Ollama } from 'ollama'
-import { FetchWithAuth } from '@/server/utils';
+import { getOllama } from '@/server/utils/ollama'
 
 export default defineEventHandler(async (event) => {
-  const { host, username, password } = event.context.ollama;
   const { model } = await readBody(event);
-  const ollama = new Ollama({ host, fetch: FetchWithAuth.bind({ username, password }) });
+
+  const ollama = await getOllama(event, true)
+  if (!ollama) return
+
   const response = await ollama.delete({ model });
   return response
 })
