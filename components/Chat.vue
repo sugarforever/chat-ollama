@@ -109,12 +109,22 @@ const onSend = async (data: ChatBoxFormData) => {
     type: 'loading'
   })
 
+  let modelObject = null;
+
+  try {
+    modelObject = JSON.parse(model.value);
+  } catch (e) {
+    console.error("Invalid model storage: ", e);
+  }
+
   const body = JSON.stringify({
     knowledgebaseId: props.knowledgebase?.id,
-    model: model.value,
+    model: modelObject?.model,
+    family: modelObject?.family,
     messages: [...messages.value.filter(m => m.type !== 'loading')],
     stream: true,
   })
+
   const controller = new AbortController();
   abortHandler = () => controller.abort();
   await fetchStream('/api/models/chat', {
