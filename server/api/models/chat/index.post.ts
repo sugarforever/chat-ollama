@@ -20,7 +20,7 @@ If the context doesn't contain any relevant information to the question, don't m
 `;
 
 export default defineEventHandler(async (event) => {
-  const { knowledgebaseId, model, messages, stream } = await readBody(event);
+  const { knowledgebaseId, model, family, messages, stream } = await readBody(event);
 
   if (knowledgebaseId) {
     console.log("Chat with knowledge base with id: ", knowledgebaseId);
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
       new MessagesPlaceholder("messages"),
     ]);
 
-    const chat = createChatModel(model, event);
+    const chat = createChatModel(model, family, event);
 
     const query = messages[messages.length - 1].content
     console.log("User query: ", query);
@@ -99,7 +99,7 @@ export default defineEventHandler(async (event) => {
     })());
     return sendStream(event, readableStream);
   } else {
-    const llm = createChatModel(model, event);
+    const llm = createChatModel(model, family, event);
     const response = await llm?.stream(messages.map((message) => {
       return [message.role, message.content];
     }));
