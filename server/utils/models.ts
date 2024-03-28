@@ -9,6 +9,13 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { type H3Event } from 'h3'
 import { type KEYS } from '@/server/middleware/keys'
 
+export const MODEL_FAMILIES = {
+  openai: 'OpenAI',
+  azureOpenai: 'Azure OpenAI',
+  anthropic: 'Anthropic',
+  moonshot: 'Moonshot',
+};
+
 export const OPENAI_GPT_MODELS = [
   "gpt-3.5-turbo",
   "gpt-4",
@@ -74,11 +81,11 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
   }
 }
 
-export const createChatModel = (modelName: string, event: H3Event): BaseChatModel => {
+export const createChatModel = (modelName: string, family: string, event: H3Event): BaseChatModel => {
   const { host } = event.context.ollama;
   const keys = event.context.keys as Record<KEYS, string>;
   let chat = null;
-  if (OPENAI_GPT_MODELS.includes(modelName)) {
+  if (family === MODEL_FAMILIES.openai && OPENAI_GPT_MODELS.includes(modelName)) {
     console.log("Chat with OpenAI, host:", keys.x_openai_api_host);
     chat = new ChatOpenAI({
       configuration: {
@@ -87,7 +94,7 @@ export const createChatModel = (modelName: string, event: H3Event): BaseChatMode
       openAIApiKey: keys.x_openai_api_key,
       modelName: modelName
     })
-  } else if (AZURE_OPENAI_GPT_MODELS.includes(modelName)) {
+  } else if (family === MODEL_FAMILIES.azureOpenai && AZURE_OPENAI_GPT_MODELS.includes(modelName)) {
     console.log(`Chat with Azure OpenAI endpoint: ${keys.x_azure_openai_endpoint} , deployment: ${keys.x_azure_openai_deployment_name}`);
     chat = new AzureChatOpenAI({
       azureOpenAIEndpoint: keys.x_azure_openai_endpoint,
@@ -95,14 +102,14 @@ export const createChatModel = (modelName: string, event: H3Event): BaseChatMode
       azureOpenAIApiDeploymentName: keys.x_azure_openai_deployment_name,
       modelName: modelName,
     })
-  } else if (ANTHROPIC_MODELS.includes(modelName)) {
+  } else if (family === MODEL_FAMILIES.anthropic && ANTHROPIC_MODELS.includes(modelName)) {
     console.log("Chat with Anthropic, host:", keys.x_anthropic_api_host);
     chat = new ChatAnthropic({
       anthropicApiUrl: keys.x_anthropic_api_host || undefined,
       anthropicApiKey: keys.x_anthropic_api_key,
       modelName: modelName
     })
-  } else if (MOONSHOT_MODELS.includes(modelName)) {
+  } else if (family === MODEL_FAMILIES.moonshot && MOONSHOT_MODELS.includes(modelName)) {
     // Reuse openai's sdk
     console.log("Chat with Moonshot, host:", keys.x_moonshot_api_host);
     chat = new ChatOpenAI({

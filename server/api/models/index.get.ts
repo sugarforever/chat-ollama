@@ -1,5 +1,5 @@
 import { type ModelResponse, type ModelDetails } from 'ollama'
-import { OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS } from '@/server/utils/models';
+import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS } from '@/server/utils/models';
 import { getOllama } from '@/server/utils/ollama'
 
 export interface ModelItem extends Partial<Omit<ModelResponse, 'details'>> {
@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
       models.push({
         name: model,
         details: {
-          family: 'OpenAI'
+          family: MODEL_FAMILIES.openai
         }
       });
     });
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
       models.push({
         name: model,
         details: {
-          family: 'Azure OpenAI'
+          family: MODEL_FAMILIES.azureOpenai
         }
       });
     });
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
       models.push({
         name: model,
         details: {
-          family: 'Anthropic'
+          family: MODEL_FAMILIES.anthropic
         }
       });
     });
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
       models.push({
         name: model,
         details: {
-          family: 'Moonshot'
+          family: MODEL_FAMILIES.moonshot
         }
       });
     });
