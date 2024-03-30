@@ -1,0 +1,10 @@
+{
+    "editor.formatOnSave": true,
+    "javascript.format.semicolons": "remove",
+    "javascript.preferences.quoteStyle": "single",
+    "typescript.format.semicolons": "remove",
+    "typescript.preferences.quoteStyle": "single",
+    "cSpell.words": [
+        "nuxt"
+    ],
+}
