@@ -1,24 +1,32 @@
 <script setup lang="ts">
 import { useStorage, useMutationObserver } from '@vueuse/core'
-import MarkdownIt from "markdown-it";
-import MarkdownItAbbr from "markdown-it-abbr";
-import MarkdownItAnchor from "markdown-it-anchor";
-import MarkdownItFootnote from "markdown-it-footnote";
-import MarkdownItHighlightjs from "markdown-it-highlightjs";
-import MarkdownItSub from "markdown-it-sub";
-import MarkdownItSup from "markdown-it-sup";
-import MarkdownItTasklists from "markdown-it-task-lists";
-import MarkdownItTOC from "markdown-it-toc-done-right";
+import MarkdownIt from "markdown-it"
+import MarkdownItAbbr from "markdown-it-abbr"
+import MarkdownItAnchor from "markdown-it-anchor"
+import MarkdownItFootnote from "markdown-it-footnote"
+import MarkdownItHighlightjs from "markdown-it-highlightjs"
+import MarkdownItSub from "markdown-it-sub"
+import MarkdownItSup from "markdown-it-sup"
+import MarkdownItTasklists from "markdown-it-task-lists"
+import MarkdownItTOC from "markdown-it-toc-done-right"
 import {
   fetchHeadersOllama,
   fetchHeadersThirdApi,
   loadOllamaInstructions,
-} from '@/utils/settings';
+} from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
+
+interface Message {
+  id?: number
+  role: 'system' | 'assistant' | 'user'
+  content: string
+  type?: 'loading' | 'canceled'
+  timestamp: number
+}
 
 const props = defineProps({
   knowledgebase: Object
-});
+})
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -28,93 +36,138 @@ const markdown = new MarkdownIt()
   .use(MarkdownItSub)
   .use(MarkdownItSup)
   .use(MarkdownItTasklists)
-  .use(MarkdownItTOC);
+  .use(MarkdownItTOC)
 
-const instructions = ref<{ label: string, click: () => void }[][]>([]);
-const selectedInstruction = ref<Awaited<ReturnType<typeof loadOllamaInstructions>>[number]>();
+const instructions = ref<{ label: string, click: () => void }[][]>([])
+const selectedInstruction = ref<Awaited<ReturnType<typeof loadOllamaInstructions>>[number]>()
 const chatInputBoxRef = shallowRef()
 
-const model = useStorage(`model${props.knowledgebase?.id || ''}`, null);
-const messages = ref<Array<{ role: 'system' | 'assistant' | 'user', content: string, type?: 'loading' | 'canceled' }>>([]);
-const sending = ref(false);
-let abortHandler: (() => void) | null = null;
+const model = useStorage(`model${props.knowledgebase?.id || ''}`, null)
+const messages = ref<Message[]>([])
+const sending = ref(false)
+let abortHandler: (() => void) | null = null
+const limitHistorySize = 20
 
 const visibleMessages = computed(() => {
-  return messages.value.filter((message) => message.role !== 'system');
-});
+  return messages.value.filter((message) => message.role !== 'system')
+})
 
-watch(model, async (newModel) => {
-  messages.value = [];
+onMounted(() => {
+  // load history
+  clientDB.chatHistories.orderBy('id').offset(0).limit(limitHistorySize).toArray().then(res => {
+    messages.value = res.map(el => {
+      return {
+        id: el.id,
+        content: el.message,
+        role: el.role,
+        timestamp: el.timestamp,
+        type: el.canceled ? 'canceled' : undefined,
+      }
+    })
+  })
 })
 
 const fetchStream = async (url: string, options: RequestInit) => {
-  const response = await fetch(url, options);
+  const response = await fetch(url, options)
 
   if (response.body) {
-    messages.value = messages.value.filter((message) => message.type !== 'loading');
-    const reader = response.body.getReader();
+    messages.value = messages.value.filter((message) => message.type !== 'loading')
+    const reader = response.body.getReader()
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      const { done, value } = await reader.read()
+      if (done) break
 
-      const chunk = new TextDecoder().decode(value);
-      chunk.split("\n\n").forEach(async (line) => {
-        if (line) {
-          console.log('line: ', line);
-          const chatMessage = JSON.parse(line);
-          const content = chatMessage?.message?.content;
-          if (content) {
-            if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'assistant') {
-              messages.value[messages.value.length - 1].content += content;
+      const chunk = new TextDecoder().decode(value)
+      for (const line of chunk.split('\n\n')) {
+        if (!line) continue
+
+        console.log('line: ', line)
+        const chatMessage = JSON.parse(line)
+        const content = chatMessage?.message?.content
+        if (content) {
+          const lastItem = messages.value[messages.value.length - 1]
+          if (messages.value.length > 0 && lastItem.role === 'assistant') {
+            lastItem.content += content
+            if (lastItem.id) {
+              await clientDB.chatHistories
+                .where('id')
+                .equals(lastItem.id)
+                .modify({ message: lastItem.content })
+            }
+          } else {
+            const timestamp = Date.now()
+            const id = await clientDB.chatHistories.add({
+              message: content,
+              model: model.value || '',
+              role: 'assistant',
+              timestamp,
+              canceled: false
+            })
+            const itemData = { id, role: 'assistant', content, timestamp } as const
+            if (messages.value.length >= limitHistorySize) {
+              messages.value = [...messages.value, itemData].slice(-limitHistorySize)
             } else {
-              messages.value.push({ role: 'assistant', content });
+              messages.value.push(itemData)
             }
           }
         }
-      });
+      }
     }
   } else {
-    console.log("The browser doesn't support streaming responses.");
+    console.log("The browser doesn't support streaming responses.")
   }
 }
 
 const onSend = async (data: ChatBoxFormData) => {
   const input = data.content.trim()
   if (sending.value || !input || !model.value) {
-    return;
+    return
   }
 
-  sending.value = true;
+  const timestamp = Date.now()
+  sending.value = true
   chatInputBoxRef.value?.reset()
-
   if (selectedInstruction.value) {
     if (messages.value.length > 0 && messages.value[0].role === 'system') {
-      messages.value[0].content = selectedInstruction.value.instruction;
+      messages.value[0].content = selectedInstruction.value.instruction
     } else {
       messages.value = [{
         role: "system",
-        content: selectedInstruction.value.instruction
-      }, ...messages.value];
+        content: selectedInstruction.value.instruction,
+        timestamp
+      }, ...messages.value]
     }
   }
 
   messages.value.push({
     role: "user",
-    content: input
-  });
+    content: input,
+    timestamp
+  })
 
   messages.value.push({
     role: "assistant",
     content: "",
-    type: 'loading'
+    type: 'loading',
+    timestamp
   })
 
-  let modelObject = null;
+  await clientDB.chatHistories.add({
+    message: input,
+    model: model.value || '',
+    role: 'user',
+    timestamp,
+    canceled: false,
+    instructionId: selectedInstruction.value?.id,
+    knowledgeBaseId: props.knowledgebase?.id,
+  })
+
+  let modelObject = null
 
   try {
-    modelObject = JSON.parse(model.value);
+    modelObject = JSON.parse(model.value)
   } catch (e) {
-    console.error("Invalid model storage: ", e);
+    console.error("Invalid model storage: ", e)
   }
 
   const body = JSON.stringify({
@@ -125,8 +178,8 @@ const onSend = async (data: ChatBoxFormData) => {
     stream: true,
   })
 
-  const controller = new AbortController();
-  abortHandler = () => controller.abort();
+  const controller = new AbortController()
+  abortHandler = () => controller.abort()
   await fetchStream('/api/models/chat', {
     method: 'POST',
     body: body,
@@ -136,9 +189,9 @@ const onSend = async (data: ChatBoxFormData) => {
       'Content-Type': 'application/json',
     },
     signal: controller.signal,
-  });
+  })
 
-  sending.value = false;
+  sending.value = false
 }
 
 onMounted(async () => {
@@ -146,28 +199,34 @@ onMounted(async () => {
     return {
       label: i.name,
       click: () => {
-        selectedInstruction.value = i;
+        selectedInstruction.value = i
       }
     }
-  })];
-});
+  })]
+})
 
-const messageListEl = shallowRef<HTMLElement>();
+const messageListEl = shallowRef<HTMLElement>()
+let isFirstScroll = true
 useMutationObserver(messageListEl, () => {
   messageListEl.value?.scrollTo({
     top: messageListEl.value.scrollHeight,
-    behavior: 'smooth'
-  });
-}, { childList: true, subtree: true });
+    behavior: isFirstScroll ? 'auto' : 'smooth'
+  })
+  isFirstScroll = false
+}, { childList: true, subtree: true })
 
-function onAbortChat() {
+async function onAbortChat() {
   abortHandler?.()
   if (messages.value.length > 0) {
-    const lastOne = messages.value[messages.value.length - 1];
+    const lastOne = messages.value[messages.value.length - 1]
     if (lastOne.type === 'loading') {
-      messages.value.pop();
+      messages.value.pop()
     } else if (lastOne.role === 'assistant') {
-      lastOne.type = 'canceled';
+      lastOne.type = 'canceled'
+      await clientDB.chatHistories
+        .where('timestamp')
+        .equals(lastOne.timestamp)
+        .modify({ canceled: true })
     }
   }
   sending.value = false
