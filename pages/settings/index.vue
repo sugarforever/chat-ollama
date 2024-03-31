@@ -17,6 +17,8 @@ import {
   moonshotApiHost,
 
   geminiApiKey,
+
+  groqApiKey,
 } from '@/utils/settings';
 
 const toast = useToast();
@@ -39,7 +41,9 @@ const state = reactive({
   moonshotApiKey: undefined,
   moonshotApiHost: undefined,
 
-  geminiApiKey: undefined
+  geminiApiKey: undefined,
+
+  groqApiKey: undefined,
 });
 
 const saving = ref(false);
@@ -76,6 +80,8 @@ const onSubmit = async () => {
 
   geminiApiKey.value = state.geminiApiKey;
 
+  groqApiKey.value = state.groqApiKey;
+
   toast.add({ title: `Set successfully!` });
 };
 
@@ -104,6 +110,9 @@ onMounted(() => {
 
   // Gemini
   state.geminiApiKey = geminiApiKey.value;
+
+  // Groq
+  state.groqApiKey = groqApiKey.value;
 
   authorization.value = !!(state.username && state.password);
 });
@@ -194,6 +203,13 @@ const ui = {
         <template #header>Gemini</template>
         <UFormGroup label="API Key" name="geminiApiKey" class="mb-4">
           <UInput v-model="state.geminiApiKey" type="password" />
+        </UFormGroup>
+      </UCard>
+
+      <UCard :ui="ui">
+        <template #header>Groq</template>
+        <UFormGroup label="API Key" name="groqApiKey" class="mb-4">
+          <UInput v-model="state.groqApiKey" type="password" />
         </UFormGroup>
       </UCard>
 

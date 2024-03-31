@@ -31,6 +31,7 @@
         "@langchain/community": "^0.0.33",
         "@langchain/core": "^0.1.44",
         "@langchain/google-genai": "^0.0.10",
+        "@langchain/groq": "^0.0.5",
         "@langchain/openai": "^0.0.15",
         "@nuxt/ui": "^2.14.2",
         "@prisma/client": "^5.10.2",
