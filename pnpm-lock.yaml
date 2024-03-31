@@ -8,6 +8,9 @@ dependencies:
   '@iconify-json/iconoir':
     specifier: ^1.1.42
     version: 1.1.42
+  '@iconify-json/material-symbols':
+    specifier: ^1.1.76
+    version: 1.1.76
   '@langchain/anthropic':
     specifier: ^0.1.5
     version: 0.1.8
@@ -53,6 +56,9 @@ dependencies:
   chromadb:
     specifier: ^1.8.1
     version: 1.8.1(openai@4.29.2)
+  dexie:
+    specifier: ^4.0.1
+    version: 4.0.1
   highlight.js:
     specifier: ^11.9.0
     version: 11.9.0
@@ -959,6 +965,12 @@ packages:
 
   /@iconify-json/iconoir@1.1.42:
     resolution: {integrity: sha512-5FQfS+dSAvHWCBtsp/E+4AKK6jYVCxw98R4LLsY5s8mSUm9BFstjCA5bmTcIl+iYDgc+vUmtW26jYmBEf4gLIA==}
+    dependencies:
+      '@iconify/types': 2.0.0
+    dev: false
+
+  /@iconify-json/material-symbols@1.1.76:
+    resolution: {integrity: sha512-U3S0n2eENEZmAK+b+zvNBPxHySm7eo9bFQaKODlbrFyjNfaZVwpQMs7pZ3ZmeX9YLp0CtV8XqzmRb2YdhLJIkQ==}
     dependencies:
       '@iconify/types': 2.0.0
     dev: false
@@ -4446,6 +4458,10 @@ packages:
 
   /devalue@4.3.2:
     resolution: {integrity: sha512-KqFl6pOgOW+Y6wJgu80rHpo2/3H07vr8ntR9rkkFIRETewbf5GaYYcakYfiKz89K+sLsuPkQIZaXDMjUObZwWg==}
+
+  /dexie@4.0.1:
+    resolution: {integrity: sha512-wSNn+TcCh+DuE2pdg058K3MhxA4g+IiZlW7yGz4cMd/t3z2rJXZcV3HDxZljbrICU2Iq0qY4UHnbolTMK/+bcA==}
+    dev: false
 
   /didyoumean@1.2.2:
     resolution: {integrity: sha512-gxtyfqMg7GKyhQmb056K7M3xszy/myH8w+B4RT+QXBQsvAOdc3XymqDDPHx1BgPgsdAA5SIifona89YtRATDzw==}

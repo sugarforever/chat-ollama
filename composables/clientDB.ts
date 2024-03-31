@@ -1,7 +1,18 @@
 import Dexie, { type Table } from 'dexie'
 
+export interface ChatSession {
+  id?: number
+  title: string
+  createTime: number
+  updateTime: number
+  model: string
+  instructionId?: number
+  knowledgeBaseId?: number
+}
+
 export interface ChatHistory {
   id?: number
+  sessionId: number
   message: string
   timestamp: number
   model: string
@@ -16,10 +27,13 @@ export class MySubClassedDexie extends Dexie {
   // We just tell the typing system this is the case
   chatHistories!: Table<ChatHistory>
 
+  chatSessions!: Table<ChatSession>
+
   constructor() {
     super('chat-ollama')
     this.version(1).stores({
-      chatHistories: '++id, sessionId' // Primary key and indexed props
+      chatSessions: '++id, updateTime',
+      chatHistories: '++id, sessionId', // Primary key and indexed props
     })
   }
 }
