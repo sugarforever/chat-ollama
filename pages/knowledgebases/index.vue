@@ -19,7 +19,7 @@ const validate = (data: typeof state) => {
 
 const selectedFiles = ref([]);
 const onFileChange = async (e: any) => {
-  selectedFiles.value = e.target.files;
+  selectedFiles.value = e.currentTarget?.files;
 };
 const loading = ref(false);
 const onSubmit = async () => {
@@ -109,8 +109,7 @@ function reset() {
         </UFormGroup>
 
         <UFormGroup label="Files as Knowledge Base" name="file">
-          <UInput multiple type="file" size="sm" accept=".txt,.json,.md,.doc,.docx,.pdf" v-model="state.selectedFiles"
-            @change="onFileChange" />
+          <input type="file" class="text-sm" multiple name="file" accept=".txt,.json,.md,.doc,.docx,.pdf" @change="onFileChange" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
