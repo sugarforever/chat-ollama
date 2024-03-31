@@ -5,14 +5,18 @@ import {
   ollamaPassword,
   openAiApiKey,
   openAiApiHost,
+
   azureOpenaiApiKey,
   azureOpenaiEndpoint,
   azureOpenaiDeploymentName,
+
   anthropicApiKey,
   anthropicApiHost,
 
   moonshotApiKey,
   moonshotApiHost,
+
+  geminiApiKey,
 } from '@/utils/settings';
 
 const toast = useToast();
@@ -34,6 +38,8 @@ const state = reactive({
 
   moonshotApiKey: undefined,
   moonshotApiHost: undefined,
+
+  geminiApiKey: undefined
 });
 
 const saving = ref(false);
@@ -68,6 +74,8 @@ const onSubmit = async () => {
   moonshotApiKey.value = state.moonshotApiKey;
   moonshotApiHost.value = state.moonshotApiHost;
 
+  geminiApiKey.value = state.geminiApiKey;
+
   toast.add({ title: `Set successfully!` });
 };
 
@@ -93,6 +101,9 @@ onMounted(() => {
   // Moonshot
   state.moonshotApiKey = moonshotApiKey.value;
   state.moonshotApiHost = moonshotApiHost.value;
+
+  // Gemini
+  state.geminiApiKey = geminiApiKey.value;
 
   authorization.value = !!(state.username && state.password);
 });
@@ -176,6 +187,13 @@ const ui = {
         </UFormGroup>
         <UFormGroup label="Custom API host" name="moonshotApiHost">
           <UInput v-model.trim="state.moonshotApiHost" />
+        </UFormGroup>
+      </UCard>
+
+      <UCard :ui="ui">
+        <template #header>Gemini</template>
+        <UFormGroup label="API Key" name="geminiApiKey" class="mb-4">
+          <UInput v-model="state.geminiApiKey" type="password" />
         </UFormGroup>
       </UCard>
 

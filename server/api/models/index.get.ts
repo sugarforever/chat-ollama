@@ -1,5 +1,5 @@
 import { type ModelResponse, type ModelDetails } from 'ollama'
-import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS } from '@/server/utils/models';
+import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS, GEMINI_MODELS } from '@/server/utils/models';
 import { getOllama } from '@/server/utils/ollama'
 
 export interface ModelItem extends Partial<Omit<ModelResponse, 'details'>> {
@@ -17,7 +17,9 @@ export default defineEventHandler(async (event) => {
     x_anthropic_api_key: anthropic_api_key,
 
     x_moonshot_api_key: moonshot_api_key,
-    x_moonshot_api_host: moonshot_api_host
+    x_moonshot_api_host: moonshot_api_host,
+
+    x_gemini_api_key: gemini_api_key
   } = event.context.keys;
   const models: ModelItem[] = []
 
@@ -66,6 +68,17 @@ export default defineEventHandler(async (event) => {
         name: model,
         details: {
           family: MODEL_FAMILIES.moonshot
+        }
+      });
+    });
+  }
+
+  if (gemini_api_key) {
+    GEMINI_MODELS.forEach((model) => {
+      models.push({
+        name: model,
+        details: {
+          family: MODEL_FAMILIES.gemini
         }
       });
     });
