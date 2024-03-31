@@ -22,7 +22,8 @@ const loadModels = async () => {
     .filter(el => el?.details?.family !== 'nomic-bert')
     .map(el => {
       return {
-        label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`, value: JSON.stringify({
+        label: `${el?.details?.family} ${el.name}`,
+        value: JSON.stringify({
           model: el.name,
           family: el?.details?.family
         })
@@ -45,6 +46,6 @@ loadModels()
 
 <template>
   <ClientOnly>
-    <USelect v-model="currentModel" :options="models" :placeholder="placeholder" />
+    <USelect v-model="currentModel" size="sm" :options="models" :placeholder="placeholder" />
   </ClientOnly>
 </template>

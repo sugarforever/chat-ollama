@@ -20,6 +20,8 @@ const MOONSHOT_API_HOST = 'keys.moonshot_api_host';
 
 const GEMINI_API_KEY = "keys.gemini_api_key";
 
+const GROQ_API_KEY = "keys.groq_api_key";
+
 export const ollamaHost = useStorage(OLLAMA_HOST, '');
 export const ollamaUsername = useStorage(OLLAMA_USERNAME, '');
 export const ollamaPassword = useStorage(OLLAMA_PASSWORD, '');
@@ -38,6 +40,8 @@ export const moonshotApiKey = useStorage(MOONSHOT_API_KEY, '');
 export const moonshotApiHost = useStorage(MOONSHOT_API_HOST, '');
 
 export const geminiApiKey = useStorage(GEMINI_API_KEY, '');
+
+export const groqApiKey = useStorage(GROQ_API_KEY, '');
 
 export const fetchHeadersOllama = computed(() => {
   return {
@@ -62,7 +66,9 @@ export const fetchHeadersThirdApi = computed(() => {
     'x_moonshot_api_key': moonshotApiKey.value,
     'x_moonshot_api_host': moonshotApiHost.value,
 
-    'x_gemini_api_key': geminiApiKey.value
+    'x_gemini_api_key': geminiApiKey.value,
+
+    'x_groq_api_key': groqApiKey.value,
   }
 })
 

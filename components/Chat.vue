@@ -178,7 +178,6 @@ function onAbortChat() {
   <div class="flex flex-col flex-1 box-border dark:text-gray-300 -mx-4">
     <div class="flex items-center justify-between mb-4 px-4 shrink-0">
       <div class="flex items-center">
-        <span class="mr-2">Chat with</span>
         <ModelsDropdown v-model="model" placeholder="Select a model" />
       </div>
       <div>

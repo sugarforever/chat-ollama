@@ -7,6 +7,7 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatGroq } from "@langchain/groq";
 import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { type H3Event } from 'h3'
 import { type KEYS } from '@/server/middleware/keys'
@@ -16,7 +17,8 @@ export const MODEL_FAMILIES = {
   azureOpenai: 'Azure OpenAI',
   anthropic: 'Anthropic',
   moonshot: 'Moonshot',
-  gemini: 'Gemini'
+  gemini: 'Gemini',
+  groq: 'Groq'
 };
 
 export const OPENAI_GPT_MODELS = [
@@ -62,7 +64,13 @@ export const MOONSHOT_MODELS = [
 export const GEMINI_MODELS = [
   "gemini-1.0-pro",
   "gemini-1.0-pro-vision-latest"
-]
+];
+
+export const GROQ_MODELS = [
+  "llama2-70b-4096",
+  "mixtral-8x7b-32768",
+  "gemma-7b-it"
+];
 
 export const isOllamaModelExists = async (ollama: Ollama, embeddingModelName: string) => {
   if (!OPENAI_EMBEDDING_MODELS.includes(embeddingModelName) && !GEMINI_EMBEDDING_MODELS.includes(embeddingModelName)) {
@@ -142,6 +150,12 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
     console.log(`Chat with Gemini ${modelName}`);
     chat = new ChatGoogleGenerativeAI({
       apiKey: keys.x_gemini_api_key,
+      modelName: modelName
+    })
+  } else if (family === MODEL_FAMILIES.groq && GROQ_MODELS.includes(modelName)) {
+    console.log(`Chat with Groq ${modelName}`);
+    chat = new ChatGroq({
+      apiKey: keys.x_groq_api_key,
       modelName: modelName
     })
   } else {

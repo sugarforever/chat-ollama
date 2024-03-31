@@ -12,7 +12,9 @@ const KEYS = [
   'x_moonshot_api_key',
   'x_moonshot_api_host',
 
-  'x_gemini_api_key'
+  'x_gemini_api_key',
+
+  'x_groq_api_key'
 ] as const;
 
 export type KEYS = typeof KEYS[number];

@@ -19,7 +19,9 @@ export default defineEventHandler(async (event) => {
     x_moonshot_api_key: moonshot_api_key,
     x_moonshot_api_host: moonshot_api_host,
 
-    x_gemini_api_key: gemini_api_key
+    x_gemini_api_key: gemini_api_key,
+
+    x_groq_api_key: groq_api_key,
   } = event.context.keys;
   const models: ModelItem[] = []
 
@@ -79,6 +81,17 @@ export default defineEventHandler(async (event) => {
         name: model,
         details: {
           family: MODEL_FAMILIES.gemini
+        }
+      });
+    });
+  }
+
+  if (groq_api_key) {
+    GROQ_MODELS.forEach((model) => {
+      models.push({
+        name: model,
+        details: {
+          family: MODEL_FAMILIES.groq
         }
       });
     });
