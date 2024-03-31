@@ -1,10 +1,12 @@
 import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { Embeddings } from "@langchain/core/embeddings";
 import { OpenAIEmbeddings } from "@langchain/openai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { ChatOpenAI } from '@langchain/openai';
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { type H3Event } from 'h3'
 import { type KEYS } from '@/server/middleware/keys'
@@ -14,6 +16,7 @@ export const MODEL_FAMILIES = {
   azureOpenai: 'Azure OpenAI',
   anthropic: 'Anthropic',
   moonshot: 'Moonshot',
+  gemini: 'Gemini'
 };
 
 export const OPENAI_GPT_MODELS = [
@@ -37,6 +40,10 @@ export const OPENAI_EMBEDDING_MODELS = [
   "text-embedding-ada-002"
 ];
 
+export const GEMINI_EMBEDDING_MODELS = [
+  "embedding-001"
+]
+
 export const ANTHROPIC_MODELS = [
   "claude-3-haiku-20240307",
   "claude-3-opus-20240229",
@@ -52,8 +59,13 @@ export const MOONSHOT_MODELS = [
   "moonshot-v1-128k"
 ];
 
+export const GEMINI_MODELS = [
+  "gemini-1.0-pro",
+  "gemini-1.0-pro-vision-latest"
+]
+
 export const isOllamaModelExists = async (ollama: Ollama, embeddingModelName: string) => {
-  if (!OPENAI_EMBEDDING_MODELS.includes(embeddingModelName)) {
+  if (!OPENAI_EMBEDDING_MODELS.includes(embeddingModelName) && !GEMINI_EMBEDDING_MODELS.includes(embeddingModelName)) {
     const res = await ollama.list();
     return res.models.some(model => model.name.includes(embeddingModelName));
   }
@@ -71,6 +83,13 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
       },
       modelName: embeddingModelName,
       openAIApiKey: keys.x_openai_api_key
+    });
+  } else if (GEMINI_EMBEDDING_MODELS.includes(embeddingModelName)) {
+    console.log(`Creating embeddings for Gemini model: ${embeddingModelName}`);
+    const keys = event.context.keys as Record<KEYS, string>;
+    return new GoogleGenerativeAIEmbeddings({
+      modelName: embeddingModelName,
+      apiKey: keys.x_gemini_api_key
     });
   } else {
     console.log(`Creating embeddings for Ollama served model: ${embeddingModelName}`);
@@ -117,6 +136,12 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
         baseURL: keys.x_moonshot_api_host || "https://api.moonshot.cn/v1",
       },
       openAIApiKey: keys.x_moonshot_api_key,
+      modelName: modelName
+    })
+  } else if (family === MODEL_FAMILIES.gemini && GEMINI_MODELS.includes(modelName)) {
+    console.log(`Chat with Gemini ${modelName}`);
+    chat = new ChatGoogleGenerativeAI({
+      apiKey: keys.x_gemini_api_key,
       modelName: modelName
     })
   } else {
