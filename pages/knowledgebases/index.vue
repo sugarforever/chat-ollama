@@ -19,7 +19,7 @@ const validate = (data: typeof state) => {
 
 const selectedFiles = ref([]);
 const onFileChange = async (e: any) => {
-  selectedFiles.value = e.currentTarget.files || e.dataTransfer.files;
+  selectedFiles.value = e.currentTarget?.files;
 };
 const loading = ref(false);
 const onSubmit = async () => {
