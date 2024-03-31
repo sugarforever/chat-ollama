@@ -259,15 +259,20 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
       </div>
     </div>
     <div ref="messageListEl" class="relative flex-1 overflow-auto px-4">
-      <div v-for="(message, index) in visibleMessages" :key="index" :class="{ 'text-right': message.role === 'user' }">
-        <div class="text-gray-500 dark:text-gray-400">{{ message.role }}</div>
-        <div class="mb-4 leading-6" :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled' }">
-          <div
-               :class="`inline-flex ${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'} border border-primary/20 rounded-lg px-3 py-2`">
+      <div v-for="(message, index) in visibleMessages" :key="index"
+           class="flex flex-col my-2"
+           :class="{ 'items-end': message.role === 'user' }">
+        <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
+        <div class="leading-6" :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled' }">
+          <div class="inline-flex border border-primary/20 rounded-lg px-3 py-2"
+               :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'}`">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
-            <div v-else v-html="markdown.render(message.content)" />
+            <template v-else>
+              <pre v-if="message.role === 'user'" v-html="message.content"></pre>
+              <div v-else v-html="markdown.render(message.content)" />
+            </template>
           </div>
         </div>
       </div>
