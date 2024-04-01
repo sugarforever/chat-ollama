@@ -30,6 +30,21 @@ If you have any issue in `ChatOllama` usage, please report to channel `customer-
 
 As a user of `ChatOllama`, please walk through the document below, to make sure you get all the components up and running before starting using `ChatOllama`.
 
+### Supported Vector Databases
+
+`ChatOllama` supported 2 types of vector databases: Milvus and Chroma.
+
+Please refer to the `.env.example` for how to work with your vector database setup.
+
+```
+# Supported values: chroma, milvus
+VECTOR_STORE=chroma
+CHROMADB_URL=http://localhost:8000
+MILVUS_URL=http://localhost:19530
+```
+
+By default `ChatOllama` is using Chroma. If you'd like to use Milvus, set `VECTOR_STORE` to `milvus` and specify the corresponding URL. It works both in the development server and Docker containers.
+
 ### Use with Nuxt 3 Development Server
 
 If you'd like to run with the latest code base and apply changes as needed, you can clone this repository and follow the steps below.
@@ -158,13 +173,13 @@ If you prefer to use OpenAI, please make sure you set a valid OpenAI API Key in 
 
 There are 2 types of data storage, vector data and relational data. See the summary below and for more details, please refer to [docker-compose.yaml](./docker-compose.yaml) for the settings.
 
-##### Chromadb
+##### Vector data
 
 With `docker-compose.yaml`, a dockerized Chroma database is run side by side with `ChatOllama`. The data is persisted in a docker volume.
 
-##### SQLite
+##### Relational data
 
-The SQLite database file is persisted and mounted from `~/.chatollama/chatollama.sqlite`.
+The relational data including knowledge base records and their associated files are stored in a SQLite database file persisted and mounted from `~/.chatollama/chatollama.sqlite`.
 
 ## Developers Guide
 
