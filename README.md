@@ -58,41 +58,41 @@ If you'd like to run with the latest code base and apply changes as needed, you 
 
     3.1 Copy the `.env.example` file to `.env` file:
 
-        ```bash
-        cp .env.example .env
-        ```
+    ```bash
+    cp .env.example .env
+    ```
 
     3.2 Make sure to install the dependencies:
 
-        ```bash
-        # npm
-        npm install
+    ```bash
+    # npm
+    npm install
 
-        # pnpm
-        pnpm install
+    # pnpm
+    pnpm install
 
-        # yarn
-        yarn install
+    # yarn
+    yarn install
 
-        # bun
-        bun install
-        ```
+    # bun
+    bun install
+    ```
 
     3.3 Run a migration to create your database tables with Prisma Migrate
 
-        ```bash
-        # npm
-        npm run prisma-migrate
+    ```bash
+    # npm
+    npm run prisma-migrate
 
-        # pnpm
-        pnpm prisma-migrate
+    # pnpm
+    pnpm prisma-migrate
 
-        # yarn
-        yarn prisma-migrate
+    # yarn
+    yarn prisma-migrate
 
-        # bun
-        bun run prisma-migrate
-        ```
+    # bun
+    bun run prisma-migrate
+    ```
 
 4. Launch Development Server
 
@@ -140,10 +140,10 @@ We recommand you download `nomic-embed-text` model for embedding purpose.
 
 You can do so on Models page http://localhost:3000/models, or via CLI as below if you are using Docker.
 
-```
+```shell
 # In the folder of docker-compose.yaml
 
-docker compose exec ollama ollama pull nomic-embed-text:latest
+$ docker compose exec ollama ollama pull nomic-embed-text:latest
 ```
 
 **OpenAI Embedding Model**
