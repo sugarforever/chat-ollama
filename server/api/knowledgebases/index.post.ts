@@ -9,12 +9,17 @@ import { createRetriever } from '@/server/retriever';
 import { getOllama } from '@/server/utils/ollama'
 
 const ingestDocument = async (
-  file: MultiPartData,
+  files: MultiPartData[],
   collectionName: string,
   embedding: string,
   event: H3Event
 ) => {
-  const docs = await loadDocuments(file)
+  const docs = [];
+
+  for (const file of files) {
+    const loadedDocs = await loadDocuments(file);
+    docs.push(...loadedDocs);
+  }
 
   // const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
   // const splits = await textSplitter.splitDocuments(docs);
@@ -25,7 +30,7 @@ const ingestDocument = async (
 
   await retriever.addDocuments(docs);
 
-  console.log(`${docs.length} documents added to Chroma collection ${collectionName}.`);
+  console.log(`${docs.length} documents added to collection ${collectionName}.`);
 }
 
 async function loadDocuments(file: MultiPartData) {
@@ -110,9 +115,8 @@ export default defineEventHandler(async (event) => {
   console.log(`Created knowledge base ${_name}: ${affected.id}`);
 
   try {
+    await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event);
     for (const uploadedFile of uploadedFiles) {
-      await ingestDocument(uploadedFile, `collection_${affected.id}`, affected.embedding!, event);
-
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {
           url: uploadedFile.filename!,
