@@ -8,7 +8,7 @@ defineProps<{
 
 <template>
   <UPopover mode="hover" :popper="{ placement: 'bottom-start' }">
-    <UButton :icon="icon" color="gray" size="sm" />
+    <UButton :icon="icon" color="gray" size="sm" class="cursor-default rounded-full" />
     <template #panel>
       <div class="p-2 text-sm max-w-[240px]">
         <h2>{{ title }}</h2>
