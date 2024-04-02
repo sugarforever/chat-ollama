@@ -6,8 +6,10 @@ export interface ChatSession {
   createTime: number
   updateTime: number
   model: string
+  modelFamily: string
   instructionId?: number
   knowledgeBaseId?: number
+  attachedMessagesCount: number
 }
 
 export interface ChatHistory {

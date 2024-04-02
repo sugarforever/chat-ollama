@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useMutationObserver } from '@vueuse/core'
-import { fetchHeadersOllama, fetchHeadersThirdApi, loadOllamaInstructions } from '@/utils/settings'
+import type { KnowledgeBase } from '@prisma/client'
+import { fetchHeadersOllama, fetchHeadersThirdApi, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
+import { ChatSettings } from '#components'
 
 export interface Message {
   id?: number
@@ -15,7 +17,6 @@ export interface Message {
 type Instruction = Awaited<ReturnType<typeof loadOllamaInstructions>>[number]
 
 const props = defineProps<{
-  knowledgebase?: Record<string, any>
   sessionId?: number
 }>()
 
@@ -25,12 +26,15 @@ const emits = defineEmits<{
 }>()
 
 const markdown = useMarkdown()
+const modal = useModal()
 const sessionInfo = ref<ChatSession>()
-const instructions = ref<{ raw: Instruction, label: string, click: () => void }[]>([])
-const selectedInstruction = ref<Instruction>()
+const knowledgeBases: KnowledgeBase[] = []
+const knowledgeBaseInfo = ref<KnowledgeBase>()
+const instructions: Instruction[] = []
+const instructionInfo = ref<Instruction>()
 const chatInputBoxRef = shallowRef()
 const model = ref('')
-const familyModel = ref('')
+const modelFamily = ref('')
 const messages = ref<Message[]>([])
 const sending = ref(false)
 let abortHandler: (() => void) | null = null
@@ -134,16 +138,10 @@ const onSend = async (data: ChatBoxFormData) => {
   const timestamp = Date.now()
   sending.value = true
   chatInputBoxRef.value?.reset()
-  if (selectedInstruction.value) {
-    if (messages.value.length > 0 && messages.value[0].role === 'system') {
-      messages.value[0].content = selectedInstruction.value.instruction
-    } else {
-      messages.value = [
-        { role: "system", content: selectedInstruction.value.instruction, timestamp },
-        ...messages.value
-      ]
-    }
-  }
+
+  const instructionMessage = instructionInfo.value
+    ? { role: "system", content: instructionInfo.value.instruction, timestamp }
+    : []
 
   const id = await saveMessage({
     message: input,
@@ -151,24 +149,29 @@ const onSend = async (data: ChatBoxFormData) => {
     role: 'user',
     timestamp,
     canceled: false,
-    instructionId: selectedInstruction.value?.id,
-    knowledgeBaseId: props.knowledgebase?.id,
+    instructionId: instructionInfo.value?.id,
+    knowledgeBaseId: knowledgeBaseInfo.value?.id
   })
 
   const userMessage = { role: "user", id, content: input, timestamp } as const
   emits('message', userMessage)
+
+  const body = JSON.stringify({
+    knowledgebaseId: knowledgeBaseInfo.value?.id,
+    model: model.value,
+    family: modelFamily.value,
+    messages: [
+      instructionMessage,
+      messages.value.slice(messages.value.length - sessionInfo.value!.attachedMessagesCount),
+      omit(userMessage, ['id'])
+    ].flat(),
+    stream: true,
+  })
+
   messages.value.push(
     userMessage,
     { role: "assistant", content: "", type: 'loading', timestamp }
   )
-
-  const body = JSON.stringify({
-    knowledgebaseId: props.knowledgebase?.id,
-    model: model.value,
-    family: familyModel.value,
-    messages: [...messages.value.filter(m => m.type !== 'loading')],
-    stream: true,
-  })
 
   const controller = new AbortController()
   abortHandler = () => controller.abort()
@@ -187,17 +190,11 @@ const onSend = async (data: ChatBoxFormData) => {
 }
 
 onMounted(async () => {
-  const instructionRes = await loadOllamaInstructions()
-  instructions.value = instructionRes.map(el => {
-    return {
-      raw: el,
-      label: el.name,
-      click: () => {
-        selectedInstruction.value = el
-        onChangeSettings({ instructionId: el.id })
-      }
-    }
-  })
+  await Promise.all([loadOllamaInstructions(), loadKnowledgeBases()])
+    .then(([res1, res2]) => {
+      instructions.push(...res1)
+      knowledgeBases.push(...res2)
+    })
   initData(props.sessionId)
 })
 
@@ -218,8 +215,29 @@ async function onAbortChat() {
   sending.value = false
 }
 
-function onChangeSettings(data: Partial<ChatSessionSettings>) {
-  emits('changeSettings', data)
+function onOpenSettings() {
+  modal.open(ChatSettings, {
+    sessionId: props.sessionId!,
+    onClose: () => modal.close(),
+    onUpdated: data => {
+      const updatedSessionInfo: Partial<ChatSession> = {
+        title: data.title,
+        attachedMessagesCount: data.attachedMessagesCount,
+        knowledgeBaseId: data.knowledgeBaseInfo?.id,
+        instructionId: data.instructionInfo?.id,
+        model: data.modelInfo.value,
+        modelFamily: data.modelInfo.family
+      }
+      Object.assign(sessionInfo.value!, updatedSessionInfo)
+
+      model.value = data.modelInfo.value
+      modelFamily.value = data.modelInfo.family || ''
+      knowledgeBaseInfo.value = data.knowledgeBaseInfo
+      instructionInfo.value = data.instructionInfo
+
+      emits('changeSettings', updatedSessionInfo)
+    }
+  })
 }
 
 async function initData(sessionId?: number) {
@@ -227,8 +245,10 @@ async function initData(sessionId?: number) {
 
   const result = await clientDB.chatSessions.get(sessionId)
   sessionInfo.value = result
-  selectedInstruction.value = instructions.value.find(el => el.raw.id === result?.instructionId)?.raw
+  knowledgeBaseInfo.value = knowledgeBases.find(el => el.id === result?.knowledgeBaseId)
+  instructionInfo.value = instructions.find(el => el.id === result?.instructionId)
   model.value = result?.model || ''
+  modelFamily.value = result?.modelFamily || ''
   messages.value = await loadChatHistory(sessionId)
 }
 
@@ -241,25 +261,23 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
 
 <template>
   <div class="flex flex-col flex-1 box-border dark:text-gray-300 -mx-4">
-    <div class="flex items-center justify-between px-4 pb-2 shrink-0 border-b border-gray-200 dark:border-gray-700">
-      <div class="flex items-center">
-        <span class="mr-2">Chat with</span>
-        <ModelsDropdown v-model="model"
-                        v-model:family="familyModel"
-                        placeholder="Select a model"
-                        @change="onChangeSettings({ model })" />
+    <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
+      <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
+                      :title="instructionInfo.name"
+                      :description="instructionInfo.instruction" />
+      <ChatConfigInfo v-if="knowledgeBaseInfo" icon="i-heroicons-book-open"
+                      :title="knowledgeBaseInfo.name"
+                      class="mx-2" />
+      <div class="mx-auto px-4 text-center">
+        <h2 class="line-clamp-1">{{ sessionInfo?.title || 'Untitled' }}</h2>
+        <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
       </div>
-      <div>
-        <ClientOnly>
-          <UDropdown :items="[instructions]" :popper="{ placement: 'bottom-start' }">
-            <UButton color="white" :label="`${selectedInstruction ? selectedInstruction.name : 'Select Instruction'}`"
-                     trailing-icon="i-heroicons-chevron-down-20-solid" />
-          </UDropdown>
-        </ClientOnly>
-      </div>
+      <UTooltip v-if="sessionId" text="Modify the current session configuration">
+        <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
+      </UTooltip>
     </div>
     <div ref="messageListEl" class="relative flex-1 overflow-auto px-4">
-      <div v-for="(message, index) in visibleMessages" :key="index"
+      <div v-for="( message, index ) in  visibleMessages " :key="index"
            class="flex flex-col my-2"
            :class="{ 'items-end': message.role === 'user' }">
         <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
@@ -278,7 +296,26 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
       </div>
     </div>
     <div class="shrink-0 pt-4 px-4 border-t border-gray-200 dark:border-gray-800">
-      <ChatInputBox ref="chatInputBoxRef" :disabled="!model" :loading="sending" @submit="onSend" @stop="onAbortChat" />
+      <ChatInputBox ref="chatInputBoxRef"
+                    :disabled="!model"
+                    :loading="sending"
+                    @submit="onSend"
+                    @stop="onAbortChat">
+        <div class="text-muted flex">
+          <UTooltip v-if="sessionInfo?.model" text="Current Model" :popper="{ placement: 'top-start' }">
+            <div class="flex items-center mr-4">
+              <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
+              <span class="text-sm">{{ sessionInfo?.model }}</span>
+            </div>
+          </UTooltip>
+          <UTooltip text="Attached Message Count" :popper="{ placement: 'top-start' }">
+            <div class="flex items-center">
+              <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
+              <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>
+            </div>
+          </UTooltip>
+        </div>
+      </ChatInputBox>
     </div>
   </div>
 </template>

@@ -3,18 +3,14 @@ import type { ComponentInstance } from 'vue'
 import ChatSessionList from '~/components/ChatSessionList.vue'
 import { type Message } from '~/components/Chat.vue'
 
-export interface ChatSessionSettings {
-  model?: string
-  knowledgeBaseId?: number
-  instructionId?: number
-}
+export interface ChatSessionSettings extends Partial<Omit<ChatSession, 'id' | 'createTime'>> { }
 
 const chatSessionListRef = shallowRef<ComponentInstance<typeof ChatSessionList>>()
 const sessionId = ref(0)
 const latestMessageId = ref(0)
 
 function onChangeSettings(data: ChatSessionSettings) {
-  chatSessionListRef.value?.updateSessionInfo(data)
+  chatSessionListRef.value?.updateSessionInfo({ ...data, forceUpdateTitle: true })
 }
 
 function onMessage(data: Message) {
@@ -27,6 +23,10 @@ function onMessage(data: Message) {
     latestMessageId.value = data.id!
   }
 }
+
+function onNewChat() {
+  chatSessionListRef.value?.createChat()
+}
 </script>
 
 <template>
@@ -35,9 +35,12 @@ function onMessage(data: Message) {
                      class="shrink-0 w-[240px]"
                      @select="id => sessionId = id" />
     <chat v-if="sessionId > 0"
-          class="grow p-4"
+          class="grow px-4 pb-4"
           :session-id="sessionId"
           @change-settings="onChangeSettings"
           @message="onMessage" />
+    <div v-else class="grow h-full flex justify-center items-center">
+      <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat">New Chat</UButton>
+    </div>
   </div>
 </template>

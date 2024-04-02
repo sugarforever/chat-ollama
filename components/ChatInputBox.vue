@@ -64,12 +64,13 @@ function onReset() {
 
 <template>
   <div
-       class="chat-box border rounded-lg p-2 transition-all transition-300 dark:bg-gray dark:border-gray-700 bg-white dark:bg-gray-900"
+       class="chat-box border rounded-lg p-2 transition-all transition-300 dark:bg-gray dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
        :class="[isFocus ? 'shadow-lg shadow-primary-400/30 dark:shadow-primary-700/20' : '', { 'border-primary-400 dark:border-primary-700': isFocus }]">
     <UForm :state="state" @submit="onSubmit">
-      <TheTextarea v-model="state.content" :max-rows="15" :min-rows="1" :submit-mode="submitMode"
+      <TheTextarea v-model="state.content" :max-rows="15" :min-rows="2" :submit-mode="submitMode"
                    placeholder="Say something..." @focus="isFocus = true" @blur="isFocus = false" />
-      <div class="flex">
+      <div class="flex items-center">
+        <slot></slot>
         <div class="flex items-center ml-auto">
           <ClientOnly>
             <UButton type="submit" :disabled="disabledBtn" class="send-btn"

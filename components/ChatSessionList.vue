@@ -15,9 +15,7 @@ const currentSessionId = useStorage<number>('currentSessionId', 0)
 onMounted(async () => {
   sessionList.value = await getSessionList()
 
-  if (sessionList.value.length === 0) {
-    onNewChat()
-  } else {
+  if (sessionList.value.length > 0) {
     if (currentSessionId.value === -1 || !sessionList.value.some(el => el.id === currentSessionId.value)) {
       currentSessionId.value = sessionList.value[0]?.id || -1
     }
@@ -25,23 +23,17 @@ onMounted(async () => {
   }
 })
 
-defineExpose({ increaseMessageCount, updateSessionInfo })
+defineExpose({ increaseMessageCount, updateSessionInfo, createChat: onNewChat })
 
 async function onNewChat() {
-  const baseData: Omit<ChatSession, 'id'> = {
-    createTime: Date.now(),
-    updateTime: Date.now(),
-    title: '',
-    model: ''
-  }
-  const id = await clientDB.chatSessions.add(baseData)
-  sessionList.value.unshift({ ...baseData, id, count: 0 })
-  onSelectChat(sessionList.value[0])
+  const data = await createChatSession()
+  sessionList.value.unshift(data)
+  onSelectChat(sessionList.value[0].id!)
 }
 
-function onSelectChat(data: ChatSession) {
-  currentSessionId.value = data.id
-  emits('select', data.id!)
+function onSelectChat(sessionId: number) {
+  currentSessionId.value = sessionId
+  emits('select', sessionId)
 }
 
 async function onDeleteChat(data: ChatSession) {
@@ -49,6 +41,14 @@ async function onDeleteChat(data: ChatSession) {
   sessionList.value = sessionList.value.filter(el => el.id !== sessionId)
   await clientDB.chatSessions.where('id').equals(sessionId).delete()
   await clientDB.chatHistories.where('sessionId').equals(sessionId).delete()
+
+  if (currentSessionId.value === sessionId) {
+    if (sessionList.value.length > 0) {
+      onSelectChat(sessionList.value[0].id!)
+    } else {
+      onSelectChat(0)
+    }
+  }
 }
 
 async function getSessionList() {
@@ -68,7 +68,7 @@ async function increaseMessageCount() {
   currentSession.count += 1
 }
 
-async function updateSessionInfo(data: Partial<Pick<ChatSession, 'title' | 'updateTime' | 'model' | 'knowledgeBaseId' | 'instructionId'> & { forceUpdateTitle: boolean }>) {
+async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createTime'> & { forceUpdateTitle: boolean }>) {
   const currentSession = sessionList.value.find(el => el.id === currentSessionId.value)!
   let savedData: Partial<ChatSession>
 
@@ -98,7 +98,7 @@ async function updateSessionInfo(data: Partial<Pick<ChatSession, 'title' | 'upda
       <div v-for="item in sessionList" :key="item.id"
            class="session-item dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-700/30 p-3 cursor-pointer border-b border-gray-200 dark:border-gray-800 flex items-center"
            :class="{ 'bg-primary-100 dark:bg-primary-700/30 activated': currentSessionId === item.id }"
-           @click="onSelectChat(item)">
+           @click="onSelectChat(item.id!)">
         <div class="grow">
           <div class="line-clamp-1">{{ item.title || `New Chat ${item.id}` }}</div>
           <div class="text-sm text-muted line-clamp-1">{{ item.count }} messages</div>
@@ -115,7 +115,7 @@ async function updateSessionInfo(data: Partial<Pick<ChatSession, 'title' | 'upda
   overflow: hidden;
 
   &.activated {
-    border-left: 4px solid rgb(var(--color-primary-500));
+    border-left: 2px solid rgb(var(--color-primary-500));
   }
 
   .btn-delete {
