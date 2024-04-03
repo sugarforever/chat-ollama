@@ -1,47 +1,48 @@
 import { computed } from 'vue'
 import { useStorage } from '@vueuse/core'
+import type { KnowledgeBase } from '@prisma/client'
 
-const OLLAMA_HOST = "ollama.host";
-const OLLAMA_USERNAME = "ollama.username";
-const OLLAMA_PASSWORD = "ollama.password";
+const OLLAMA_HOST = "ollama.host"
+const OLLAMA_USERNAME = "ollama.username"
+const OLLAMA_PASSWORD = "ollama.password"
 
-const OPEN_AI_API_KEY = "keys.openai_api_key";
-const OPEN_AI_API_HOST = 'keys.openai_api_host';
+const OPEN_AI_API_KEY = "keys.openai_api_key"
+const OPEN_AI_API_HOST = 'keys.openai_api_host'
 
-const AZURE_OPEN_AI_API_KEY = "keys.azure_openai_api_key";
-const AZURE_OPEN_AI_ENDPOINT = "keys.azure_openai_endpoint";
-const AZURE_OPEN_AI_DEPLOYMENT_NAME = "keys.azure_openai_deployment_name";
+const AZURE_OPEN_AI_API_KEY = "keys.azure_openai_api_key"
+const AZURE_OPEN_AI_ENDPOINT = "keys.azure_openai_endpoint"
+const AZURE_OPEN_AI_DEPLOYMENT_NAME = "keys.azure_openai_deployment_name"
 
-const ANTHROPIC_API_KEY = "keys.anthropic_api_key";
-const ANTHROPIC_API_HOST = 'keys.anthropic_api_host';
+const ANTHROPIC_API_KEY = "keys.anthropic_api_key"
+const ANTHROPIC_API_HOST = 'keys.anthropic_api_host'
 
-const MOONSHOT_API_KEY = "keys.moonshot_api_key";
-const MOONSHOT_API_HOST = 'keys.moonshot_api_host';
+const MOONSHOT_API_KEY = "keys.moonshot_api_key"
+const MOONSHOT_API_HOST = 'keys.moonshot_api_host'
 
-const GEMINI_API_KEY = "keys.gemini_api_key";
+const GEMINI_API_KEY = "keys.gemini_api_key"
 
-const GROQ_API_KEY = "keys.groq_api_key";
+const GROQ_API_KEY = "keys.groq_api_key"
 
-export const ollamaHost = useStorage(OLLAMA_HOST, '');
-export const ollamaUsername = useStorage(OLLAMA_USERNAME, '');
-export const ollamaPassword = useStorage(OLLAMA_PASSWORD, '');
+export const ollamaHost = useStorage(OLLAMA_HOST, '')
+export const ollamaUsername = useStorage(OLLAMA_USERNAME, '')
+export const ollamaPassword = useStorage(OLLAMA_PASSWORD, '')
 
-export const openAiApiHost = useStorage(OPEN_AI_API_HOST, '');
-export const openAiApiKey = useStorage(OPEN_AI_API_KEY, '');
+export const openAiApiHost = useStorage(OPEN_AI_API_HOST, '')
+export const openAiApiKey = useStorage(OPEN_AI_API_KEY, '')
 
-export const azureOpenaiApiKey = useStorage(AZURE_OPEN_AI_API_KEY, '');
-export const azureOpenaiEndpoint = useStorage(AZURE_OPEN_AI_ENDPOINT, '');
-export const azureOpenaiDeploymentName = useStorage(AZURE_OPEN_AI_DEPLOYMENT_NAME, '');
+export const azureOpenaiApiKey = useStorage(AZURE_OPEN_AI_API_KEY, '')
+export const azureOpenaiEndpoint = useStorage(AZURE_OPEN_AI_ENDPOINT, '')
+export const azureOpenaiDeploymentName = useStorage(AZURE_OPEN_AI_DEPLOYMENT_NAME, '')
 
-export const anthropicApiHost = useStorage(ANTHROPIC_API_HOST, '');
-export const anthropicApiKey = useStorage(ANTHROPIC_API_KEY, '');
+export const anthropicApiHost = useStorage(ANTHROPIC_API_HOST, '')
+export const anthropicApiKey = useStorage(ANTHROPIC_API_KEY, '')
 
-export const moonshotApiKey = useStorage(MOONSHOT_API_KEY, '');
-export const moonshotApiHost = useStorage(MOONSHOT_API_HOST, '');
+export const moonshotApiKey = useStorage(MOONSHOT_API_KEY, '')
+export const moonshotApiHost = useStorage(MOONSHOT_API_HOST, '')
 
-export const geminiApiKey = useStorage(GEMINI_API_KEY, '');
+export const geminiApiKey = useStorage(GEMINI_API_KEY, '')
 
-export const groqApiKey = useStorage(GROQ_API_KEY, '');
+export const groqApiKey = useStorage(GROQ_API_KEY, '')
 
 export const fetchHeadersOllama = computed(() => {
   return {
@@ -74,10 +75,34 @@ export const fetchHeadersThirdApi = computed(() => {
 
 export const loadOllamaInstructions = async () => {
   try {
-    const { instructions } = await $fetch<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`);
-    return instructions;
+    const { instructions } = await $fetch<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`)
+    return instructions
   } catch (e) {
-    console.error("Failed to fetch Ollama instructions", e);
+    console.error("Failed to fetch Ollama instructions", e)
     return []
   }
-};
+}
+
+export async function loadModels() {
+  const response = await $fetch('/api/models/', {
+    headers: {
+      ...fetchHeadersOllama.value,
+      ...fetchHeadersThirdApi.value,
+    }
+  })
+  return response
+    // filter out nomic-bert family models，as they as embedding models do not support chat apparently.
+    .filter(el => el?.details?.family !== 'nomic-bert')
+    .map(el => {
+      return {
+        label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`,
+        value: el.name!,
+        family: el?.details?.family,
+      }
+    })
+}
+
+export async function loadKnowledgeBases() {
+  const response = await $fetch('/api/knowledgebases/').catch(() => null)
+  return (response?.knowledgeBases || []) as KnowledgeBase[]
+}
