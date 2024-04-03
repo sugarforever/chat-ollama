@@ -12,7 +12,7 @@ const links = [
     to: '/models'
   }, {
     label: 'Instructions',
-    icon: 'i-heroicons-document-text',
+    icon: 'i-iconoir-terminal',
     to: '/instructions'
   }, {
     label: 'Knowledge Bases',

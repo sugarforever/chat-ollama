@@ -7,13 +7,10 @@ export default <Partial<Config>>{
         auto: 'auto',
         square: '1 / 1',
         video: '16 / 9'
+      },
+      colors: {
+        muted: 'rgba(140, 140, 140, 0.9)',
       }
-    }
+    },
   },
-  purge: {
-    content: [
-      // ...
-      './content/**/*.md'
-    ]
-  }
 }

@@ -1,14 +1,17 @@
 <script setup lang="ts">
+import { useStorage } from '@vueuse/core'
 import { fetchHeadersOllama, fetchHeadersThirdApi } from '@/utils/settings'
-import { type KnowledgeBase } from '@prisma/client';
+import { type KnowledgeBase } from '@prisma/client'
 
+const router = useRouter()
 const toast = useToast()
 const state = reactive({
   selectedFiles: '',
   name: '',
   embedding: '',
   description: '',
-});
+})
+const currentSessionId = useStorage<number>('currentSessionId', 0)
 
 const validate = (data: typeof state) => {
   const errors = []
@@ -17,22 +20,22 @@ const validate = (data: typeof state) => {
   return errors
 }
 
-const selectedFiles = ref([]);
+const selectedFiles = ref([])
 const onFileChange = async (e: any) => {
-  selectedFiles.value = e.currentTarget?.files;
-};
-const loading = ref(false);
+  selectedFiles.value = e.currentTarget?.files
+}
+const loading = ref(false)
 const onSubmit = async () => {
-  loading.value = true;
-  const formData = new FormData();
+  loading.value = true
+  const formData = new FormData()
   Array.from(selectedFiles.value).forEach((file, index) => {
-    console.log(`Index ${index}`, file);
-    formData.append(`file_${index}`, file);
-  });
+    console.log(`Index ${index}`, file)
+    formData.append(`file_${index}`, file)
+  })
 
-  formData.append("name", state.name);
-  formData.append("description", state.description);
-  formData.append("embedding", state.embedding);
+  formData.append("name", state.name)
+  formData.append("description", state.description)
+  formData.append("embedding", state.embedding)
 
   try {
     await $fetch(`/api/knowledgebases/`, {
@@ -42,18 +45,18 @@ const onSubmit = async () => {
         ...fetchHeadersOllama.value,
         ...fetchHeadersThirdApi.value,
       }
-    });
+    })
     reset()
-    refresh();
+    refresh()
   } catch (e: any) {
-    const msg = e.response._data?.message || e.message;
+    const msg = e.response._data?.message || e.message
     toast.add({ color: 'red', title: 'Tips', description: msg })
   }
 
-  loading.value = false;
+  loading.value = false
 }
 
-const { data, refresh } = await useFetch('/api/knowledgebases');
+const { data, refresh } = await useFetch('/api/knowledgebases')
 
 const columns = [
   { key: 'id', label: 'ID' },
@@ -62,10 +65,15 @@ const columns = [
   { key: 'description', label: 'Description' },
   { key: 'embedding', label: 'Embedding' },
   { key: 'actions' }
-];
+]
 
-const knowledgeBases = computed(() => data.value?.knowledgeBases || []);
+const knowledgeBases = computed(() => data.value?.knowledgeBases || [])
 
+async function onStartChat(data: KnowledgeBase) {
+  const chatSessionInfo = await createChatSession({ title: data.name, knowledgeBaseId: data.id })
+  currentSessionId.value = chatSessionInfo.id
+  router.push('/chat')
+}
 
 const actionsItems = (row: KnowledgeBase) => {
   return [[{
@@ -79,15 +87,15 @@ const onDelete = async (id: number) => {
   await $fetch(`/api/knowledgebases/${id}`, {
     method: 'DELETE',
     body: { id },
-  });
-  refresh();
+  })
+  refresh()
 }
 
 function reset() {
-  state.name = '';
-  state.embedding = '';
-  state.description = '';
-  state.selectedFiles = '';
+  state.name = ''
+  state.embedding = ''
+  state.description = ''
+  state.selectedFiles = ''
 }
 </script>
 
@@ -109,7 +117,8 @@ function reset() {
         </UFormGroup>
 
         <UFormGroup label="Files as Knowledge Base" name="file">
-          <input type="file" class="text-sm" multiple name="file" accept=".txt,.json,.md,.doc,.docx,.pdf" @change="onFileChange" />
+          <input type="file" class="text-sm" multiple name="file" accept=".txt,.json,.md,.doc,.docx,.pdf"
+                 @change="onFileChange" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
@@ -122,8 +131,8 @@ function reset() {
       <ClientOnly>
         <UTable :columns="columns" :rows="knowledgeBases">
           <template #name-data="{ row }">
-            <ULink :to="`/knowledgebases/${row.id}`"
-              class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline text-wrap">
+            <ULink @click="onStartChat(row)"
+                   class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline text-wrap">
               {{ row.name }}
             </ULink>
           </template>
