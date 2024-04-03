@@ -288,8 +288,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
             <template v-else>
-              <pre v-if="message.role === 'user'" v-html="message.content"></pre>
-              <div v-else v-html="markdown.render(message.content)" />
+              <div v-html="markdown.render(message.content)" />
             </template>
           </div>
         </div>
