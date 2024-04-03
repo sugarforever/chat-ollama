@@ -117,7 +117,7 @@ async function onReset() {
         </UFormGroup>
         <template #footer>
           <div class="text-right">
-            <UButton color="gray" class="mr-2" @click="onReset">Rest to Default</UButton>
+            <UButton color="gray" class="mr-2" @click="onReset">Reset to Default</UButton>
             <UButton type="submit">Save</UButton>
           </div>
         </template>
