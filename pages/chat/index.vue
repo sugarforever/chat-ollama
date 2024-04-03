@@ -30,7 +30,7 @@ function onNewChat() {
 </script>
 
 <template>
-  <div class="h-full mx-auto flex flex-1 border border-gray-200 dark:border-gray-800 rounded-md shadow-md">
+  <div class="h-full max-w-6xl mx-auto flex flex-1 border border-gray-200 dark:border-gray-800 rounded-md shadow-md">
     <ChatSessionList ref="chatSessionListRef"
                      class="shrink-0 w-[240px]"
                      @select="id => sessionId = id" />
