@@ -26,10 +26,8 @@ const onSubmit = async () => {
     formData.append(`file_${index}`, file)
   })
 
-  formData.append("knowledgeBaseId", props.knowledgeBase.id)
-
   try {
-    await $fetch(`/api/knowledgebases/`, {
+    await $fetch(`/api/knowledgebases/${props.knowledgeBase.id}`, {
       method: 'PUT',
       body: formData,
       headers: {

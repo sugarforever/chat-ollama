@@ -10,7 +10,7 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
   let _name = ''
   let _description = ''
   let _embedding = ''
-  let _knowledgeBaseId = null
+  const _knowledgeBaseId = event?.context?.params?.id
   items?.forEach((item) => {
     const key = item.name || ''
     const decodeData = decoder.decode(item.data)
@@ -26,17 +26,13 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
     if (key === 'embedding') {
       _embedding = decodeData
     }
-
-    if (key === 'knowledgeBaseId') {
-      _knowledgeBaseId = parseInt(decodeData)
-    }
   })
 
   const formData: KnowledgeBaseFormData = {
     name: _name,
     description: _description,
     embedding: _embedding,
-    knowledgeBaseId: _knowledgeBaseId,
+    knowledgeBaseId: _knowledgeBaseId ? parseInt(_knowledgeBaseId) : null,
     uploadedFiles
   }
 
