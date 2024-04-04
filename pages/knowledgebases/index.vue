@@ -2,6 +2,7 @@
 import { useStorage } from '@vueuse/core'
 import { fetchHeadersOllama, fetchHeadersThirdApi } from '@/utils/settings'
 import { type KnowledgeBase } from '@prisma/client'
+import { KnowledgeBaseUpdateForm } from '#components'
 
 const router = useRouter()
 const toast = useToast()
@@ -11,6 +12,7 @@ const state = reactive({
   embedding: '',
   description: '',
 })
+const modal = useModal()
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 
 const validate = (data: typeof state) => {
@@ -80,6 +82,11 @@ const actionsItems = (row: KnowledgeBase) => {
     label: 'Delete',
     icon: 'i-heroicons-trash-20-solid',
     click: () => onDelete(row.id)
+  }],
+  [{
+    label: 'Update',
+    icon: 'i-heroicons-pencil-square-solid',
+    click: () => onAppendFiles(row)
   }]]
 }
 
@@ -89,6 +96,15 @@ const onDelete = async (id: number) => {
     body: { id },
   })
   refresh()
+}
+
+const onAppendFiles = async (row: KnowledgeBase) => {
+  console.log(row)
+  modal.open(KnowledgeBaseUpdateForm, {
+    knowledgeBase: row,
+    onClose: () => modal.close(),
+    onUpdated: () => refresh()
+  })
 }
 
 function reset() {

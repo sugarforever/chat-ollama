@@ -1,103 +1,36 @@
-import { PDFLoader } from "langchain/document_loaders/fs/pdf";
-import { TextLoader } from "langchain/document_loaders/fs/text";
-import { JSONLoader } from "langchain/document_loaders/fs/json";
-import { DocxLoader } from "langchain/document_loaders/fs/docx";
-import { MultiPartData, type H3Event } from 'h3';
-import prisma from '@/server/utils/prisma';
-import { createEmbeddings, isOllamaModelExists } from '@/server/utils/models';
-import { createRetriever } from '@/server/retriever';
+import { MultiPartData, type H3Event } from 'h3'
+import prisma from '@/server/utils/prisma'
+import { isOllamaModelExists } from '@/server/utils/models'
 import { getOllama } from '@/server/utils/ollama'
-
-const ingestDocument = async (
-  files: MultiPartData[],
-  collectionName: string,
-  embedding: string,
-  event: H3Event
-) => {
-  const docs = [];
-
-  for (const file of files) {
-    const loadedDocs = await loadDocuments(file);
-    docs.push(...loadedDocs);
-  }
-
-  // const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
-  // const splits = await textSplitter.splitDocuments(docs);
-  const embeddings = createEmbeddings(embedding, event);
-
-  // await chromaClient.addDocuments(splits);
-  const retriever = await createRetriever(embeddings, collectionName);
-
-  await retriever.addDocuments(docs);
-
-  console.log(`${docs.length} documents added to collection ${collectionName}.`);
-}
-
-async function loadDocuments(file: MultiPartData) {
-  const Loaders = {
-    pdf: PDFLoader,
-    json: JSONLoader,
-    docx: DocxLoader,
-    doc: DocxLoader,
-    txt: TextLoader,
-    md: TextLoader,
-  } as const;
-
-  const ext = (file.filename?.match(/\.(\w+)$/)?.[1] || 'txt').toLowerCase() as keyof typeof Loaders;
-  if (!Loaders[ext]) {
-    throw new Error(`Unsupported file type: ${ext}`);
-  }
-  const blob = new Blob([file.data], { type: file.type })
-  return new Loaders[ext](blob).load();
-}
+import { ingestDocument } from '~/server/utils/rag'
+import { parseKnowledgeBaseFormRequest } from '@/server/utils/http'
 
 export default defineEventHandler(async (event) => {
-  const items = await readMultipartFormData(event);
 
-  const decoder = new TextDecoder("utf-8");
-  const uploadedFiles: MultiPartData[] = [];
-
-  let _name = ''
-  let _description = ''
-  let _embedding = ''
-  items?.forEach((item) => {
-    const key = item.name || '';
-    const decodeData = decoder.decode(item.data)
-    if (key.startsWith("file_")) {
-      uploadedFiles.push(item);
-    }
-    if (key === 'name') {
-      _name = decodeData
-    }
-    if (key === 'description') {
-      _description = decodeData
-    }
-    if (key === 'embedding') {
-      _embedding = decodeData
-    }
-  });
+  const { name, description, embedding, uploadedFiles } =
+    await parseKnowledgeBaseFormRequest(event)
 
   if (uploadedFiles.length === 0) {
-    setResponseStatus(event, 400);
+    setResponseStatus(event, 400)
     return {
       status: "error",
       message: "Must upload at least one file"
     }
   }
 
-  const ollama = await getOllama(event, true);
+  const ollama = await getOllama(event, true)
   if (!ollama) return
-  if (!(await isOllamaModelExists(ollama, _embedding))) {
-    setResponseStatus(event, 404);
+  if (!(await isOllamaModelExists(ollama, embedding))) {
+    setResponseStatus(event, 404)
     return {
       status: "error",
       message: "Embedding model does not exist in Ollama"
     }
   }
 
-  const exist = await prisma.knowledgeBase.count({ where: { name: _name } }) > 0;
+  const exist = await prisma.knowledgeBase.count({ where: { name: name } }) > 0
   if (exist) {
-    setResponseStatus(event, 409);
+    setResponseStatus(event, 409)
     return {
       status: "error",
       message: "Knowledge Base's Name already exist"
@@ -106,33 +39,33 @@ export default defineEventHandler(async (event) => {
 
   const affected = await prisma.knowledgeBase.create({
     data: {
-      name: _name,
-      description: _description,
-      embedding: _embedding,
+      name: name,
+      description: description,
+      embedding: embedding,
       created: new Date(),
     }
-  });
-  console.log(`Created knowledge base ${_name}: ${affected.id}`);
+  })
+  console.log(`Created knowledge base ${name}: ${affected.id}`)
 
   try {
-    await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event);
+    await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event)
     for (const uploadedFile of uploadedFiles) {
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {
           url: uploadedFile.filename!,
           knowledgeBaseId: affected.id
         }
-      });
+      })
 
-      console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id);
+      console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id)
     }
   } catch (e) {
     await prisma.knowledgeBase.delete({
       where: {
         id: affected.id
       }
-    });
-    throw e;
+    })
+    throw e
   }
 
   return {
