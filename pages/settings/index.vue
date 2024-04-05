@@ -1,223 +1,164 @@
-<script setup>
-import {
-  ollamaHost,
-  ollamaUsername,
-  ollamaPassword,
-  openAiApiKey,
-  openAiApiHost,
+<script setup lang="ts">
+import * as settings from '@/utils/settings'
 
-  azureOpenaiApiKey,
-  azureOpenaiEndpoint,
-  azureOpenaiDeploymentName,
+const toast = useToast()
 
-  anthropicApiKey,
-  anthropicApiHost,
+const fields = [
+  'ollamaHost', 'ollamaUsername', 'ollamaPassword',
+  'openAiApiKey', 'openAiApiHost',
+  'azureOpenaiApiKey', 'azureOpenaiEndpoint', 'azureOpenaiDeploymentName',
+  'anthropicApiKey', 'anthropicApiHost',
+  'moonshotApiKey', 'moonshotApiHost',
+  'geminiApiKey',
+  'groqApiKey',
+] as const
 
-  moonshotApiKey,
-  moonshotApiHost,
+interface LLMListItem {
+  title: string
+  fields: Array<{
+    label: string
+    value: typeof fields[number]
+    type: 'input' | 'password'
+    placeholder?: string
+    rule?: 'url'
+  }>
+}
 
-  geminiApiKey,
+const LLMList: LLMListItem[] = [
+  {
+    title: 'Ollama Server',
+    fields: [
+      { label: 'Host', value: 'ollamaHost', type: 'input', placeholder: '', rule: 'url' },
+      { label: 'User Name', value: 'ollamaUsername', type: 'input', placeholder: 'Optional' },
+      { label: 'Password', value: 'ollamaPassword', type: 'password', placeholder: 'Optional' },
+    ]
+  },
+  {
+    title: 'OpenAI',
+    fields: [
+      { label: 'API Key', value: 'openAiApiKey', type: 'password', placeholder: 'OpenAI API Key' },
+      { label: 'Custom API host', value: 'openAiApiHost', type: 'input', placeholder: 'Optional', rule: 'url' },
+    ]
+  },
+  {
+    title: 'Azure OpenAI',
+    fields: [
+      { label: 'API Key', value: 'azureOpenaiApiKey', type: 'password', placeholder: 'Azure OpenAI API Key' },
+      { label: 'Endpoint', value: 'azureOpenaiEndpoint', type: 'input' },
+      { label: 'Deployment Name', value: 'azureOpenaiDeploymentName', type: 'input' },
+    ]
+  },
+  {
+    title: 'Anthropic',
+    fields: [
+      { label: 'API Key', value: 'anthropicApiKey', type: 'password', placeholder: 'Anthropic API Key' },
+      { label: 'Custom API host', value: 'anthropicApiHost', type: 'input', placeholder: 'Optional', rule: 'url' },
+    ]
+  },
+  {
+    title: 'Moonshot',
+    fields: [
+      { label: 'API Key', value: 'moonshotApiKey', type: 'password', placeholder: 'Moonshot API Key' },
+      { label: 'Custom API host', value: 'moonshotApiHost', type: 'input', placeholder: 'Optional', rule: 'url' },
+    ]
+  },
+  {
+    title: 'Gemini',
+    fields: [
+      { label: 'API Key', value: 'geminiApiKey', type: 'password', placeholder: 'Gemini API Key' },
+    ]
+  },
+  {
+    title: 'Groq',
+    fields: [
+      { label: 'API Key', value: 'groqApiKey', type: 'password', placeholder: 'Groq API Key' },
+    ]
+  },
+]
+const currentLLM = ref(LLMList[0].title)
+const currentLLMFields = computed(() => LLMList.find(el => el.title === currentLLM.value)!.fields)
 
-  groqApiKey,
-} from '@/utils/settings';
+const state = reactive(getData())
 
-const toast = useToast();
+const validate = (data: typeof state) => {
+  const errors: Array<{ path: string, message: string } | null> = []
 
-const state = reactive({
-  ollamaHost: undefined,
-  username: undefined,
-  password: undefined,
+  LLMList.flatMap(el => el.fields).filter(el => el.rule).forEach(el => {
+    const key = el.value as keyof typeof data
+    if (el.rule === 'url' && data[key]) {
+      errors.push(checkHost(key, el.label))
+    }
+  })
 
-  openaiApiKey: undefined,
-  openaiApiHost: undefined,
-
-  azureOpenaiApiKey: undefined,
-  azureOpenaiEndpoint: undefined,
-  azureOpenaiDeploymentName: undefined,
-
-  anthropicApiKey: undefined,
-  anthropicApiHost: undefined,
-
-  moonshotApiKey: undefined,
-  moonshotApiHost: undefined,
-
-  geminiApiKey: undefined,
-
-  groqApiKey: undefined,
-});
-
-const saving = ref(false);
-const authorization = ref(false);
-
-const validate = (state) => {
-  const errors = [];
-
-  errors.push(checkHost('ollamaHost', 'Ollama host'))
-  errors.push(checkHost('openaiApiHost', 'OpenAI host'))
-  errors.push(checkHost('anthropicApiHost', 'Anthropic host'))
-  errors.push(checkHost('moonshotApiHost', 'Moonshot host'))
-
-  return errors.filter(Boolean)
-};
+  return errors.flatMap(el => el ? el : [])
+}
 
 const onSubmit = async () => {
-  ollamaHost.value = state.ollamaHost;
-  ollamaUsername.value = state.username;
-  ollamaPassword.value = state.password;
+  fields.forEach(key => {
+    settings[key].value = state[key]
+  })
+  toast.add({ title: `Set successfully!`, color: 'green' })
+}
 
-  openAiApiKey.value = state.openaiApiKey;
-  openAiApiHost.value = state.openaiApiHost;
+const checkHost = (key: typeof fields[number], title: string) => {
+  const url = state[key]
+  if (!url || /^https?:\/\//i.test(url)) return null
 
-  azureOpenaiApiKey.value = state.azureOpenaiApiKey;
-  azureOpenaiEndpoint.value = state.azureOpenaiEndpoint;
-  azureOpenaiDeploymentName.value = state.azureOpenaiDeploymentName;
-
-  anthropicApiKey.value = state.anthropicApiKey;
-  anthropicApiHost.value = state.anthropicApiHost;
-
-  moonshotApiKey.value = state.moonshotApiKey;
-  moonshotApiHost.value = state.moonshotApiHost;
-
-  geminiApiKey.value = state.geminiApiKey;
-
-  groqApiKey.value = state.groqApiKey;
-
-  toast.add({ title: `Set successfully!` });
-};
-
-onMounted(() => {
-  // Ollama
-  state.ollamaHost = ollamaHost.value;
-  state.username = ollamaUsername.value;
-  state.password = ollamaPassword.value;
-
-  // OpenAI
-  state.openaiApiKey = openAiApiKey.value;
-  state.openaiApiHost = openAiApiHost.value;
-
-  // Azure OpenAI
-  state.azureOpenaiApiKey = azureOpenaiApiKey.value;
-  state.azureOpenaiEndpoint = azureOpenaiEndpoint.value;
-  state.azureOpenaiDeploymentName = azureOpenaiDeploymentName.value;
-
-  // Anthropic
-  state.anthropicApiKey = anthropicApiKey.value;
-  state.anthropicApiHost = anthropicApiHost.value;
-
-  // Moonshot
-  state.moonshotApiKey = moonshotApiKey.value;
-  state.moonshotApiHost = moonshotApiHost.value;
-
-  // Gemini
-  state.geminiApiKey = geminiApiKey.value;
-
-  // Groq
-  state.groqApiKey = groqApiKey.value;
-
-  authorization.value = !!(state.username && state.password);
-});
-
-const checkHost = (path, name) => {
-  const url = state[path]
-  if (!url) return null
-
-  if (/^https?:\/\//i.test(url)) return null
-
-  return { path, message: `${name} must start with http:// or https://` }
+  return { path: key, message: `${title} must start with http:// or https://` }
 }
 
 const ui = {
   header: {
     base: 'font-bold',
-    background: '',
-    padding: 'px-4 py-3 sm:px-6',
+    background: 'bg-[rgb(var(--color-gray-50))] dark:bg-[rgb(var(--color-gray-900))]',
+    padding: 'p-1',
+  },
+  body: {
+    background: 'dark:bg-gray-800',
   }
+}
+
+function getData() {
+  return fields.reduce((acc, cur) => {
+    acc[cur] = settings[cur].value
+    return acc
+  }, {} as Record<typeof fields[number], string>)
 }
 </script>
 
 <template>
-  <div class="w-[640px] mx-auto">
-    <UForm :validate="validate" :state="state" class="space-y-4" @submit="onSubmit">
+  <ClientOnly>
+    <UForm :validate="validate" :state="state" class="max-w-6xl mx-auto" @submit="onSubmit">
       <UCard :ui="ui">
-        <template #header>Ollama Server Setting</template>
-        <UFormGroup label="Host" name="ollamaHost" class="mb-4">
-          <UInput v-model.trim="state.ollamaHost" />
-        </UFormGroup>
-        <ClientOnly>
-          <UCheckbox v-model="authorization" name="authorization" label="Authorization" class="mb-4" />
-        </ClientOnly>
-        <template v-if="authorization">
-          <UFormGroup label="User Name" name="username" class="mb-4">
-            <UInput v-model.trim="state.username" />
-          </UFormGroup>
-          <UFormGroup label="Password" name="password">
-            <UInput v-model="state.password" type="password" />
-          </UFormGroup>
+        <template #header>
+          <div class="flex flex-wrap">
+            <UButton v-for="item, i in LLMList"
+                     :key="item.title"
+                     :color="currentLLM == item.title ? 'primary' : 'gray'"
+                     class="m-1"
+                     @click="currentLLM = item.title">{{ item.title }}</UButton>
+          </div>
         </template>
-      </UCard>
+        <div>
+          <UFormGroup v-for="item in currentLLMFields"
+                      :key="item.value"
+                      :label="item.label"
+                      :name="item.value"
+                      class="mb-4">
+            <UInput v-model.trim="state[item.value as keyof typeof state]"
+                    :type="item.type"
+                    :placeholder="item.placeholder"
+                    size="lg"
+                    :rule="item.rule" />
+          </UFormGroup>
+        </div>
 
-      <UCard :ui="ui">
-        <template #header>OpenAI</template>
-        <UFormGroup label="API Key" name="openaiApiKey" class="mb-4">
-          <UInput v-model="state.openaiApiKey" type="password" />
-        </UFormGroup>
-        <UFormGroup label="Custom API host" name="openaiApiHost">
-          <UInput v-model.trim="state.openaiApiHost" />
-        </UFormGroup>
+        <div class="">
+          <UButton type="submit">
+            Save
+          </UButton>
+        </div>
       </UCard>
-
-      <UCard :ui="ui">
-        <template #header>Azure OpenAI</template>
-        <UFormGroup label="API Key" name="azureOpenaiApiKey" class="mb-4">
-          <UInput v-model="state.azureOpenaiApiKey" type="password" />
-        </UFormGroup>
-        <UFormGroup label="Endpoint" name="azureOpenaiEndpoint" class="mb-4">
-          <UInput v-model="state.azureOpenaiEndpoint" />
-        </UFormGroup>
-        <UFormGroup label="Deployment Name" name="azureOpenaiDeploymentName" class="mb-4">
-          <UInput v-model="state.azureOpenaiDeploymentName" />
-        </UFormGroup>
-      </UCard>
-
-      <UCard :ui="ui">
-        <template #header>Anthropic</template>
-        <UFormGroup label="API Key" name="anthropicApiKey" class="mb-4">
-          <UInput v-model="state.anthropicApiKey" type="password" />
-        </UFormGroup>
-        <UFormGroup label="Custom API host" name="anthropicApiHost">
-          <UInput v-model.trim="state.anthropicApiHost" />
-        </UFormGroup>
-      </UCard>
-
-      <UCard :ui="ui">
-        <template #header>Moonshot</template>
-        <UFormGroup label="API Key" name="moonshotApiKey" class="mb-4">
-          <UInput v-model="state.moonshotApiKey" type="password" />
-        </UFormGroup>
-        <UFormGroup label="Custom API host" name="moonshotApiHost">
-          <UInput v-model.trim="state.moonshotApiHost" />
-        </UFormGroup>
-      </UCard>
-
-      <UCard :ui="ui">
-        <template #header>Gemini</template>
-        <UFormGroup label="API Key" name="geminiApiKey" class="mb-4">
-          <UInput v-model="state.geminiApiKey" type="password" />
-        </UFormGroup>
-      </UCard>
-
-      <UCard :ui="ui">
-        <template #header>Groq</template>
-        <UFormGroup label="API Key" name="groqApiKey" class="mb-4">
-          <UInput v-model="state.groqApiKey" type="password" />
-        </UFormGroup>
-      </UCard>
-
-      <div class="">
-        <UButton type="submit" :loading="saving">
-          Save
-        </UButton>
-      </div>
     </UForm>
-  </div>
+  </ClientOnly>
 </template>
