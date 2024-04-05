@@ -109,7 +109,7 @@ const checkHost = (key: typeof fields[number], title: string) => {
 
 const ui = {
   header: {
-    base: 'font-bold',
+    base: 'font-bold rounded-lg',
     background: 'bg-[rgb(var(--color-gray-50))] dark:bg-[rgb(var(--color-gray-900))]',
     padding: 'p-1',
   },
