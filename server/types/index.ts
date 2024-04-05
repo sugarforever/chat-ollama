@@ -6,4 +6,5 @@ export type KnowledgeBaseFormData = {
   embedding: string
   knowledgeBaseId: number | null
   uploadedFiles: MultiPartData[]
+  urls: string[]
 }
