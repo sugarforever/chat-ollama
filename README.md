@@ -20,7 +20,7 @@
 
 ## Join Our Community
 
-If you are a user, contributor, or even just new to `ChatOllama`, you are more than welcome to join our community on Discord by clicking the [invite link](https://discord.gg/CrvTBVrxXy).
+If you are a user, contributor, or even just new to `ChatOllama`, you are more than welcome to join our community on Discord by clicking the [invite link](https://discord.gg/TjhZGYv5pC).
 
 If you are a contributor, the channel `technical-discussion` is for you, where we discuss technical stuff.
 
