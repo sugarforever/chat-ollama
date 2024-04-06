@@ -207,8 +207,8 @@ async function onAbortChat() {
     } else if (lastOne.role === 'assistant') {
       lastOne.type = 'canceled'
       await clientDB.chatHistories
-        .where('timestamp')
-        .equals(lastOne.timestamp)
+        .where('id')
+        .equals(lastOne.id!)
         .modify({ canceled: true })
     }
   }
