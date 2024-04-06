@@ -290,7 +290,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
             </div>
             <template v-else>
               <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces"></pre>
-              <div v-else v-html="markdown.render(message.content)" />
+                <div v-else v-html="markdown.render(message.content)" class="markdown-body" />
             </template>
           </div>
         </div>
@@ -320,15 +320,3 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
     </div>
   </div>
 </template>
-
-<style>
-code {
-  color: rgb(31, 64, 226);
-  white-space: pre-wrap;
-  margin: 0 0.4em;
-}
-
-.dark code {
-  color: rgb(125, 179, 250);
-}
-</style>
