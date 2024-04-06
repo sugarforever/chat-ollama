@@ -11,6 +11,7 @@ const state = reactive({
   name: '',
   embedding: '',
   description: '',
+  urls: ''
 })
 const modal = useModal()
 const currentSessionId = useStorage<number>('currentSessionId', 0)
@@ -30,8 +31,13 @@ const loading = ref(false)
 const onSubmit = async () => {
   loading.value = true
   const formData = new FormData()
+
+  state.urls
+    .split(' ')
+    .map((url: string) => url.trim())
+    .forEach((url: string) => formData.append('urls', url))
+
   Array.from(selectedFiles.value).forEach((file, index) => {
-    console.log(`Index ${index}`, file)
     formData.append(`file_${index}`, file)
   })
 
@@ -112,6 +118,7 @@ function reset() {
   state.embedding = ''
   state.description = ''
   state.selectedFiles = ''
+  state.urls = ''
 }
 </script>
 
@@ -135,6 +142,10 @@ function reset() {
         <UFormGroup label="Files as Knowledge Base" name="file">
           <input type="file" class="text-sm" multiple name="file" accept=".txt,.json,.md,.doc,.docx,.pdf"
                  @change="onFileChange" />
+        </UFormGroup>
+
+        <UFormGroup label="URLs as Knowledge Base" name="urls">
+          <UTextarea v-model="state.urls" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">

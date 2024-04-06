@@ -1,20 +1,19 @@
-import { MultiPartData, type H3Event } from 'h3'
 import prisma from '@/server/utils/prisma'
 import { isOllamaModelExists } from '@/server/utils/models'
 import { getOllama } from '@/server/utils/ollama'
-import { ingestDocument } from '~/server/utils/rag'
+import { ingestDocument, ingestURLs } from '~/server/utils/rag'
 import { parseKnowledgeBaseFormRequest } from '@/server/utils/http'
 
 export default defineEventHandler(async (event) => {
 
-  const { name, description, embedding, uploadedFiles } =
+  const { name, description, embedding, uploadedFiles, urls } =
     await parseKnowledgeBaseFormRequest(event)
 
-  if (uploadedFiles.length === 0) {
+  if (uploadedFiles.length === 0 && urls.length === 0) {
     setResponseStatus(event, 400)
     return {
       status: "error",
-      message: "Must upload at least one file"
+      message: "Must upload at least one file or one URL"
     }
   }
 
@@ -58,6 +57,18 @@ export default defineEventHandler(async (event) => {
       })
 
       console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id)
+    }
+
+    await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
+    for (const url of urls) {
+      const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
+        data: {
+          url: url,
+          knowledgeBaseId: affected.id
+        }
+      })
+
+      console.log("Knowledge base file created with ID: ", createdKnowledgeBaseFile.id)
     }
   } catch (e) {
     await prisma.knowledgeBase.delete({

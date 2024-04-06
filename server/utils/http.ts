@@ -10,21 +10,27 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
   let _name = ''
   let _description = ''
   let _embedding = ''
+  const urls: string[] = []
   const _knowledgeBaseId = event?.context?.params?.id
   items?.forEach((item) => {
     const key = item.name || ''
-    const decodeData = decoder.decode(item.data)
+    const decodedData = decoder.decode(item.data)
+    if (key === 'urls') {
+      urls.push(decodedData)
+    }
+
     if (key.startsWith("file_")) {
       uploadedFiles.push(item)
     }
+
     if (key === 'name') {
-      _name = decodeData
+      _name = decodedData
     }
     if (key === 'description') {
-      _description = decodeData
+      _description = decodedData
     }
     if (key === 'embedding') {
-      _embedding = decodeData
+      _embedding = decodedData
     }
   })
 
@@ -33,7 +39,8 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
     description: _description,
     embedding: _embedding,
     knowledgeBaseId: _knowledgeBaseId ? parseInt(_knowledgeBaseId) : null,
-    uploadedFiles
+    uploadedFiles,
+    urls: urls
   }
 
   return formData

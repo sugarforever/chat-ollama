@@ -9,7 +9,8 @@ const props = defineProps<{
 
 const toast = useToast()
 const state = reactive({
-  selectedFiles: ''
+  selectedFiles: '',
+  urls: ''
 })
 
 const selectedFiles = ref([])
@@ -21,6 +22,11 @@ const loading = ref(false)
 const onSubmit = async () => {
   loading.value = true
   const formData = new FormData()
+  state.urls
+    .split(' ')
+    .map((url: string) => url.trim())
+    .forEach((url: string) => formData.append('urls', url))
+
   Array.from(selectedFiles.value).forEach((file, index) => {
     console.log(`Index ${index}`, file)
     formData.append(`file_${index}`, file)
@@ -50,7 +56,7 @@ const onSubmit = async () => {
 
 <template>
   <UModal>
-    <div class="p-6 w-[400px]">
+    <div class="p-6 w-full">
       <h2 class="font-bold text-xl mb-4">Update Knowledge Base</h2>
       <UForm :state="state" class="space-y-4" @submit="onSubmit">
         <UFormGroup label="Name" name="name">
@@ -68,6 +74,10 @@ const onSubmit = async () => {
         <UFormGroup label="Import More Files" name="file">
           <input type="file" class="text-sm" multiple name="file" accept=".txt,.json,.md,.doc,.docx,.pdf"
                  @change="onFileChange" />
+        </UFormGroup>
+
+        <UFormGroup label="Import More URLs" name="urls">
+          <UTextarea v-model="state.urls" />
         </UFormGroup>
 
         <UButton type="submit" :loading="loading">
