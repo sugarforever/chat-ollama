@@ -32,10 +32,12 @@ const onSubmit = async () => {
   loading.value = true
   const formData = new FormData()
 
-  state.urls
-    .split(' ')
-    .map((url: string) => url.trim())
-    .forEach((url: string) => formData.append('urls', url))
+  if (state.urls.trim().length > 0) {
+    state.urls
+      .split(' ')
+      .map((url: string) => url.trim())
+      .forEach((url: string) => formData.append('urls', url))
+  }
 
   Array.from(selectedFiles.value).forEach((file, index) => {
     formData.append(`file_${index}`, file)
