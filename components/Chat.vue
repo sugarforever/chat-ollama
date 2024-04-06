@@ -63,8 +63,8 @@ useMutationObserver(messageListEl, () => {
 
 async function loadChatHistory(sessionId?: number) {
   if (typeof sessionId === 'number' && sessionId > 0) {
-    const res = await clientDB.chatHistories.where('sessionId').equals(sessionId).offset(0).limit(limitHistorySize).toArray()
-    return res.map(el => {
+    const res = await clientDB.chatHistories.where('sessionId').equals(sessionId).sortBy('id')
+    return res.slice(-limitHistorySize).map(el => {
       return {
         id: el.id,
         content: el.message,
