@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useMutationObserver } from '@vueuse/core'
+import { useMutationObserver, useThrottleFn } from '@vueuse/core'
 import type { KnowledgeBase } from '@prisma/client'
 import { fetchHeadersOllama, fetchHeadersThirdApi, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
@@ -40,7 +40,7 @@ const sending = ref(false)
 let abortHandler: (() => void) | null = null
 const limitHistorySize = 20
 const messageListEl = shallowRef<HTMLElement>()
-let isFirstScroll = true
+let isScrollSmooth = false
 
 const visibleMessages = computed(() => {
   return messages.value.filter((message) => message.role !== 'system')
@@ -48,18 +48,17 @@ const visibleMessages = computed(() => {
 
 watch(() => props.sessionId, async id => {
   if (id) {
-    isFirstScroll = true
     initData(id)
   }
 })
 
-useMutationObserver(messageListEl, () => {
+useMutationObserver(messageListEl, useThrottleFn(() => {
   messageListEl.value?.scrollTo({
     top: messageListEl.value.scrollHeight,
-    behavior: isFirstScroll ? 'auto' : 'smooth'
+    behavior: isScrollSmooth ? 'smooth' : 'auto'
   })
-  isFirstScroll = false
-}, { childList: true, subtree: true })
+  isScrollSmooth = false
+}, 200), { childList: true, subtree: true })
 
 async function loadChatHistory(sessionId?: number) {
   if (typeof sessionId === 'number' && sessionId > 0) {
@@ -134,6 +133,8 @@ const onSend = async (data: ChatBoxFormData) => {
   if (sending.value || !input || !model.value) {
     return
   }
+
+  isScrollSmooth = true
 
   const timestamp = Date.now()
   sending.value = true
@@ -277,7 +278,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
       </UTooltip>
     </div>
     <div ref="messageListEl" class="relative flex-1 overflow-auto px-4">
-      <div v-for="( message, index ) in  visibleMessages " :key="index"
+      <div v-for="( message, index ) in visibleMessages " :key="index"
            class="flex flex-col my-2"
            :class="{ 'items-end': message.role === 'user' }">
         <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
