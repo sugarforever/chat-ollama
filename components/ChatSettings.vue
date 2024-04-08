@@ -28,6 +28,7 @@ const state = reactive({
   model: '',
   ...defaultConfig,
 })
+const currentModel = computed(() => models.find(el => el.value === state.model))
 
 const instructions = await loadOllamaInstructions()
 const models = await loadModels()
@@ -55,7 +56,7 @@ async function onSave() {
     .equals(props.sessionId)
     .modify({
       ...state,
-      modelFamily: modelInfo.family,
+      modelFamily: currentModel.value?.family,
     })
 
   props.onUpdated?.({
@@ -89,10 +90,20 @@ async function onReset() {
         <UFormGroup label="Model" name="model" required class="mb-4">
           <USelectMenu v-model="state.model"
                        :options="models"
-                       option-attribute="label"
                        value-attribute="value"
                        required
-                       placeholder="Select a model"></USelectMenu>
+                       placeholder="Select a model">
+            <template #label>
+              <span>{{ currentModel?.family }}</span>
+              <span class="text-muted">/</span>
+              <span>{{ state.model }}</span>
+            </template>
+            <template #option="{ option }">
+              <span>{{ option.family }}</span>
+              <span class="text-muted">/</span>
+              <span>{{ option.label }}</span>
+            </template>
+          </USelectMenu>
         </UFormGroup>
         <UFormGroup label="Knowledge Base" name="knowledgeBaseId" class="mb-4">
           <USelectMenu v-model="state.knowledgeBaseId"
