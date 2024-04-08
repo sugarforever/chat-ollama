@@ -1,5 +1,5 @@
 import { type ModelResponse, type ModelDetails } from 'ollama'
-import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS, GEMINI_MODELS } from '@/server/utils/models';
+import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS, GEMINI_MODELS, UMC_OPENAI_GPT_MODELS } from '@/server/utils/models';
 import { getOllama } from '@/server/utils/ollama'
 
 export interface ModelItem extends Partial<Omit<ModelResponse, 'details'>> {
@@ -22,6 +22,12 @@ export default defineEventHandler(async (event) => {
     x_gemini_api_key: gemini_api_key,
 
     x_groq_api_key: groq_api_key,
+
+    // 以下是 UMC Azure OpenAI 需要的參數 - 2024-04-08
+    x_umc_openai_api_key: umc_openai_api_key,
+    x_umc_openai_endpoint: umc_openai_endpoint,
+    x_umc_openai_deployment_name: umc_openai_deployment_name,
+    x_umc_openai_api_version: umc_openai_api_version,
   } = event.context.keys;
   const models: ModelItem[] = []
 
@@ -37,6 +43,18 @@ export default defineEventHandler(async (event) => {
         name: model,
         details: {
           family: MODEL_FAMILIES.openai
+        }
+      });
+    });
+  }
+
+  // 以下是 UMC Azure OpenAI 需要的參數 - 2024-04-08
+  if (umc_openai_api_key && umc_openai_endpoint && umc_openai_deployment_name && umc_openai_api_version) {
+    UMC_OPENAI_GPT_MODELS.forEach((model) => {
+      models.push({
+        name: model,
+        details: {
+          family: MODEL_FAMILIES.umcOpenai
         }
       });
     });

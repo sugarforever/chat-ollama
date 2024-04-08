@@ -18,7 +18,9 @@ export const MODEL_FAMILIES = {
   anthropic: 'Anthropic',
   moonshot: 'Moonshot',
   gemini: 'Gemini',
-  groq: 'Groq'
+  groq: 'Groq',
+  // 以下是 UMC OpenAI 需要的參數 - 2024-04-08
+  umcOpenai: 'UMC OpenAI'
 };
 
 export const OPENAI_GPT_MODELS = [
@@ -26,6 +28,10 @@ export const OPENAI_GPT_MODELS = [
   "gpt-4",
   "gpt-4-32k",
   "gpt-4-turbo-preview"
+];
+
+export const UMC_OPENAI_GPT_MODELS = [
+  "gpt-4-turbo",
 ];
 
 export const AZURE_OPENAI_GPT_MODELS = [
@@ -158,6 +164,17 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
       apiKey: keys.x_groq_api_key,
       modelName: modelName
     })
+  // 以下是 UMC Azure OpenAI 需要的參數 - 2024-04-08
+  } else if (family === MODEL_FAMILIES.umcOpenai && UMC_OPENAI_GPT_MODELS.includes(modelName)) {
+    console.log(`Chat with UMC OpenAI endpoint: ${keys.x_umc_openai_endpoint} , deployment: ${keys.x_umc_openai_deployment_name}`);
+    chat = new ChatOpenAI({
+      temperature: 0.9,
+      azureOpenAIApiKey: keys.x_umc_openai_api_key, // In Node.js defaults to process.env.AZURE_OPENAI_API_KEY
+      azureOpenAIApiVersion: keys.x_umc_openai_api_version, // In Node.js defaults to process.env.AZURE_OPENAI_API_VERSION
+      azureOpenAIApiInstanceName: keys.x_umc_openai_endpoint, // In Node.js defaults to process.env.AZURE_OPENAI_API_INSTANCE_NAME
+      azureOpenAIApiDeploymentName: keys.x_umc_openai_deployment_name, // In Node.js defaults to process.env.AZURE_OPENAI_API_DEPLOYMENT_NAME
+      modelName: modelName,
+    });
   } else {
     console.log("Chat with Ollama, host:", host);
     chat = new ChatOllama({

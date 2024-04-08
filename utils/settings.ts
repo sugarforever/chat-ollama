@@ -23,6 +23,13 @@ const GEMINI_API_KEY = "keys.gemini_api_key"
 
 const GROQ_API_KEY = "keys.groq_api_key"
 
+// 以下是 UMC Azure OpenAI 需要的參數 - 2024-04-08
+const UMC_OPEN_AI_API_KEY = "keys.umc_openai_api_key"
+const UMC_OPEN_AI_ENDPOINT = "keys.umc_openai_endpoint"
+const UMC_OPEN_AI_DEPLOYMENT_NAME = "keys.umc_openai_deployment_name"
+const UMC_OPEN_AI_API_VERSION = "keys.umc_openai_api_version"
+
+
 export const ollamaHost = useStorage(OLLAMA_HOST, '')
 export const ollamaUsername = useStorage(OLLAMA_USERNAME, '')
 export const ollamaPassword = useStorage(OLLAMA_PASSWORD, '')
@@ -43,6 +50,12 @@ export const moonshotApiHost = useStorage(MOONSHOT_API_HOST, '')
 export const geminiApiKey = useStorage(GEMINI_API_KEY, '')
 
 export const groqApiKey = useStorage(GROQ_API_KEY, '')
+
+// 以下是 UMC Azure OpenAI 需要的參數 - 2024-04-08
+export const umcOpenaiApiKey = useStorage(UMC_OPEN_AI_API_KEY, '')
+export const umcOpenaiEndpoint = useStorage(UMC_OPEN_AI_ENDPOINT, '')
+export const umcOpenaiDeploymentName = useStorage(UMC_OPEN_AI_DEPLOYMENT_NAME, '')
+export const umcOpenaiApiVersion = useStorage(UMC_OPEN_AI_API_VERSION, '')
 
 export const fetchHeadersOllama = computed(() => {
   return {
@@ -70,6 +83,12 @@ export const fetchHeadersThirdApi = computed(() => {
     'x_gemini_api_key': geminiApiKey.value,
 
     'x_groq_api_key': groqApiKey.value,
+
+    // 以下是 UMC Azure OpenAI 需要的參數 - 2024-04-08
+    'x_umc_openai_api_key': umcOpenaiApiKey.value,
+    'x_umc_openai_endpoint': umcOpenaiEndpoint.value,
+    'x_umc_openai_deployment_name': umcOpenaiDeploymentName.value,
+    'x_umc_openai_api_version': umcOpenaiApiVersion.value,
   }
 })
 
@@ -95,7 +114,7 @@ export async function loadModels() {
     .filter(el => el?.details?.family !== 'nomic-bert')
     .map(el => {
       return {
-        label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`,
+        label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : (el?.details?.family === "UMC OpenAI" ? `UMC ${el.name}` : el.name)}`,
         value: el.name!,
         family: el?.details?.family,
       }

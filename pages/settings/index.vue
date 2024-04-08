@@ -11,6 +11,8 @@ const fields = [
   'moonshotApiKey', 'moonshotApiHost',
   'geminiApiKey',
   'groqApiKey',
+  // 以下是 UMC Azure OpenAI 需要的參數 - 2024-04-08
+  'umcOpenaiApiKey', 'umcOpenaiApiVersion', 'umcOpenaiEndpoint', 'umcOpenaiDeploymentName',
 ] as const
 
 interface LLMListItem {
@@ -31,6 +33,15 @@ const LLMList: LLMListItem[] = [
       { label: 'Host', value: 'ollamaHost', type: 'input', placeholder: '', rule: 'url' },
       { label: 'User Name', value: 'ollamaUsername', type: 'input', placeholder: 'Optional' },
       { label: 'Password', value: 'ollamaPassword', type: 'password', placeholder: 'Optional' },
+    ]
+  },
+  {
+    title: 'UMC OpenAI',
+    fields: [
+      { label: 'API Key', value: 'umcOpenaiApiKey', type: 'password', placeholder: 'umc OpenAI API Key' },
+      { label: 'API Version', value: 'umcOpenaiApiVersion', type: 'input' },
+      { label: 'Endpoint', value: 'umcOpenaiEndpoint', type: 'input' },
+      { label: 'Deployment Name', value: 'umcOpenaiDeploymentName', type: 'input' },
     ]
   },
   {
@@ -140,16 +151,11 @@ function getData() {
           </div>
         </template>
         <div>
-          <UFormGroup v-for="item in currentLLMFields"
-                      :key="item.value"
-                      :label="item.label"
-                      :name="item.value"
+          <UFormGroup v-for="item in currentLLMFields" :key="item.value" :label="item.label" :name="item.value"
                       class="mb-4">
-            <UInput v-model.trim="state[item.value as keyof typeof state]"
-                    :type="item.type"
+            <UInput v-model.trim="state[item.value as keyof typeof state]" :type="item.type"
                     :placeholder="item.placeholder"
-                    size="lg"
-                    :rule="item.rule" />
+                    size="lg" :rule="item.rule" />
           </UFormGroup>
         </div>
 
