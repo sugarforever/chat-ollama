@@ -5,6 +5,7 @@
   "typescript.format.semicolons": "remove",
   "typescript.preferences.quoteStyle": "single",
   "html.format.wrapAttributes": "preserve-aligned",
+  "vue.format.wrapAttributes": "preserve-aligned",
   "cSpell.words": [
     "nuxt"
   ],
