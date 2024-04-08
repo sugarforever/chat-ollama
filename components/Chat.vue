@@ -290,7 +290,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
             </div>
             <template v-else>
               <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces"></pre>
-                <div v-else v-html="markdown.render(message.content)" class="markdown-body" />
+              <div v-else v-html="markdown.render(message.content)" class="markdown-body" />
             </template>
           </div>
         </div>
@@ -306,6 +306,8 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
           <UTooltip v-if="sessionInfo?.model" text="Current Model" :popper="{ placement: 'top-start' }">
             <div class="flex items-center mr-4">
               <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
+              <span class="text-sm">{{ sessionInfo?.modelFamily }}</span>
+              <span class="text-muted mx-1">/</span>
               <span class="text-sm">{{ sessionInfo?.model }}</span>
             </div>
           </UTooltip>
