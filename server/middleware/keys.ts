@@ -14,18 +14,19 @@ const KEYS = [
 
   'x_gemini_api_key',
 
-  'x_groq_api_key'
-] as const;
+  'x_groq_api_key',
+  'x_groq_api_host',
+] as const
 
-export type KEYS = typeof KEYS[number];
+export type KEYS = typeof KEYS[number]
 
 export default defineEventHandler((event) => {
-  const headers = getRequestHeaders(event);
-  const keys: { [key: string]: any } = {};
+  const headers = getRequestHeaders(event)
+  const keys: { [key: string]: any } = {}
 
   for (const key of KEYS) {
-    keys[key] = headers[key];
+    keys[key] = headers[key]
   }
 
-  event.context.keys = keys;
+  event.context.keys = keys
 })

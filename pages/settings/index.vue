@@ -10,7 +10,7 @@ const fields = [
   'anthropicApiKey', 'anthropicApiHost',
   'moonshotApiKey', 'moonshotApiHost',
   'geminiApiKey',
-  'groqApiKey',
+  'groqApiKey', 'groqApiHost',
 ] as const
 
 interface LLMListItem {
@@ -72,6 +72,7 @@ const LLMList: LLMListItem[] = [
     title: 'Groq',
     fields: [
       { label: 'API Key', value: 'groqApiKey', type: 'password', placeholder: 'Groq API Key' },
+      { label: 'API Host', value: 'groqApiHost', type: 'input', placeholder: 'Optional' },
     ]
   },
 ]
