@@ -55,15 +55,15 @@ export default defineEventHandler(async (event) => {
     const query = messages[messages.length - 1].content
     console.log("User query: ", query)
 
+    const relevant_docs = await retriever.getRelevantDocuments(query)
+    console.log("Relevant documents: ", relevant_docs)
     const chain = RunnableSequence.from([
       {
         question: (input: { question: string; chatHistory?: string }) =>
           input.question,
         chatHistory: (input: { question: string; chatHistory?: string }) =>
           input.chatHistory ?? "",
-        context: async (input: { question: string; chatHistory?: string }) => {
-          const relevant_docs = await retriever.getRelevantDocuments(input.question)
-          console.log("Relevant documents: ", relevant_docs)
+        context: async () => {
           return formatDocumentsAsString(relevant_docs)
         },
       },
@@ -80,7 +80,8 @@ export default defineEventHandler(async (event) => {
       return {
         message: {
           role: 'assistant',
-          content: response?.content
+          content: response?.content,
+          relevant_docs
         }
       }
     }
@@ -103,6 +104,12 @@ export default defineEventHandler(async (event) => {
           yield `${JSON.stringify(message)}\n\n`
         }
       }
+
+      const docsChunk = {
+        type: "relevant_documents",
+        relevant_documents: relevant_docs
+      }
+      yield `${JSON.stringify(docsChunk)}\n\n`
     })())
     return sendStream(event, readableStream)
   } else {

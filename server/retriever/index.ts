@@ -1,19 +1,19 @@
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-import { Embeddings } from "@langchain/core/embeddings";
-import { ParentDocumentRetriever } from "langchain/retrievers/parent_document";
-import { RedisDocstore } from '@/server/docstore/redis';
-import { createVectorStore } from '@/server/utils/vectorstores';
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+import { Embeddings } from "@langchain/core/embeddings"
+import { ParentDocumentRetriever } from "langchain/retrievers/parent_document"
+import { RedisDocstore } from '@/server/docstore/redis'
+import { createVectorStore } from '@/server/utils/vectorstores'
 
 export const createRetriever = async (embeddings: Embeddings, collectionName: string) => {
-  const vectorStore = createVectorStore(embeddings, collectionName);
+  const vectorStore = createVectorStore(embeddings, collectionName)
   if (process.env.VERTOR_STORE === 'chroma') {
-    await vectorStore.ensureCollection();
+    await vectorStore.ensureCollection()
   }
 
-  let retriever = null;
+  let retriever = null
 
   if (process.env.REDIS_HOST) {
-    console.log("Initializing ParentDocumentRetriever with RedisDocstore");
+    console.log("Initializing ParentDocumentRetriever with RedisDocstore")
     retriever = new ParentDocumentRetriever({
       vectorstore: vectorStore,
       docstore: new RedisDocstore(collectionName),
@@ -26,12 +26,12 @@ export const createRetriever = async (embeddings: Embeddings, collectionName: st
         chunkSize: 200,
       }),
       childK: 20,
-      parentK: 5,
-    });
+      parentK: 4,
+    })
   } else {
-    console.log("Initializing vector store retriever");
-    return vectorStore.asRetriever(4);
+    console.log("Initializing vector store retriever")
+    return vectorStore.asRetriever(4)
   }
 
-  return retriever;
+  return retriever
 }
