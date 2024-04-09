@@ -13,13 +13,19 @@ function onChangeSettings(data: ChatSessionSettings) {
   chatSessionListRef.value?.updateSessionInfo({ ...data, forceUpdateTitle: true })
 }
 
-function onMessage(data: Message) {
+function onMessage(data: Message | null) {
+  // remove a message if it's null
+  if (data === null) {
+    chatSessionListRef.value?.updateMessageCount(-1)
+    return
+  }
+
   chatSessionListRef.value?.updateSessionInfo({
     title: data.content.slice(0, 20),
     updateTime: data.timestamp,
   })
   if (latestMessageId.value !== data.id) {
-    chatSessionListRef.value?.increaseMessageCount()
+    chatSessionListRef.value?.updateMessageCount(1)
     latestMessageId.value = data.id!
   }
 }
