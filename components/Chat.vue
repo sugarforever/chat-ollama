@@ -80,6 +80,14 @@ async function loadChatHistory(sessionId?: number) {
   return []
 }
 
+const processRelevantDocuments = (chunk) => {
+  if (chunk?.type === 'relevant_documents') {
+    const lastMessage = messages.value[messages.value.length - 1]
+    if (lastMessage?.role === 'assistant') {
+      lastMessage.relevant_documents = chunk?.relevant_documents
+    }
+  }
+}
 const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetch(url, options)
 
@@ -96,6 +104,9 @@ const fetchStream = async (url: string, options: RequestInit) => {
 
         console.log('line: ', line)
         const chatMessage = JSON.parse(line)
+
+        processRelevantDocuments(chatMessage)
+
         const content = chatMessage?.message?.content
         if (content) {
           const lastItem = messages.value[messages.value.length - 1]
@@ -305,7 +316,10 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
             </div>
             <template v-else>
               <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces"></pre>
-              <div v-else v-html="markdown.render(message.content)" class="markdown-body" />
+              <div v-else>
+                <div v-html="markdown.render(message.content)" class="markdown-body" />
+                <Sources :relevant_documents="message?.relevant_documents" />
+              </div>
             </template>
           </div>
           <ChatMessageActionMore :message="message"

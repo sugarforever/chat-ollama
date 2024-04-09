@@ -55,6 +55,7 @@ export const ingestDocument = async (
 
   for (const file of files) {
     const loadedDocs = await loadDocuments(file)
+    loadedDocs.forEach((doc) => doc.metadata.source = file.filename)
     docs.push(...loadedDocs)
   }
 
@@ -84,5 +85,5 @@ export const ingestURLs = async (
 
   await retriever.addDocuments(docs)
 
-  console.log(`${docs.length} documents added to collection ${collectionName}.`)
+  console.log(`${docs.length} URLs added to collection ${collectionName}.`)
 }
