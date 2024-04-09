@@ -261,7 +261,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 box-border dark:text-gray-300 -mx-4">
+  <div class="flex flex-col box-border dark:text-gray-300 -mx-4">
     <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
       <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
                       :title="instructionInfo.name"
@@ -277,14 +277,14 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
         <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
       </UTooltip>
     </div>
-    <div ref="messageListEl" class="relative flex-1 overflow-auto px-4">
+    <div ref="messageListEl" class="relative flex-1 overflow-x-hidden overflow-y-auto px-4">
       <div v-for="( message, index ) in visibleMessages " :key="index"
            class="flex flex-col my-2"
            :class="{ 'items-end': message.role === 'user' }">
         <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
-        <div class="leading-6 text-sm"
-             :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled' }">
-          <div class="inline-flex border border-primary/20 rounded-lg px-3 py-2"
+        <div class="leading-6 text-sm flex items-center max-w-full"
+             :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
+          <div class="border border-primary/20 rounded-lg p-3 max-w-full box-border"
                :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'}`">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">

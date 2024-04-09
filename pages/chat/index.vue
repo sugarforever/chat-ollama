@@ -30,12 +30,13 @@ function onNewChat() {
 </script>
 
 <template>
-  <div class="h-full max-w-6xl mx-auto flex flex-1 border border-gray-200 dark:border-gray-800 rounded-md shadow-md">
+  <div class="h-full max-w-6xl mx-auto flex flex-1 border border-gray-200 dark:border-gray-800 rounded-md shadow-md"
+       style="--chat-side-width:240px">
     <ChatSessionList ref="chatSessionListRef"
-                     class="shrink-0 w-[240px]"
+                     class="shrink-0 w-[var(--chat-side-width)]"
                      @select="id => sessionId = id" />
     <chat v-if="sessionId > 0"
-          class="grow px-4 pb-4"
+          class="flex-1 px-4 pb-4 box-border w-[calc(100%-var(--chat-side-width))]"
           :session-id="sessionId"
           @change-settings="onChangeSettings"
           @message="onMessage" />
