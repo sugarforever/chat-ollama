@@ -21,7 +21,8 @@ const props = defineProps<{
 }>()
 
 const emits = defineEmits<{
-  message: [data: Message]
+  // remove a message if it's null
+  message: [data: Message | null]
   changeSettings: [data: ChatSessionSettings]
 }>()
 
@@ -52,7 +53,10 @@ watch(() => props.sessionId, async id => {
   }
 })
 
-useMutationObserver(messageListEl, useThrottleFn(() => {
+useMutationObserver(messageListEl, useThrottleFn((e: MutationRecord[]) => {
+  if (e.some(el => (el.target as HTMLElement).dataset.observer === 'ignore')) {
+    return
+  }
   messageListEl.value?.scrollTo({
     top: messageListEl.value.scrollHeight,
     behavior: isScrollSmooth ? 'smooth' : 'auto'
@@ -241,6 +245,16 @@ function onOpenSettings() {
   })
 }
 
+async function onResend(data: Message) {
+  onSend({ content: data.content })
+}
+
+async function onRemove(data: Message) {
+  await clientDB.chatHistories.where('id').equals(data.id!).delete()
+  messages.value = messages.value.filter(el => el.id !== data.id)
+  emits('message', null)
+}
+
 async function initData(sessionId?: number) {
   if (typeof sessionId !== 'number') return
 
@@ -261,7 +275,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
 </script>
 
 <template>
-  <div class="flex flex-col flex-1 box-border dark:text-gray-300 -mx-4">
+  <div class="flex flex-col box-border dark:text-gray-300 -mx-4">
     <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
       <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
                       :title="instructionInfo.name"
@@ -277,14 +291,14 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
         <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
       </UTooltip>
     </div>
-    <div ref="messageListEl" class="relative flex-1 overflow-auto px-4">
+    <div ref="messageListEl" class="relative flex-1 overflow-x-hidden overflow-y-auto px-4">
       <div v-for="( message, index ) in visibleMessages " :key="index"
            class="flex flex-col my-2"
            :class="{ 'items-end': message.role === 'user' }">
         <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
-        <div class="leading-6 text-sm"
-             :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled' }">
-          <div class="inline-flex border border-primary/20 rounded-lg px-3 py-2"
+        <div class="leading-6 text-sm flex items-center max-w-full message-content"
+             :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
+          <div class="border border-primary/20 rounded-lg p-3 max-w-[90%] box-border"
                :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'}`">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
@@ -294,6 +308,15 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
               <div v-else v-html="markdown.render(message.content)" class="markdown-body" />
             </template>
           </div>
+          <ChatMessageActionMore :message="message"
+                                 :disabled="sending"
+                                 @resend="onResend(message)"
+                                 @remove="onRemove(message)">
+            <UButton :class="{ invisible: sending }" icon="i-material-symbols-more-vert" color="gray"
+                     :variant="'link'"
+                     class="action-more">
+            </UButton>
+          </ChatMessageActionMore>
         </div>
       </div>
     </div>
@@ -323,3 +346,21 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
     </div>
   </div>
 </template>
+
+<style scoped lang="scss">
+.message-content {
+  .action-more {
+    transform-origin: center center;
+    transition: all 0.3s;
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  &:hover {
+    .action-more {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+</style>

@@ -23,7 +23,7 @@ onMounted(async () => {
   }
 })
 
-defineExpose({ increaseMessageCount, updateSessionInfo, createChat: onNewChat })
+defineExpose({ updateMessageCount, updateSessionInfo, createChat: onNewChat })
 
 async function onNewChat() {
   const data = await createChatSession()
@@ -63,9 +63,9 @@ async function getSessionList() {
   return list
 }
 
-async function increaseMessageCount() {
+async function updateMessageCount(offset: number) {
   const currentSession = sessionList.value.find(el => el.id === currentSessionId.value)!
-  currentSession.count += 1
+  currentSession.count = currentSession.count + offset
 }
 
 async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createTime'> & { forceUpdateTitle: boolean }>) {
