@@ -37,3 +37,4 @@ services:
 
 volumes:
   chromadb_data:
+  ollama_data:
