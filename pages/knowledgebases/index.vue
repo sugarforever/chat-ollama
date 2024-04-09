@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
+import { useConfirmDialog } from '@vueuse/core'
 import { fetchHeadersOllama, fetchHeadersThirdApi } from '@/utils/settings'
 import { type KnowledgeBase } from '@prisma/client'
-import { KnowledgeBaseUpdateForm } from '#components'
+import { KnowledgeBaseUpdateForm, KnowledgeBaseDeletePrompt } from '#components'
 
 const router = useRouter()
 const toast = useToast()
@@ -14,6 +15,7 @@ const state = reactive({
   urls: ''
 })
 const modal = useModal()
+const { isRevealed, reveal, confirm, cancel, onReveal, onConfirm, onCancel } = useConfirmDialog()
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 
 const validate = (data: typeof state) => {
@@ -89,7 +91,7 @@ const actionsItems = (row: KnowledgeBase) => {
   return [[{
     label: 'Delete',
     icon: 'i-heroicons-trash-20-solid',
-    click: () => onDelete(row.id)
+    click: () => onDelete(row)
   }],
   [{
     label: 'Update',
@@ -98,16 +100,19 @@ const actionsItems = (row: KnowledgeBase) => {
   }]]
 }
 
-const onDelete = async (id: number) => {
-  await $fetch(`/api/knowledgebases/${id}`, {
-    method: 'DELETE',
-    body: { id },
+const onDelete = async (row: KnowledgeBase) => {
+  modal.open(KnowledgeBaseDeletePrompt, {
+    knowledgeBase: row,
+    onConfirm: async () => {
+      await $fetch(`/api/knowledgebases/${row.id}`, {
+        method: 'DELETE'
+      })
+      refresh()
+    }
   })
-  refresh()
 }
 
 const onAppendFiles = async (row: KnowledgeBase) => {
-  console.log(row)
   modal.open(KnowledgeBaseUpdateForm, {
     knowledgeBase: row,
     onClose: () => modal.close(),
@@ -126,6 +131,19 @@ function reset() {
 
 <template>
   <div class="flex flex-row w-full">
+    <teleport to="body">
+      <div v-if="isRevealed" class="modal-bg">
+        <div class="modal">
+          <h2>Confirm?</h2>
+          <button @click="confirm">
+            Yes
+          </button>
+          <button @click="cancel">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </teleport>
     <div class="px-6 w-[400px]">
       <h2 class="font-bold text-xl mb-4">Create a New Knowledge Base</h2>
       <UForm :state="state" :validate="validate" class="space-y-4" @submit="onSubmit">
