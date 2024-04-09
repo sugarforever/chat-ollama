@@ -12,6 +12,7 @@ services:
     environment:
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=file:/app/sqlite/chatollama.sqlite
+      - REDIS_HOST=redis
     image: 0001coder/chatollama:latest
     ports:
       - "3000:3000"
@@ -20,5 +21,12 @@ services:
     volumes:
       - ~/.chatollama:/app/sqlite
 
+  redis:
+    image: redis:latest
+    restart: always
+    volumes:
+      - redis_data:/data
+
 volumes:
   chromadb_data:
+  redis_data:
