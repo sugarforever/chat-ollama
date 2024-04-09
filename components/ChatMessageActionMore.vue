@@ -55,9 +55,9 @@ const buttons = [
 
 <template>
   <UDropdown :items="[buttons]"
-             mode="click"
+             mode="hover"
              data-observer="ignore"
-             :popper="{ placement: 'bottom' }"
+             :popper="{ placement: 'bottom', offsetDistance: 0 }"
              :ui="{ width: 'w-32' }">
     <slot />
   </UDropdown>
