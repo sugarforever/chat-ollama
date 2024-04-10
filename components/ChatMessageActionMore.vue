@@ -13,7 +13,6 @@ const emits = defineEmits<{
 }>()
 
 const { copy, isSupported } = useClipboard({ legacy: true })
-const permissionWrite = usePermission('clipboard-write')
 const toast = useToast()
 
 const buttons = [
@@ -22,10 +21,6 @@ const buttons = [
     icon: 'i-material-symbols-content-copy-outline',
     click: (e: MouseEvent) => {
       (e.currentTarget as any)?.focus()
-      if (permissionWrite.value === 'denied') {
-        toast.add({ title: 'Permission denied', color: 'red' })
-        return
-      }
       if (isSupported.value) {
         copy(props.message.content)
       } else {
