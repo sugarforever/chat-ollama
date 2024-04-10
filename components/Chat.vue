@@ -6,12 +6,21 @@ import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
 
+interface RelevantDocument {
+  pageContent: string
+  metadata: {
+    blobType: string
+    source: string
+  }
+}
+
 export interface Message {
   id?: number
   role: 'system' | 'assistant' | 'user'
   content: string
   type?: 'loading' | 'canceled'
   timestamp: number
+  relevant_documents?: RelevantDocument[]
 }
 
 type Instruction = Awaited<ReturnType<typeof loadOllamaInstructions>>[number]
@@ -80,7 +89,7 @@ async function loadChatHistory(sessionId?: number) {
   return []
 }
 
-const processRelevantDocuments = (chunk) => {
+const processRelevantDocuments = (chunk: { type: 'relevant_documents', relevant_documents: any[] }) => {
   if (chunk?.type === 'relevant_documents') {
     const lastMessage = messages.value[messages.value.length - 1]
     if (lastMessage?.role === 'assistant') {
@@ -318,7 +327,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
               <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces"></pre>
               <div v-else>
                 <div v-html="markdown.render(message.content)" class="markdown-body" />
-                <Sources :relevant_documents="message?.relevant_documents" />
+                <Sources :relevant_documents="message?.relevant_documents || []" />
               </div>
             </template>
           </div>
