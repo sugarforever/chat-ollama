@@ -6,13 +6,8 @@ import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
 
-interface RelevantDocument {
-  pageContent: string
-  metadata: {
-    blobType: string
-    source: string
-  }
-}
+type RelevantDocument = Required<ChatHistory>['relevantDocs'][number]
+type ResponseRelevantDocument = { type: 'relevant_documents', relevant_documents: RelevantDocument[] }
 
 export interface Message {
   id?: number
@@ -20,7 +15,7 @@ export interface Message {
   content: string
   type?: 'loading' | 'canceled'
   timestamp: number
-  relevant_documents?: RelevantDocument[]
+  relevantDocs?: RelevantDocument[]
 }
 
 type Instruction = Awaited<ReturnType<typeof loadOllamaInstructions>>[number]
@@ -83,20 +78,31 @@ async function loadChatHistory(sessionId?: number) {
         role: el.role,
         timestamp: el.timestamp,
         type: el.canceled ? 'canceled' : undefined,
+        relevantDocs: el.relevantDocs
       } as const
     })
   }
   return []
 }
 
-const processRelevantDocuments = (chunk: { type: 'relevant_documents', relevant_documents: any[] }) => {
-  if (chunk?.type === 'relevant_documents') {
-    const lastMessage = messages.value[messages.value.length - 1]
-    if (lastMessage?.role === 'assistant') {
-      lastMessage.relevant_documents = chunk?.relevant_documents
-    }
+const processRelevantDocuments = async (chunk: ResponseRelevantDocument) => {
+  if (chunk.type !== 'relevant_documents') return
+  const lastMessage = messages.value[messages.value.length - 1]
+  if (lastMessage?.role === 'assistant' && chunk.relevant_documents) {
+    lastMessage.relevantDocs = chunk.relevant_documents
+    await clientDB.chatHistories
+      .where('id')
+      .equals(lastMessage.id!)
+      .modify({
+        relevantDocs: chunk.relevant_documents.map(el => {
+          const pageContent = el.pageContent.slice(0, 100) + (el.pageContent.length > 0 ? '...' : '') // Avoid saving large-sized content
+          return { ...el, pageContent }
+        })
+      })
+    emits('message', lastMessage)
   }
 }
+
 const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetch(url, options)
 
@@ -112,38 +118,40 @@ const fetchStream = async (url: string, options: RequestInit) => {
         if (!line) continue
 
         console.log('line: ', line)
-        const chatMessage = JSON.parse(line)
+        const chatMessage = JSON.parse(line) as { message: Message } | ResponseRelevantDocument
 
-        processRelevantDocuments(chatMessage)
-
-        const content = chatMessage?.message?.content
-        if (content) {
-          const lastItem = messages.value[messages.value.length - 1]
-          if (messages.value.length > 0 && lastItem.role === 'assistant') {
-            lastItem.content += content
-            if (lastItem.id && props.sessionId) {
-              await clientDB.chatHistories
-                .where('id')
-                .equals(lastItem.id)
-                .modify({ message: lastItem.content })
-            }
-          } else {
-            const timestamp = Date.now()
-            const id = await saveMessage({
-              message: content,
-              model: model.value || '',
-              role: 'assistant',
-              timestamp,
-              canceled: false
-            })
-            const itemData = { id, role: 'assistant', content, timestamp } as const
-            if (messages.value.length >= limitHistorySize) {
-              messages.value = [...messages.value, itemData].slice(-limitHistorySize)
+        if ('type' in chatMessage) {
+          await processRelevantDocuments(chatMessage)
+        } else {
+          const content = chatMessage?.message?.content
+          if (content) {
+            const lastItem = messages.value[messages.value.length - 1]
+            if (messages.value.length > 0 && lastItem.role === 'assistant') {
+              lastItem.content += content
+              if (lastItem.id && props.sessionId) {
+                await clientDB.chatHistories
+                  .where('id')
+                  .equals(lastItem.id)
+                  .modify({ message: lastItem.content })
+              }
             } else {
-              messages.value.push(itemData)
+              const timestamp = Date.now()
+              const id = await saveMessage({
+                message: content,
+                model: model.value || '',
+                role: 'assistant',
+                timestamp,
+                canceled: false
+              })
+              const itemData = { id, role: 'assistant', content, timestamp } as const
+              if (messages.value.length >= limitHistorySize) {
+                messages.value = [...messages.value, itemData].slice(-limitHistorySize)
+              } else {
+                messages.value.push(itemData)
+              }
             }
+            emits('message', lastItem)
           }
-          emits('message', lastItem)
         }
       }
     }
@@ -327,7 +335,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
               <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces"></pre>
               <div v-else>
                 <div v-html="markdown.render(message.content)" class="markdown-body" />
-                <Sources :relevant_documents="message?.relevant_documents || []" />
+                <Sources :relevant_documents="message?.relevantDocs || []" />
               </div>
             </template>
           </div>
