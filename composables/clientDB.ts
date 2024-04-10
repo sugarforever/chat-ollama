@@ -22,6 +22,13 @@ export interface ChatHistory {
   canceled: boolean
   instructionId?: number
   knowledgeBaseId?: number
+  relevantDocs?: Array<{
+    pageContent: string
+    metadata: {
+      blobType: string
+      source: string
+    }
+  }>
 }
 
 export class MySubClassedDexie extends Dexie {

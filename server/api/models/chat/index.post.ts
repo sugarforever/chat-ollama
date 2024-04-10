@@ -1,5 +1,4 @@
 import { Readable } from 'stream'
-import { BaseMessage } from "@langchain/core/messages"
 import { formatDocumentsAsString } from "langchain/util/document"
 import { PromptTemplate } from "@langchain/core/prompts"
 import { RunnableSequence } from "@langchain/core/runnables"
@@ -8,6 +7,17 @@ import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
 import { createChatModel, createEmbeddings } from '@/server/utils/models'
 import { createRetriever } from '@/server/retriever'
+
+interface RequestBody {
+  knowledgebaseId: number
+  model: string
+  family: string
+  messages: {
+    role: 'user' | 'assistant'
+    content: string
+  }[]
+  stream: any
+}
 
 const SYSTEM_TEMPLATE = `Answer the user's question based on the context below.
 Present your answer in a structured Markdown format.
@@ -29,11 +39,11 @@ If the context doesn't contain any relevant information to the question, don't m
 Answer:
 `
 
-const serializeMessages = (messages: Array<BaseMessage>): string =>
+const serializeMessages = (messages: RequestBody['messages']): string =>
   messages.map((message) => `${message.role}: ${message.content}`).join("\n")
 
 export default defineEventHandler(async (event) => {
-  const { knowledgebaseId, model, family, messages, stream } = await readBody(event)
+  const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
 
   if (knowledgebaseId) {
     console.log("Chat with knowledge base with id: ", knowledgebaseId)
@@ -48,7 +58,7 @@ export default defineEventHandler(async (event) => {
       return
     }
 
-    const embeddings = createEmbeddings(knowledgebase.embedding, event)
+    const embeddings = createEmbeddings(knowledgebase.embedding!, event)
     const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`)
 
     const chat = createChatModel(model, family, event)
@@ -114,7 +124,7 @@ export default defineEventHandler(async (event) => {
     return sendStream(event, readableStream)
   } else {
     const llm = createChatModel(model, family, event)
-    const response = await llm?.stream(messages.map((message: BaseMessage) => {
+    const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
       return [message.role, message.content]
     }))
 
