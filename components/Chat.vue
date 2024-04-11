@@ -300,6 +300,10 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
     ? await clientDB.chatHistories.add({ ...data, sessionId: props.sessionId })
     : Math.random()
 }
+
+function formatContent(content: string) {
+  return content.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')
+}
 </script>
 
 <template>
@@ -326,13 +330,13 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
         <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
         <div class="leading-6 text-sm flex items-center max-w-full message-content"
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
-          <div class="border border-primary/20 rounded-lg p-3 max-w-[90%] box-border"
+          <div class="border border-primary/20 rounded-lg p-3 max-w-[calc(100%-2rem)] box-border"
                :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'}`">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
             <template v-else>
-              <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces"></pre>
+              <div v-if="message.role === 'user'" v-html="formatContent(message.content)" />
               <div v-else>
                 <div v-html="markdown.render(message.content)" class="markdown-body" />
                 <Sources :relevant_documents="message?.relevantDocs || []" />
