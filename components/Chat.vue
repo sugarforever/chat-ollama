@@ -300,10 +300,6 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
     ? await clientDB.chatHistories.add({ ...data, sessionId: props.sessionId })
     : Math.random()
 }
-
-function formatContent(content: string) {
-  return content.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')
-}
 </script>
 
 <template>
@@ -336,7 +332,7 @@ function formatContent(content: string) {
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
             <template v-else>
-              <div v-if="message.role === 'user'" v-html="formatContent(message.content)" />
+              <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces" />
               <div v-else>
                 <div v-html="markdown.render(message.content)" class="markdown-body" />
                 <Sources :relevant_documents="message?.relevantDocs || []" />
