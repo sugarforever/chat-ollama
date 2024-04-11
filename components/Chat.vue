@@ -326,13 +326,13 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
         <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
         <div class="leading-6 text-sm flex items-center max-w-full message-content"
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
-          <div class="border border-primary/20 rounded-lg p-3 max-w-[90%] box-border"
+          <div class="border border-primary/20 rounded-lg p-3 max-w-[calc(100%-2rem)] box-border"
                :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'}`">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
             <template v-else>
-              <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces"></pre>
+              <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces" />
               <div v-else>
                 <div v-html="markdown.render(message.content)" class="markdown-body" />
                 <Sources :relevant_documents="message?.relevantDocs || []" />
@@ -359,7 +359,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
                     @stop="onAbortChat">
         <div class="text-muted flex">
           <UTooltip v-if="sessionInfo?.model" text="Current Model" :popper="{ placement: 'top-start' }">
-            <div class="flex items-center mr-4">
+            <div class="flex items-center mr-4 cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.modelFamily }}</span>
               <span class="text-muted mx-1">/</span>
@@ -367,7 +367,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
             </div>
           </UTooltip>
           <UTooltip text="Attached Message Count" :popper="{ placement: 'top-start' }">
-            <div class="flex items-center">
+            <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>
             </div>

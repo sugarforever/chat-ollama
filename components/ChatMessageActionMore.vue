@@ -15,36 +15,38 @@ const emits = defineEmits<{
 const { copy, isSupported } = useClipboard({ legacy: true })
 const toast = useToast()
 
-const buttons = [
-  {
-    label: 'Copy',
-    icon: 'i-material-symbols-content-copy-outline',
-    click: (e: MouseEvent) => {
-      (e.currentTarget as any)?.focus()
-      if (isSupported.value) {
-        copy(props.message.content)
-      } else {
-        toast.add({ title: 'Copy failed', color: 'red' })
+const buttons = computed(() => {
+  return [
+    {
+      label: 'Copy',
+      icon: 'i-material-symbols-content-copy-outline',
+      click: (e: MouseEvent) => {
+        (e.currentTarget as any)?.focus()
+        if (isSupported.value) {
+          copy(props.message.content)
+        } else {
+          toast.add({ title: 'Copy failed', color: 'red' })
+        }
       }
-    }
-  },
-  props.message.role === 'user'
-    ? {
-      label: 'Resend',
-      icon: 'i-material-symbols-sync',
+    },
+    props.message.role === 'user'
+      ? {
+        label: 'Resend',
+        icon: 'i-material-symbols-sync',
+        click: () => {
+          emits('resend')
+        }
+      }
+      : [],
+    {
+      label: 'Remove',
+      icon: 'i-material-symbols-delete-outline-rounded',
       click: () => {
-        emits('resend')
+        emits('remove')
       }
-    }
-    : [],
-  {
-    label: 'Remove',
-    icon: 'i-material-symbols-delete-outline-rounded',
-    click: () => {
-      emits('remove')
-    }
-  },
-].flat()
+    },
+  ].flat()
+})
 
 </script>
 

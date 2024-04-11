@@ -1,6 +1,4 @@
 <script setup>
-const route = useRoute()
-
 const links = [
   [{
     label: 'Home',
@@ -20,7 +18,7 @@ const links = [
     to: '/knowledgebases'
   }, {
     label: 'Chat',
-    icon: 'i-heroicons-pencil-square',
+    icon: 'i-iconoir-chat-lines',
     to: '/chat'
   }, {
     label: 'Settings',
