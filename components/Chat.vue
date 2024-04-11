@@ -359,7 +359,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
                     @stop="onAbortChat">
         <div class="text-muted flex">
           <UTooltip v-if="sessionInfo?.model" text="Current Model" :popper="{ placement: 'top-start' }">
-            <div class="flex items-center mr-4">
+            <div class="flex items-center mr-4 cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.modelFamily }}</span>
               <span class="text-muted mx-1">/</span>
@@ -367,7 +367,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
             </div>
           </UTooltip>
           <UTooltip text="Attached Message Count" :popper="{ placement: 'top-start' }">
-            <div class="flex items-center">
+            <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>
             </div>
