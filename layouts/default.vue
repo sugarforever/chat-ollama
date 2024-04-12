@@ -1,6 +1,5 @@
 <script setup>
 const links = [
-  [],
   [
     { label: 'Home', icon: 'i-heroicons-home', to: '/' },
     { label: 'Models', icon: 'i-heroicons-rectangle-stack', to: '/models' },
