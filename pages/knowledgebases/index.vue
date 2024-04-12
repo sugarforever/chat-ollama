@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { useConfirmDialog } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
 import { KnowledgeBaseDeletePrompt, KnowledgeBaseForm } from '#components'
 
@@ -92,7 +91,7 @@ function onShowUpdate(data: KnowledgeBase) {
           <span class="text-wrap">{{ row.description }}</span>
         </template>
         <template #actions-data="{ row }">
-          <div class="action-btn invisible">
+          <div class="action-btn invisible flex">
             <UTooltip text="Update">
               <UButton icon="i-heroicons-pencil-square-solid" variant="ghost" class="mx-1" @click="onShowUpdate(row)" />
             </UTooltip>
@@ -106,22 +105,3 @@ function onShowUpdate(data: KnowledgeBase) {
     </ClientOnly>
   </div>
 </template>
-
-<style scoped lang="scss">
-.action-btn {
-  transition: all 0.3s ease-in-out;
-  opacity: 0;
-  transform-origin: center;
-  transform: scale(0.5);
-}
-
-.table-list :deep() {
-  tr:hover {
-    .action-btn {
-      visibility: visible;
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-}
-</style>

@@ -41,3 +41,20 @@ html, body, #__nuxt {
   --color-neutral-muted: rgb(var(--color-primary-800));
   --color-canvas-subtle: rgb(var(--color-gray-900));
 }
+
+.table-list {
+  .action-btn {
+    transition: all 0.3s ease-in-out;
+    opacity: 0;
+    transform-origin: center;
+    transform: translateX(10%);
+  }
+
+  tr:hover {
+    .action-btn {
+      visibility: visible;
+      opacity: 1;
+      transform: translateX(0%);
+    }
+  }
+}
