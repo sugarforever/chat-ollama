@@ -1,5 +1,3 @@
-import { DEFAULT_ATTACHED_MESSAGES_COUNT } from '~/config'
-
 interface ChatSessionBaseData extends Omit<ChatSession, 'id'> { }
 
 export async function createChatSession(params?: Partial<Omit<ChatSessionBaseData, 'attachedMessagesCount' | 'createTime' | 'updateTime'>>) {
@@ -7,11 +5,11 @@ export async function createChatSession(params?: Partial<Omit<ChatSessionBaseDat
     createTime: Date.now(),
     updateTime: Date.now(),
     title: params?.title || '',
-    model: params?.model || '',
+    model: params?.model || chatDefaultSettings.value.model,
     modelFamily: params?.modelFamily || '',
     instructionId: params?.instructionId || 0,
     knowledgeBaseId: params?.knowledgeBaseId || 0,
-    attachedMessagesCount: DEFAULT_ATTACHED_MESSAGES_COUNT,
+    attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount,
   }
 
   // set default model
@@ -20,7 +18,7 @@ export async function createChatSession(params?: Partial<Omit<ChatSessionBaseDat
     const toast = useToast()
     toast.add({ title: 'No model found', description: 'Please download a model first.', color: 'red' })
   } else {
-    const model = models[0]
+    const model = models.find(m => m.value === baseData.model) || models[0]
     baseData.model = model.value
     baseData.modelFamily = model.family || ''
   }

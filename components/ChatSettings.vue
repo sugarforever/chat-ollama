@@ -1,6 +1,5 @@
 <script lang="ts" setup>
-import { loadOllamaInstructions, loadModels, loadKnowledgeBases } from '~/utils/settings'
-import { DEFAULT_ATTACHED_MESSAGES_COUNT } from '~/config'
+import { loadOllamaInstructions, loadKnowledgeBases, type ModelInfo } from '~/utils/settings'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
 
 interface UpdatedOptions {
@@ -20,7 +19,7 @@ const props = defineProps<{
 const defaultConfig = {
   instructionId: 0,
   knowledgeBaseId: 0,
-  attachedMessagesCount: DEFAULT_ATTACHED_MESSAGES_COUNT
+  attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount,
 }
 
 const state = reactive({
@@ -28,10 +27,9 @@ const state = reactive({
   model: '',
   ...defaultConfig,
 })
-const currentModel = computed(() => models.find(el => el.value === state.model))
+const currentModel = ref<ModelInfo>()
 
 const instructions = await loadOllamaInstructions()
-const models = await loadModels()
 const knowledgeBases = await loadKnowledgeBases()
 
 const instructionContent = computed(() => {
@@ -47,7 +45,6 @@ onMounted(() => {
 })
 
 async function onSave() {
-  const modelInfo = models.find(el => el.value === state.model)!
   const knowledgeBaseInfo = knowledgeBases.find(el => el.id === state.knowledgeBaseId)
   const instructionInfo = instructions.find(el => el.id === state.instructionId)
 
@@ -62,7 +59,7 @@ async function onSave() {
   props.onUpdated?.({
     title: state.title,
     attachedMessagesCount: state.attachedMessagesCount,
-    modelInfo,
+    modelInfo: currentModel.value!,
     knowledgeBaseInfo: knowledgeBaseInfo as KnowledgeBase,
     instructionInfo,
   })
@@ -88,22 +85,7 @@ async function onReset() {
           <UInput v-model="state.title" maxlength="40" />
         </UFormGroup>
         <UFormGroup label="Model" name="model" required class="mb-4">
-          <USelectMenu v-model="state.model"
-                       :options="models"
-                       value-attribute="value"
-                       required
-                       placeholder="Select a model">
-            <template #label>
-              <span>{{ currentModel?.family }}</span>
-              <span class="text-muted">/</span>
-              <span>{{ state.model }}</span>
-            </template>
-            <template #option="{ option }">
-              <span>{{ option.family }}</span>
-              <span class="text-muted">/</span>
-              <span>{{ option.label }}</span>
-            </template>
-          </USelectMenu>
+          <ModelsSelectMenu v-model="state.model" v-model:model="currentModel" />
         </UFormGroup>
         <UFormGroup label="Knowledge Base" name="knowledgeBaseId" class="mb-4">
           <USelectMenu v-model="state.knowledgeBaseId"
