@@ -11,6 +11,9 @@ dependencies:
   '@iconify-json/material-symbols':
     specifier: ^1.1.76
     version: 1.1.76
+  '@iconify-json/mdi':
+    specifier: ^1.1.66
+    version: 1.1.66
   '@langchain/anthropic':
     specifier: ^0.1.10
     version: 0.1.10
@@ -59,9 +62,6 @@ dependencies:
   dexie:
     specifier: ^4.0.1
     version: 4.0.1
-  github-markdown-css:
-    specifier: ^5.5.1
-    version: 5.5.1
   highlight.js:
     specifier: ^11.9.0
     version: 11.9.0
@@ -1038,6 +1038,12 @@ packages:
 
   /@iconify-json/material-symbols@1.1.76:
     resolution: {integrity: sha512-U3S0n2eENEZmAK+b+zvNBPxHySm7eo9bFQaKODlbrFyjNfaZVwpQMs7pZ3ZmeX9YLp0CtV8XqzmRb2YdhLJIkQ==}
+    dependencies:
+      '@iconify/types': 2.0.0
+    dev: false
+
+  /@iconify-json/mdi@1.1.66:
+    resolution: {integrity: sha512-7KPF2RVUUWav/hXCM8Ti/smqu3cmgePJpiX9CSkldiL+80+eBRBeKlc4vPOc9jhAItlqIU1vKsbKoPP0JIfgbg==}
     dependencies:
       '@iconify/types': 2.0.0
     dev: false
@@ -5186,11 +5192,6 @@ packages:
     resolution: {integrity: sha512-PCFJyeSSdtnbfhSNRw9Wk96dDCNx+sogTe4YNXeXSJxt7xz5hvXekuRn9JX7m+Mf4OscCu8h+mtAl3+h5Fo8lQ==}
     dependencies:
       git-up: 7.0.0
-
-  /github-markdown-css@5.5.1:
-    resolution: {integrity: sha512-2osyhNgFt7DEHnGHbgIifWawAqlc68gjJiGwO1xNw/S48jivj8kVaocsVkyJqUi3fm7fdYIDi4C6yOtcqR/aEQ==}
-    engines: {node: '>=10'}
-    dev: false
 
   /glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}

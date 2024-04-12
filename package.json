@@ -28,6 +28,7 @@
   "dependencies": {
     "@iconify-json/iconoir": "^1.1.42",
     "@iconify-json/material-symbols": "^1.1.76",
+    "@iconify-json/mdi": "^1.1.66",
     "@langchain/anthropic": "^0.1.10",
     "@langchain/azure-openai": "^0.0.4",
     "@langchain/community": "^0.0.33",
@@ -44,7 +45,6 @@
     "ai": "^2.2.37",
     "chromadb": "^1.8.1",
     "dexie": "^4.0.1",
-    "github-markdown-css": "^5.5.1",
     "highlight.js": "^11.9.0",
     "ioredis": "^5.3.2",
     "langchain": "^0.1.31",

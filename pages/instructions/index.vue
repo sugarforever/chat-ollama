@@ -1,186 +1,104 @@
-<script setup>
-import { loadOllamaInstructions } from "@/utils/settings";
+<script setup lang="ts">
+import type { Instruction } from '@prisma/client'
+import { loadOllamaInstructions } from "@/utils/settings"
+import InstructionForm from '~/components/InstructionForm.vue'
 
-const instructions = ref([]);
-const isOpen = ref(false);
+const modal = useModal()
+const confirm = useDialog('confirm')
 
-const loading = ref(false);
+const loading = ref(true)
+const instructions = ref<Instruction[]>([])
+
 const tableRows = computed(() => {
   return instructions.value.map((instruction) => {
     return {
       id: instruction.id,
       name: instruction.name,
       instruction: instruction.instruction,
-    };
-  });
-});
-
-const state = reactive({
-  id: undefined,
-  name: undefined,
-  instruction: undefined,
-});
-
-watch(isOpen, (val) => {
-  if (!val) {
-    setTimeout(() => {
-      state.id = undefined;
-      state.name = undefined;
-      state.instruction = undefined;
-    }, 300)
-  }
-});
-
-const validate = (state) => {
-  const errors = [];
-  if (!state.name) errors.push({ path: "name", message: "Required" });
-  if (!state.instruction)
-    errors.push({ path: "instruction", message: "Required" });
-  return errors;
-};
-
-async function createInstruction(name, instruction) {
-  const body = JSON.stringify({
-    name,
-    instruction,
-  });
-  try {
-    const result = await $fetch(`/api/instruction/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body,
-    });
-    return result;
-  } catch (e) {
-    console.error("Failed to create Ollama instruction", e);
-  }
-};
-
-async function onSubmit() {
-  loading.value = true;
-  if (state.id) {
-    await editInstruction(state.id, state.name, state.instruction)
-  } else {
-    await createInstruction(state.name, state.instruction);
-  }
-  loading.value = false;
-  isOpen.value = false;
-  await loadInstructions();
-}
+    }
+  })
+})
 
 const loadInstructions = async () => {
-  instructions.value = await loadOllamaInstructions();
-};
+  instructions.value = await loadOllamaInstructions()
+}
 
-onMounted(async () => {
-  await loadInstructions();
-});
+onMounted(() => {
+  loadInstructions()
+    .finally(() => {
+      loading.value = false
+    })
+})
 
 const ui = {
   td: {
     base: "whitespace-break-spaces",
   },
-};
+}
 
 const columns = [
-  {
-    label: "Name",
-    key: "name",
-  },
-  {
-    label: "Instruction",
-    key: "instruction",
-  },
-  {
-    key: "actions",
-  },
-];
+  { key: "name", label: "Name" },
+  { key: "instruction", label: "Instruction" },
+  { key: "actions" },
+]
 
-const actionsItems = (row) => {
-  return [
-    [
-      {
-        label: "Edit",
-        icon: "i-heroicons-pencil-square-20-solid",
-        click: () => onEdit(row),
-      },
-      {
-        label: "Delete",
-        icon: "i-heroicons-trash-20-solid",
-        click: () => onDelete(row.id),
-      },
-    ],
-  ];
-};
+function onCreate() {
+  modal.open(InstructionForm, {
+    title: 'Create a new instruction',
+    type: 'create',
+    onClose: () => modal.close(),
+    onSuccess: () => loadInstructions(),
+  })
+}
 
-async function editInstruction(id, name, instruction) {
-  const body = JSON.stringify({
-    name,
-    instruction,
-  });
-  try {
-    const result = await $fetch(`/api/instruction/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body,
-    });
-    return result;
-  } catch (e) {
-    console.error("Failed to edit Ollama instruction", e);
-  }
-};
+async function onEdit(data: Instruction) {
+  modal.open(InstructionForm, {
+    title: 'Update instruction',
+    type: 'update',
+    data,
+    onClose: () => modal.close(),
+    onSuccess: () => loadInstructions(),
+  })
+}
 
-const onEdit = async ({ id, name, instruction }) => {
-  state.id = id;
-  state.name = name;
-  state.instruction = instruction;
-
-  isOpen.value = true;
-};
-
-const onDelete = async (id) => {
-  try {
-    await $fetch(`/api/instruction/${id}`, {
-      method: "DELETE",
-    });
-    await loadInstructions();
-  } catch (e) {
-    console.error("Failed to delete Ollama instruction", e);
-  }
-};
-
+async function onDelete(data: Instruction) {
+  confirm(`Are you sure deleting instruction <b class="text-primary">${data.name}</b> ?`, {
+    title: 'Delete Instruction',
+    dangerouslyUseHTMLString: true,
+  })
+    .then(async () => {
+      try {
+        await $fetch(`/api/instruction/${data.id}`, {
+          method: "DELETE",
+        })
+        await loadInstructions()
+      } catch (e) {
+        console.error("Failed to delete Ollama instruction", e)
+      }
+    }).catch(noop)
+}
 </script>
+
 <template>
-  <div class="w-full">
-    <UButton class="my-4" @click="isOpen = true">
-      Create New Instruction
-    </UButton>
-    <UTable :rows="tableRows" :columns :ui class="w-full">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex items-center mb-4">
+      <h2 class="font-bold text-xl mr-auto">Instruction</h2>
+      <UButton icon="i-material-symbols-add" @click="onCreate">
+        Create
+      </UButton>
+    </div>
+    <UTable :rows="tableRows" :columns :ui :loading class="w-full table-list">
       <template #actions-data="{ row }">
-        <UDropdown :items="actionsItems(row)">
-          <UButton color="gray" variant="ghost" icon="i-heroicons-ellipsis-horizontal-20-solid" />
-        </UDropdown>
+        <div class="action-btn invisible flex">
+          <UTooltip text="Update">
+            <UButton icon="i-heroicons-pencil-square-solid" variant="ghost" class="mx-1" @click="onEdit(row)" />
+          </UTooltip>
+          <UTooltip text="Delete">
+            <UButton color="red" icon="i-heroicons-trash-20-solid" variant="ghost" class="mx-1"
+                     @click="onDelete(row)" />
+          </UTooltip>
+        </div>
       </template>
     </UTable>
-    <UModal v-model="isOpen">
-      <div class="p-4">
-        <h1 class="font-bold my-4">{{ state.id ? 'Edit Instruction' : 'Create New Instruction' }}</h1>
-        <UForm :validate="validate" :state class="space-y-4" @submit="onSubmit">
-          <UFormGroup label="Name" name="name">
-            <UInput v-model="state.name" />
-          </UFormGroup>
-
-          <UFormGroup label="Instruction" name="instruction">
-            <UTextarea v-model="state.instruction" autoresize :rows="3" />
-          </UFormGroup>
-
-          <UButton type="submit" :loading> Save </UButton>
-        </UForm>
-      </div>
-    </UModal>
   </div>
 </template>
