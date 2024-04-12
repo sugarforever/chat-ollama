@@ -13,8 +13,8 @@ const links = [
 </script>
 <template>
   <div class="border-b border-gray-200 dark:border-gray-800">
-    <div class="flex items-center justify-between max-w-6xl mx-auto">
-      <h1 class="mx-2 font-semibold text-primary text-2xl">ChatOllama</h1>
+    <div class="flex items-center justify-between max-w-6xl mx-auto px-4">
+      <h1 class="mr-2 font-semibold text-primary text-2xl">ChatOllama</h1>
       <div>
         <UHorizontalNavigation :links="links" />
       </div>
@@ -24,7 +24,7 @@ const links = [
         </div>
         <ULink to="https://github.com/sugarforever/chat-ollama"
                target="_blank"
-               class="i-mdi-github text-2xl mx-2"></ULink>
+               class="i-mdi-github text-2xl ml-2"></ULink>
       </div>
     </div>
   </div>
