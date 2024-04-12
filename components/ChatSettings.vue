@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { loadOllamaInstructions, loadKnowledgeBases, type ModelInfo } from '~/utils/settings'
-import { DEFAULT_ATTACHED_MESSAGES_COUNT } from '~/config'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
 
 interface UpdatedOptions {
@@ -20,7 +19,7 @@ const props = defineProps<{
 const defaultConfig = {
   instructionId: 0,
   knowledgeBaseId: 0,
-  attachedMessagesCount: DEFAULT_ATTACHED_MESSAGES_COUNT
+  attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount,
 }
 
 const state = reactive({
