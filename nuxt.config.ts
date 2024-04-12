@@ -22,7 +22,7 @@ export default defineNuxtConfig({
     }]
   ],
   ui: {
-    icons: ['heroicons', 'iconoir', 'material-symbols']
+    icons: ['heroicons', 'iconoir', 'material-symbols', 'mdi']
   },
   css: [
     '~/assets/index.scss',

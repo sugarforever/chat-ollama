@@ -11,6 +11,9 @@ dependencies:
   '@iconify-json/material-symbols':
     specifier: ^1.1.76
     version: 1.1.76
+  '@iconify-json/mdi':
+    specifier: ^1.1.66
+    version: 1.1.66
   '@langchain/anthropic':
     specifier: ^0.1.10
     version: 0.1.10
@@ -1038,6 +1041,12 @@ packages:
 
   /@iconify-json/material-symbols@1.1.76:
     resolution: {integrity: sha512-U3S0n2eENEZmAK+b+zvNBPxHySm7eo9bFQaKODlbrFyjNfaZVwpQMs7pZ3ZmeX9YLp0CtV8XqzmRb2YdhLJIkQ==}
+    dependencies:
+      '@iconify/types': 2.0.0
+    dev: false
+
+  /@iconify-json/mdi@1.1.66:
+    resolution: {integrity: sha512-7KPF2RVUUWav/hXCM8Ti/smqu3cmgePJpiX9CSkldiL+80+eBRBeKlc4vPOc9jhAItlqIU1vKsbKoPP0JIfgbg==}
     dependencies:
       '@iconify/types': 2.0.0
     dev: false
