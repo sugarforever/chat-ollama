@@ -17,13 +17,12 @@ defineProps<{
       <UIcon name="i-heroicons-newspaper" /> Sources
     </h3>
     <div class="grid grid-cols-2 gap-4">
-      <div class="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 rounded"
+      <div class="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2 rounded"
            v-for="(relevant_document, index) in relevant_documents"
            :key="index">
-        <h4 class="font-bold line-clamp-1 mb-2">{{ relevant_document?.metadata?.source }}</h4>
-        <div class="line-clamp-1 text-gray-500 text-sm">
-          {{ relevant_document?.pageContent }}
-        </div>
+        <Source :source="relevant_document?.metadata?.source" />
+        <pre class="line-clamp-3 text-gray-500 text-sm whitespace-break-spaces"
+             v-html="relevant_document?.pageContent" />
       </div>
     </div>
   </div>
