@@ -86,7 +86,13 @@ export const loadOllamaInstructions = async () => {
   }
 }
 
-export async function loadModels() {
+export interface ModelInfo {
+  label: string
+  value: string
+  family?: string
+}
+
+export async function loadModels(): Promise<ModelInfo[]> {
   const response = await $fetch('/api/models/', {
     headers: {
       ...fetchHeadersOllama.value,
