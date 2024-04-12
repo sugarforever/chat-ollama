@@ -1,5 +1,5 @@
 @import 'highlight.js/scss/github.scss';
-@import 'github-markdown-css';
+@import './markdown.scss';
 
 .dark {
   @import 'highlight.js/scss/github-dark.scss';
@@ -10,7 +10,7 @@ html, body, #__nuxt {
   font-family: "Noto Sans", SF Pro SC, SF Pro Text, SF Pro Icons, PingFang SC, Helvetica Neue, Helvetica, Arial, sans-serif;
 }
 
-.markdown-body {
+.md-body {
   --color-neutral-muted: rgb(var(--color-primary-100));
   --color-canvas-subtle: rgb(var(--color-primary-50));
 
@@ -37,7 +37,7 @@ html, body, #__nuxt {
   }
 }
 
-.dark .markdown-body {
+.dark .md-body {
   --color-neutral-muted: rgb(var(--color-primary-800));
   --color-canvas-subtle: rgb(var(--color-gray-900));
 }

@@ -334,7 +334,7 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
             <template v-else>
               <pre v-if="message.role === 'user'" v-html="message.content" class="whitespace-break-spaces" />
               <div v-else>
-                <div v-html="markdown.render(message.content)" class="markdown-body" />
+                <div v-html="markdown.render(message.content)" class="md-body" />
                 <Sources :relevant_documents="message?.relevantDocs || []" />
               </div>
             </template>
