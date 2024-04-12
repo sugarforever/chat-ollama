@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
-import { KnowledgeBaseDeletePrompt, KnowledgeBaseForm } from '#components'
+import { KnowledgeBaseForm } from '#components'
 
 const router = useRouter()
 const modal = useModal()
+const confirm = useDialog('confirm')
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 
 const { data, refresh } = await useFetch('/api/knowledgebases')
@@ -27,15 +28,17 @@ async function onStartChat(data: KnowledgeBase) {
 }
 
 const onDelete = async (row: KnowledgeBase) => {
-  modal.open(KnowledgeBaseDeletePrompt, {
-    knowledgeBase: row,
-    onConfirm: async () => {
+  confirm(`Are you sure deleting knowledge base <b class="text-primary">${row.name}</b> ?`, {
+    title: 'Delete Knowledge Base',
+    dangerouslyUseHTMLString: true,
+  })
+    .then(async () => {
       await $fetch(`/api/knowledgebases/${row.id}`, {
         method: 'DELETE'
       })
       refresh()
-    }
-  })
+    })
+    .catch(noop)
 }
 
 function onShowCreate() {

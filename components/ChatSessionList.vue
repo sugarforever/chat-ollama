@@ -11,6 +11,7 @@ const emits = defineEmits<{
 
 const sessionList = ref<ChatSessionInfo[]>([])
 const currentSessionId = useStorage<number>('currentSessionId', 0)
+const confirm = useDialog('confirm')
 
 onMounted(async () => {
   sessionList.value = await getSessionList()
@@ -36,19 +37,27 @@ function onSelectChat(sessionId: number) {
   emits('select', sessionId)
 }
 
-async function onDeleteChat(data: ChatSession) {
-  const sessionId = data.id!
-  sessionList.value = sessionList.value.filter(el => el.id !== sessionId)
-  await clientDB.chatSessions.where('id').equals(sessionId).delete()
-  await clientDB.chatHistories.where('sessionId').equals(sessionId).delete()
+function onDeleteChat(data: ChatSession) {
+  confirm(`Are you sure deleting Chat <b class="text-primary">${data.title}</b> ?`, {
+    title: 'Delete Chat',
+    dangerouslyUseHTMLString: true,
+  })
+    .then(async () => {
 
-  if (currentSessionId.value === sessionId) {
-    if (sessionList.value.length > 0) {
-      onSelectChat(sessionList.value[0].id!)
-    } else {
-      onSelectChat(0)
-    }
-  }
+      const sessionId = data.id!
+      sessionList.value = sessionList.value.filter(el => el.id !== sessionId)
+      await clientDB.chatSessions.where('id').equals(sessionId).delete()
+      await clientDB.chatHistories.where('sessionId').equals(sessionId).delete()
+
+      if (currentSessionId.value === sessionId) {
+        if (sessionList.value.length > 0) {
+          onSelectChat(sessionList.value[0].id!)
+        } else {
+          onSelectChat(0)
+        }
+      }
+    })
+    .catch(noop)
 }
 
 async function getSessionList() {

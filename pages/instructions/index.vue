@@ -4,6 +4,7 @@ import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
 
 const modal = useModal()
+const confirm = useDialog('confirm')
 
 const loading = ref(true)
 const instructions = ref<Instruction[]>([])
@@ -60,18 +61,24 @@ async function onEdit(data: Instruction) {
   })
 }
 
-const onDelete = async (id: number) => {
-  try {
-    await $fetch(`/api/instruction/${id}`, {
-      method: "DELETE",
-    })
-    await loadInstructions()
-  } catch (e) {
-    console.error("Failed to delete Ollama instruction", e)
-  }
-};
-
+async function onDelete(data: Instruction) {
+  confirm(`Are you sure deleting instruction <b class="text-primary">${data.name}</b> ?`, {
+    title: 'Delete Instruction',
+    dangerouslyUseHTMLString: true,
+  })
+    .then(async () => {
+      try {
+        await $fetch(`/api/instruction/${data.id}`, {
+          method: "DELETE",
+        })
+        await loadInstructions()
+      } catch (e) {
+        console.error("Failed to delete Ollama instruction", e)
+      }
+    }).catch(noop)
+}
 </script>
+
 <template>
   <div class="max-w-6xl mx-auto">
     <div class="flex items-center mb-4">
@@ -88,7 +95,7 @@ const onDelete = async (id: number) => {
           </UTooltip>
           <UTooltip text="Delete">
             <UButton color="red" icon="i-heroicons-trash-20-solid" variant="ghost" class="mx-1"
-                     @click="onDelete(row.id)" />
+                     @click="onDelete(row)" />
           </UTooltip>
         </div>
       </template>
