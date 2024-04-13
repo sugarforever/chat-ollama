@@ -2,7 +2,7 @@ import { PDFLoader } from "langchain/document_loaders/fs/pdf"
 import { TextLoader } from "langchain/document_loaders/fs/text"
 import { JSONLoader } from "langchain/document_loaders/fs/json"
 import { DocxLoader } from "langchain/document_loaders/fs/docx"
-import { PuppeteerWebBaseLoader } from "langchain/document_loaders/web/puppeteer"
+import { CheerioWebBaseLoader } from "langchain/document_loaders/web/cheerio"
 import { MultiPartData, H3Event } from 'h3'
 import { createRetriever } from '@/server/retriever'
 
@@ -26,20 +26,7 @@ export const loadDocuments = async (file: MultiPartData) => {
 
 export const loadURL = async (url: string) => {
   console.log("URL: ", url)
-  const loader = new PuppeteerWebBaseLoader(url, {
-    launchOptions: {
-      headless: true,
-    },
-    gotoOptions: {
-      waitUntil: "domcontentloaded",
-    },
-    async evaluate(page, browser) {
-      const result = await page.evaluate(() => document.body.innerText)
-      console.log("HTML result: ", result)
-      await browser.close()
-      return result
-    },
-  })
+  const loader = new CheerioWebBaseLoader(url)
   const docs = await loader.load()
   console.log(`Documents loaded and parsed from ${url}:`, docs)
   return docs

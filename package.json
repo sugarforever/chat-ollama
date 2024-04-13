@@ -43,6 +43,7 @@
     "@vueuse/nuxt": "^10.9.0",
     "@zilliz/milvus2-sdk-node": "^2.3.5",
     "ai": "^2.2.37",
+    "cheerio": "1.0.0-rc.12",
     "chromadb": "^1.8.1",
     "dexie": "^4.0.1",
     "highlight.js": "^11.9.0",
@@ -63,7 +64,6 @@
     "openai": "^4.33.0",
     "pdf-parse": "^1.1.1",
     "prisma": "^5.12.1",
-    "puppeteer": "^19.7.2",
     "ws": "^8.16.0"
   }
 }
