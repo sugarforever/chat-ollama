@@ -2,6 +2,7 @@ import { Readable } from 'stream'
 import { formatDocumentsAsString } from "langchain/util/document"
 import { PromptTemplate } from "@langchain/core/prompts"
 import { RunnableSequence } from "@langchain/core/runnables"
+import { CohereRerank } from "@langchain/cohere"
 import { setEventStreamResponse } from '@/server/utils'
 import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
@@ -67,6 +68,19 @@ export default defineEventHandler(async (event) => {
 
     const relevant_docs = await retriever.getRelevantDocuments(query)
     console.log("Relevant documents: ", relevant_docs)
+
+    let rerankedDocuments = relevant_docs
+
+    if (process.env.COHERE_API_KEY) {
+      const cohereRerank = new CohereRerank({
+        apiKey: process.env.COHERE_API_KEY,
+        model: "rerank-multilingual-v2.0",
+        topN: 4
+      })
+      rerankedDocuments = await cohereRerank.compressDocuments(relevant_docs, query)
+      console.log("Cohere reranked documents: ", rerankedDocuments)
+    }
+
     const chain = RunnableSequence.from([
       {
         question: (input: { question: string; chatHistory?: string }) =>
@@ -74,7 +88,7 @@ export default defineEventHandler(async (event) => {
         chatHistory: (input: { question: string; chatHistory?: string }) =>
           input.chatHistory ?? "",
         context: async () => {
-          return formatDocumentsAsString(relevant_docs)
+          return formatDocumentsAsString(rerankedDocuments)
         },
       },
       PromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
@@ -117,7 +131,7 @@ export default defineEventHandler(async (event) => {
 
       const docsChunk = {
         type: "relevant_documents",
-        relevant_documents: relevant_docs
+        relevant_documents: rerankedDocuments
       }
       yield `${JSON.stringify(docsChunk)}\n\n`
     })())

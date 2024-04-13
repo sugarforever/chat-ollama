@@ -21,8 +21,14 @@ defineProps<{
            v-for="(relevant_document, index) in relevant_documents"
            :key="index">
         <Source :source="relevant_document?.metadata?.source" />
-        <pre class="line-clamp-3 text-gray-500 text-sm whitespace-break-spaces"
-             v-html="relevant_document?.pageContent" />
+        <UPopover mode="hover" :popper="{ placement: 'right' }">
+          <pre class="line-clamp-3 text-gray-500 text-sm whitespace-break-spaces"
+               v-html="relevant_document?.pageContent" />
+          <template #panel>
+            <pre class="p-4 text-gray-500 text-sm whitespace-break-spaces"
+                 v-html="relevant_document?.pageContent" />
+          </template>
+        </UPopover>
       </div>
     </div>
   </div>

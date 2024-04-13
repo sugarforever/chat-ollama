@@ -26,7 +26,7 @@ export const createRetriever = async (embeddings: Embeddings, collectionName: st
         chunkSize: 200,
       }),
       childK: 20,
-      parentK: 4,
+      parentK: 10,
     })
   } else {
     console.log("Initializing vector store retriever")
