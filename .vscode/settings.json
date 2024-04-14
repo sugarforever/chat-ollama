@@ -6,6 +6,7 @@
   "typescript.preferences.quoteStyle": "single",
   "html.format.wrapAttributes": "preserve-aligned",
   "vue.format.wrapAttributes": "preserve-aligned",
+  "html.format.wrapLineLength": 0,
   "cSpell.words": [
     "dexie",
     "groq",
