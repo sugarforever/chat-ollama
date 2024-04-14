@@ -9,11 +9,19 @@ const links = [
     { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: '/settings' }
   ],
 ]
+const colorMode = useColorMode()
+const logoSrc = computed(() => {
+  return colorMode.value === 'dark' ? '/images/chatollama-dark.png' : '/images/chatollama-light.png'
+})
 </script>
 <template>
   <div class="border-b border-gray-200 dark:border-gray-800">
     <div class="flex items-center justify-between max-w-6xl mx-auto px-4">
-      <h1 class="mr-2 font-semibold text-primary text-2xl">ChatOllama</h1>
+      <ClientOnly>
+        <h1 class="flex flex-row items-center mr-2 font-semibold text-primary text-2xl">
+          <img class="mr-2 w-[32px]" :src="logoSrc" /> ChatOllama
+        </h1>
+      </ClientOnly>
       <div>
         <UHorizontalNavigation :links="links" />
       </div>
