@@ -31,6 +31,7 @@
     "@iconify-json/mdi": "^1.1.66",
     "@langchain/anthropic": "^0.1.10",
     "@langchain/azure-openai": "^0.0.4",
+    "@langchain/cohere": "^0.0.6",
     "@langchain/community": "^0.0.33",
     "@langchain/core": "^0.1.54",
     "@langchain/google-genai": "^0.0.10",
