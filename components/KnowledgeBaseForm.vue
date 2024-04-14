@@ -102,7 +102,6 @@ async function submit(formData: FormData) {
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
-          <!-- <UInput type="text" v-model="state.embedding" :disabled="isModify" /> -->
           <USelectMenu v-model="state.embedding" :options="embeddings" :disabled="isModify" />
         </UFormGroup>
 
