@@ -140,3 +140,4 @@ tmp
 chroma_data
 
 .DS_Store
+.yarn.lock

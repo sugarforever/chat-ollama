@@ -3,6 +3,8 @@ import type { KnowledgeBase } from '@prisma/client'
 
 type OperateType = 'create' | 'update'
 
+const embeddings = ['text-embedding-3-large', 'text-embedding-3-small', 'text-embedding-ada-002']
+
 const props = defineProps<{
   title: string
   type: OperateType
@@ -100,7 +102,8 @@ async function submit(formData: FormData) {
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
-          <UInput type="text" v-model="state.embedding" :disabled="isModify" />
+          <!-- <UInput type="text" v-model="state.embedding" :disabled="isModify" /> -->
+          <USelectMenu v-model="state.embedding" :options="embeddings" :disabled="isModify" />
         </UFormGroup>
 
         <UFormGroup label="Description" name="description" class="mb-4">
