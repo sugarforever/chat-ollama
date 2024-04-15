@@ -21,6 +21,11 @@ export default defineNuxtConfig({
       }
     }]
   ],
+  nitro: {
+    experimental: {
+      openAPI: true
+    }
+  },
   ui: {
     icons: ['heroicons', 'iconoir', 'material-symbols', 'mdi']
   },
