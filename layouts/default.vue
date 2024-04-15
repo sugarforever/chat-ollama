@@ -11,7 +11,7 @@ const links = [
 ]
 const colorMode = useColorMode()
 const logoSrc = computed(() => {
-  return colorMode.value === 'dark' ? '/images/chatollama-dark.png' : '/images/chatollama-light.png'
+  return colorMode.value === 'dark' ? '/images/chatollama-dark.svg' : '/images/chatollama-light.svg'
 })
 </script>
 <template>
