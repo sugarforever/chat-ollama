@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import type { KnowledgeBase } from '@prisma/client'
+import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '@/server/utils/models'
 
 type OperateType = 'create' | 'update'
 
-const embeddings = ['text-embedding-3-large', 'text-embedding-3-small', 'text-embedding-ada-002']
+const embeddings = OPENAI_EMBEDDING_MODELS.concat(GEMINI_EMBEDDING_MODELS)
 
 const props = defineProps<{
   title: string
