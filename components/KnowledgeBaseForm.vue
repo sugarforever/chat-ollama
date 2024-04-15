@@ -15,19 +15,14 @@ const props = defineProps<{
 
 const toast = useToast()
 const state = reactive({
-  selectedFiles: '',
+  files: [] as File[],
   name: props.data?.name || '',
   embedding: props.data?.embedding || '',
   description: props.data?.description || '',
   urls: ''
 })
-const selectedFiles = ref([])
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
-
-async function onFileChange(e: any) {
-  selectedFiles.value = e.currentTarget?.files
-}
 
 async function onSubmit() {
   loading.value = true
@@ -39,7 +34,7 @@ async function onSubmit() {
       .forEach((url: string) => formData.append('urls', url.trim()))
   }
 
-  Array.from(selectedFiles.value).forEach((file, index) => {
+  state.files.forEach((file, index) => {
     formData.append(`file_${index}`, file)
   })
 
@@ -98,7 +93,7 @@ async function submit(formData: FormData) {
       </template>
       <UForm :state="state" :validate="validate" @submit="onSubmit">
         <UFormGroup label="Name" name="name" required class="mb-4">
-          <UInput type="text" v-model="state.name" />
+          <UInput type="text" v-model="state.name" autocomplete="off" />
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
@@ -110,8 +105,7 @@ async function submit(formData: FormData) {
         </UFormGroup>
 
         <UFormGroup label="Files as Knowledge Base" name="file" class="mb-4">
-          <input type="file" class="text-sm" multiple name="file" accept=".txt,.json,.md,.doc,.docx,.pdf"
-                 @change="onFileChange" />
+          <FileSelector v-model="state.files" />
         </UFormGroup>
 
         <UFormGroup label="URLs as Knowledge Base" name="urls" class="mb-4">
