@@ -4,7 +4,38 @@ import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '@/server/utils
 
 type OperateType = 'create' | 'update'
 
-const embeddings = OPENAI_EMBEDDING_MODELS.concat(GEMINI_EMBEDDING_MODELS)
+type EmbeddingModelType = {
+  label: string,
+  value: string,
+  group: string,
+  color: string
+}
+
+const embeddings = (() => {
+  const embeddings_list = Array<EmbeddingModelType>()
+
+  OPENAI_EMBEDDING_MODELS.forEach((item) => {
+    embeddings_list.push({
+      label: item,
+      value: item,
+      group: 'OpenAI',
+      color: 'primary'
+    })
+  });
+
+  GEMINI_EMBEDDING_MODELS.forEach((item) => {
+    embeddings_list.push({
+      label: item,
+      value: item,
+      group: 'Gemini',
+      color: 'green'
+    })
+  });
+
+  return embeddings_list
+})()
+
+
 
 const props = defineProps<{
   title: string
@@ -98,7 +129,22 @@ async function submit(formData: FormData) {
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
-          <USelectMenu v-model="state.embedding" :options="embeddings" :disabled="isModify" />
+          <USelectMenu v-model="state.embedding" :options="embeddings" by="value"
+                       option-attribute="label" :disabled="isModify" searchable creatable>
+            <template #option="{ option }">
+              <span class="block truncate">
+                <UBadge :label="option.group" :color="option.color" />&nbsp;
+                {{ option.label }}
+              </span>
+            </template>
+
+            <template #option-create="{ option }">
+              <span class="flex-shrink-0">New embedding:</span>
+              <span
+                    class="flex-shrink-0 w-2 h-2 mt-px rounded-full -mx-1"></span>
+              <span class="block truncate">{{ option }}</span>
+            </template>
+          </USelectMenu>
         </UFormGroup>
 
         <UFormGroup label="Description" name="description" class="mb-4">
