@@ -7,46 +7,46 @@ const emit = defineEmits(["modelDownloaded"])
 const toast = useToast()
 const state = reactive({
   modelName: undefined
-});
-const downloading = ref(false);
-const progresses = ref<ProgressResponse[]>([]);
+})
+const downloading = ref(false)
+const progresses = ref<ProgressResponse[]>([])
 
 const fetchStream = async (url: string, options: RequestInit) => {
-  const response = await fetch(url, options);
+  const response = await fetch(url, options)
 
   if (response.body) {
-    const reader = response.body.getReader();
+    const reader = response.body.getReader()
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      const { done, value } = await reader.read()
+      if (done) break
 
-      const chunk = new TextDecoder().decode(value);
+      const chunk = new TextDecoder().decode(value)
       chunk.split("\n\n").forEach((line) => {
         if (line) {
-          const progress = JSON.parse(line);
+          const progress = JSON.parse(line)
 
           if (progress.error) {
-            throw new Error(progress.error);
+            throw new Error(progress.error)
           }
 
-          const existing = progresses.value.find((p) => p.status === progress.status);
+          const existing = progresses.value.find((p) => p.status === progress.status)
           if (existing) {
-            Object.assign(existing, progress);
+            Object.assign(existing, progress)
           } else {
-            progresses.value.push(progress);
+            progresses.value.push(progress)
           }
         }
-      });
+      })
     }
   } else {
-    console.log("The browser doesn't support streaming responses.");
+    console.log("The browser doesn't support streaming responses.")
   }
 }
 
 const onDownload = async () => {
-  downloading.value = true;
-  progresses.value = [];
-  const { modelName } = state;
+  downloading.value = true
+  progresses.value = []
+  const { modelName } = state
 
   try {
     await fetchStream('/api/models/pull', {
@@ -59,15 +59,15 @@ const onDownload = async () => {
         ...fetchHeadersOllama.value,
         'Content-Type': 'application/json',
       },
-    });
-    emit("modelDownloaded", modelName);
+    })
+    emit("modelDownloaded", modelName)
   } catch (error: any) {
-    progresses.value = [];
-    toast.add({ color: 'red', title: "Failed to download model", description: error.message });
+    progresses.value = []
+    toast.add({ color: 'red', title: "Failed to download model", description: error.message })
   }
 
-  downloading.value = false;
-};
+  downloading.value = false
+}
 </script>
 
 <template>
@@ -75,7 +75,7 @@ const onDownload = async () => {
     <div class="flex flex-col md:flex-row items-center">
       <div class="flex grow w-full gap-2 md:max-w-lg">
         <UInput class="flex-1" size="lg" v-model="state.modelName" placeholder="Enter the model name to download"
-          required />
+                required />
         <UButton type="submit" :loading="downloading">
           Download
         </UButton>
