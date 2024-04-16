@@ -34,6 +34,6 @@ export default defineNuxtConfig({
   ], runtimeConfig: {
     jina: {
       reader: false
-    }, // can be overridden by NUXT_JIRA_READER environment variable
+    }, // can be overridden by NUXT_JINA_READER environment variable
   },
 })
