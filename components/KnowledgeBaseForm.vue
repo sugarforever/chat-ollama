@@ -21,7 +21,7 @@ const embeddings = (() => {
       group: 'OpenAI',
       color: 'primary'
     })
-  });
+  })
 
   GEMINI_EMBEDDING_MODELS.forEach((item) => {
     embeddings_list.push({
@@ -30,7 +30,7 @@ const embeddings = (() => {
       group: 'Gemini',
       color: 'green'
     })
-  });
+  })
 
   return embeddings_list
 })()
@@ -133,16 +133,15 @@ async function submit(formData: FormData) {
                        option-attribute="label" :disabled="isModify" searchable creatable>
             <template #option="{ option }">
               <span class="block truncate">
-                <UBadge :label="option.group" :color="option.color" />&nbsp;
+                <UBadge :label="option.group" :color="option.color" size="xs" />&nbsp;
                 {{ option.label }}
               </span>
             </template>
 
             <template #option-create="{ option }">
-              <span class="flex-shrink-0">New embedding:</span>
-              <span
-                    class="flex-shrink-0 w-2 h-2 mt-px rounded-full -mx-1"></span>
-              <span class="block truncate">{{ option }}</span>
+              <span class="flex-shrink-0">Click to use embedding:</span>
+              <span class="flex-shrink-0 w-2 h-2 mt-px rounded-full -mx-1"></span>
+              <span class="block truncate text-primary">{{ option }}</span>
             </template>
           </USelectMenu>
         </UFormGroup>
