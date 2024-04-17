@@ -1,7 +1,41 @@
 <script lang="ts" setup>
 import type { KnowledgeBase } from '@prisma/client'
+import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '@/server/utils/models'
 
 type OperateType = 'create' | 'update'
+
+type EmbeddingModelType = {
+  label: string,
+  value: string,
+  group: string,
+  color: string
+}
+
+const embeddings = (() => {
+  const embeddings_list = Array<EmbeddingModelType>()
+
+  OPENAI_EMBEDDING_MODELS.forEach((item) => {
+    embeddings_list.push({
+      label: item,
+      value: item,
+      group: 'OpenAI',
+      color: 'primary'
+    })
+  })
+
+  GEMINI_EMBEDDING_MODELS.forEach((item) => {
+    embeddings_list.push({
+      label: item,
+      value: item,
+      group: 'Gemini',
+      color: 'green'
+    })
+  })
+
+  return embeddings_list
+})()
+
+
 
 const props = defineProps<{
   title: string
@@ -95,7 +129,21 @@ async function submit(formData: FormData) {
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
-          <UInput type="text" v-model="state.embedding" :disabled="isModify" />
+          <USelectMenu v-model="state.embedding" :options="embeddings" by="value"
+                       option-attribute="label" :disabled="isModify" searchable creatable>
+            <template #option="{ option }">
+              <span class="block truncate">
+                <UBadge :label="option.group" :color="option.color" size="xs" />&nbsp;
+                {{ option.label }}
+              </span>
+            </template>
+
+            <template #option-create="{ option }">
+              <span class="flex-shrink-0">Click to use embedding:</span>
+              <span class="flex-shrink-0 w-2 h-2 mt-px rounded-full -mx-1"></span>
+              <span class="block truncate text-primary">{{ option }}</span>
+            </template>
+          </USelectMenu>
         </UFormGroup>
 
         <UFormGroup label="Description" name="description" class="mb-4">
