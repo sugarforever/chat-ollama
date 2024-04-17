@@ -31,9 +31,21 @@ export default defineNuxtConfig({
   },
   css: [
     '~/assets/index.scss',
-  ], runtimeConfig: {
+  ],
+  app: {
+    head: {
+      link: [
+        {
+          rel: 'icon',
+          type: 'image/svg+xml',
+          href: '/logo.svg',
+        },
+      ]
+    }
+  },
+  runtimeConfig: {
     jina: {
       reader: false
     }, // can be overridden by NUXT_JINA_READER environment variable
-  },
+  }
 })
