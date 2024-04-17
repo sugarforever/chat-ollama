@@ -1,3 +1,4 @@
+import { Document } from "@langchain/core/documents"
 import { PDFLoader } from "langchain/document_loaders/fs/pdf"
 import { TextLoader } from "langchain/document_loaders/fs/text"
 import { JSONLoader } from "langchain/document_loaders/fs/json"
@@ -24,12 +25,23 @@ export const loadDocuments = async (file: MultiPartData) => {
   return new Loaders[ext](blob).load()
 }
 
-export const loadURL = async (url: string) => {
+export const loadURL = async (url: string, jinaReader: boolean) => {
   console.log("URL: ", url)
-  const loader = new CheerioWebBaseLoader(url)
-  const docs = await loader.load()
-  console.log(`Documents loaded and parsed from ${url}:`, docs)
-  return docs
+  if (jinaReader) {
+    console.log("Using Jina reader to load URL")
+    const jinaUrl = `https://r.jina.ai/${url}`
+    const response = await fetch(jinaUrl)
+    const data = await response.text()
+    return [new Document({
+      pageContent: data
+    })]
+  } else {
+    console.log("Using CheerioWebBaseLoader to load URL")
+    const loader = new CheerioWebBaseLoader(url)
+    const docs = await loader.load()
+    console.log(`Documents loaded and parsed from ${url}:`, docs)
+    return docs
+  }
 }
 
 export const ingestDocument = async (
@@ -61,9 +73,10 @@ export const ingestURLs = async (
   event: H3Event
 ) => {
   const docs = []
+  const config = useRuntimeConfig(event)
 
   for (const url of urls) {
-    const loadedDocs = await loadURL(url)
+    const loadedDocs = await loadURL(url, config?.jina?.reader)
     docs.push(...loadedDocs)
   }
 
