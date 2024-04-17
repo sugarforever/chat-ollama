@@ -17,10 +17,15 @@ const state = reactive({
   name: props.data?.name || '',
   embedding: props.data?.embedding || '',
   description: props.data?.description || '',
-  urls: ''
+  urls: '',
+  pageParser: 'cheerio' as 'cheerio' | 'jinaReader'
 })
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
+const parserList = [
+  { label: 'Cheerio', value: 'cheerio' },
+  { label: 'Jina Reader', value: 'jinaReader' },
+]
 
 async function onSubmit() {
   loading.value = true
@@ -39,6 +44,7 @@ async function onSubmit() {
   formData.append("name", state.name)
   formData.append("description", state.description)
   formData.append("embedding", state.embedding)
+  formData.append("pageParser", state.pageParser)
 
   if (isModify.value) {
     formData.append('knowledgeBaseId', String(props.data!.id))
@@ -108,6 +114,10 @@ async function submit(formData: FormData) {
 
         <UFormGroup label="URLs as Knowledge Base" name="urls" class="mb-4">
           <UTextarea v-model="state.urls" autoresize :maxrows="6" placeholder="One per line" />
+        </UFormGroup>
+
+        <UFormGroup label="URL page parser" name="pageParser" class="mb-4">
+          <USelectMenu v-model="state.pageParser" :options="parserList" value-attribute="value" />
         </UFormGroup>
 
         <div class="flex justify-end">
