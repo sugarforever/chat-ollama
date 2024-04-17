@@ -1,7 +1,41 @@
 <script lang="ts" setup>
 import type { KnowledgeBase } from '@prisma/client'
+import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '@/server/utils/models'
 
 type OperateType = 'create' | 'update'
+
+type EmbeddingModelType = {
+  label: string,
+  value: string,
+  group: string,
+  color: string
+}
+
+const embeddings = (() => {
+  const embeddings_list = Array<EmbeddingModelType>()
+
+  OPENAI_EMBEDDING_MODELS.forEach((item) => {
+    embeddings_list.push({
+      label: item,
+      value: item,
+      group: 'OpenAI',
+      color: 'primary'
+    })
+  })
+
+  GEMINI_EMBEDDING_MODELS.forEach((item) => {
+    embeddings_list.push({
+      label: item,
+      value: item,
+      group: 'Gemini',
+      color: 'green'
+    })
+  })
+
+  return embeddings_list
+})()
+
+
 
 const props = defineProps<{
   title: string
@@ -13,19 +47,14 @@ const props = defineProps<{
 
 const toast = useToast()
 const state = reactive({
-  selectedFiles: '',
+  files: [] as File[],
   name: props.data?.name || '',
   embedding: props.data?.embedding || '',
   description: props.data?.description || '',
   urls: ''
 })
-const selectedFiles = ref([])
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
-
-async function onFileChange(e: any) {
-  selectedFiles.value = e.currentTarget?.files
-}
 
 async function onSubmit() {
   loading.value = true
@@ -37,7 +66,7 @@ async function onSubmit() {
       .forEach((url: string) => formData.append('urls', url.trim()))
   }
 
-  Array.from(selectedFiles.value).forEach((file, index) => {
+  state.files.forEach((file, index) => {
     formData.append(`file_${index}`, file)
   })
 
@@ -96,11 +125,25 @@ async function submit(formData: FormData) {
       </template>
       <UForm :state="state" :validate="validate" @submit="onSubmit">
         <UFormGroup label="Name" name="name" required class="mb-4">
-          <UInput type="text" v-model="state.name" />
+          <UInput type="text" v-model="state.name" autocomplete="off" />
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
-          <UInput type="text" v-model="state.embedding" :disabled="isModify" />
+          <USelectMenu v-model="state.embedding" :options="embeddings" by="value"
+                       option-attribute="label" :disabled="isModify" searchable creatable>
+            <template #option="{ option }">
+              <span class="block truncate">
+                <UBadge :label="option.group" :color="option.color" size="xs" />&nbsp;
+                {{ option.label }}
+              </span>
+            </template>
+
+            <template #option-create="{ option }">
+              <span class="flex-shrink-0">Click to use embedding:</span>
+              <span class="flex-shrink-0 w-2 h-2 mt-px rounded-full -mx-1"></span>
+              <span class="block truncate text-primary">{{ option }}</span>
+            </template>
+          </USelectMenu>
         </UFormGroup>
 
         <UFormGroup label="Description" name="description" class="mb-4">
@@ -108,8 +151,7 @@ async function submit(formData: FormData) {
         </UFormGroup>
 
         <UFormGroup label="Files as Knowledge Base" name="file" class="mb-4">
-          <input type="file" class="text-sm" multiple name="file" accept=".txt,.json,.md,.doc,.docx,.pdf"
-                 @change="onFileChange" />
+          <FileSelector v-model="state.files" />
         </UFormGroup>
 
         <UFormGroup label="URLs as Knowledge Base" name="urls" class="mb-4">
