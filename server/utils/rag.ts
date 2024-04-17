@@ -8,6 +8,7 @@ import { RecursiveUrlLoader } from "langchain/document_loaders/web/recursive_url
 import { compile } from "html-to-text"
 import { MultiPartData, H3Event } from 'h3'
 import { createRetriever } from '@/server/retriever'
+import type { PageParser } from '@/server/types'
 
 export const loadDocuments = async (file: MultiPartData) => {
   const Loaders = {
@@ -27,16 +28,19 @@ export const loadDocuments = async (file: MultiPartData) => {
   return new Loaders[ext](blob).load()
 }
 
-export const loadURL = async (url: string, jinaReader: boolean) => {
+export const loadURL = async (url: string, pageParser: PageParser) => {
   console.log("URL: ", url)
-  if (jinaReader) {
+  if (pageParser === 'jinaReader') {
     console.log("Using Jina reader to load URL")
     const jinaUrl = `https://r.jina.ai/${url}`
     const response = await fetch(jinaUrl)
     const data = await response.text()
-    return [new Document({
-      pageContent: data
-    })]
+    return [
+      new Document({
+        pageContent: data,
+        metadata: { source: url }
+      })
+    ]
   } else {
     /*console.log("Using CheerioWebBaseLoader to load URL")
     const loader = new CheerioWebBaseLoader(url)
@@ -84,10 +88,10 @@ export const ingestURLs = async (
   event: H3Event
 ) => {
   const docs = []
-  const config = useRuntimeConfig(event)
+  const { pageParser } = await parseKnowledgeBaseFormRequest(event)
 
   for (const url of urls) {
-    const loadedDocs = await loadURL(url, config?.jina?.reader)
+    const loadedDocs = await loadURL(url, pageParser)
     docs.push(...loadedDocs)
   }
 

@@ -1,5 +1,7 @@
 import { MultiPartData } from 'h3'
 
+export type PageParser = 'cheerio' | 'jinaReader'
+
 export type KnowledgeBaseFormData = {
   name: string
   description: string
@@ -7,4 +9,5 @@ export type KnowledgeBaseFormData = {
   knowledgeBaseId: number | null
   uploadedFiles: MultiPartData[]
   urls: string[]
+  pageParser: PageParser
 }

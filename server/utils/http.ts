@@ -1,5 +1,5 @@
 import { MultiPartData, type H3Event } from 'h3'
-import { KnowledgeBaseFormData } from '@/server/types'
+import type { KnowledgeBaseFormData, PageParser } from '@/server/types'
 
 export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<KnowledgeBaseFormData> => {
   const items = await readMultipartFormData(event)
@@ -10,6 +10,7 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
   let _name = ''
   let _description = ''
   let _embedding = ''
+  let _pageParser: PageParser = 'cheerio'
   const urls: string[] = []
   const _knowledgeBaseId = event?.context?.params?.id
   items?.forEach((item) => {
@@ -32,6 +33,9 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
     if (key === 'embedding') {
       _embedding = decodedData
     }
+    if (key === 'pageParser') {
+      _pageParser = decodedData as PageParser
+    }
   })
 
   const formData: KnowledgeBaseFormData = {
@@ -40,7 +44,8 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
     embedding: _embedding,
     knowledgeBaseId: _knowledgeBaseId ? parseInt(_knowledgeBaseId) : null,
     uploadedFiles,
-    urls: urls
+    urls: urls,
+    pageParser: _pageParser,
   }
 
   return formData
