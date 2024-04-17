@@ -9,7 +9,7 @@ const props = withDefaults(defineProps<{
 })
 
 const value = defineModel<string>()
-const currentModel = defineModel<ModelInfo>('model')
+const currentModel = defineModel<ModelInfo>('modelInfo')
 
 const models = await loadModels()
 
