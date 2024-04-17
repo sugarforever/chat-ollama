@@ -4,6 +4,8 @@ import { TextLoader } from "langchain/document_loaders/fs/text"
 import { JSONLoader } from "langchain/document_loaders/fs/json"
 import { DocxLoader } from "langchain/document_loaders/fs/docx"
 import { CheerioWebBaseLoader } from "langchain/document_loaders/web/cheerio"
+import { RecursiveUrlLoader } from "langchain/document_loaders/web/recursive_url"
+import { compile } from "html-to-text"
 import { MultiPartData, H3Event } from 'h3'
 import { createRetriever } from '@/server/retriever'
 import type { PageParser } from '@/server/types'
@@ -39,13 +41,20 @@ export const loadURL = async (url: string, pageParser: PageParser) => {
         metadata: { source: url }
       })
     ]
-  }
-  // default `cheerio`
-  else {
-    console.log("Using CheerioWebBaseLoader to load URL")
+  } else {
+    /*console.log("Using CheerioWebBaseLoader to load URL")
     const loader = new CheerioWebBaseLoader(url)
     const docs = await loader.load()
-    console.log(`Documents loaded and parsed from ${url}:`, docs)
+    console.log(`Documents loaded and parsed from ${url}:`, docs)*/
+
+    const compiledConvert = compile({ wordwrap: 130 }) // returns (text: string) => string;
+
+    const loader = new RecursiveUrlLoader(url, {
+      extractor: compiledConvert,
+      maxDepth: 1
+    })
+
+    const docs = await loader.load()
     return docs
   }
 }
