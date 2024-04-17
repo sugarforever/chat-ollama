@@ -49,7 +49,7 @@ const toast = useToast()
 const state = reactive({
   files: [] as File[],
   name: props.data?.name || '',
-  embedding: props.data?.embedding || '',
+  embedding: props.data?.embedding || undefined,
   description: props.data?.description || '',
   urls: ''
 })
@@ -129,8 +129,13 @@ async function submit(formData: FormData) {
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
-          <USelectMenu v-model="state.embedding" :options="embeddings" by="value"
-                       option-attribute="label" :disabled="isModify" searchable creatable>
+          <USelectMenu v-model="state.embedding"
+                       :options="embeddings"
+                       option-attribute="label"
+                       value-attribute="value"
+                       :disabled="isModify"
+                       searchable
+                       creatable>
             <template #option="{ option }">
               <span class="block truncate">
                 <UBadge :label="option.group" :color="option.color" size="xs" />&nbsp;
