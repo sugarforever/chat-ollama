@@ -24,7 +24,7 @@ const defaultConfig = {
 
 const state = reactive({
   title: '',
-  model: '',
+  model: [] as unknown as [string, string],
   ...defaultConfig,
 })
 const currentModel = ref<ModelInfo>()
@@ -40,7 +40,7 @@ onMounted(() => {
   clientDB.chatSessions
     .get(props.sessionId)
     .then(res => {
-      Object.assign(state, res)
+      Object.assign(state, res, { model: [res?.model, res?.modelFamily] })
     })
 })
 
@@ -53,6 +53,7 @@ async function onSave() {
     .equals(props.sessionId)
     .modify({
       ...state,
+      model: state.model[0],
       modelFamily: currentModel.value?.family,
     })
 

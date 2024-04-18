@@ -5,7 +5,7 @@ export async function createChatSession(params?: Partial<Omit<ChatSessionBaseDat
     createTime: Date.now(),
     updateTime: Date.now(),
     title: params?.title || '',
-    model: params?.model || chatDefaultSettings.value.model,
+    model: params?.model || chatDefaultSettings.value.model[0],
     modelFamily: params?.modelFamily || '',
     instructionId: params?.instructionId || 0,
     knowledgeBaseId: params?.knowledgeBaseId || 0,
