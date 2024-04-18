@@ -4,43 +4,11 @@ import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '@/server/utils
 
 type OperateType = 'create' | 'update'
 
-type EmbeddingModelType = {
-  label: string,
-  value: string,
-  group: string,
-  color: string
-}
-
-const embeddings = (() => {
-  const embeddings_list = Array<EmbeddingModelType>()
-
-  OPENAI_EMBEDDING_MODELS.forEach((item) => {
-    embeddings_list.push({
-      label: item,
-      value: item,
-      group: 'OpenAI',
-      color: 'primary'
-    })
-  })
-
-  GEMINI_EMBEDDING_MODELS.forEach((item) => {
-    embeddings_list.push({
-      label: item,
-      value: item,
-      group: 'Gemini',
-      color: 'green'
-    })
-  })
-
-  return embeddings_list
-})()
-
-
-
 const props = defineProps<{
   title: string
   type: OperateType
   data?: KnowledgeBase
+  embeddings: string[]
   onSuccess: () => void
   onClose: () => void
 }>()
@@ -49,17 +17,36 @@ const toast = useToast()
 const state = reactive({
   files: [] as File[],
   name: props.data?.name || '',
-  embedding: props.data?.embedding || undefined,
+  embedding: props.data?.embedding || '',
   description: props.data?.description || '',
   urls: '',
   pageParser: 'cheerio' as 'cheerio' | 'jinaReader'
 })
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
+const embeddings = [
+  generateEmbeddingData('Ollama', props.embeddings.filter(e => ![...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS].includes(e)), 'group'),
+  generateEmbeddingData('OpenAI', OPENAI_EMBEDDING_MODELS, 'group'),
+  generateEmbeddingData('Gemini', GEMINI_EMBEDDING_MODELS, 'group'),
+]
+const embeddingList = computed(() => {
+  const val = state.embedding.toLowerCase()
+  return embeddings.flatMap(items => {
+    const arr = items.filter(el => 'slot' in el || el.value.toLowerCase().includes(val))
+    return arr.length > 1 ? [arr] : []
+  })
+})
+const formRef = shallowRef()
+const embeddingInputRef = shallowRef()
+const showEmbeddingDropdown = ref(false)
 const parserList = [
   { label: 'Cheerio', value: 'cheerio' },
   { label: 'Jina Reader', value: 'jinaReader' },
 ]
+
+watch(embeddingList, (list) => {
+  showEmbeddingDropdown.value = list.flat().length > 0
+})
 
 async function onSubmit() {
   loading.value = true
@@ -118,6 +105,22 @@ async function submit(formData: FormData) {
   }
   loading.value = false
 }
+
+function generateEmbeddingData(groupName: string, list: string[], slotName: string) {
+  if (list.length === 0) return []
+
+  return [
+    { label: groupName, disabled: true, slot: slotName },
+    ...list.map(el => ({
+      label: el,
+      value: el,
+      click: () => {
+        state.embedding = el
+        formRef.value.validate('embedding')
+      }
+    }))
+  ]
+}
 </script>
 
 <template>
@@ -129,32 +132,24 @@ async function submit(formData: FormData) {
           <UButton icon="i-material-symbols-close-rounded" color="gray" @click="onClose()"></UButton>
         </div>
       </template>
-      <UForm :state="state" :validate="validate" @submit="onSubmit">
+      <UForm ref="formRef" :state="state" :validate="validate" @submit="onSubmit">
         <UFormGroup label="Name" name="name" required class="mb-4">
           <UInput type="text" v-model="state.name" autocomplete="off" />
         </UFormGroup>
 
         <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
-          <USelectMenu v-model="state.embedding"
-                       :options="embeddings"
-                       option-attribute="label"
-                       value-attribute="value"
-                       :disabled="isModify"
-                       searchable
-                       creatable>
-            <template #option="{ option }">
-              <span class="block truncate">
-                <UBadge :label="option.group" :color="option.color" size="xs" />&nbsp;
-                {{ option.label }}
-              </span>
-            </template>
-
-            <template #option-create="{ option }">
-              <span class="flex-shrink-0">Click to use embedding:</span>
-              <span class="flex-shrink-0 w-2 h-2 mt-px rounded-full -mx-1"></span>
-              <span class="block truncate text-primary">{{ option }}</span>
-            </template>
-          </USelectMenu>
+          <div class="flex">
+            <UDropdown v-model:open="showEmbeddingDropdown"
+                       :items="embeddingList"
+                       :ui="{ item: { disabled: 'pointer-events-none' } }"
+                       :popper="{ placement: 'bottom-start' }">
+              <div></div>
+              <template #group="{ item }">
+                <div>{{ item.label }}</div>
+              </template>
+            </UDropdown>
+            <UInput ref="embeddingInputRef" v-model="state.embedding" class="grow" autocomplete="off" @focus="showEmbeddingDropdown = true" />
+          </div>
         </UFormGroup>
 
         <UFormGroup label="Description" name="description" class="mb-4">
