@@ -37,7 +37,6 @@ const embeddingList = computed(() => {
   })
 })
 const formRef = shallowRef()
-const embeddingInputRef = shallowRef()
 const showEmbeddingDropdown = ref(false)
 const parserList = [
   { label: 'Cheerio', value: 'cheerio' },
@@ -148,7 +147,7 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
                 <div>{{ item.label }}</div>
               </template>
             </UDropdown>
-            <UInput ref="embeddingInputRef" v-model="state.embedding" class="grow" autocomplete="off" @focus="showEmbeddingDropdown = true" />
+            <UInput v-model="state.embedding" class="grow" autocomplete="off" placeholder="Input or select an embedding" @focus="showEmbeddingDropdown = true" />
           </div>
         </UFormGroup>
 
