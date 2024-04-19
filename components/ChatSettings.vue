@@ -24,7 +24,7 @@ const defaultConfig = {
 
 const state = reactive({
   title: '',
-  model: '',
+  model: [] as unknown as [string, string],
   ...defaultConfig,
 })
 const currentModel = ref<ModelInfo>()
@@ -40,7 +40,7 @@ onMounted(() => {
   clientDB.chatSessions
     .get(props.sessionId)
     .then(res => {
-      Object.assign(state, res)
+      Object.assign(state, res, { model: [res?.model, res?.modelFamily] })
     })
 })
 
@@ -53,6 +53,7 @@ async function onSave() {
     .equals(props.sessionId)
     .modify({
       ...state,
+      model: state.model[0],
       modelFamily: currentModel.value?.family,
     })
 
@@ -85,7 +86,7 @@ async function onReset() {
           <UInput v-model="state.title" maxlength="40" />
         </UFormGroup>
         <UFormGroup label="Model" name="model" required class="mb-4">
-          <ModelsSelectMenu v-model="state.model" v-model:model="currentModel" />
+          <ModelsSelectMenu v-model="state.model" v-model:modelInfo="currentModel" />
         </UFormGroup>
         <UFormGroup label="Knowledge Base" name="knowledgeBaseId" class="mb-4">
           <USelectMenu v-model="state.knowledgeBaseId"

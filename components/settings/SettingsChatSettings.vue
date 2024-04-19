@@ -1,12 +1,22 @@
 <script lang="ts" setup>
-
+const model = computed({
+  get() {
+    const val = chatDefaultSettings.value.model
+    return typeof val === 'string'
+      ? [val, ''] as [string, string]
+      : val
+  },
+  set(val) {
+    chatDefaultSettings.value.model = val
+  }
+})
 </script>
 
 <template>
   <ClientOnly>
     <SettingsCard title="Chat Settings">
       <UFormGroup label="Default Model" class="mb-4">
-        <ModelsSelectMenu v-model="chatDefaultSettings.model" size="lg"></ModelsSelectMenu>
+        <ModelsSelectMenu v-model="model" size="lg"></ModelsSelectMenu>
       </UFormGroup>
       <UFormGroup label="Attached Message Count">
         <div class="flex items-center">

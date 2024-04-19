@@ -5,9 +5,21 @@
   @import 'highlight.js/scss/github-dark.scss';
 }
 
-html, body, #__nuxt {
+html,
+body,
+#__nuxt {
   height: 100%;
   font-family: "Noto Sans", SF Pro SC, SF Pro Text, SF Pro Icons, PingFang SC, Helvetica Neue, Helvetica, Arial, sans-serif;
+}
+
+body {
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: inherit;
+  }
 }
 
 .md-body {
@@ -32,7 +44,7 @@ html, body, #__nuxt {
     list-style: initial;
   }
 
-  li > p {
+  li>p {
     display: inline;
   }
 }

@@ -20,6 +20,7 @@ const columns = [
 ]
 
 const knowledgeBases = computed(() => data.value?.knowledgeBases || [])
+const embeddings = computed(() => [...new Set(data.value?.knowledgeBases?.flatMap(el => el.embedding || []) || [])])
 
 async function onStartChat(data: KnowledgeBase) {
   const chatSessionInfo = await createChatSession({ title: data.name, knowledgeBaseId: data.id })
@@ -45,6 +46,7 @@ function onShowCreate() {
   modal.open(KnowledgeBaseForm, {
     type: 'create',
     title: 'Create a New Knowledge Base',
+    embeddings: embeddings.value,
     onClose: () => modal.close(),
     onSuccess: () => refresh()
   })
@@ -55,6 +57,7 @@ function onShowUpdate(data: KnowledgeBase) {
     type: 'update',
     title: 'Update Knowledge Base',
     data,
+    embeddings: embeddings.value,
     onClose: () => modal.close(),
     onSuccess: () => refresh()
   })
