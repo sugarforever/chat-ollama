@@ -19,7 +19,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    #pull_policy: always
+    pull_policy: always
     restart: always
     volumes:
       - ~/.chatollama:/app/sqlite
