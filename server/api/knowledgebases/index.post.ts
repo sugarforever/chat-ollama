@@ -59,17 +59,26 @@ export default defineEventHandler(async (event) => {
       console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id)
     }
 
-    await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
-    for (const url of urls) {
-      const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
-        data: {
-          url: url,
-          knowledgeBaseId: affected.id
-        }
-      })
+    if (urls.length > 0) {
+      await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
+      for (const url of urls) {
 
-      console.log("Knowledge base file created with ID: ", createdKnowledgeBaseFile.id)
+        if (!url) {
+          console.log(`No URL detected, processing is skipped`)
+          continue
+        }
+
+        const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
+          data: {
+            url: url,
+            knowledgeBaseId: affected.id
+          }
+        })
+
+        console.log("Knowledge base file created with ID: ", createdKnowledgeBaseFile.id)
+      }
     }
+
   } catch (e) {
     await prisma.knowledgeBase.delete({
       where: {
