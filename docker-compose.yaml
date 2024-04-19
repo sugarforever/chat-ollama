@@ -13,10 +13,13 @@ services:
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=file:/app/sqlite/chatollama.sqlite
       - REDIS_HOST=redis
-    image: 0001coder/chatollama:latest
+    image: 0001coder/chatollama:local
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    pull_policy: always
+    #pull_policy: always
     restart: always
     volumes:
       - ~/.chatollama:/app/sqlite
