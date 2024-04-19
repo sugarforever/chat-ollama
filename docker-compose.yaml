@@ -14,9 +14,6 @@ services:
       - DATABASE_URL=file:/app/sqlite/chatollama.sqlite
       - REDIS_HOST=redis
     image: 0001coder/chatollama:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     pull_policy: always
