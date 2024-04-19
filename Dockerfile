@@ -1,4 +1,4 @@
-ARG NODE_VERSION=20.5.1
+ARG NODE_VERSION=20.12.2
 
 FROM node:${NODE_VERSION}-slim
 
@@ -21,5 +21,6 @@ RUN pnpm run build
 
 EXPOSE 3000
 
-# Nodejs 20+ supports env-file
+# Nodejs 20.6.0+ supports env-file
+# https://nodejs.org/dist/latest-v20.x/docs/api/cli.html#--env-fileconfig
 CMD ["node", "--env-file=.env", ".output/server/index.mjs"]
