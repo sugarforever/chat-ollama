@@ -9,12 +9,19 @@ WORKDIR /app
 # DATABASE_URL environment variable takes precedence over .env file configuration
 ENV DATABASE_URL=file:/app/sqlite/chatollama.sqlite
 
-COPY . .
-COPY .env.example .env
-
+COPY pnpm-lock.yaml package.json ./
 RUN npm install -g pnpm
-
 RUN pnpm i
+
+COPY . .
+
+# Make sure .env file is present
+RUN if [ -f /app/.env ]; then \
+  echo ".env file exists"; \
+  else \
+  echo "" > .env; \
+  fi
+
 RUN pnpm run prisma-generate
 RUN pnpm run prisma-migrate
 RUN pnpm run build
