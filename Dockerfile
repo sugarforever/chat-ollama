@@ -6,17 +6,20 @@ RUN apt-get update && apt-get install -y openssl
 
 WORKDIR /app
 
-COPY pnpm-lock.yaml package.json ./
+# DATABASE_URL environment variable takes precedence over .env file configuration
+ENV DATABASE_URL=file:/app/sqlite/chatollama.sqlite
+
+COPY . .
+COPY .env.example .env
 
 RUN npm install -g pnpm
 
 RUN pnpm i
-
-COPY . .
-
 RUN pnpm run prisma-generate
+RUN pnpm run prisma-migrate
 RUN pnpm run build
 
 EXPOSE 3000
 
-CMD ["node", ".output/server/index.mjs"]
+# Nodejs 20+ supports env-file
+CMD ["node", "--env-file=.env", ".output/server/index.mjs"]

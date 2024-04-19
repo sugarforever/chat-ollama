@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@iconify-json/heroicons':
+    specifier: ^1.1.20
+    version: 1.1.20
   '@iconify-json/iconoir':
     specifier: ^1.1.42
     version: 1.1.42
