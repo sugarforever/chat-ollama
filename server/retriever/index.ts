@@ -6,7 +6,7 @@ import { createVectorStore } from '@/server/utils/vectorstores'
 
 export const createRetriever = async (embeddings: Embeddings, collectionName: string) => {
   const vectorStore = createVectorStore(embeddings, collectionName)
-  if (process.env.VERTOR_STORE === 'chroma') {
+  if (process.env.VECTOR_STORE === 'chroma') {
     await vectorStore.ensureCollection()
   }
 
