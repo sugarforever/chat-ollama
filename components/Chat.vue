@@ -326,8 +326,8 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
         <div class="text-gray-500 dark:text-gray-400 p-1">{{ message.role }}</div>
         <div class="leading-6 text-sm flex items-center max-w-full message-content"
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
-          <div class="border border-primary/20 rounded-lg p-3 max-w-[calc(100%-2rem)] box-border"
-               :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'}`">
+          <div class="border border-primary/20 rounded-lg p-3 box-border"
+               :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800 max-w-[calc(100%-2rem)]' : 'bg-primary-50 dark:bg-primary-400/60 max-w-full'}`">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
