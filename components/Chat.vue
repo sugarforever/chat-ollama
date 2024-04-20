@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useMutationObserver, useThrottleFn } from '@vueuse/core'
+import { useMutationObserver, useThrottleFn, useScroll } from '@vueuse/core'
 import type { KnowledgeBase } from '@prisma/client'
 import { fetchHeadersOllama, fetchHeadersThirdApi, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
@@ -45,7 +45,24 @@ const sending = ref(false)
 let abortHandler: (() => void) | null = null
 const limitHistorySize = 20
 const messageListEl = shallowRef<HTMLElement>()
-let isScrollSmooth = false
+const behavior = ref<ScrollBehavior>('auto')
+const { y } = useScroll(messageListEl, { behavior })
+
+const isUserScrolling = computed(() => {
+  if (messageListEl.value) {
+    const bottomOffset = messageListEl.value.scrollHeight - messageListEl.value.clientHeight
+    if (bottomOffset - y.value < 60) {
+      return false
+    }
+  }
+  return true
+})
+
+const scrollToBottom = (_behavior: ScrollBehavior) => {
+  behavior.value = _behavior
+  y.value = messageListEl.value!.scrollHeight
+}
+
 
 const visibleMessages = computed(() => {
   return messages.value.filter((message) => message.role !== 'system')
@@ -61,11 +78,9 @@ useMutationObserver(messageListEl, useThrottleFn((e: MutationRecord[]) => {
   if (e.some(el => (el.target as HTMLElement).dataset.observer === 'ignore')) {
     return
   }
-  messageListEl.value?.scrollTo({
-    top: messageListEl.value.scrollHeight,
-    behavior: isScrollSmooth ? 'smooth' : 'auto'
-  })
-  isScrollSmooth = false
+  if (!isUserScrolling.value) {
+    scrollToBottom('auto')
+  }
 }, 200), { childList: true, subtree: true })
 
 async function loadChatHistory(sessionId?: number) {
@@ -166,8 +181,6 @@ const onSend = async (data: ChatBoxFormData) => {
     return
   }
 
-  isScrollSmooth = true
-
   const timestamp = Date.now()
   sending.value = true
   chatInputBoxRef.value?.reset()
@@ -205,6 +218,10 @@ const onSend = async (data: ChatBoxFormData) => {
     userMessage,
     { role: "assistant", content: "", type: 'loading', timestamp }
   )
+
+  nextTick(() => {
+    scrollToBottom('smooth')
+  })
 
   const controller = new AbortController()
   abortHandler = () => controller.abort()
