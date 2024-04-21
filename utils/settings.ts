@@ -48,31 +48,31 @@ export const groqApiHost = useStorage(GROQ_API_HOST, '')
 
 export const fetchHeadersOllama = computed(() => {
   return {
-    'x_ollama_host': ollamaHost.value,
-    'x_ollama_username': ollamaUsername.value,
-    'x_ollama_password': ollamaPassword.value,
+    'x-ollama-host': ollamaHost.value,
+    'x-ollama-username': ollamaUsername.value,
+    'x-ollama-password': ollamaPassword.value,
   }
 })
 
 export const fetchHeadersThirdApi = computed(() => {
   return {
-    'x_openai_api_key': openAiApiKey.value,
-    'x_openai_api_host': openAiApiHost.value,
+    'x-openai-api-key': openAiApiKey.value,
+    'x-openai-api-host': openAiApiHost.value,
 
-    'x_azure_openai_api_key': azureOpenaiApiKey.value,
-    'x_azure_openai_endpoint': azureOpenaiEndpoint.value,
-    'x_azure_openai_deployment_name': azureOpenaiDeploymentName.value,
+    'x-azure-openai-api-key': azureOpenaiApiKey.value,
+    'x-azure-openai-endpoint': azureOpenaiEndpoint.value,
+    'x-azure-openai-deployment-name': azureOpenaiDeploymentName.value,
 
-    'x_anthropic_api_key': anthropicApiKey.value,
-    'x_anthropic_api_host': anthropicApiHost.value,
+    'x-anthropic-api-key': anthropicApiKey.value,
+    'x-anthropic-api-host': anthropicApiHost.value,
 
-    'x_moonshot_api_key': moonshotApiKey.value,
-    'x_moonshot_api_host': moonshotApiHost.value,
+    'x-moonshot-api-key': moonshotApiKey.value,
+    'x-moonshot-api-host': moonshotApiHost.value,
 
-    'x_gemini_api_key': geminiApiKey.value,
+    'x-gemini-api-key': geminiApiKey.value,
 
-    'x_groq_api_key': groqApiKey.value,
-    'x_groq_api_host': groqApiHost.value,
+    'x-groq-api-key': groqApiKey.value,
+    'x-groq-api-host': groqApiHost.value,
   }
 })
 
