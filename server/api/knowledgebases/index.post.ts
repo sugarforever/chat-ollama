@@ -59,8 +59,8 @@ export default defineEventHandler(async (event) => {
       console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id)
     }
 
-    await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
-    for (const url of urls) {
+    const allUrls = await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
+    for (const url of allUrls) {
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {
           url: url,

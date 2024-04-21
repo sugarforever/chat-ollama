@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { KnowledgeBase } from '@prisma/client'
 import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '@/server/utils/models'
+import type { PageParser } from '@/server/types/index'
 
 type OperateType = 'create' | 'update'
 
@@ -20,7 +21,9 @@ const state = reactive({
   embedding: props.data?.embedding || '',
   description: props.data?.description || '',
   urls: '',
-  pageParser: 'cheerio' as 'cheerio' | 'jinaReader'
+  pageParser: 'default' as PageParser,
+  maxDepth: 0,
+  excludeGlobs: '',
 })
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
@@ -39,8 +42,13 @@ const embeddingList = computed(() => {
 const formRef = shallowRef()
 const showEmbeddingDropdown = ref(false)
 const parserList = [
-  { label: 'Cheerio', value: 'cheerio' },
+  { label: 'Default', value: 'default' },
   { label: 'Jina Reader', value: 'jinaReader' },
+]
+
+const tabs = [
+  { label: 'Files', slot: 'files' },
+  { label: 'URLs', slot: 'urls' },
 ]
 
 watch(embeddingList, (list) => {
@@ -65,6 +73,8 @@ async function onSubmit() {
   formData.append("description", state.description)
   formData.append("embedding", state.embedding)
   formData.append("pageParser", state.pageParser)
+  formData.append("maxDepth", String(state.maxDepth))
+  formData.append("excludeGlobs", state.excludeGlobs)
 
   if (isModify.value) {
     formData.append('knowledgeBaseId', String(props.data!.id))
@@ -155,17 +165,59 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
           <UTextarea autoresize :maxrows="4" v-model="state.description" />
         </UFormGroup>
 
-        <UFormGroup label="Files as Knowledge Base" name="file" class="mb-4">
-          <FileSelector v-model="state.files" />
-        </UFormGroup>
+        <UTabs :items="tabs" class="pt-4">
+          <template #files>
+            <div class="pt-2 min-h-[200px]">
+              <UFormGroup label="Files as Knowledge Base" name="file" class="mb-4">
+                <FileSelector v-model="state.files" />
+              </UFormGroup>
+            </div>
+          </template>
 
-        <UFormGroup label="URLs as Knowledge Base" name="urls" class="mb-4">
-          <UTextarea v-model="state.urls" autoresize :maxrows="6" placeholder="One per line" />
-        </UFormGroup>
+          <template #urls>
+            <div class="pt-2">
+              <UFormGroup label="URLs as Knowledge Base" name="urls" class="mb-4">
+                <UTextarea v-model="state.urls" autoresize :maxrows="6" placeholder="One per line" />
+              </UFormGroup>
 
-        <UFormGroup label="URL page parser" name="pageParser" class="mb-4">
-          <USelectMenu v-model="state.pageParser" :options="parserList" value-attribute="value" />
-        </UFormGroup>
+              <UFormGroup label="URL page parser" name="pageParser" class="mb-4">
+                <USelectMenu v-model="state.pageParser" :options="parserList" value-attribute="value" />
+              </UFormGroup>
+
+              <UFormGroup label="Max Depth" name="maxDepth" class="mb-4">
+                <div class="flex items-center">
+                  <span class="text-primary mr-2 w-6">{{ state.maxDepth }}</span>
+                  <URange v-model="state.maxDepth" :min="0" :max="3" :step="1" />
+                </div>
+              </UFormGroup>
+
+              <UFormGroup name="excludeGlobs" class="mb-4">
+                <template #label>
+                  <div class="flex items-center">
+                    <div>URL Exclude Glob</div>
+                    <div class="text-muted mx-2">(Use <code class="text-base text-primary">*</code> as wildcard)</div>
+                    <UPopover mode="hover" :popper="{ placement: 'top-end' }" class="block">
+                      <div class="i-heroicons-information-circle-20-solid text-lg text-primary"></div>
+                      <template #panel>
+                        <div class="p-4">
+                          <b>Examples:</b>
+                          <ul class="list-disc list-inside m-2">
+                            <li>http://example.com/specify/url</li>
+                            <li>http://example.com/foo*</li>
+                            <li>http://example*</li>
+                            <li>http://example*bar</li>
+                            <li>http://example*foo*bar</li>
+                          </ul>
+                        </div>
+                      </template>
+                    </UPopover>
+                  </div>
+                </template>
+                <UTextarea v-model="state.excludeGlobs" autoresize :maxrows="6" placeholder="One per line" />
+              </UFormGroup>
+            </div>
+          </template>
+        </UTabs>
 
         <div class="flex justify-end">
           <UButton color="gray" class="mr-2" @click="onClose()">Cancel</UButton>

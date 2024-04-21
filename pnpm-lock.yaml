@@ -4,176 +4,177 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-importers:
+dependencies:
+  '@iconify-json/heroicons':
+    specifier: ^1.1.20
+    version: 1.1.20
+  '@iconify-json/iconoir':
+    specifier: ^1.1.42
+    version: 1.1.42
+  '@iconify-json/material-symbols':
+    specifier: ^1.1.76
+    version: 1.1.76
+  '@iconify-json/mdi':
+    specifier: ^1.1.66
+    version: 1.1.66
+  '@langchain/anthropic':
+    specifier: ^0.1.10
+    version: 0.1.10
+  '@langchain/azure-openai':
+    specifier: ^0.0.4
+    version: 0.0.4
+  '@langchain/cohere':
+    specifier: ^0.0.6
+    version: 0.0.6
+  '@langchain/community':
+    specifier: ^0.0.33
+    version: 0.0.33(@zilliz/milvus2-sdk-node@2.3.5)(chromadb@1.8.1)(html-to-text@9.0.5)(ioredis@5.3.2)(jsdom@24.0.0)(ws@8.16.0)
+  '@langchain/core':
+    specifier: ^0.1.54
+    version: 0.1.54
+  '@langchain/google-genai':
+    specifier: ^0.0.10
+    version: 0.0.10
+  '@langchain/groq':
+    specifier: ^0.0.5
+    version: 0.0.5
+  '@langchain/openai':
+    specifier: ^0.0.15
+    version: 0.0.15
+  '@nuxt/ui':
+    specifier: ^2.15.1
+    version: 2.15.1(nuxt@3.11.2)(vite@5.2.8)(vue@3.4.21)
+  '@prisma/client':
+    specifier: ^5.12.1
+    version: 5.12.1(prisma@5.12.1)
+  '@vercel/analytics':
+    specifier: ^1.2.2
+    version: 1.2.2(react@18.2.0)
+  '@vueuse/core':
+    specifier: ^10.9.0
+    version: 10.9.0(vue@3.4.21)
+  '@vueuse/nuxt':
+    specifier: ^10.9.0
+    version: 10.9.0(nuxt@3.11.2)(vue@3.4.21)
+  '@zilliz/milvus2-sdk-node':
+    specifier: ^2.3.5
+    version: 2.3.5
+  ai:
+    specifier: ^2.2.37
+    version: 2.2.37(react@18.2.0)(solid-js@1.8.16)(svelte@4.2.12)(vue@3.4.21)
+  cheerio:
+    specifier: 1.0.0-rc.12
+    version: 1.0.0-rc.12
+  chromadb:
+    specifier: ^1.8.1
+    version: 1.8.1(openai@4.33.0)
+  dexie:
+    specifier: ^4.0.1
+    version: 4.0.1
+  highlight.js:
+    specifier: ^11.9.0
+    version: 11.9.0
+  html-to-text:
+    specifier: ^9.0.5
+    version: 9.0.5
+  ioredis:
+    specifier: ^5.3.2
+    version: 5.3.2
+  jsdom:
+    specifier: ^24.0.0
+    version: 24.0.0
+  langchain:
+    specifier: ^0.1.31
+    version: 0.1.31(@zilliz/milvus2-sdk-node@2.3.5)(cheerio@1.0.0-rc.12)(chromadb@1.8.1)(html-to-text@9.0.5)(ioredis@5.3.2)(jsdom@24.0.0)(mammoth@1.7.1)(pdf-parse@1.1.1)(ws@8.16.0)
+  langsmith:
+    specifier: ^0.1.14
+    version: 0.1.14
+  mammoth:
+    specifier: ^1.7.1
+    version: 1.7.1
+  markdown-it:
+    specifier: ^14.1.0
+    version: 14.1.0
+  markdown-it-abbr:
+    specifier: ^2.0.0
+    version: 2.0.0
+  markdown-it-anchor:
+    specifier: ^8.6.7
+    version: 8.6.7(@types/markdown-it@13.0.7)(markdown-it@14.1.0)
+  markdown-it-footnote:
+    specifier: ^4.0.0
+    version: 4.0.0
+  markdown-it-highlightjs:
+    specifier: ^4.0.1
+    version: 4.0.1
+  markdown-it-sub:
+    specifier: ^2.0.0
+    version: 2.0.0
+  markdown-it-sup:
+    specifier: ^2.0.0
+    version: 2.0.0
+  markdown-it-task-lists:
+    specifier: ^2.1.1
+    version: 2.1.1
+  markdown-it-toc-done-right:
+    specifier: ^4.2.0
+    version: 4.2.0
+  ollama:
+    specifier: ^0.5.0
+    version: 0.5.0
+  openai:
+    specifier: ^4.33.0
+    version: 4.33.0
+  pdf-parse:
+    specifier: ^1.1.1
+    version: 1.1.1
+  prisma:
+    specifier: ^5.12.1
+    version: 5.12.1
+  ws:
+    specifier: ^8.16.0
+    version: 8.16.0
 
-  .:
-    dependencies:
-      '@iconify-json/heroicons':
-        specifier: ^1.1.20
-        version: 1.1.20
-      '@iconify-json/iconoir':
-        specifier: ^1.1.42
-        version: 1.1.42
-      '@iconify-json/material-symbols':
-        specifier: ^1.1.76
-        version: 1.1.76
-      '@iconify-json/mdi':
-        specifier: ^1.1.66
-        version: 1.1.66
-      '@langchain/anthropic':
-        specifier: ^0.1.10
-        version: 0.1.10(encoding@0.1.13)
-      '@langchain/azure-openai':
-        specifier: ^0.0.4
-        version: 0.0.4
-      '@langchain/cohere':
-        specifier: ^0.0.6
-        version: 0.0.6(encoding@0.1.13)
-      '@langchain/community':
-        specifier: ^0.0.33
-        version: 0.0.33(@zilliz/milvus2-sdk-node@2.3.5)(chromadb@1.8.1(@google/generative-ai@0.1.3)(cohere-ai@7.9.3(encoding@0.1.13))(encoding@0.1.13)(openai@4.33.0(encoding@0.1.13)))(cohere-ai@7.9.3(encoding@0.1.13))(encoding@0.1.13)(html-to-text@9.0.5)(ioredis@5.3.2)(jsdom@24.0.0)(lodash@4.17.21)(ws@8.16.0)
-      '@langchain/core':
-        specifier: ^0.1.54
-        version: 0.1.54
-      '@langchain/google-genai':
-        specifier: ^0.0.10
-        version: 0.0.10
-      '@langchain/groq':
-        specifier: ^0.0.5
-        version: 0.0.5(encoding@0.1.13)
-      '@langchain/openai':
-        specifier: ^0.0.15
-        version: 0.0.15(encoding@0.1.13)
-      '@nuxt/ui':
-        specifier: ^2.15.1
-        version: 2.15.1(focus-trap@7.5.4)(nuxt@3.11.2(@parcel/watcher@2.4.1)(@types/node@20.12.5)(@unocss/reset@0.59.0)(encoding@0.1.13)(floating-vue@5.2.2(@nuxt/kit@3.11.2(rollup@4.14.0))(vue@3.4.21(typescript@5.4.4)))(fuse.js@6.6.2)(ioredis@5.3.2)(rollup@4.14.0)(sass@1.74.1)(terser@5.30.3)(typescript@5.4.4)(unocss@0.59.0(postcss@8.4.38)(rollup@4.14.0)(vite@5.2.8(@types/node@20.12.5)(sass@1.74.1)(terser@5.30.3)))(vite@5.2.8(@types/node@20.12.5)(sass@1.74.1)(terser@5.30.3)))(rollup@4.14.0)(vite@5.2.8(@types/node@20.12.5)(sass@1.74.1)(terser@5.30.3))(vue@3.4.21(typescript@5.4.4))
-      '@prisma/client':
-        specifier: ^5.12.1
-        version: 5.12.1(prisma@5.12.1)
-      '@vercel/analytics':
-        specifier: ^1.2.2
-        version: 1.2.2(react@18.2.0)
-      '@vueuse/core':
-        specifier: ^10.9.0
-        version: 10.9.0(vue@3.4.21(typescript@5.4.4))
-      '@vueuse/nuxt':
-        specifier: ^10.9.0
-        version: 10.9.0(nuxt@3.11.2(@parcel/watcher@2.4.1)(@types/node@20.12.5)(@unocss/reset@0.59.0)(encoding@0.1.13)(floating-vue@5.2.2(@nuxt/kit@3.11.2(rollup@4.14.0))(vue@3.4.21(typescript@5.4.4)))(fuse.js@6.6.2)(ioredis@5.3.2)(rollup@4.14.0)(sass@1.74.1)(terser@5.30.3)(typescript@5.4.4)(unocss@0.59.0(postcss@8.4.38)(rollup@4.14.0)(vite@5.2.8(@types/node@20.12.5)(sass@1.74.1)(terser@5.30.3)))(vite@5.2.8(@types/node@20.12.5)(sass@1.74.1)(terser@5.30.3)))(rollup@4.14.0)(vue@3.4.21(typescript@5.4.4))
-      '@zilliz/milvus2-sdk-node':
-        specifier: ^2.3.5
-        version: 2.3.5
-      ai:
-        specifier: ^2.2.37
-        version: 2.2.37(react@18.2.0)(solid-js@1.8.16)(svelte@4.2.12)(vue@3.4.21(typescript@5.4.4))
-      cheerio:
-        specifier: 1.0.0-rc.12
-        version: 1.0.0-rc.12
-      chromadb:
-        specifier: ^1.8.1
-        version: 1.8.1(@google/generative-ai@0.1.3)(cohere-ai@7.9.3(encoding@0.1.13))(encoding@0.1.13)(openai@4.33.0(encoding@0.1.13))
-      d3-dsv:
-        specifier: ^2.0.0
-        version: 2.0.0
-      dexie:
-        specifier: ^4.0.1
-        version: 4.0.1
-      highlight.js:
-        specifier: ^11.9.0
-        version: 11.9.0
-      html-to-text:
-        specifier: ^9.0.5
-        version: 9.0.5
-      ioredis:
-        specifier: ^5.3.2
-        version: 5.3.2
-      jsdom:
-        specifier: ^24.0.0
-        version: 24.0.0
-      langchain:
-        specifier: ^0.1.31
-        version: 0.1.31(@zilliz/milvus2-sdk-node@2.3.5)(cheerio@1.0.0-rc.12)(chromadb@1.8.1(@google/generative-ai@0.1.3)(cohere-ai@7.9.3(encoding@0.1.13))(encoding@0.1.13)(openai@4.33.0(encoding@0.1.13)))(cohere-ai@7.9.3(encoding@0.1.13))(d3-dsv@2.0.0)(encoding@0.1.13)(fast-xml-parser@4.3.6)(html-to-text@9.0.5)(ignore@5.3.1)(ioredis@5.3.2)(jsdom@24.0.0)(lodash@4.17.21)(mammoth@1.7.1)(pdf-parse@1.1.1)(ws@8.16.0)
-      langsmith:
-        specifier: ^0.1.14
-        version: 0.1.14
-      mammoth:
-        specifier: ^1.7.1
-        version: 1.7.1
-      markdown-it:
-        specifier: ^14.1.0
-        version: 14.1.0
-      markdown-it-abbr:
-        specifier: ^2.0.0
-        version: 2.0.0
-      markdown-it-anchor:
-        specifier: ^8.6.7
-        version: 8.6.7(@types/markdown-it@13.0.7)(markdown-it@14.1.0)
-      markdown-it-footnote:
-        specifier: ^4.0.0
-        version: 4.0.0
-      markdown-it-highlightjs:
-        specifier: ^4.0.1
-        version: 4.0.1
-      markdown-it-sub:
-        specifier: ^2.0.0
-        version: 2.0.0
-      markdown-it-sup:
-        specifier: ^2.0.0
-        version: 2.0.0
-      markdown-it-task-lists:
-        specifier: ^2.1.1
-        version: 2.1.1
-      markdown-it-toc-done-right:
-        specifier: ^4.2.0
-        version: 4.2.0
-      ollama:
-        specifier: ^0.5.0
-        version: 0.5.0
-      openai:
-        specifier: ^4.33.0
-        version: 4.33.0(encoding@0.1.13)
-      pdf-parse:
-        specifier: ^1.1.1
-        version: 1.1.1
-      prisma:
-        specifier: ^5.12.1
-        version: 5.12.1
-      ws:
-        specifier: ^8.16.0
-        version: 8.16.0
-    devDependencies:
-      '@nuxtjs/google-fonts':
-        specifier: ^3.2.0
-        version: 3.2.0(rollup@4.14.0)
-      '@types/markdown-it':
-        specifier: ^13.0.7
-        version: 13.0.7
-      '@types/node':
-        specifier: ^20.12.5
-        version: 20.12.5
-      '@types/ws':
-        specifier: ^8.5.10
-        version: 8.5.10
-      h3:
-        specifier: ^1.11.1
-        version: 1.11.1
-      nuxt:
-        specifier: ^3.11.2
-        version: 3.11.2(@parcel/watcher@2.4.1)(@types/node@20.12.5)(@unocss/reset@0.59.0)(encoding@0.1.13)(floating-vue@5.2.2(@nuxt/kit@3.11.2(rollup@4.14.0))(vue@3.4.21(typescript@5.4.4)))(fuse.js@6.6.2)(ioredis@5.3.2)(rollup@4.14.0)(sass@1.74.1)(terser@5.30.3)(typescript@5.4.4)(unocss@0.59.0(postcss@8.4.38)(rollup@4.14.0)(vite@5.2.8(@types/node@20.12.5)(sass@1.74.1)(terser@5.30.3)))(vite@5.2.8(@types/node@20.12.5)(sass@1.74.1)(terser@5.30.3))
-      sass:
-        specifier: ^1.74.1
-        version: 1.74.1
-      tailwindcss:
-        specifier: ^3.4.3
-        version: 3.4.3
-      typescript:
-        specifier: ^5.4.4
-        version: 5.4.4
-      vue:
-        specifier: ^3.4.21
-        version: 3.4.21(typescript@5.4.4)
-      vue-router:
-        specifier: ^4.3.0
-        version: 4.3.0(vue@3.4.21(typescript@5.4.4))
+devDependencies:
+  '@nuxtjs/google-fonts':
+    specifier: ^3.2.0
+    version: 3.2.0
+  '@types/html-to-text':
+    specifier: ^9.0.4
+    version: 9.0.4
+  '@types/jsdom':
+    specifier: ^21.1.6
+    version: 21.1.6
+  '@types/markdown-it':
+    specifier: ^13.0.7
+    version: 13.0.7
+  '@types/node':
+    specifier: ^20.12.5
+    version: 20.12.5
+  '@types/ws':
+    specifier: ^8.5.10
+    version: 8.5.10
+  h3:
+    specifier: ^1.11.1
+    version: 1.11.1
+  nuxt:
+    specifier: ^3.11.2
+    version: 3.11.2(@types/node@20.12.5)(@unocss/reset@0.59.0)(floating-vue@5.2.2)(ioredis@5.3.2)(sass@1.74.1)(typescript@5.4.4)(unocss@0.59.0)(vite@5.2.8)
+  sass:
+    specifier: ^1.74.1
+    version: 1.74.1
+  tailwindcss:
+    specifier: ^3.4.3
+    version: 3.4.3
+  typescript:
+    specifier: ^5.4.4
+    version: 5.4.4
+  vue:
+    specifier: ^3.4.21
+    version: 3.4.21(typescript@5.4.4)
+  vue-router:
+    specifier: ^4.3.0
+    version: 4.3.0(vue@3.4.21)
 
 packages:
 
@@ -1813,10 +1814,23 @@ packages:
   '@types/estree@1.0.5':
     resolution: {integrity: sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==}
 
-  '@types/http-proxy@1.17.14':
+  /@types/html-to-text@9.0.4:
+    resolution: {integrity: sha512-pUY3cKH/Nm2yYrEmDlPR1mR7yszjGx4DrwPjQ702C4/D5CwHuZTgZdIdwPkRbcuhs7BAh2L5rg3CL5cbRiGTCQ==}
+    dev: true
+
+  /@types/http-proxy@1.17.14:
     resolution: {integrity: sha512-SSrD0c1OQzlFX7pGu1eXxSEjemej64aaNPRhhVYUGqXh0BtldAAx37MG8btcumvpgKyZp1F5Gn3JkktdxiFv6w==}
 
-  '@types/linkify-it@3.0.5':
+  /@types/jsdom@21.1.6:
+    resolution: {integrity: sha512-/7kkMsC+/kMs7gAYmmBR9P0vGTnOoLhQhyhQJSlXGI5bzTHp6xdo0TtKWQAsz6pmSAeVqKSbqeyP6hytqr9FDw==}
+    dependencies:
+      '@types/node': 20.12.5
+      '@types/tough-cookie': 4.0.5
+      parse5: 7.1.2
+    dev: true
+
+  /@types/linkify-it@3.0.5:
+
     resolution: {integrity: sha512-yg6E+u0/+Zjva+buc3EIb+29XEg4wltq7cSmd4Uc2EE/1nUVmxyzpX6gUXD0V8jIrG0r7YeOGVIbYRkxeooCtw==}
 
   '@types/long@4.0.2':
@@ -1843,7 +1857,12 @@ packages:
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
 
-  '@types/triple-beam@1.3.5':
+  /@types/tough-cookie@4.0.5:
+    resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
+    dev: true
+
+  /@types/triple-beam@1.3.5:
+
     resolution: {integrity: sha512-6WaYesThRMCl19iryMYP7/x2OVgCtbIVflDGFpWnb9irXI3UjYE4AzmYuiUKY1AJstGijoY+MgUszMgRxIYTYw==}
 
   '@types/uuid@9.0.8':

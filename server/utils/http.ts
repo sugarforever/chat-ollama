@@ -6,47 +6,58 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
 
   const decoder = new TextDecoder("utf-8")
   const uploadedFiles: MultiPartData[] = []
-
-  let _name = ''
-  let _description = ''
-  let _embedding = ''
-  let _pageParser: PageParser = 'cheerio'
-  const urls: string[] = []
   const _knowledgeBaseId = event?.context?.params?.id
-  items?.forEach((item) => {
-    const key = item.name || ''
-    const decodedData = decoder.decode(item.data)
-    if (key === 'urls') {
-      urls.push(decodedData)
-    }
-
-    if (key.startsWith("file_")) {
-      uploadedFiles.push(item)
-    }
-
-    if (key === 'name') {
-      _name = decodedData
-    }
-    if (key === 'description') {
-      _description = decodedData
-    }
-    if (key === 'embedding') {
-      _embedding = decodedData
-    }
-    if (key === 'pageParser') {
-      _pageParser = decodedData as PageParser
-    }
-  })
 
   const formData: KnowledgeBaseFormData = {
-    name: _name,
-    description: _description,
-    embedding: _embedding,
+    name: '',
+    description: '',
+    embedding: '',
     knowledgeBaseId: _knowledgeBaseId ? parseInt(_knowledgeBaseId) : null,
     uploadedFiles,
-    urls: urls,
-    pageParser: _pageParser,
+    urls: [],
+    pageParser: 'default',
+    maxDepth: 0,
+    excludeGlobs: [],
   }
+
+  items?.forEach((item) => {
+    const key = (item.name || '') as keyof KnowledgeBaseFormData
+    const decodedData = decoder.decode(item.data)
+
+    if (key.startsWith("file_")) {
+      formData.uploadedFiles.push(item)
+    }
+
+    switch (key) {
+      case 'urls':
+        formData.urls.push(decodedData)
+        break
+
+      case 'name':
+        formData.name = decodedData
+        break
+
+      case 'description':
+        formData.description = decodedData
+        break
+
+      case 'embedding':
+        formData.embedding = decodedData
+        break
+
+      case 'pageParser':
+        formData.pageParser = decodedData as PageParser
+        break
+
+      case 'maxDepth':
+        formData.maxDepth = parseInt(decodedData)
+        break
+
+      case 'excludeGlobs':
+        formData.excludeGlobs = decodedData.split(/[\n]+/g).filter(Boolean).map((glob) => glob.trim())
+        break
+    }
+  })
 
   return formData
 }
