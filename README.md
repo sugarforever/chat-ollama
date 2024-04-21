@@ -151,7 +151,7 @@ When using KnowledgeBases, we need a valid embedding model in place. It can be o
 
 **Ollama Managed Embedding Model**
 
-We recommand you download `nomic-embed-text` model for embedding purpose.
+We recommend you download `nomic-embed-text` model for embedding purpose.
 
 You can do so on Models page http://localhost:3000/models, or via CLI as below if you are using Docker.
 
