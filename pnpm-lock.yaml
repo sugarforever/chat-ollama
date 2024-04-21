@@ -107,9 +107,6 @@ dependencies:
   markdown-it-footnote:
     specifier: ^4.0.0
     version: 4.0.0
-  markdown-it-highlightjs:
-    specifier: ^4.0.1
-    version: 4.0.1
   markdown-it-sub:
     specifier: ^2.0.0
     version: 2.0.0
@@ -6548,12 +6545,6 @@ packages:
 
   /markdown-it-footnote@4.0.0:
     resolution: {integrity: sha512-WYJ7urf+khJYl3DqofQpYfEYkZKbmXmwxQV8c8mO/hGIhgZ1wOe7R4HLFNwqx7TjILbnC98fuyeSsin19JdFcQ==}
-    dev: false
-
-  /markdown-it-highlightjs@4.0.1:
-    resolution: {integrity: sha512-EPXwFEN6P5nqR3G4KjT20r20xbGYKMMA/360hhSYFmeoGXTE6hsLtJAiB/8ID8slVH4CWHHEL7GX0YenyIstVQ==}
-    dependencies:
-      highlight.js: 11.9.0
     dev: false
 
   /markdown-it-sub@2.0.0:
