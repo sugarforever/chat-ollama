@@ -10,7 +10,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatGroq } from "@langchain/groq"
 import { AzureChatOpenAI } from "@langchain/azure-openai"
 import { type H3Event } from 'h3'
-import { type KEYS } from '@/server/middleware/keys'
+import { type ContextKeys } from '@/server/middleware/keys'
 import { type Ollama } from 'ollama'
 
 export const MODEL_FAMILIES = {
@@ -85,9 +85,9 @@ export const isOllamaModelExists = async (ollama: Ollama, embeddingModelName: st
 }
 
 export const createEmbeddings = (embeddingModelName: string, event: H3Event): Embeddings => {
+  const keys = event.context.keys as ContextKeys
   if (OPENAI_EMBEDDING_MODELS.includes(embeddingModelName)) {
-    console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}, host: keys.x_openai_api_host`)
-    const keys = event.context.keys as Record<KEYS, string>
+    console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}, host: ${keys.x_openai_api_host}`)
     return new OpenAIEmbeddings({
       configuration: {
         baseURL: keys.x_openai_api_host || undefined,
@@ -97,7 +97,6 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
     })
   } else if (GEMINI_EMBEDDING_MODELS.includes(embeddingModelName)) {
     console.log(`Creating embeddings for Gemini model: ${embeddingModelName}`)
-    const keys = event.context.keys as Record<KEYS, string>
     return new GoogleGenerativeAIEmbeddings({
       modelName: embeddingModelName,
       apiKey: keys.x_gemini_api_key
@@ -113,7 +112,7 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
 
 export const createChatModel = (modelName: string, family: string, event: H3Event): BaseChatModel => {
   const { host } = event.context.ollama
-  const keys = event.context.keys as Record<KEYS, string>
+  const keys = event.context.keys as ContextKeys
   let chat = null
   if (family === MODEL_FAMILIES.openai && OPENAI_GPT_MODELS.includes(modelName)) {
     console.log("Chat with OpenAI, host:", keys.x_openai_api_host)
