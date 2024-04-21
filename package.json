@@ -47,6 +47,7 @@
     "ai": "^2.2.37",
     "cheerio": "1.0.0-rc.12",
     "chromadb": "^1.8.1",
+    "d3-dsv": "^2.0.0",
     "dexie": "^4.0.1",
     "highlight.js": "^11.9.0",
     "html-to-text": "^9.0.5",

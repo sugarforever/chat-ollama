@@ -3,6 +3,7 @@ import { PDFLoader } from "langchain/document_loaders/fs/pdf"
 import { TextLoader } from "langchain/document_loaders/fs/text"
 import { JSONLoader } from "langchain/document_loaders/fs/json"
 import { DocxLoader } from "langchain/document_loaders/fs/docx"
+import { CSVLoader } from "langchain/document_loaders/fs/csv"
 import { CheerioWebBaseLoader } from "langchain/document_loaders/web/cheerio"
 import { RecursiveUrlLoader } from "langchain/document_loaders/web/recursive_url"
 import { compile } from "html-to-text"
@@ -14,6 +15,7 @@ export const loadDocuments = async (file: MultiPartData) => {
   const Loaders = {
     pdf: PDFLoader,
     json: JSONLoader,
+    csv: CSVLoader,
     docx: DocxLoader,
     doc: DocxLoader,
     txt: TextLoader,
