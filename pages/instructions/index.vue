@@ -19,8 +19,9 @@ const tableRows = computed(() => {
   })
 })
 
+const { token } = useAuth()
 const loadInstructions = async () => {
-  instructions.value = await loadOllamaInstructions()
+  instructions.value = await loadOllamaInstructions(token.value)
 }
 
 onMounted(() => {

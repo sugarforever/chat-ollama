@@ -46,7 +46,7 @@ async function onSubmit() {
   <ClientOnly>
     <UCard class="w-[400px] mx-auto">
       <template #header>
-        <h1>Log in</h1>
+        <h1 class="font-bold text-2xl text-center">Sign in</h1>
       </template>
 
       <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
@@ -58,9 +58,11 @@ async function onSubmit() {
           <UInput v-model="state.password" type="password" />
         </UFormGroup>
 
-        <UButton type="submit" :loading="loading">
-          Continue
-        </UButton>
+        <div class="flex justify-center">
+          <UButton class="mt-4" type="submit" :loading="loading">
+            Continue
+          </UButton>
+        </div>
       </UForm>
     </UCard>
   </ClientOnly>

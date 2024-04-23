@@ -21,11 +21,23 @@ const buttonColor = computed(() => {
 <template>
   <ClientOnly>
     <div>
-      <UButton
-               icon="i-heroicons-user-circle-16-solid"
+      <div v-if="status === 'unauthenticated'">
+        <ULink
                to="/login"
-               variant="outline"
-               v-if="status === 'unauthenticated'">Log In</UButton>
+               class="hover:underline text-sm"
+               active-class="text-primary"
+               inactive-class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+          Sign In
+        </ULink>
+        <span class="mx-1">/</span>
+        <ULink
+               to="/signup"
+               class="hover:underline text-sm"
+               active-class="text-primary"
+               inactive-class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+          Sign Up
+        </ULink>
+      </div>
       <div v-else>
         <UDropdown :items="items" :popper="{ placement: 'bottom-end' }">
           <UButton :color="buttonColor" :label="data?.name" trailing-icon="i-heroicons-chevron-down-20-solid" />

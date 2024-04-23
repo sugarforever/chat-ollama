@@ -29,7 +29,7 @@ export default defineEventHandler((event) => {
   const user = verifyToken(event)
   event.context.user = user
 
-  if (_path !== '/api/auth/user') {
+  if (_path?.startsWith('/api') && _path !== '/api/auth/user') {
     console.log(`URL: ${_path} User: ${JSON.stringify(user)}`)
   }
 })
