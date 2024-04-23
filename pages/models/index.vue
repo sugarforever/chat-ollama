@@ -1,5 +1,4 @@
 <script setup>
-const { data } = useAuth()
 </script>
 
 <template>

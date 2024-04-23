@@ -76,11 +76,12 @@ export const fetchHeadersThirdApi = computed(() => {
   }
 })
 
-export const loadOllamaInstructions = async (token: string | null) => {
+export const loadOllamaInstructions = async () => {
+  const { token } = useAuth()
   try {
     const { instructions } = await $fetch<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`, {
       headers: {
-        Authorization: token,
+        Authorization: token.value,
       },
     })
     return instructions

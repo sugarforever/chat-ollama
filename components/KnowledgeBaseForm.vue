@@ -101,7 +101,6 @@ async function submit(formData: FormData) {
         method: isModify.value ? 'PUT' : 'POST',
         body: formData,
         headers: {
-          ...authHeaders.value,
           ...fetchHeadersOllama.value,
           ...fetchHeadersThirdApi.value,
         }
