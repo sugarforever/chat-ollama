@@ -47,8 +47,11 @@ const limitHistorySize = 20
 const messageListEl = shallowRef<HTMLElement>()
 const behavior = ref<ScrollBehavior>('auto')
 const { y } = useScroll(messageListEl, { behavior })
+const isFirstLoad = ref(true)
 
 const isUserScrolling = computed(() => {
+  if (isFirstLoad.value) return false
+
   if (messageListEl.value) {
     const bottomOffset = messageListEl.value.scrollHeight - messageListEl.value.clientHeight
     if (bottomOffset - y.value < 60) {
@@ -70,6 +73,7 @@ const visibleMessages = computed(() => {
 
 watch(() => props.sessionId, async id => {
   if (id) {
+    isFirstLoad.value = true
     initData(id)
   }
 })
@@ -80,6 +84,9 @@ useMutationObserver(messageListEl, useThrottleFn((e: MutationRecord[]) => {
   }
   if (!isUserScrolling.value) {
     scrollToBottom('auto')
+  }
+  if (isFirstLoad.value) {
+    isFirstLoad.value = false
   }
 }, 200), { childList: true, subtree: true })
 
