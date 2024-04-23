@@ -7,10 +7,16 @@ const listKnowledgeBases = async (userId: number | null): Promise<KnowledgeBase[
       {
         OR: [
           { user_id: userId },
-          { user_id: null }
+          { user_id: null },
+          { is_public: true }
         ]
       }
-      : { user_id: null }
+      : {
+        OR: [
+          { user_id: null },
+          { is_public: true }
+        ]
+      }
 
     return await prisma.knowledgeBase.findMany({
       where: whereClause,

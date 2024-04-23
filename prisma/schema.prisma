@@ -34,6 +34,7 @@ model KnowledgeBase {
   description String?
   created     DateTime?
   updated     DateTime?
+  is_public   Boolean             @default(true)
   user        User?               @relation(fields: [user_id], references: [id])
   user_id     Int?
   files       KnowledgeBaseFile[] @relation("Files")

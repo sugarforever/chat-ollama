@@ -43,11 +43,11 @@ export default defineEventHandler(async (event) => {
       name: name,
       description: description,
       embedding: embedding,
-      user_id: currentUser.id,
+      user_id: currentUser?.id,
       created: new Date(),
     }
   })
-  console.log(`Created knowledge base ${name}: ${affected.id} by ${currentUser ? 'anonymous' : currentUser.name}`)
+  console.log(`Created knowledge base ${name}: ${affected.id} by ${currentUser ? currentUser.name : 'anonymous'}`)
 
   try {
     await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event)

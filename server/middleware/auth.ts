@@ -10,8 +10,9 @@ const extractToken = (authHeaderValue: string) => {
 }
 
 const verifyToken = (event: H3Event) => {
-  const authHeaderValue = getRequestHeader(event, 'authorization')
-  if (authHeaderValue) {
+  const authHeaderValue = getRequestHeader(event, 'Authorization')
+
+  if (authHeaderValue != null) {
     const extractedToken = extractToken(authHeaderValue)
     try {
       return jwt.verify(extractedToken, SECRET)
