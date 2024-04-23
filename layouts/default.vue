@@ -18,7 +18,9 @@ const links = [
         <span class="text-primary font-semibold text-lg">ChatOllama</span>
       </h1>
       <div>
-        <UHorizontalNavigation :links="links" />
+        <ClientOnly>
+          <UHorizontalNavigation :links="links" />
+        </ClientOnly>
       </div>
       <div class="flex items-center">
         <div class="mx-2">
@@ -26,7 +28,8 @@ const links = [
         </div>
         <ULink to="https://github.com/sugarforever/chat-ollama"
                target="_blank"
-               class="i-mdi-github text-2xl ml-2"></ULink>
+               class="i-mdi-github text-2xl ml-2 mr-4"></ULink>
+        <Auth />
       </div>
     </div>
   </div>

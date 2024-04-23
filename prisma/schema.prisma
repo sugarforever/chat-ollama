@@ -8,6 +8,25 @@ generator client {
   binaryTargets = ["linux-arm64-openssl-3.0.x", "darwin-arm64", "debian-openssl-3.0.x", "windows", "native"]
 }
 
+model User {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique
+  email          String?
+  password       String
+  first_name     String?
+  last_name      String?
+  role           Int              @default(0)
+  email_verified Boolean          @default(false)
+  is_active      Boolean          @default(true)
+  last_login     DateTime?
+  created_at     DateTime         @default(now())
+  deleted_at     DateTime?
+  access_token   String?
+  updated_at     DateTime?        @updatedAt
+
+  knowledgeBases KnowledgeBase[]
+}
+
 model KnowledgeBase {
   id          Int                 @id @default(autoincrement())
   name        String              @unique
@@ -15,6 +34,9 @@ model KnowledgeBase {
   description String?
   created     DateTime?
   updated     DateTime?
+  is_public   Boolean             @default(true)
+  user        User?               @relation(fields: [user_id], references: [id])
+  user_id     Int?
   files       KnowledgeBaseFile[] @relation("Files")
 }
 

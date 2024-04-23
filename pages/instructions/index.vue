@@ -68,7 +68,7 @@ async function onDelete(data: Instruction) {
   })
     .then(async () => {
       try {
-        await $fetch(`/api/instruction/${data.id}`, {
+        await $fetchWithAuth(`/api/instruction/${data.id}`, {
           method: "DELETE",
         })
         await loadInstructions()

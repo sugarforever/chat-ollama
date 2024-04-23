@@ -95,7 +95,7 @@ function validate(data: typeof state) {
 async function submit(formData: FormData) {
   loading.value = true
   try {
-    await $fetch(
+    await $fetchWithAuth(
       isModify.value ? `/api/knowledgebases/${props.data!.id}` : `/api/knowledgebases/`,
       {
         method: isModify.value ? 'PUT' : 'POST',

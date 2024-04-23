@@ -126,7 +126,7 @@ const processRelevantDocuments = async (chunk: ResponseRelevantDocument) => {
 }
 
 const fetchStream = async (url: string, options: RequestInit) => {
-  const response = await fetch(url, options)
+  const response = await fetchWithAuth(url, options)
 
   if (response.body) {
     messages.value = messages.value.filter((message) => message.type !== 'loading')

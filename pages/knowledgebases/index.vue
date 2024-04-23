@@ -3,12 +3,17 @@ import { useStorage } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
 import { KnowledgeBaseForm } from '#components'
 
+const { token } = useAuth()
 const router = useRouter()
 const modal = useModal()
 const confirm = useDialog('confirm')
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 
-const { data, refresh } = await useFetch('/api/knowledgebases')
+const { data, refresh } = await useFetch('/api/knowledgebases', {
+  headers: {
+    "Authorization": token.value
+  }
+})
 
 const columns = [
   { key: 'id', label: 'ID' },
@@ -34,7 +39,7 @@ const onDelete = async (row: KnowledgeBase) => {
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
-      await $fetch(`/api/knowledgebases/${row.id}`, {
+      await $fetchWithAuth(`/api/knowledgebases/${row.id}`, {
         method: 'DELETE'
       })
       refresh()
@@ -68,7 +73,10 @@ function onShowUpdate(data: KnowledgeBase) {
   <div class="max-w-6xl mx-auto">
     <div class="flex items-center mb-4">
       <h2 class="font-bold text-xl mr-auto">Knowledge Bases</h2>
-      <UButton icon="i-material-symbols-add" @click="onShowCreate">Create</UButton>
+      <UButton icon="i-material-symbols-add"
+               @click="onShowCreate">
+        Create
+      </UButton>
     </div>
     <ClientOnly>
       <UTable :columns="columns" :rows="knowledgeBases" class="table-list">

@@ -36,15 +36,18 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const currentUser = event.context.user
+  console.log("Current User: ", currentUser)
   const affected = await prisma.knowledgeBase.create({
     data: {
       name: name,
       description: description,
       embedding: embedding,
+      user_id: currentUser?.id,
       created: new Date(),
     }
   })
-  console.log(`Created knowledge base ${name}: ${affected.id}`)
+  console.log(`Created knowledge base ${name}: ${affected.id} by ${currentUser ? currentUser.name : 'anonymous'}`)
 
   try {
     await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event)

@@ -77,8 +77,13 @@ export const fetchHeadersThirdApi = computed(() => {
 })
 
 export const loadOllamaInstructions = async () => {
+  const { token } = useAuth()
   try {
-    const { instructions } = await $fetch<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`)
+    const { instructions } = await $fetch<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`, {
+      headers: {
+        Authorization: token.value,
+      },
+    })
     return instructions
   } catch (e) {
     console.error("Failed to fetch Ollama instructions", e)
@@ -93,7 +98,7 @@ export interface ModelInfo {
 }
 
 export async function loadModels(): Promise<ModelInfo[]> {
-  const response = await $fetch('/api/models/', {
+  const response = await $fetchWithAuth('/api/models/', {
     headers: {
       ...fetchHeadersOllama.value,
       ...fetchHeadersThirdApi.value,
@@ -112,6 +117,6 @@ export async function loadModels(): Promise<ModelInfo[]> {
 }
 
 export async function loadKnowledgeBases() {
-  const response = await $fetch('/api/knowledgebases/').catch(() => null)
+  const response = await $fetchWithAuth('/api/knowledgebases/').catch(() => null)
   return (response?.knowledgeBases || []) as KnowledgeBase[]
 }
