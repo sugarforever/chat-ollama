@@ -23,6 +23,8 @@ model User {
   deleted_at     DateTime?
   access_token   String?
   updated_at     DateTime?        @updatedAt
+
+  knowledgeBases KnowledgeBase[]
 }
 
 model KnowledgeBase {
@@ -32,6 +34,8 @@ model KnowledgeBase {
   description String?
   created     DateTime?
   updated     DateTime?
+  user        User?               @relation(fields: [user_id], references: [id])
+  user_id     Int?
   files       KnowledgeBaseFile[] @relation("Files")
 }
 

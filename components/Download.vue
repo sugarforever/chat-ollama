@@ -12,7 +12,7 @@ const downloading = ref(false)
 const progresses = ref<ProgressResponse[]>([])
 
 const fetchStream = async (url: string, options: RequestInit) => {
-  const response = await fetch(url, options)
+  const response = await fetchWithAuth(url, options)
 
   if (response.body) {
     const reader = response.body.getReader()

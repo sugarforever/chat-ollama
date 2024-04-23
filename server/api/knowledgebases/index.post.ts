@@ -36,15 +36,18 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const currentUser = event.context.user
+  console.log("Current User: ", currentUser)
   const affected = await prisma.knowledgeBase.create({
     data: {
       name: name,
       description: description,
       embedding: embedding,
+      user_id: currentUser.id,
       created: new Date(),
     }
   })
-  console.log(`Created knowledge base ${name}: ${affected.id}`)
+  console.log(`Created knowledge base ${name}: ${affected.id} by ${currentUser ? 'anonymous' : currentUser.name}`)
 
   try {
     await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event)
@@ -59,8 +62,8 @@ export default defineEventHandler(async (event) => {
       console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id)
     }
 
-    await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
-    for (const url of urls) {
+    const allUrls = await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
+    for (const url of allUrls) {
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {
           url: url,

@@ -39,7 +39,7 @@ export default eventHandler(async (event) => {
 
   const userRecord = await validate(username, password)
 
-  const expiresIn = 30 * 60 * 60
+  const expiresIn = 365 * 24 * 60 * 60
   const refreshToken = Math.floor(Math.random() * (1000000000000000 - 1 + 1)) + 1
   let role = 'user'
   if (userRecord.role === Role.ADMIN) {
@@ -49,6 +49,7 @@ export default eventHandler(async (event) => {
   }
 
   const user = {
+    id: userRecord.id,
     name: userRecord.name,
     email: userRecord.email,
     role: role

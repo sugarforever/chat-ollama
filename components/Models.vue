@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref } from 'vue'
 import { fetchHeadersOllama } from '@/utils/settings'
 import type { ModelItem } from '@/server/api/models/index.get'
+const { token } = useAuth()
 
-const models = ref<ModelItem[]>([]);
+const models = ref<ModelItem[]>([])
 const modelRows = computed(() => {
   return models.value.map((model) => {
     return {
@@ -14,8 +15,8 @@ const modelRows = computed(() => {
       parameter_size: model.details?.parameter_size,
       quantization_level: model.details?.quantization_level
     }
-  });
-});
+  })
+})
 const columns = [
   { key: 'name', label: 'Name' },
   { key: 'size', label: 'Size' },
@@ -23,16 +24,16 @@ const columns = [
   { key: 'format', label: 'Format' },
   { key: 'parameter_size', label: 'Parameter Size' },
   { key: 'quantization_level', label: 'Quantization Level' }
-];
+]
 
 const loadModels = async () => {
-  const response = await $fetch<ModelItem[]>('/api/models/', {
+  const response = await $fetchWithAuth<ModelItem[]>('/api/models/', {
     headers: fetchHeadersOllama.value
-  });
-  models.value = response;
-};
+  })
+  models.value = response
+}
 
-const selectedRows = ref<ModelItem[]>([]);
+const selectedRows = ref<ModelItem[]>([])
 const select = (row: ModelItem) => {
   const index = selectedRows.value.findIndex((item) => item.name === row.name)
   if (index === -1) {
@@ -40,7 +41,7 @@ const select = (row: ModelItem) => {
   } else {
     selectedRows.value.splice(index, 1)
   }
-};
+}
 
 const actions = [
   [{
@@ -48,53 +49,53 @@ const actions = [
     label: 'Delete',
     icon: 'i-heroicons-trash-20-solid',
     click: async () => {
-      isOpen.value = true;
+      isOpen.value = true
     }
   }]
-];
+]
 
 const onModelDownloaded = () => {
-  loadModels();
-};
+  loadModels()
+}
 
 // Modal
-const isOpen = ref(false);
+const isOpen = ref(false)
 const onDeleteModel = async () => {
-  resetModal();
+  resetModal()
   selectedRows.value.forEach(async ({ name }) => {
-    const status = await $fetch(`/api/models/`, {
+    const status = await $fetchWithAuth(`/api/models/`, {
       method: 'DELETE',
       body: {
         model: name
       },
       headers: fetchHeadersOllama.value
-    });
+    })
 
     if (status?.status === 'success') {
-      models.value = models.value.filter((m) => m.name !== name);
+      models.value = models.value.filter((m) => m.name !== name)
     }
-  });
-};
+  })
+}
 
 const onCancel = () => {
-  resetModal();
-};
+  resetModal()
+}
 
 const resetModal = () => {
-  isOpen.value = false;
-};
+  isOpen.value = false
+}
 
 onMounted(() => {
-  loadModels();
-});
+  loadModels()
+})
 
 function formatFileSize(bytes?: number) {
   if (bytes === undefined) return '-'
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 </script>
 

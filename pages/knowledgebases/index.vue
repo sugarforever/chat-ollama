@@ -3,15 +3,17 @@ import { useStorage } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
 import { KnowledgeBaseForm } from '#components'
 
-// definePageMeta({ middleware: 'auth' })
-
-const auth = useAuth()
+const { token } = useAuth()
 const router = useRouter()
 const modal = useModal()
 const confirm = useDialog('confirm')
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 
-const { data, refresh } = await useFetch('/api/knowledgebases')
+const { data, refresh } = await useFetch('/api/knowledgebases', {
+  headers: {
+    "Authorization": token.value
+  }
+})
 
 const columns = [
   { key: 'id', label: 'ID' },
@@ -23,6 +25,7 @@ const columns = [
 ]
 
 const knowledgeBases = computed(() => data.value?.knowledgeBases || [])
+const embeddings = computed(() => [...new Set(data.value?.knowledgeBases?.flatMap(el => el.embedding || []) || [])])
 
 async function onStartChat(data: KnowledgeBase) {
   const chatSessionInfo = await createChatSession({ title: data.name, knowledgeBaseId: data.id })
@@ -36,7 +39,7 @@ const onDelete = async (row: KnowledgeBase) => {
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
-      await $fetch(`/api/knowledgebases/${row.id}`, {
+      await $fetchWithAuth(`/api/knowledgebases/${row.id}`, {
         method: 'DELETE'
       })
       refresh()
@@ -48,6 +51,7 @@ function onShowCreate() {
   modal.open(KnowledgeBaseForm, {
     type: 'create',
     title: 'Create a New Knowledge Base',
+    embeddings: embeddings.value,
     onClose: () => modal.close(),
     onSuccess: () => refresh()
   })
@@ -58,6 +62,7 @@ function onShowUpdate(data: KnowledgeBase) {
     type: 'update',
     title: 'Update Knowledge Base',
     data,
+    embeddings: embeddings.value,
     onClose: () => modal.close(),
     onSuccess: () => refresh()
   })
@@ -68,13 +73,10 @@ function onShowUpdate(data: KnowledgeBase) {
   <div class="max-w-6xl mx-auto">
     <div class="flex items-center mb-4">
       <h2 class="font-bold text-xl mr-auto">Knowledge Bases</h2>
-      <ClientOnly>
-        <UButton
-                 icon="i-material-symbols-add"
-                 @click="onShowCreate">
-          Create
-        </UButton>
-      </ClientOnly>
+      <UButton icon="i-material-symbols-add"
+               @click="onShowCreate">
+        Create
+      </UButton>
     </div>
     <ClientOnly>
       <UTable :columns="columns" :rows="knowledgeBases" class="table-list">

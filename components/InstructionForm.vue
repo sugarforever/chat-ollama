@@ -37,7 +37,7 @@ async function onSubmit() {
 async function submit(data: typeof state & { id?: number }) {
   loading.value = true
   try {
-    await $fetch(
+    await $fetchWithAuth(
       isModify.value ? `/api/instruction/${data.id}` : '/api/instruction',
       {
         method: isModify.value ? 'PUT' : 'POST',

@@ -1,31 +1,39 @@
 const KEYS = [
-  'x_openai_api_key',
-  'x_openai_api_host',
+  'x-openai-api-key',
+  'x-openai-api-host',
 
-  'x_azure_openai_api_key',
-  'x_azure_openai_endpoint',
-  'x_azure_openai_deployment_name',
+  'x-azure-openai-api-key',
+  'x-azure-openai-endpoint',
+  'x-azure-openai-deployment-name',
 
-  'x_anthropic_api_key',
-  'x_anthropic_api_host',
+  'x-anthropic-api-key',
+  'x-anthropic-api-host',
 
-  'x_moonshot_api_key',
-  'x_moonshot_api_host',
+  'x-moonshot-api-key',
+  'x-moonshot-api-host',
 
-  'x_gemini_api_key',
+  'x-gemini-api-key',
 
-  'x_groq_api_key',
-  'x_groq_api_host',
+  'x-groq-api-key',
+  'x-groq-api-host',
 ] as const
 
-export type KEYS = typeof KEYS[number]
+type Replace<T extends string, From extends string, To extends string> = From extends '' ? T
+  : T extends `${infer Front}${From}${infer Rest}`
+  ?
+  `${Front}${To}${Replace<Rest, From, To>}`
+  : T
+
+export type KEYS = Replace<typeof KEYS[number], '-', '_'>
+
+export type ContextKeys = Record<KEYS, string>
 
 export default defineEventHandler((event) => {
   const headers = getRequestHeaders(event)
   const keys: { [key: string]: any } = {}
 
   for (const key of KEYS) {
-    keys[key] = headers[key]
+    keys[key.replace(/-/g, '_')] = headers[key]
   }
 
   event.context.keys = keys
