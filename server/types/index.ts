@@ -6,6 +6,7 @@ export type KnowledgeBaseFormData = {
   name: string
   description: string
   embedding: string
+  isPublic: boolean
   knowledgeBaseId: number | null
   uploadedFiles: MultiPartData[]
   urls: string[]

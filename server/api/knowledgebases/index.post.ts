@@ -6,7 +6,7 @@ import { parseKnowledgeBaseFormRequest } from '@/server/utils/http'
 
 export default defineEventHandler(async (event) => {
 
-  const { name, description, embedding, uploadedFiles, urls } =
+  const { name, description, embedding, isPublic, uploadedFiles, urls } =
     await parseKnowledgeBaseFormRequest(event)
 
   if (uploadedFiles.length === 0 && urls.length === 0) {
@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
       name: name,
       description: description,
       embedding: embedding,
+      is_public: isPublic,
       user_id: currentUser?.id,
       created: new Date(),
     }

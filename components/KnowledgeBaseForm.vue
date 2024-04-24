@@ -20,6 +20,7 @@ const state = reactive({
   name: props.data?.name || '',
   embedding: props.data?.embedding || '',
   description: props.data?.description || '',
+  isPublic: props.type === 'create' ? true : props.data?.is_public,
   urls: '',
   pageParser: 'default' as PageParser,
   maxDepth: 0,
@@ -71,6 +72,7 @@ async function onSubmit() {
 
   formData.append("name", state.name)
   formData.append("description", state.description)
+  formData.append("isPublic", String(state.isPublic))
   formData.append("embedding", state.embedding)
   formData.append("pageParser", state.pageParser)
   formData.append("maxDepth", String(state.maxDepth))
@@ -164,6 +166,13 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
         <UFormGroup label="Description" name="description" class="mb-4">
           <UTextarea autoresize :maxrows="4" v-model="state.description" />
         </UFormGroup>
+
+        <UFormGroup label="Public Accessible" name="public" class="mb-4">
+          <p class="text-xs mb-2 text-pink-600 dark:text-pink-300">Make sure you turn off public access if you do not want your knowledge base to be accessible to others.</p>
+          <UToggle v-model="state.isPublic" />
+        </UFormGroup>
+
+        <UDivider />
 
         <UTabs :items="tabs" class="pt-4">
           <template #files>
