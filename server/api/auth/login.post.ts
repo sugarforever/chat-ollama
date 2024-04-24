@@ -15,7 +15,7 @@ const validate = async (name: string, password: string) => {
     })
   }
 
-  const exist = await prisma.User.findUnique({ where: { name: name } })
+  const exist = await prisma.user.findUnique({ where: { name: name } })
   if (!exist) {
     throw createError({
       statusCode: 400,

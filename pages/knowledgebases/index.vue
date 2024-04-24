@@ -11,7 +11,7 @@ const currentSessionId = useStorage<number>('currentSessionId', 0)
 
 const { data, refresh } = await useFetch('/api/knowledgebases', {
   headers: {
-    "Authorization": token.value
+    "Authorization": token.value!
   }
 })
 

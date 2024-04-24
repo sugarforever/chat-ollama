@@ -154,12 +154,18 @@ devDependencies:
   '@sidebase/nuxt-auth':
     specifier: ^0.7.1
     version: 0.7.1(next-auth@4.21.1)
+  '@types/bcrypt':
+    specifier: ^5.0.2
+    version: 5.0.2
   '@types/html-to-text':
     specifier: ^9.0.4
     version: 9.0.4
   '@types/jsdom':
     specifier: ^21.1.6
     version: 21.1.6
+  '@types/jsonwebtoken':
+    specifier: ^9.0.6
+    version: 9.0.6
   '@types/markdown-it':
     specifier: ^13.0.7
     version: 13.0.7
@@ -181,6 +187,9 @@ devDependencies:
   tailwindcss:
     specifier: ^3.4.3
     version: 3.4.3
+  type-fest:
+    specifier: ^4.17.0
+    version: 4.17.0
   typescript:
     specifier: ^5.4.4
     version: 5.4.4
@@ -3080,6 +3089,12 @@ packages:
       '@tufjs/canonical-json': 2.0.0
       minimatch: 9.0.4
 
+  /@types/bcrypt@5.0.2:
+    resolution: {integrity: sha512-6atioO8Y75fNcbmj0G7UjI9lXN2pQ/IGJ2FWT4a/btd0Lk9lQalHLKhkgKVZ3r+spnmWUKfbMi1GEe9wyHQfNQ==}
+    dependencies:
+      '@types/node': 20.12.5
+    dev: true
+
   /@types/estree@1.0.5:
     resolution: {integrity: sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==}
 
@@ -3098,6 +3113,12 @@ packages:
       '@types/node': 20.12.5
       '@types/tough-cookie': 4.0.5
       parse5: 7.1.2
+    dev: true
+
+  /@types/jsonwebtoken@9.0.6:
+    resolution: {integrity: sha512-/5hndP5dCjloafCXns6SZyESp3Ldq7YjH3zwzwczYnjxIT0Fqzk5ROSYVGfFyczIue7IUEj8hkvLbPoLQ18vQw==}
+    dependencies:
+      '@types/node': 20.12.5
     dev: true
 
   /@types/linkify-it@3.0.5:
@@ -9395,6 +9416,11 @@ packages:
   /type-fest@3.13.1:
     resolution: {integrity: sha512-tLq3bSNx+xSpwvAJnzrK0Ep5CLNWjvFTOp71URMaAEWBfRb9nnJiBoUe0tF8bI4ZFO3omgBR6NvnbzVUT3Ly4g==}
     engines: {node: '>=14.16'}
+
+  /type-fest@4.17.0:
+    resolution: {integrity: sha512-9flrz1zkfLRH3jO3bLflmTxryzKMxVa7841VeMgBaNQGY6vH4RCcpN/sQLB7mQQYh1GZ5utT2deypMuCy4yicw==}
+    engines: {node: '>=16'}
+    dev: true
 
   /type-is@1.6.18:
     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}

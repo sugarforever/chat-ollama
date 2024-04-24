@@ -5,7 +5,7 @@ const { signOut } = useAuth()
   <ClientOnly>
     <div>
       <p>Sign Out</p>
-      <button @click="signOut">Sign Out</button>
+      <button @click="signOut()">Sign Out</button>
     </div>
   </ClientOnly>
 </template>

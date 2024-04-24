@@ -17,7 +17,7 @@ const schema = object({
     .min(8, 'Must be at least 8 characters')
     .required('Required'),
   confirmedPassword: string()
-    .oneOf([yupRef('password'), null], 'Passwords must match')
+    .oneOf([yupRef('password'), null as any], 'Passwords must match')
 })
 
 type Schema = InferType<typeof schema>
