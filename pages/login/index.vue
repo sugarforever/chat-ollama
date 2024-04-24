@@ -32,10 +32,10 @@ async function onSubmit() {
     }, {
       callbackUrl: '/'
     })
-  } catch (error) {
+  } catch (error: any) {
     toast.add({
       title: 'Failed to log in',
-      description: error.statusMessage,
+      description: error?.statusMessage || error,
       color: 'red'
     })
   }

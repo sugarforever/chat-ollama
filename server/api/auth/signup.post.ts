@@ -15,7 +15,7 @@ const signUp = async (name: string, email: string, password: string) => {
     })
   }
 
-  const exist = await prisma.User.count({ where: { name: name } }) > 0
+  const exist = await prisma.user.count({ where: { name: name } }) > 0
   if (exist) {
     throw createError({
       statusCode: 409,
@@ -24,7 +24,7 @@ const signUp = async (name: string, email: string, password: string) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10)
-  return await prisma.User.create({
+  return await prisma.user.create({
     data: {
       name,
       email,

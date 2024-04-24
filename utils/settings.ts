@@ -77,13 +77,8 @@ export const fetchHeadersThirdApi = computed(() => {
 })
 
 export const loadOllamaInstructions = async () => {
-  const { token } = useAuth()
   try {
-    const { instructions } = await $fetch<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`, {
-      headers: {
-        Authorization: token.value,
-      },
-    })
+    const { instructions } = await $fetchWithAuth<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`)
     return instructions
   } catch (e) {
     console.error("Failed to fetch Ollama instructions", e)
