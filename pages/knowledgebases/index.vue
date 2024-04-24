@@ -7,6 +7,7 @@ const { token } = useAuth()
 const router = useRouter()
 const modal = useModal()
 const confirm = useDialog('confirm')
+const toast = useToast()
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 
 const { data, refresh } = await useFetch('/api/knowledgebases', {
@@ -20,6 +21,7 @@ const columns = [
   { key: 'name', label: 'Name' },
   { key: 'files', label: 'No. of Files' },
   { key: 'description', label: 'Description' },
+  { key: 'is_public', label: 'Public' },
   { key: 'embedding', label: 'Embedding' },
   { key: 'actions' }
 ]
@@ -41,6 +43,13 @@ const onDelete = async (row: KnowledgeBase) => {
     .then(async () => {
       await $fetchWithAuth(`/api/knowledgebases/${row.id}`, {
         method: 'DELETE'
+      }).catch((e) => {
+        console.error(e)
+        toast.add({
+          title: 'Error',
+          description: e.statusMessage,
+          color: 'red',
+        })
       })
       refresh()
     })
@@ -104,6 +113,13 @@ function onShowUpdate(data: KnowledgeBase) {
         <template #description-data="{ row }">
           <span class="text-wrap">{{ row.description }}</span>
         </template>
+
+        <template #is_public-data="{ row }">
+          <div class="">
+            <UIcon name="i-heroicons-check-16-solid text-primary" v-if="row.is_public" />
+          </div>
+        </template>
+
         <template #actions-data="{ row }">
           <div class="action-btn invisible flex">
             <UTooltip text="Update">

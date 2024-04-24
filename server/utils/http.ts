@@ -12,6 +12,7 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
     name: '',
     description: '',
     embedding: '',
+    isPublic: true,
     knowledgeBaseId: _knowledgeBaseId ? parseInt(_knowledgeBaseId) : null,
     uploadedFiles,
     urls: [],
@@ -29,6 +30,10 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
     }
 
     switch (key) {
+      case 'isPublic':
+        formData.isPublic = decodedData === 'true'
+        break
+
       case 'urls':
         formData.urls.push(decodedData)
         break
