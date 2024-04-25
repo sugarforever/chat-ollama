@@ -102,10 +102,7 @@ async function submit(formData: FormData) {
       {
         method: isModify.value ? 'PUT' : 'POST',
         body: formData,
-        headers: {
-          ...fetchHeadersOllama.value,
-          ...fetchHeadersThirdApi.value,
-        }
+        headers: getKeysHeader(),
       }
     )
     props.onSuccess()

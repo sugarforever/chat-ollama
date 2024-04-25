@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { fetchHeadersOllama } from '@/utils/settings'
 import type { ModelItem } from '@/server/api/models/index.get'
-const { token } = useAuth()
 
 const models = ref<ModelItem[]>([])
 const modelRows = computed(() => {
@@ -28,7 +26,7 @@ const columns = [
 
 const loadModels = async () => {
   const response = await $fetchWithAuth<ModelItem[]>('/api/models/', {
-    headers: fetchHeadersOllama.value
+    headers: getKeysHeader()
   })
   models.value = response
 }
@@ -68,7 +66,7 @@ const onDeleteModel = async () => {
       body: {
         model: name
       },
-      headers: fetchHeadersOllama.value
+      headers: getKeysHeader()
     })
 
     if (status?.status === 'success') {

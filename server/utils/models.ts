@@ -10,7 +10,6 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatGroq } from "@langchain/groq"
 import { AzureChatOpenAI } from "@langchain/azure-openai"
 import { type H3Event } from 'h3'
-import { type ContextKeys } from '@/server/middleware/keys'
 import { type Ollama } from 'ollama'
 
 export const MODEL_FAMILIES = {
@@ -85,90 +84,90 @@ export const isOllamaModelExists = async (ollama: Ollama, embeddingModelName: st
 }
 
 export const createEmbeddings = (embeddingModelName: string, event: H3Event): Embeddings => {
-  const keys = event.context.keys as ContextKeys
+  const keys = event.context.keys
   if (OPENAI_EMBEDDING_MODELS.includes(embeddingModelName)) {
-    console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}, host: ${keys.x_openai_api_host}`)
+    console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}, host: ${keys.openai.endpoint}`)
     return new OpenAIEmbeddings({
       configuration: {
-        baseURL: keys.x_openai_api_host || undefined,
+        baseURL: keys.openai.endpoint || undefined,
       },
       modelName: embeddingModelName,
-      openAIApiKey: keys.x_openai_api_key
+      openAIApiKey: keys.openai.key,
     })
   } else if (GEMINI_EMBEDDING_MODELS.includes(embeddingModelName)) {
     console.log(`Creating embeddings for Gemini model: ${embeddingModelName}`)
     return new GoogleGenerativeAIEmbeddings({
       modelName: embeddingModelName,
-      apiKey: keys.x_gemini_api_key
+      apiKey: keys.gemini.key,
     })
   } else {
     console.log(`Creating embeddings for Ollama served model: ${embeddingModelName}`)
     return new OllamaEmbeddings({
       model: embeddingModelName,
-      baseUrl: event.context?.ollama?.host
+      baseUrl: keys.ollama.endpoint,
     })
   }
 }
 
 export const createChatModel = (modelName: string, family: string, event: H3Event): BaseChatModel => {
-  const { host } = event.context.ollama
-  const keys = event.context.keys as ContextKeys
+  const keys = event.context.keys
   let chat = null
   if (family === MODEL_FAMILIES.openai && OPENAI_GPT_MODELS.includes(modelName)) {
-    console.log("Chat with OpenAI, host:", keys.x_openai_api_host)
+    console.log("Chat with OpenAI, host:", keys.openai.endpoint)
     chat = new ChatOpenAI({
       configuration: {
-        baseURL: keys.x_openai_api_host || undefined,
+        baseURL: keys.openai.endpoint || undefined,
       },
-      openAIApiKey: keys.x_openai_api_key,
-      modelName: modelName
+      openAIApiKey: keys.openai.key,
+      modelName: modelName,
     })
   } else if (family === MODEL_FAMILIES.azureOpenai && AZURE_OPENAI_GPT_MODELS.includes(modelName)) {
-    console.log(`Chat with Azure OpenAI endpoint: ${keys.x_azure_openai_endpoint} , deployment: ${keys.x_azure_openai_deployment_name}`)
+    console.log(`Chat with Azure OpenAI endpoint: ${keys.azureOpenai.endpoint} , deployment: ${keys.azureOpenai.deploymentName}`)
     chat = new AzureChatOpenAI({
-      azureOpenAIEndpoint: keys.x_azure_openai_endpoint,
-      azureOpenAIApiKey: keys.x_azure_openai_api_key,
-      azureOpenAIApiDeploymentName: keys.x_azure_openai_deployment_name,
+      azureOpenAIEndpoint: keys.azureOpenai.endpoint,
+      azureOpenAIApiKey: keys.azureOpenai.key,
+      azureOpenAIApiDeploymentName: keys.azureOpenai.deploymentName,
       modelName: modelName,
     })
   } else if (family === MODEL_FAMILIES.anthropic && ANTHROPIC_MODELS.includes(modelName)) {
-    console.log("Chat with Anthropic, host:", keys.x_anthropic_api_host)
+    console.log("Chat with Anthropic, host:", keys.anthropic.endpoint)
     chat = new ChatAnthropic({
-      anthropicApiUrl: keys.x_anthropic_api_host || undefined,
-      anthropicApiKey: keys.x_anthropic_api_key,
-      modelName: modelName
+      anthropicApiUrl: keys.anthropic.endpoint || undefined,
+      anthropicApiKey: keys.anthropic.key,
+      modelName: modelName,
     })
   } else if (family === MODEL_FAMILIES.moonshot && MOONSHOT_MODELS.includes(modelName)) {
     // Reuse openai's sdk
-    console.log("Chat with Moonshot, host:", keys.x_moonshot_api_host)
+    const endpoint = keys.moonshot.endpoint || "https://api.moonshot.cn/v1"
+    console.log("Chat with Moonshot, host:", endpoint)
     chat = new ChatOpenAI({
       configuration: {
-        baseURL: keys.x_moonshot_api_host || "https://api.moonshot.cn/v1",
+        baseURL: endpoint,
       },
-      openAIApiKey: keys.x_moonshot_api_key,
+      openAIApiKey: keys.moonshot.key,
       modelName: modelName
     })
   } else if (family === MODEL_FAMILIES.gemini && GEMINI_MODELS.includes(modelName)) {
     console.log(`Chat with Gemini ${modelName}`)
     chat = new ChatGoogleGenerativeAI({
-      apiKey: keys.x_gemini_api_key,
+      apiKey: keys.gemini.key,
       modelName: modelName
     })
   } else if (family === MODEL_FAMILIES.groq && GROQ_MODELS.includes(modelName)) {
     // @langchain/grop does not support configuring groq's baseURL, but groq sdk supports receiving environment variables.
-    if (keys.x_groq_api_host) {
-      process.env.GROQ_BASE_URL = keys.x_groq_api_host
+    if (keys.groq.endpoint) {
+      process.env.GROQ_BASE_URL = keys.groq.endpoint
     }
     console.log(`Chat with Groq ${modelName}`)
     chat = new ChatGroq({
-      apiKey: keys.x_groq_api_key,
+      apiKey: keys.groq.key,
       verbose: true,
       modelName: modelName,
     })
   } else {
-    console.log("Chat with Ollama, host:", host)
+    console.log("Chat with Ollama, host:", keys.ollama.endpoint)
     chat = new ChatOllama({
-      baseUrl: host,
+      baseUrl: keys.ollama.endpoint,
       model: modelName,
     })
   };

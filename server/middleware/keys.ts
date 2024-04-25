@@ -1,40 +1,47 @@
-const KEYS = [
-  'x-openai-api-key',
-  'x-openai-api-host',
+import { tryParseJson } from '~/composables/utils'
 
-  'x-azure-openai-api-key',
-  'x-azure-openai-endpoint',
-  'x-azure-openai-deployment-name',
-
-  'x-anthropic-api-key',
-  'x-anthropic-api-host',
-
-  'x-moonshot-api-key',
-  'x-moonshot-api-host',
-
-  'x-gemini-api-key',
-
-  'x-groq-api-key',
-  'x-groq-api-host',
-] as const
-
-type Replace<T extends string, From extends string, To extends string> = From extends '' ? T
-  : T extends `${infer Front}${From}${infer Rest}`
-  ?
-  `${Front}${To}${Replace<Rest, From, To>}`
-  : T
-
-export type KEYS = Replace<typeof KEYS[number], '-', '_'>
-
-export type ContextKeys = Record<KEYS, string>
+export interface ContextKeys {
+  ollama: {
+    endpoint: string
+    username: string
+    password: string
+  },
+  openai: {
+    key: string
+    endpoint: string
+  },
+  azureOpenai: {
+    key: string
+    endpoint: string
+    deploymentName: string
+  },
+  anthropic: {
+    key: string
+    endpoint: string
+  },
+  moonshot: {
+    key: string
+    endpoint: string
+  },
+  gemini: {
+    key: string
+  },
+  groq: {
+    key: string
+    endpoint: string
+  }
+}
 
 export default defineEventHandler((event) => {
   const headers = getRequestHeaders(event)
-  const keys: { [key: string]: any } = {}
+  const value = headers['x-chat-ollama-keys']
+  const data = (value ? tryParseJson(value, {}) : {}) as ContextKeys
 
-  for (const key of KEYS) {
-    keys[key.replace(/-/g, '_')] = headers[key]
+  event.context.keys = {
+    ...data,
+    ollama: {
+      ...data.ollama,
+      endpoint: (data.ollama?.endpoint || 'http://127.0.0.1:11434').replace(/\/$/, ''),
+    }
   }
-
-  event.context.keys = keys
 })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMutationObserver, useThrottleFn, useScroll } from '@vueuse/core'
 import type { KnowledgeBase } from '@prisma/client'
-import { fetchHeadersOllama, fetchHeadersThirdApi, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
+import { getKeysHeader, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
@@ -232,8 +232,7 @@ const onSend = async (data: ChatBoxFormData) => {
     method: 'POST',
     body: body,
     headers: {
-      ...fetchHeadersOllama.value,
-      ...fetchHeadersThirdApi.value,
+      ...getKeysHeader(),
       'Content-Type': 'application/json',
     },
     signal: controller.signal,

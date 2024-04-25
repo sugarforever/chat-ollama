@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { type ProgressResponse } from 'ollama'
-import { fetchHeadersOllama } from '@/utils/settings'
 
 const emit = defineEmits(["modelDownloaded"])
 
@@ -56,7 +55,7 @@ const onDownload = async () => {
         stream: true,
       }),
       headers: {
-        ...fetchHeadersOllama.value,
+        ...getKeysHeader(),
         'Content-Type': 'application/json',
       },
     })
