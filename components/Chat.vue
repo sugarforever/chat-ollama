@@ -32,6 +32,7 @@ const emits = defineEmits<{
 
 const markdown = useMarkdown()
 const modal = useModal()
+const toast = useToast()
 const sessionInfo = ref<ChatSession>()
 const knowledgeBases: KnowledgeBase[] = []
 const knowledgeBaseInfo = ref<KnowledgeBase>()
@@ -167,6 +168,12 @@ const fetchStream = async (url: string, options: RequestInit) => {
               }
             }
             emits('message', lastItem)
+          } else {
+            toast.add({
+              title: 'Invalid message format',
+              description: `Status Code ${response.status} - ${response.statusText}`,
+              color: 'red'
+            })
           }
         }
       }
