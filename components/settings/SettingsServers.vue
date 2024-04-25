@@ -10,19 +10,20 @@ interface LLMListItem {
   fields: Array<{
     label: string
     value: PickupPathKey<ContextKeys>
-    type: 'input' | 'password'
+    type: 'input' | 'password' | 'checkbox'
     placeholder?: string
     rule?: 'url'
   }>
 }
 
+const proxyTips = 'Only works when the current Endpoint and Proxy Settings is set.'
 const LLMList: LLMListItem[] = [
   {
     title: 'Ollama Server',
     fields: [
       { label: 'Endpoint', value: 'ollama.endpoint', type: 'input', placeholder: '', rule: 'url' },
       { label: 'User Name', value: 'ollama.username', type: 'input', placeholder: 'Optional' },
-      { label: 'Password', value: 'ollama.password', type: 'password', placeholder: 'Optional' },
+      { label: 'Password', value: 'ollama.password', type: 'password', placeholder: 'Optional' }
     ]
   },
   {
@@ -30,6 +31,7 @@ const LLMList: LLMListItem[] = [
     fields: [
       { label: 'Key', value: 'openai.key', type: 'password', placeholder: 'OpenAI API Key' },
       { label: 'Endpoint', value: 'openai.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
+      { label: 'Proxy', value: 'openai.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
   {
@@ -38,6 +40,7 @@ const LLMList: LLMListItem[] = [
       { label: 'Key', value: 'azureOpenai.key', type: 'password', placeholder: 'Azure OpenAI API Key' },
       { label: 'Endpoint', value: 'azureOpenai.endpoint', type: 'input' },
       { label: 'Deployment Name', value: 'azureOpenai.deploymentName', type: 'input' },
+      { label: 'Proxy', value: 'azureOpenai.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
   {
@@ -45,6 +48,7 @@ const LLMList: LLMListItem[] = [
     fields: [
       { label: 'Key', value: 'anthropic.key', type: 'password', placeholder: 'Anthropic API Key' },
       { label: 'Endpoint', value: 'anthropic.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
+      { label: 'Proxy', value: 'anthropic.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
   {
@@ -65,6 +69,7 @@ const LLMList: LLMListItem[] = [
     fields: [
       { label: 'Key', value: 'groq.key', type: 'password', placeholder: 'Groq API Key' },
       { label: 'Endpoint', value: 'groq.endpoint', type: 'input', placeholder: 'Optional' },
+      { label: 'Proxy', value: 'groq.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
 ]
@@ -121,6 +126,8 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
         if (typeof value === 'object' && value !== null) {
           newObj[key] = {}
           recursive(oldObj[key], newObj[key], [...keyPaths, key])
+        } else if (keyPaths.length === 0) {
+          newObj[key] = cb([key], value)
         } else {
           objPart[key] = cb([...keyPaths, key], value)
         }
@@ -149,17 +156,24 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
           </div>
         </template>
         <div>
-          <UFormGroup v-for="item in currentLLMFields"
-                      :key="item.value"
-                      :label="item.label"
-                      :name="item.value"
-                      class="mb-4">
-            <UInput v-model.trim="state[item.value as keyof typeof state]"
-                    :type="item.type"
-                    :placeholder="item.placeholder"
-                    size="lg"
-                    :rule="item.rule" />
-          </UFormGroup>
+          <template v-for="item in currentLLMFields" :key="item.value">
+            <UFormGroup v-if="item.value.endsWith('proxy') ? keysStore.proxyEnabled : true" :label="item.label"
+                        :name="item.value"
+                        class="mb-4">
+              <UInput v-if="item.type === 'input' || item.type === 'password'"
+                      v-model.trim="state[item.value]"
+                      :type="item.type"
+                      :placeholder="item.placeholder"
+                      size="lg"
+                      :rule="item.rule" />
+              <template v-else-if="item.type === 'checkbox'">
+                <label class="flex items-center">
+                  <UCheckbox v-model="state[item.value]"></UCheckbox>
+                  <span class="ml-2 text-sm text-muted">({{ item.placeholder }})</span>
+                </label>
+              </template>
+            </UFormGroup>
+          </template>
         </div>
 
         <div class="">

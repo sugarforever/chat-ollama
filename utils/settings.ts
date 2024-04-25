@@ -8,6 +8,8 @@ function getLocalValue(key: string) {
 }
 
 export const keysStore = useStorage<ContextKeys>('keys', {
+  proxyUrl: '',
+  proxyEnabled: false,
   ollama: {
     endpoint: getLocalValue('ollama.host'),
     username: getLocalValue('ollama.username'),
@@ -32,11 +34,9 @@ export const keysStore = useStorage<ContextKeys>('keys', {
   moonshot: {
     key: getLocalValue('keys.moonshot_api_key'),
     endpoint: getLocalValue('keys.moonshot_api_host'),
-    proxy: false,
   },
   gemini: {
     key: getLocalValue('keys.gemini_api_key'),
-    proxy: false,
   },
   groq: {
     key: getLocalValue('keys.groq_api_key'),
