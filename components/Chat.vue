@@ -168,7 +168,7 @@ const fetchStream = async (url: string, options: RequestInit) => {
               }
             }
             emits('message', lastItem)
-          } else {
+          } else if (content === undefined) {
             toast.add({
               title: 'Invalid message format',
               description: `Status Code ${response.status} - ${response.statusText}`,
