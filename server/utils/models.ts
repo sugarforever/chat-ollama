@@ -12,6 +12,7 @@ import { AzureChatOpenAI } from "@langchain/azure-openai"
 import { type H3Event } from 'h3'
 import { type Ollama } from 'ollama'
 import { type ContextKeys } from '~/server/middleware/keys'
+import { proxyTokenGenerate } from '~/server/utils/proxyToken'
 
 export const MODEL_FAMILIES = {
   openai: 'OpenAI',
@@ -181,7 +182,7 @@ function getProxyEndpoint(endpoint: string, useProxy: boolean, keys: ContextKeys
   if (useProxy && endpoint && keys.proxyEnabled && keys.proxyUrl) {
     console.log('Proxy:', endpoint, '->', keys.proxyUrl)
 
-    const link = `http://${process.env.HOST || 'localhost'}:${port}/api/proxy?proxyUrl=${keys.proxyUrl}&endpoint=${endpoint}` // keep endpoint param at the end
+    const link = `http://${process.env.HOST || 'localhost'}:${port}/api/proxy?token=${proxyTokenGenerate()}&proxyUrl=${keys.proxyUrl}&endpoint=${endpoint}` // keep endpoint param at the end
     console.log('Proxy link:', link)
     return link
   }
