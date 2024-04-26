@@ -20,6 +20,7 @@ export interface ChatHistory {
   model: string
   role: 'user' | 'assistant'
   canceled: boolean
+  failed: boolean
   instructionId?: number
   knowledgeBaseId?: number
   relevantDocs?: Array<{
@@ -40,7 +41,7 @@ export class MySubClassedDexie extends Dexie {
 
   constructor() {
     super('chat-ollama')
-    this.version(1).stores({
+    this.version(2).stores({
       chatSessions: '++id, updateTime',
       chatHistories: '++id, sessionId', // Primary key and indexed props
     })
