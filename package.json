@@ -1,5 +1,5 @@
 {
-  "name": "nuxt-app",
+  "name": "chat-ollama",
   "private": true,
   "type": "module",
   "scripts": {
