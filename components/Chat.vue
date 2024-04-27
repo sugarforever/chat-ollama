@@ -324,6 +324,8 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
     ? await clientDB.chatHistories.add({ ...data, sessionId: props.sessionId })
     : Math.random()
 }
+
+defineExpose({ abortChat: onAbortChat })
 </script>
 
 <template>
