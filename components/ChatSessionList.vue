@@ -108,7 +108,7 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
            class="session-item dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-700/30 p-3 cursor-pointer border-b border-gray-200 dark:border-gray-800 flex items-center"
            :class="{ 'bg-primary-100 dark:bg-primary-700/30 activated': currentSessionId === item.id }"
            @click="onSelectChat(item.id!)">
-        <div class="grow">
+        <div class="grow overflow-hidden">
           <div class="line-clamp-1">{{ item.title || `New Chat ${item.id}` }}</div>
           <div class="text-sm text-muted line-clamp-1">{{ item.count }} messages</div>
         </div>
@@ -129,7 +129,6 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
 
   .btn-delete {
     transition: all 0.3s;
-    width: 0px;
     transform-origin: right center;
     transform: translateX(calc(100% + 0.75rem)) scale(0);
     opacity: 0;
@@ -137,7 +136,6 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
 
   &:hover {
     .btn-delete {
-      width: auto;
       transform: translateX(0) scale(1);
       opacity: 1;
     }
