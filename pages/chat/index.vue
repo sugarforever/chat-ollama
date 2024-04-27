@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { ComponentInstance } from 'vue'
 import ChatSessionList from '~/components/ChatSessionList.vue'
-import { type Message } from '~/components/Chat.vue'
+import Chat, { type Message } from '~/components/Chat.vue'
 
 export interface ChatSessionSettings extends Partial<Omit<ChatSession, 'id' | 'createTime'>> { }
 
 const chatSessionListRef = shallowRef<ComponentInstance<typeof ChatSessionList>>()
+const chatRef = shallowRef<ComponentInstance<typeof Chat>>()
+
 const sessionId = ref(0)
 const latestMessageId = ref(0)
 
@@ -33,6 +35,11 @@ function onMessage(data: Message | null) {
 function onNewChat() {
   chatSessionListRef.value?.createChat()
 }
+
+function onChangeChatSession(id: number) {
+  sessionId.value = id
+  chatRef.value?.abortChat()
+}
 </script>
 
 <template>
@@ -40,8 +47,8 @@ function onNewChat() {
        style="--chat-side-width:240px">
     <ChatSessionList ref="chatSessionListRef"
                      class="shrink-0 w-[var(--chat-side-width)]"
-                     @select="id => sessionId = id" />
-    <chat v-if="sessionId > 0"
+                     @select="onChangeChatSession" />
+    <chat ref="chatRef" v-if="sessionId > 0"
           class="flex-1 px-4 pb-4 box-border w-[calc(100%-var(--chat-side-width))]"
           :session-id="sessionId"
           @change-settings="onChangeSettings"
