@@ -1,12 +1,6 @@
 import { tryParseJson } from '~/composables/utils'
 
 export interface ContextKeys {
-  /**
-   * `http://127.0.0.1:1080` or `socks5://127.0.0.1:1080`
-   * `http://username:password@127.0.0.1:1080` or `socks5://username:password@127.0.0.1:1080`
-   */
-  proxyUrl?: string,
-  proxyEnabled: boolean,
   ollama: {
     endpoint: string
     username: string

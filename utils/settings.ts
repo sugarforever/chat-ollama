@@ -8,8 +8,6 @@ function getLocalValue(key: string) {
 }
 
 export const keysStore = useStorage<ContextKeys>('keys', {
-  proxyUrl: '',
-  proxyEnabled: false,
   ollama: {
     endpoint: getLocalValue('ollama.host'),
     username: getLocalValue('ollama.username'),

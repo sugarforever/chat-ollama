@@ -157,18 +157,18 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
         </template>
         <div>
           <template v-for="item in currentLLMFields" :key="item.value">
-            <UFormGroup v-if="item.value.endsWith('proxy') ? keysStore.proxyEnabled : true" :label="item.label"
+            <UFormGroup v-if="item.value.endsWith('proxy') ? $config.public.modelProxyEnabled : true" :label="item.label"
                         :name="item.value"
                         class="mb-4">
               <UInput v-if="item.type === 'input' || item.type === 'password'"
-                      v-model.trim="state[item.value]"
+                      v-model.trim="state[item.value] as string"
                       :type="item.type"
                       :placeholder="item.placeholder"
                       size="lg"
                       :rule="item.rule" />
               <template v-else-if="item.type === 'checkbox'">
                 <label class="flex items-center">
-                  <UCheckbox v-model="state[item.value]"></UCheckbox>
+                  <UCheckbox v-model="state[item.value] as boolean"></UCheckbox>
                   <span class="ml-2 text-sm text-muted">({{ item.placeholder }})</span>
                 </label>
               </template>

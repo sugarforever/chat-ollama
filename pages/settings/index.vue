@@ -10,8 +10,5 @@
     <div class="mb-4">
       <SettingsChatSettings />
     </div>
-    <div class="mb-4">
-      <SettingsProxy />
-    </div>
   </div>
 </template>

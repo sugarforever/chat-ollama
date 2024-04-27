@@ -45,13 +45,20 @@ async function proxyFetch(event: H3Event, apiEndpoint: string, proxyUrl: string)
 
 export default defineEventHandler(async (event) => {
   const url = event.node.req.url
+  const config = useRuntimeConfig()
+
+  if (!config.public.modelProxyEnabled) {
+    setResponseStatus(event, 404)
+    return 'Proxy is disabled'
+  }
 
   if (!url) {
     setResponseStatus(event, 400)
     return 'Invalid URL'
   }
 
-  const { endpoint, proxyUrl } = getQuery(event) as { endpoint: string, proxyUrl: string }
+  const { endpoint } = getQuery(event) as { endpoint: string }
+  const proxyUrl = config.modelProxyUrl
 
   if (endpoint && proxyUrl) {
     try {

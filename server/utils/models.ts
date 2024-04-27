@@ -11,7 +11,6 @@ import { ChatGroq } from "@langchain/groq"
 import { AzureChatOpenAI } from "@langchain/azure-openai"
 import { type H3Event } from 'h3'
 import { type Ollama } from 'ollama'
-import { type ContextKeys } from '~/server/middleware/keys'
 import { proxyTokenGenerate } from '~/server/utils/proxyToken'
 
 export const MODEL_FAMILIES = {
@@ -91,7 +90,7 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
     console.log(`Creating embeddings for OpenAI model: ${embeddingModelName}, host: ${keys.openai.endpoint}`)
     return new OpenAIEmbeddings({
       configuration: {
-        baseURL: getProxyEndpoint(keys.openai.endpoint, keys.openai.proxy, keys),
+        baseURL: getProxyEndpoint(keys.openai.endpoint, keys.openai.proxy),
       },
       modelName: embeddingModelName,
       openAIApiKey: keys.openai.key,
@@ -118,7 +117,7 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
     console.log("Chat with OpenAI, host:", keys.openai.endpoint)
     chat = new ChatOpenAI({
       configuration: {
-        baseURL: getProxyEndpoint(keys.openai.endpoint, keys.openai.proxy, keys),
+        baseURL: getProxyEndpoint(keys.openai.endpoint, keys.openai.proxy),
       },
       openAIApiKey: keys.openai.key,
       modelName: modelName,
@@ -126,7 +125,7 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
   } else if (family === MODEL_FAMILIES.azureOpenai && AZURE_OPENAI_GPT_MODELS.includes(modelName)) {
     console.log(`Chat with Azure OpenAI endpoint: ${keys.azureOpenai.endpoint} , deployment: ${keys.azureOpenai.deploymentName}`)
     chat = new AzureChatOpenAI({
-      azureOpenAIEndpoint: getProxyEndpoint(keys.azureOpenai.endpoint, keys.azureOpenai.proxy, keys),
+      azureOpenAIEndpoint: getProxyEndpoint(keys.azureOpenai.endpoint, keys.azureOpenai.proxy),
       azureOpenAIApiKey: keys.azureOpenai.key,
       azureOpenAIApiDeploymentName: keys.azureOpenai.deploymentName,
       modelName: modelName,
@@ -134,7 +133,7 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
   } else if (family === MODEL_FAMILIES.anthropic && ANTHROPIC_MODELS.includes(modelName)) {
     console.log("Chat with Anthropic, host:", keys.anthropic.endpoint)
     chat = new ChatAnthropic({
-      anthropicApiUrl: getProxyEndpoint(keys.anthropic.endpoint, keys.anthropic.proxy, keys),
+      anthropicApiUrl: getProxyEndpoint(keys.anthropic.endpoint, keys.anthropic.proxy),
       anthropicApiKey: keys.anthropic.key,
       modelName: modelName,
     })
@@ -158,7 +157,7 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
   } else if (family === MODEL_FAMILIES.groq && GROQ_MODELS.includes(modelName)) {
     // @langchain/grop does not support configuring groq's baseURL, but groq sdk supports receiving environment variables.
     if (keys.groq.endpoint) {
-      process.env.GROQ_BASE_URL = getProxyEndpoint(keys.groq.endpoint, keys.groq.proxy, keys)
+      process.env.GROQ_BASE_URL = getProxyEndpoint(keys.groq.endpoint, keys.groq.proxy)
     }
     console.log(`Chat with Groq ${modelName}`)
     chat = new ChatGroq({
@@ -177,13 +176,13 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
   return chat
 }
 
-function getProxyEndpoint(endpoint: string, useProxy: boolean, keys: ContextKeys) {
+function getProxyEndpoint(endpoint: string, useProxy: boolean) {
+  const config = useRuntimeConfig()
   const port = process.env.PORT || 3000
-  if (useProxy && endpoint && keys.proxyEnabled && keys.proxyUrl) {
-    console.log('Proxy:', endpoint, '->', keys.proxyUrl)
+  if (useProxy && endpoint && config.public.modelProxyEnabled && config.modelProxyUrl) {
+    console.log('Proxy:', endpoint, '->', config.modelProxyUrl)
 
-    const link = `http://${process.env.HOST || 'localhost'}:${port}/api/proxy?token=${proxyTokenGenerate()}&proxyUrl=${keys.proxyUrl}&endpoint=${endpoint}` // keep endpoint param at the end
-    console.log('Proxy link:', link)
+    const link = `http://${process.env.HOST || 'localhost'}:${port}/api/proxy?token=${proxyTokenGenerate()}&endpoint=${endpoint}` // keep endpoint param at the end
     return link
   }
   return endpoint ?? undefined
