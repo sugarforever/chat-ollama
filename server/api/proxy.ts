@@ -3,7 +3,7 @@ import https from 'node:https'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import { HttpProxyAgent } from 'http-proxy-agent'
 import { HttpsProxyAgent } from 'https-proxy-agent'
-import { sendError, type H3Event } from 'h3'
+import { type H3Event } from 'h3'
 import { omit } from '~/composables/helpers'
 
 type Protocol = 'http:' | 'https:'
@@ -64,9 +64,9 @@ export default defineEventHandler(async (event) => {
     try {
       await proxyFetch(event, endpoint, proxyUrl)
     } catch (e: any) {
-      console.error(e)
-      setResponseStatus(event, 500)
-      sendError(event, e)
+      console.error(e.message)
+      setResponseStatus(event, 400)
+      return e.message ?? 'Proxy error'
     }
   } else {
     setResponseStatus(event, 400)

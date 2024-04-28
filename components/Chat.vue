@@ -130,13 +130,8 @@ const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetchWithAuth(url, options)
 
   if (response.status !== 200) {
-    toast.add({
-      title: 'Invalid message format',
-      description: `Status Code ${response.status} - ${response.statusText}`,
-      color: 'red'
-    })
-    messages.value = messages.value.filter((message) => message.type !== 'loading')
-    const errorData = { role: 'assistant', type: 'error', content: `Status Code ${response.status} - ${response.statusText}`, timestamp: Date.now() } as const
+    const resContent = await response.text()
+    const errorData = { role: 'assistant', type: 'error', content: resContent || `Status Code ${response.status} - ${response.statusText}`, timestamp: Date.now() } as const
     const id = await saveMessage({
       message: errorData.content,
       model: model.value || '',
@@ -145,7 +140,8 @@ const fetchStream = async (url: string, options: RequestInit) => {
       canceled: false,
       failed: true,
     })
-    messages.value.push({ id, ...errorData })
+    messages.value = messages.value.filter((message) => message.type !== 'loading').concat({ id, ...errorData })
+    nextTick(() => scrollToBottom('auto'))
     return
   }
 
@@ -383,8 +379,8 @@ defineExpose({ abortChat: onAbortChat })
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
           <div class="border border-primary/20 rounded-lg p-3 box-border"
                :class="[
-                `${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800 max-w-[calc(100%-2rem)]' : 'bg-primary-50 dark:bg-primary-400/60 max-w-full'}`,
-                { '!bg-red-300/40': message.type === 'error' }
+                `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
+                message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
               ]">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
