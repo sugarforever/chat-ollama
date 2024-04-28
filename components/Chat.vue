@@ -131,7 +131,9 @@ const fetchStream = async (url: string, options: RequestInit) => {
 
   if (response.status !== 200) {
     const resContent = await response.text()
-    const errorData = { role: 'assistant', type: 'error', content: resContent || `Status Code ${response.status} - ${response.statusText}`, timestamp: Date.now() } as const
+    const errInfo = resContent || `Status Code ${response.status} - ${response.statusText}`
+    toast.add({ title: 'Error', description: errInfo, color: 'red' })
+    const errorData = { role: 'assistant', type: 'error', content: 'Oops! Response Exception', timestamp: Date.now() } as const
     const id = await saveMessage({
       message: errorData.content,
       model: model.value || '',
