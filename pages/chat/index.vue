@@ -36,9 +36,9 @@ function onNewChat() {
   chatSessionListRef.value?.createChat()
 }
 
-function onChangeChatSession(id: number) {
+async function onChangeChatSession(id: number) {
+  await chatRef.value?.abortChat()
   sessionId.value = id
-  chatRef.value?.abortChat()
 }
 </script>
 

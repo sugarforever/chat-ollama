@@ -150,12 +150,6 @@ const fetchStream = async (url: string, options: RequestInit) => {
             const lastItem = messages.value[messages.value.length - 1]
             if (messages.value.length > 0 && lastItem.role === 'assistant') {
               lastItem.content += content
-              if (lastItem.id && props.sessionId) {
-                await clientDB.chatHistories
-                  .where('id')
-                  .equals(lastItem.id)
-                  .modify({ message: lastItem.content })
-              }
             } else {
               const timestamp = Date.now()
               const id = await saveMessage({
@@ -230,6 +224,8 @@ const onSend = async (data: ChatBoxFormData) => {
     scrollToBottom('smooth')
   })
 
+  const f = setInterval(() => syncLatestMessageToLocalDB(), 250)
+
   const controller = new AbortController()
   abortHandler = () => controller.abort()
   await fetchStream('/api/models/chat', {
@@ -241,7 +237,9 @@ const onSend = async (data: ChatBoxFormData) => {
       'Content-Type': 'application/json',
     },
     signal: controller.signal,
-  })
+  }).finally(() => clearInterval(f))
+
+  await syncLatestMessageToLocalDB()
 
   sending.value = false
 }
@@ -263,10 +261,7 @@ async function onAbortChat() {
       messages.value.pop()
     } else if (lastOne.role === 'assistant') {
       lastOne.type = 'canceled'
-      await clientDB.chatHistories
-        .where('id')
-        .equals(lastOne.id!)
-        .modify({ canceled: true })
+      await syncLatestMessageToLocalDB({ canceled: true })
     }
   }
   sending.value = false
@@ -323,6 +318,18 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
   return props.sessionId
     ? await clientDB.chatHistories.add({ ...data, sessionId: props.sessionId })
     : Math.random()
+}
+
+async function syncLatestMessageToLocalDB(data?: Partial<ChatHistory>) {
+  const lastItem = messages.value[messages.value.length - 1]
+  if (messages.value.length > 0 && lastItem.role === 'assistant') {
+    if (lastItem.id && props.sessionId) {
+      await clientDB.chatHistories
+        .where('id')
+        .equals(lastItem.id)
+        .modify({ ...data, message: lastItem.content })
+    }
+  }
 }
 
 defineExpose({ abortChat: onAbortChat })
