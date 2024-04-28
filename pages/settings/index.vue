@@ -7,6 +7,8 @@
     <div class="mb-4">
       <SettingsServers />
     </div>
-    <SettingsChatSettings class="mb-4" />
+    <div class="mb-4">
+      <SettingsChatSettings />
+    </div>
   </div>
 </template>

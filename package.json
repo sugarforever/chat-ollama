@@ -1,5 +1,5 @@
 {
-  "name": "nuxt-app",
+  "name": "chat-ollama",
   "private": true,
   "type": "module",
   "scripts": {
@@ -58,6 +58,8 @@
     "dexie": "^4.0.1",
     "highlight.js": "^11.9.0",
     "html-to-text": "^9.0.5",
+    "http-proxy-agent": "^7.0.2",
+    "https-proxy-agent": "^7.0.4",
     "ioredis": "^5.3.2",
     "jsdom": "^24.0.0",
     "jsonwebtoken": "^9.0.2",
@@ -77,6 +79,7 @@
     "openai": "^4.33.0",
     "pdf-parse": "^1.1.1",
     "prisma": "^5.12.1",
+    "socks-proxy-agent": "^8.0.3",
     "ws": "^8.16.0",
     "yup": "^1.4.0"
   }

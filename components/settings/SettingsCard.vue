@@ -2,6 +2,7 @@
 
 defineProps<{
   title?: string
+  subtitle?: string
 }>()
 
 const ui = {
@@ -22,6 +23,7 @@ const ui = {
       <slot name="header">
         <div class="py-2">
           {{ title }}
+          <span v-if="subtitle" class="ml-2 font-normal" v-html="subtitle"></span>
         </div>
       </slot>
     </template>

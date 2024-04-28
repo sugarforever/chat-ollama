@@ -1,14 +1,13 @@
 import { type ModelResponse, type ModelDetails } from 'ollama'
-import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS, GEMINI_MODELS } from '@/server/utils/models'
+import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS, GEMINI_MODELS, GROQ_MODELS } from '~/config/index'
 import { getOllama } from '@/server/utils/ollama'
-import { type ContextKeys } from '@/server/middleware/keys'
 
 export interface ModelItem extends Partial<Omit<ModelResponse, 'details'>> {
   details: Partial<ModelDetails> & { family: string }
 }
 
 export default defineEventHandler(async (event) => {
-  const keys = event.context.keys as ContextKeys
+  const keys = event.context.keys
   const models: ModelItem[] = []
 
   const ollama = await getOllama(event)
@@ -17,7 +16,7 @@ export default defineEventHandler(async (event) => {
     models.push(...response.models)
   }
 
-  if (keys.x_openai_api_key) {
+  if (keys.openai.key) {
     OPENAI_GPT_MODELS.forEach((model) => {
       models.push({
         name: model,
@@ -28,7 +27,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (keys.x_azure_openai_api_key && keys.x_azure_openai_endpoint && keys.x_azure_openai_deployment_name) {
+  if (keys.azureOpenai.key && keys.azureOpenai.endpoint && keys.azureOpenai.deploymentName) {
     AZURE_OPENAI_GPT_MODELS.forEach((model) => {
       models.push({
         name: model,
@@ -39,7 +38,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (keys.x_anthropic_api_key) {
+  if (keys.anthropic.key) {
     ANTHROPIC_MODELS.forEach((model) => {
       models.push({
         name: model,
@@ -50,7 +49,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (keys.x_moonshot_api_key) {
+  if (keys.moonshot.key) {
     MOONSHOT_MODELS.forEach((model) => {
       models.push({
         name: model,
@@ -61,7 +60,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (keys.x_gemini_api_key) {
+  if (keys.gemini.key) {
     GEMINI_MODELS.forEach((model) => {
       models.push({
         name: model,
@@ -72,7 +71,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (keys.x_groq_api_key) {
+  if (keys.groq.key) {
     GROQ_MODELS.forEach((model) => {
       models.push({
         name: model,

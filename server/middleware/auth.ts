@@ -26,11 +26,12 @@ const verifyToken = (event: H3Event) => {
 }
 
 export default defineEventHandler((event) => {
-  const { _path } = event
+  const uri = new URL(event.path, 'http://localhost')
   const user = verifyToken(event)
   event.context.user = user
 
-  if (_path?.startsWith('/api') && _path !== '/api/auth/user') {
-    console.log(`URL: ${_path} User: ${JSON.stringify(user)}`)
+  const pathname = uri.pathname.replace(/\/+$/, '')
+  if (pathname.startsWith('/api') && pathname !== '/api/auth/user') {
+    console.log(`URL: ${pathname} User: ${JSON.stringify(user)}`)
   }
 })

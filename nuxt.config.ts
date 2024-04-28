@@ -70,7 +70,9 @@ export default defineNuxtConfig({
         create: {
           role: ''
         }
-      }
-    }
+      },
+      modelProxyEnabled: false,
+    },
+    modelProxyUrl: '',
   }
 })

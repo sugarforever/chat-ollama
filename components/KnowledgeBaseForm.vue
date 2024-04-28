@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { KnowledgeBase } from '@prisma/client'
-import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '@/server/utils/models'
+import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '~/config/index'
 import type { PageParser } from '@/server/types/index'
 
 type OperateType = 'create' | 'update'
@@ -102,10 +102,7 @@ async function submit(formData: FormData) {
       {
         method: isModify.value ? 'PUT' : 'POST',
         body: formData,
-        headers: {
-          ...fetchHeadersOllama.value,
-          ...fetchHeadersThirdApi.value,
-        }
+        headers: getKeysHeader(),
       }
     )
     props.onSuccess()

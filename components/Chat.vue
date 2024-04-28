@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMutationObserver, useThrottleFn, useScroll } from '@vueuse/core'
 import type { KnowledgeBase } from '@prisma/client'
-import { fetchHeadersOllama, fetchHeadersThirdApi, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
+import { getKeysHeader, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
@@ -13,7 +13,7 @@ export interface Message {
   id?: number
   role: 'system' | 'assistant' | 'user'
   content: string
-  type?: 'loading' | 'canceled'
+  type?: 'loading' | 'canceled' | 'error'
   timestamp: number
   relevantDocs?: RelevantDocument[]
 }
@@ -32,6 +32,7 @@ const emits = defineEmits<{
 
 const markdown = useMarkdown()
 const modal = useModal()
+const toast = useToast()
 const sessionInfo = ref<ChatSession>()
 const knowledgeBases: KnowledgeBase[] = []
 const knowledgeBaseInfo = ref<KnowledgeBase>()
@@ -99,7 +100,7 @@ async function loadChatHistory(sessionId?: number) {
         content: el.message,
         role: el.role,
         timestamp: el.timestamp,
-        type: el.canceled ? 'canceled' : undefined,
+        type: el.canceled ? 'canceled' : (el.failed ? 'error' : undefined),
         relevantDocs: el.relevantDocs
       } as const
     })
@@ -127,6 +128,24 @@ const processRelevantDocuments = async (chunk: ResponseRelevantDocument) => {
 
 const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetchWithAuth(url, options)
+
+  if (response.status !== 200) {
+    const resContent = await response.text()
+    const errInfo = resContent || `Status Code ${response.status} - ${response.statusText}`
+    toast.add({ title: 'Error', description: errInfo, color: 'red' })
+    const errorData = { role: 'assistant', type: 'error', content: 'Oops! Response Exception', timestamp: Date.now() } as const
+    const id = await saveMessage({
+      message: errorData.content,
+      model: model.value || '',
+      role: errorData.role,
+      timestamp: errorData.timestamp,
+      canceled: false,
+      failed: true,
+    })
+    messages.value = messages.value.filter((message) => message.type !== 'loading').concat({ id, ...errorData })
+    nextTick(() => scrollToBottom('auto'))
+    return
+  }
 
   if (response.body) {
     messages.value = messages.value.filter((message) => message.type !== 'loading')
@@ -157,7 +176,8 @@ const fetchStream = async (url: string, options: RequestInit) => {
                 model: model.value || '',
                 role: 'assistant',
                 timestamp,
-                canceled: false
+                canceled: false,
+                failed: false,
               })
               const itemData = { id, role: 'assistant', content, timestamp } as const
               if (messages.value.length >= limitHistorySize) {
@@ -196,6 +216,7 @@ const onSend = async (data: ChatBoxFormData) => {
     role: 'user',
     timestamp,
     canceled: false,
+    failed: false,
     instructionId: instructionInfo.value?.id,
     knowledgeBaseId: knowledgeBaseInfo.value?.id
   })
@@ -232,8 +253,7 @@ const onSend = async (data: ChatBoxFormData) => {
     method: 'POST',
     body: body,
     headers: {
-      ...fetchHeadersOllama.value,
-      ...fetchHeadersThirdApi.value,
+      ...getKeysHeader(),
       'Content-Type': 'application/json',
     },
     signal: controller.signal,
@@ -360,7 +380,10 @@ defineExpose({ abortChat: onAbortChat })
         <div class="leading-6 text-sm flex items-center max-w-full message-content"
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
           <div class="border border-primary/20 rounded-lg p-3 box-border"
-               :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800 max-w-[calc(100%-2rem)]' : 'bg-primary-50 dark:bg-primary-400/60 max-w-full'}`">
+               :class="[
+                `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
+                message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
+              ]">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
