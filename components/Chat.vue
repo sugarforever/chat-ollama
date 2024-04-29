@@ -130,9 +130,9 @@ const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetchWithAuth(url, options)
 
   if (response.status !== 200) {
-    const resContent = await response.text()
-    const errInfo = resContent || `Status Code ${response.status} - ${response.statusText}`
-    toast.add({ title: 'Error', description: errInfo, color: 'red' })
+    const { message: respnoseMesage } = await response.json()
+    const errInfo = respnoseMesage || `Status Code ${response.status}${' - ' + response.statusText}`
+    toast.add({ title: 'Error', description: `${errInfo}\nPlease make sure proxy is working if it's enabled.`, color: 'red' })
     const errorData = { role: 'assistant', type: 'error', content: 'Oops! Response Exception', timestamp: Date.now() } as const
     const id = await saveMessage({
       message: errorData.content,
@@ -249,15 +249,19 @@ const onSend = async (data: ChatBoxFormData) => {
 
   const controller = new AbortController()
   abortHandler = () => controller.abort()
-  await fetchStream('/api/models/chat', {
-    method: 'POST',
-    body: body,
-    headers: {
-      ...getKeysHeader(),
-      'Content-Type': 'application/json',
-    },
-    signal: controller.signal,
-  }).finally(() => clearInterval(f))
+  try {
+    await fetchStream('/api/models/chat', {
+      method: 'POST',
+      body: body,
+      headers: {
+        ...getKeysHeader(),
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    }).finally(() => clearInterval(f))
+  } catch (error) {
+    console.error(error)
+  }
 
   await syncLatestMessageToLocalDB()
 
@@ -381,9 +385,9 @@ defineExpose({ abortChat: onAbortChat })
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
           <div class="border border-primary/20 rounded-lg p-3 box-border"
                :class="[
-                `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
-                message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
-              ]">
+        `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
+        message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
+      ]">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
