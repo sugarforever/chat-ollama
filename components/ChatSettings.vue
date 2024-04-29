@@ -106,7 +106,7 @@ async function onReset() {
         <UFormGroup label="Attached Messages Count" name="instructionId">
           <div class="flex items-center">
             <span class="mr-2 w-6 text-primary-500">{{ state.attachedMessagesCount }}</span>
-            <URange v-model="state.attachedMessagesCount" :min="0" :max="50" size="md" />
+            <URange v-model="state.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
           </div>
         </UFormGroup>
         <template #footer>

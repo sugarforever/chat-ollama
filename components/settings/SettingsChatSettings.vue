@@ -21,7 +21,7 @@ const model = computed({
       <UFormGroup label="Attached Message Count">
         <div class="flex items-center">
           <span class="mr-2 w-6 text-primary-500">{{ chatDefaultSettings.attachedMessagesCount }}</span>
-          <URange v-model="chatDefaultSettings.attachedMessagesCount" :min="0" :max="50" size="md" />
+          <URange v-model="chatDefaultSettings.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
         </div>
       </UFormGroup>
     </SettingsCard>
