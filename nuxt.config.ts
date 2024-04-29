@@ -72,6 +72,7 @@ export default defineNuxtConfig({
         }
       },
       modelProxyEnabled: false,
+      chatMaxAttachedMessages: 50,
     },
     modelProxyUrl: '',
   }
