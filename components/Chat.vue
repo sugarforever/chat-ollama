@@ -249,19 +249,16 @@ const onSend = async (data: ChatBoxFormData) => {
 
   const controller = new AbortController()
   abortHandler = () => controller.abort()
-  try {
-    await fetchStream('/api/models/chat', {
-      method: 'POST',
-      body: body,
-      headers: {
-        ...getKeysHeader(),
-        'Content-Type': 'application/json',
-      },
-      signal: controller.signal,
-    }).finally(() => clearInterval(f))
-  } catch (error) {
-    console.error(error)
-  }
+
+  await fetchStream('/api/models/chat', {
+    method: 'POST',
+    body: body,
+    headers: {
+      ...getKeysHeader(),
+      'Content-Type': 'application/json',
+    },
+    signal: controller.signal,
+  }).finally(() => clearInterval(f))
 
   await syncLatestMessageToLocalDB()
 
