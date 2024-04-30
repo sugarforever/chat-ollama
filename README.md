@@ -151,6 +151,10 @@ With `docker-compose.yaml`, a dockerized Chroma database is run side by side wit
 
 The relational data including knowledge base records and their associated files are stored in a SQLite database file persisted and mounted from `~/.chatollama/chatollama.sqlite`.
 
+#### Proxy
+
+We have provided a proxy configuration feature. For specific usage, please click [here](docs/proxy-usage.md).
+
 ## Developers Guide
 
 As ChatOllama is still under active development, features, interfaces and database schema may be changed. Please follow the instructions below in your every `git pull` to make sure your dependencies and database schema are always in sync.
