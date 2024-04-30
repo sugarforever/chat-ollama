@@ -10,5 +10,8 @@
     <div class="mb-4">
       <SettingsChatSettings />
     </div>
+    <div class="mb-4">
+      <SettingsLanguageSelectMenu />
+    </div>
   </div>
 </template>

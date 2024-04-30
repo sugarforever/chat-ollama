@@ -2,6 +2,8 @@
 import type { KnowledgeBase } from '@prisma/client'
 import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '~/config/index'
 import type { PageParser } from '@/server/types/index'
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
 
 type OperateType = 'create' | 'update'
 
@@ -43,13 +45,13 @@ const embeddingList = computed(() => {
 const formRef = shallowRef()
 const showEmbeddingDropdown = ref(false)
 const parserList = [
-  { label: 'Default', value: 'default' },
-  { label: 'Jina Reader', value: 'jinaReader' },
+  { label: t('Default'), value: 'default' },
+  { label: t('Jina Reader'), value: 'jinaReader' },
 ]
 
 const tabs = [
-  { label: 'Files', slot: 'files' },
-  { label: 'URLs', slot: 'urls' },
+  { label: t('Files'), slot: 'files' },
+  { label: t('URLs'), slot: 'urls' },
 ]
 
 watch(embeddingList, (list) => {
@@ -89,8 +91,8 @@ async function onSubmit() {
 
 function validate(data: typeof state) {
   const errors = []
-  if (!data.name) errors.push({ path: 'name', message: 'Required' })
-  if (!data.embedding) errors.push({ path: 'embedding', message: 'Required' })
+  if (!data.name) errors.push({ path: 'name', message: t('Required') })
+  if (!data.embedding) errors.push({ path: 'embedding', message: t('Required') })
   return errors
 }
 
@@ -141,11 +143,11 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
         </div>
       </template>
       <UForm ref="formRef" :state="state" :validate="validate" @submit="onSubmit">
-        <UFormGroup label="Name" name="name" required class="mb-4">
+        <UFormGroup :label="t('Name')" name="name" required class="mb-4">
           <UInput type="text" v-model="state.name" autocomplete="off" />
         </UFormGroup>
 
-        <UFormGroup label="Embedding" name="embedding" :required="!isModify" class="mb-4">
+        <UFormGroup :label="t('Embedding')" name="embedding" :required="!isModify" class="mb-4">
           <div class="flex">
             <UDropdown v-model:open="showEmbeddingDropdown"
                        :items="embeddingList"
@@ -156,16 +158,18 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
                 <div>{{ item.label }}</div>
               </template>
             </UDropdown>
-            <UInput v-model="state.embedding" class="grow" autocomplete="off" placeholder="Input or select an embedding" @focus="showEmbeddingDropdown = true" />
+            <UInput v-model="state.embedding" class="grow" autocomplete="off" :placeholder="t('Input or select an embedding')" @focus="showEmbeddingDropdown = true" />
           </div>
         </UFormGroup>
 
-        <UFormGroup label="Description" name="description" class="mb-4">
+        <UFormGroup :label="t('Description')" name="description" class="mb-4">
           <UTextarea autoresize :maxrows="4" v-model="state.description" />
         </UFormGroup>
 
-        <UFormGroup label="Public Accessible" name="public" class="mb-4">
-          <p class="text-xs mb-2 text-pink-600 dark:text-pink-300">Make sure you turn off public access if you do not want your knowledge base to be accessible to others.</p>
+        <UFormGroup :label="t('Public Accessible')" name="public" class="mb-4">
+          <p class="text-xs mb-2 text-pink-600 dark:text-pink-300">{{
+              t("Make sure you turn off public access if you do not want your knowledge base to be accessible to others.")
+            }}</p>
           <UToggle v-model="state.isPublic" />
         </UFormGroup>
 
@@ -174,7 +178,7 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
         <UTabs :items="tabs" class="pt-4">
           <template #files>
             <div class="pt-2 min-h-[200px]">
-              <UFormGroup label="Files as Knowledge Base" name="file" class="mb-4">
+              <UFormGroup :label="t('Files as Knowledge Base')" name="file" class="mb-4">
                 <FileSelector v-model="state.files" />
               </UFormGroup>
             </div>
@@ -182,15 +186,15 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
 
           <template #urls>
             <div class="pt-2">
-              <UFormGroup label="URLs as Knowledge Base" name="urls" class="mb-4">
-                <UTextarea v-model="state.urls" autoresize :maxrows="6" placeholder="One per line" />
+              <UFormGroup :label="t('URLs as Knowledge Base')" name="urls" class="mb-4">
+                <UTextarea v-model="state.urls" autoresize :maxrows="6" :placeholder="t('One per line')" />
               </UFormGroup>
 
-              <UFormGroup label="URL page parser" name="pageParser" class="mb-4">
+              <UFormGroup :label="t('URL page parser')" name="pageParser" class="mb-4">
                 <USelectMenu v-model="state.pageParser" :options="parserList" value-attribute="value" />
               </UFormGroup>
 
-              <UFormGroup label="Max Depth" name="maxDepth" class="mb-4">
+              <UFormGroup :label="t('Max Depth')" name="maxDepth" class="mb-4">
                 <div class="flex items-center">
                   <span class="text-primary mr-2 w-6">{{ state.maxDepth }}</span>
                   <URange v-model="state.maxDepth" :min="0" :max="3" :step="1" />
@@ -200,13 +204,13 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
               <UFormGroup name="excludeGlobs" class="mb-4">
                 <template #label>
                   <div class="flex items-center">
-                    <div>URL Exclude Glob</div>
-                    <div class="text-muted mx-2">(Use <code class="text-base text-primary">*</code> as wildcard)</div>
+                    <div>{{ t("URL Exclude Glob") }}</div>
+                    <div class="text-muted mx-2">({{ t("Use") }} <code class="text-base text-primary">*</code> {{ t("as wildcard") }})</div>
                     <UPopover mode="hover" :popper="{ placement: 'top-end' }" class="block">
                       <div class="i-heroicons-information-circle-20-solid text-lg text-primary"></div>
                       <template #panel>
                         <div class="p-4">
-                          <b>Examples:</b>
+                          <b>{{ t("Examples") }}:</b>
                           <ul class="list-disc list-inside m-2">
                             <li>http://example.com/specify/url</li>
                             <li>http://example.com/foo*</li>
@@ -219,16 +223,16 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
                     </UPopover>
                   </div>
                 </template>
-                <UTextarea v-model="state.excludeGlobs" autoresize :maxrows="6" placeholder="One per line" />
+                <UTextarea v-model="state.excludeGlobs" autoresize :maxrows="6" :placeholder="t('One per line')" />
               </UFormGroup>
             </div>
           </template>
         </UTabs>
 
         <div class="flex justify-end">
-          <UButton color="gray" class="mr-2" @click="onClose()">Cancel</UButton>
+          <UButton color="gray" class="mr-2" @click="onClose()">{{ t("Cancel") }}</UButton>
           <UButton type="submit" :loading="loading">
-            Save
+            {{ t("Save") }}
           </UButton>
         </div>
       </UForm>

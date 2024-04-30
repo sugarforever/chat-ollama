@@ -45,6 +45,7 @@
     "@langchain/groq": "^0.0.5",
     "@langchain/openai": "^0.0.15",
     "@nuxt/ui": "^2.15.1",
+    "@nuxtjs/i18n": "^8.3.0",
     "@prisma/client": "^5.12.1",
     "@vercel/analytics": "^1.2.2",
     "@vueuse/core": "^10.9.0",

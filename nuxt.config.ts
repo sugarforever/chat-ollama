@@ -41,7 +41,11 @@ export default defineNuxtConfig({
         ital: '200..700',
       }
     }
-  }], "@sidebase/nuxt-auth"],
+  }], "@sidebase/nuxt-auth",
+  ['@nuxtjs/i18n', {
+    vueI18n: "@/config/i18n"
+  }]
+  ],
   nitro: {
     experimental: {
       openAPI: true

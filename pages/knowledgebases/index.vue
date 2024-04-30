@@ -2,6 +2,8 @@
 import { useStorage } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
 import { KnowledgeBaseForm } from '#components'
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
 
 const { token } = useAuth()
 const router = useRouter()
@@ -17,12 +19,12 @@ const { data, refresh } = await useFetch('/api/knowledgebases', {
 })
 
 const columns = [
-  { key: 'id', label: 'ID' },
-  { key: 'name', label: 'Name' },
-  { key: 'files', label: 'No. of Files' },
-  { key: 'description', label: 'Description' },
-  { key: 'is_public', label: 'Public' },
-  { key: 'embedding', label: 'Embedding' },
+  { key: 'id', label: t('ID') },
+  { key: 'name', label: t('Name') },
+  { key: 'files', label: t('No. of Files') },
+  { key: 'description', label: t('Description') },
+  { key: 'is_public', label: t('Public') },
+  { key: 'embedding', label: t('Embedding') },
   { key: 'actions' }
 ]
 
@@ -36,8 +38,8 @@ async function onStartChat(data: KnowledgeBase) {
 }
 
 const onDelete = async (row: KnowledgeBase) => {
-  confirm(`Are you sure deleting knowledge base <b class="text-primary">${row.name}</b> ?`, {
-    title: 'Delete Knowledge Base',
+  confirm(`${t("Are you sure deleting knowledge base")} <b class="text-primary">${row.name}</b> ?`, {
+    title: t('Delete Knowledge Base'),
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
@@ -46,7 +48,7 @@ const onDelete = async (row: KnowledgeBase) => {
       }).catch((e) => {
         console.error(e)
         toast.add({
-          title: 'Error',
+          title: t('Error'),
           description: e.statusMessage,
           color: 'red',
         })
@@ -59,7 +61,7 @@ const onDelete = async (row: KnowledgeBase) => {
 function onShowCreate() {
   modal.open(KnowledgeBaseForm, {
     type: 'create',
-    title: 'Create a New Knowledge Base',
+    title: t('Create a New Knowledge Base'),
     embeddings: embeddings.value,
     onClose: () => modal.close(),
     onSuccess: () => refresh()
@@ -69,7 +71,7 @@ function onShowCreate() {
 function onShowUpdate(data: KnowledgeBase) {
   modal.open(KnowledgeBaseForm, {
     type: 'update',
-    title: 'Update Knowledge Base',
+    title: t('Update Knowledge Base'),
     data,
     embeddings: embeddings.value,
     onClose: () => modal.close(),
@@ -81,14 +83,14 @@ function onShowUpdate(data: KnowledgeBase) {
 <template>
   <div class="max-w-6xl mx-auto">
     <div class="flex items-center mb-4">
-      <h2 class="font-bold text-xl mr-auto">Knowledge Bases</h2>
+      <h2 class="font-bold text-xl mr-auto">{{ t("Knowledge Bases") }}</h2>
       <UButton icon="i-material-symbols-add"
                @click="onShowCreate">
-        Create
+        {{ t("Create") }}
       </UButton>
     </div>
     <ClientOnly>
-      <UTable :columns="columns" :rows="knowledgeBases" class="table-list">
+      <UTable :columns="columns" :rows="knowledgeBases" class="table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('No items.') }">
         <template #name-data="{ row }">
           <ULink class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline text-wrap text-left"
                  @click="onStartChat(row)">

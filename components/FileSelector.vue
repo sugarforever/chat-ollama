@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
+
 const props = withDefaults(
   defineProps<{
     accept?: string;
@@ -21,13 +24,13 @@ function onRemove(file: File) {
 <template>
   <div class="flex items-center">
     <FileButton v-model="files" :disabled :color multiple :accept
-      >Select Files</FileButton
+      >{{ t("Select Files") }}</FileButton
     >
     <FileButton v-model="files" :disabled :color directory :accept class="mx-2"
-      >Select Folder</FileButton
+      >{{ t("Select Folder") }}</FileButton
     >
     <span class="text-sm text-muted" v-show="files.length > 0"
-      >{{ files.length }} files</span
+      >{{ files.length }} {{ t("files")}}</span
     >
   </div>
   <ul class="my-2 text-sm text-primary-400/80 max-h-40 overflow-auto">

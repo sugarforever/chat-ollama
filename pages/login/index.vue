@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { object, string, type InferType } from 'yup'
+import { useI18n } from "vue-i18n"
+const { t } = useI18n()
 
 definePageMeta({
   auth: {
@@ -12,8 +14,8 @@ const loading = ref(false)
 const toast = useToast()
 
 const schema = object({
-  name: string().min(1).required('Required'),
-  password: string().min(8, 'Must be at least 8 characters').required('Required')
+  name: string().min(1, t("name must be at least 1 characters")).required(t('Required')),
+  password: string().min(8, t('Must be at least 8 characters')).required(t('Required'))
 })
 
 type Schema = InferType<typeof schema>
@@ -34,7 +36,7 @@ async function onSubmit() {
     })
   } catch (error: any) {
     toast.add({
-      title: 'Failed to log in',
+      title: t('Failed to log in'),
       description: error?.statusMessage || error,
       color: 'red'
     })
@@ -46,20 +48,20 @@ async function onSubmit() {
   <ClientOnly>
     <UCard class="w-[400px] mx-auto">
       <template #header>
-        <h1 class="font-bold text-2xl text-center">Sign in</h1>
+        <h1 class="font-bold text-2xl text-center">{{ t("Sign in") }}</h1>
       </template>
 
       <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
-        <UFormGroup label="Name" name="name">
+        <UFormGroup :label="t('Name')" name="name">
           <UInput v-model="state.name" />
         </UFormGroup>
 
-        <UFormGroup label="Password" name="password">
+        <UFormGroup :label="t('Password')" name="password">
           <UInput v-model="state.password" type="password" />
         </UFormGroup>
 
         <div class="pt-4">
-          <UButton size="lg" class="block w-full" type="submit" :loading="loading">Continue</UButton>
+          <UButton size="lg" class="block w-full" type="submit" :loading="loading">{{ t("Continue") }}</UButton>
         </div>
         <div class="text-sm">
           <span>No account? </span>

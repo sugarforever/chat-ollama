@@ -2,6 +2,8 @@
 import type { ContextKeys } from '~/server/middleware/keys'
 import { keysStore } from '~/utils/settings'
 import type { PickupPathKey, TransformTypes } from '~/types/helper'
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
 
 const toast = useToast()
 
@@ -19,57 +21,57 @@ interface LLMListItem {
 const proxyTips = 'Only works when the current Endpoint and Proxy Settings is set.'
 const LLMList: LLMListItem[] = [
   {
-    title: 'Ollama Server',
+    title: t('Ollama Server'),
     fields: [
-      { label: 'Endpoint', value: 'ollama.endpoint', type: 'input', placeholder: '', rule: 'url' },
-      { label: 'User Name', value: 'ollama.username', type: 'input', placeholder: 'Optional' },
-      { label: 'Password', value: 'ollama.password', type: 'password', placeholder: 'Optional' }
+      { label: t('Endpoint'), value: 'ollama.endpoint', type: 'input', placeholder: '', rule: t('url') },
+      { label: t('User Name'), value: 'ollama.username', type: 'input', placeholder: t('Optional') },
+      { label: t('Password'), value: 'ollama.password', type: 'password', placeholder: t('Optional') }
     ]
   },
   {
-    title: 'OpenAI',
+    title: t('OpenAI'),
     fields: [
-      { label: 'Key', value: 'openai.key', type: 'password', placeholder: 'OpenAI API Key' },
-      { label: 'Endpoint', value: 'openai.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
-      { label: 'Proxy', value: 'openai.proxy', type: 'checkbox', placeholder: proxyTips },
+      { label: t('Key'), value: 'openai.key', type: 'password', placeholder: t('OpenAI API Key') },
+      { label: t('Endpoint'), value: 'openai.endpoint', type: 'input', placeholder: t('Optional'), rule: 'url' },
+      { label: t('Proxy'), value: 'openai.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
   {
-    title: 'Azure OpenAI',
+    title: t('Azure OpenAI'),
     fields: [
-      { label: 'Key', value: 'azureOpenai.key', type: 'password', placeholder: 'Azure OpenAI API Key' },
-      { label: 'Endpoint', value: 'azureOpenai.endpoint', type: 'input' },
-      { label: 'Deployment Name', value: 'azureOpenai.deploymentName', type: 'input' },
-      { label: 'Proxy', value: 'azureOpenai.proxy', type: 'checkbox', placeholder: proxyTips },
+      { label: t('Key'), value: 'azureOpenai.key', type: 'password', placeholder: t('Azure OpenAI API Key') },
+      { label: t('Endpoint'), value: 'azureOpenai.endpoint', type: 'input' },
+      { label: t('Deployment Name'), value: 'azureOpenai.deploymentName', type: 'input' },
+      { label: t('Proxy'), value: 'azureOpenai.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
   {
-    title: 'Anthropic',
+    title: t('Anthropic'),
     fields: [
-      { label: 'Key', value: 'anthropic.key', type: 'password', placeholder: 'Anthropic API Key' },
-      { label: 'Endpoint', value: 'anthropic.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
-      { label: 'Proxy', value: 'anthropic.proxy', type: 'checkbox', placeholder: proxyTips },
+      { label: t('Key'), value: 'anthropic.key', type: 'password', placeholder: t('Anthropic API Key') },
+      { label: t('Endpoint'), value: 'anthropic.endpoint', type: 'input', placeholder: t('Optional'), rule: 'url' },
+      { label: t('Proxy'), value: 'anthropic.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
   {
-    title: 'Moonshot',
+    title: t('Moonshot'),
     fields: [
-      { label: 'Key', value: 'moonshot.key', type: 'password', placeholder: 'Moonshot API Key' },
-      { label: 'Endpoint', value: 'moonshot.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
+      { label: t('Key'), value: 'moonshot.key', type: 'password', placeholder: t('Moonshot API Key') },
+      { label: t('Endpoint'), value: 'moonshot.endpoint', type: 'input', placeholder: t('Optional'), rule: 'url' },
     ]
   },
   {
-    title: 'Gemini',
+    title: t('Gemini'),
     fields: [
-      { label: 'Key', value: 'gemini.key', type: 'password', placeholder: 'Gemini API Key' },
+      { label: t('Key'), value: 'gemini.key', type: 'password', placeholder: t('Gemini API Key') },
     ]
   },
   {
-    title: 'Groq',
+    title: t('Groq'),
     fields: [
-      { label: 'Key', value: 'groq.key', type: 'password', placeholder: 'Groq API Key' },
-      { label: 'Endpoint', value: 'groq.endpoint', type: 'input', placeholder: 'Optional' },
-      { label: 'Proxy', value: 'groq.proxy', type: 'checkbox', placeholder: proxyTips },
+      { label: t('Key'), value: 'groq.key', type: 'password', placeholder: t('Groq API Key') },
+      { label: t('Endpoint'), value: 'groq.endpoint', type: 'input', placeholder: t('Optional') },
+      { label: t('Proxy'), value: 'groq.proxy', type: 'checkbox', placeholder: proxyTips },
     ]
   },
 ]
@@ -97,14 +99,14 @@ const onSubmit = async () => {
     return key in state ? state[key] : value
   })
 
-  toast.add({ title: `Set successfully!`, color: 'green' })
+  toast.add({ title: t(`Set successfully!`), color: 'green' })
 }
 
 const checkHost = (key: keyof typeof state, title: string) => {
   const url = state[key]
   if (!url || (typeof url === 'string' && /^https?:\/\//i.test(url))) return null
 
-  return { path: key, message: `${title} must start with http:// or https://` }
+  return { path: key, message: `${title} ${t("must start with http:// or https://")}` }
 }
 
 function getData() {
@@ -178,7 +180,7 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
 
         <div class="">
           <UButton type="submit">
-            Save
+            {{ t("Save") }}
           </UButton>
         </div>
       </SettingsCard>

@@ -1,5 +1,7 @@
 <script lang="ts" setup>
 import type { Instruction } from '@prisma/client'
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
 
 const props = defineProps<{
   title: string
@@ -21,9 +23,9 @@ const isModify = computed(() => props.type === 'update')
 const validate = (data: typeof state) => {
   const errors = []
   if (!data.name)
-    errors.push({ path: "name", message: "Required" })
+    errors.push({ path: "name", message: t("Required") })
   if (!data.instruction)
-    errors.push({ path: "instruction", message: "Required" })
+    errors.push({ path: "instruction", message: t("Required") })
   return errors
 }
 
@@ -52,14 +54,14 @@ async function submit(data: typeof state & { id?: number }) {
         props.onClose()
       } else {
         toast.add({
-          title: 'Error',
-          description: `Failed to ${isModify.value ? 'edit' : 'create'} instruction`,
+          title: t('Error'),
+          description: ` ${isModify.value ? 'Failed to edit' : 'Failed to create'} t("instruction")`,
           color: 'red',
         })
       }
     })
   } catch (e: any) {
-    toast.add({ title: 'Error', description: e.message, color: 'red' })
+    toast.add({ title: t('Error'), description: e.message, color: 'red' })
   }
   loading.value = false
 }
@@ -76,17 +78,17 @@ async function submit(data: typeof state & { id?: number }) {
       </template>
 
       <UForm :validate="validate" :state="state" @submit="onSubmit">
-        <UFormGroup label="Name" name="name" class="mb-4">
+        <UFormGroup :label="t('Name')" name="name" class="mb-4">
           <UInput v-model="state.name" autocomplete="off" />
         </UFormGroup>
 
-        <UFormGroup label="Instruction" name="instruction" class="mb-4">
+        <UFormGroup :label="t('Instruction')" name="instruction" class="mb-4">
           <UTextarea v-model="state.instruction" autoresize :rows="3" :maxrows="8" />
         </UFormGroup>
 
         <div class="text-right">
-          <UButton color="gray" class="mr-2" @click="onClose()">Cancel</UButton>
-          <UButton type="submit" :loading>Save</UButton>
+          <UButton color="gray" class="mr-2" @click="onClose()">{{ t("Cancel") }}</UButton>
+          <UButton type="submit" :loading>{{ t("Save") }}</UButton>
         </div>
       </UForm>
     </UCard>

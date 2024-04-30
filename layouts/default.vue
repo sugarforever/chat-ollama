@@ -1,12 +1,14 @@
 <script setup>
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
 const links = [
   [
-    { label: 'Home', icon: 'i-heroicons-home', to: '/' },
-    { label: 'Models', icon: 'i-heroicons-rectangle-stack', to: '/models' },
-    { label: 'Instructions', icon: 'i-iconoir-terminal', to: '/instructions' },
-    { label: 'Knowledge Bases', icon: 'i-heroicons-book-open', to: '/knowledgebases' },
-    { label: 'Chat', icon: 'i-iconoir-chat-lines', to: '/chat' },
-    { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: '/settings' }
+    { label: t('Home'), icon: 'i-heroicons-home', to: '/' },
+    { label: t('Models'), icon: 'i-heroicons-rectangle-stack', to: '/models' },
+    { label: t('Instructions'), icon: 'i-iconoir-terminal', to: '/instructions' },
+    { label: t('Knowledge Bases'), icon: 'i-heroicons-book-open', to: '/knowledgebases' },
+    { label: t('Chat'), icon: 'i-iconoir-chat-lines', to: '/chat' },
+    { label: t('Settings'), icon: 'i-heroicons-cog-6-tooth', to: '/settings' }
   ],
 ]
 </script>
