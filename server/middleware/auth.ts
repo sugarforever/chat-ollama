@@ -9,7 +9,7 @@ const extractToken = (authHeaderValue: string) => {
   return token
 }
 
-const verifyToken = (event: H3Event) => {
+const parseAuthUser = (event: H3Event) => {
   const authHeaderValue = getRequestHeader(event, 'Authorization')
 
   if (authHeaderValue != null) {
@@ -17,7 +17,7 @@ const verifyToken = (event: H3Event) => {
     try {
       return jwt.verify(extractedToken, SECRET)
     } catch (error) {
-      console.error('Failed to verify extracted token:', error)
+      console.log('Invalid token from Authorization header.')
       return null
     }
   } else {
@@ -27,7 +27,7 @@ const verifyToken = (event: H3Event) => {
 
 export default defineEventHandler((event) => {
   const uri = new URL(event.path, 'http://localhost')
-  const user = verifyToken(event)
+  const user = parseAuthUser(event)
   event.context.user = user
 
   const pathname = uri.pathname.replace(/\/+$/, '')
