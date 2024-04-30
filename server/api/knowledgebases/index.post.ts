@@ -1,5 +1,5 @@
 import prisma from '@/server/utils/prisma'
-import { isOllamaModelExists } from '@/server/utils/models'
+import { isOllamaModelExists, isApiEmbeddingModelExists } from '@/server/utils/models'
 import { getOllama } from '@/server/utils/ollama'
 import { ingestDocument, ingestURLs } from '~/server/utils/rag'
 import { parseKnowledgeBaseFormRequest } from '@/server/utils/http'
@@ -17,13 +17,15 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const ollama = await getOllama(event, true)
-  if (!ollama) return
-  if (!(await isOllamaModelExists(ollama, embedding))) {
-    setResponseStatus(event, 404)
-    return {
-      status: "error",
-      message: "Embedding model does not exist in Ollama"
+  if (!isApiEmbeddingModelExists(embedding)) {
+    const ollama = await getOllama(event, true)
+    if (!ollama) return
+    if (!(await isOllamaModelExists(ollama, embedding))) {
+      setResponseStatus(event, 404)
+      return {
+        status: "error",
+        message: "Embedding model does not exist in Ollama"
+      }
     }
   }
 

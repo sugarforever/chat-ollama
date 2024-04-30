@@ -14,13 +14,13 @@ import { type Ollama } from 'ollama'
 import { proxyTokenGenerate } from '~/server/utils/proxyToken'
 import { ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, GEMINI_EMBEDDING_MODELS, GEMINI_MODELS, GROQ_MODELS, MODEL_FAMILIES, MOONSHOT_MODELS, OPENAI_EMBEDDING_MODELS, OPENAI_GPT_MODELS } from '~/config/index'
 
-export const isOllamaModelExists = async (ollama: Ollama, embeddingModelName: string) => {
-  if (!OPENAI_EMBEDDING_MODELS.includes(embeddingModelName) && !GEMINI_EMBEDDING_MODELS.includes(embeddingModelName)) {
-    const res = await ollama.list()
-    return res.models.some(model => model.name.includes(embeddingModelName))
-  }
+export function isApiEmbeddingModelExists(embeddingModelName: string) {
+  return [...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS].includes(embeddingModelName)
+}
 
-  return true
+export async function isOllamaModelExists(ollama: Ollama, embeddingModelName: string) {
+  const res = await ollama.list()
+  return res.models.some(model => model.name.includes(embeddingModelName))
 }
 
 export const createEmbeddings = (embeddingModelName: string, event: H3Event): Embeddings => {
