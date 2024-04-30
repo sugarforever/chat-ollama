@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
+
 const { signOut, data, status } = useAuth()
 const onClickSignOut = async () => {
   await signOut({ callbackUrl: '/' })
@@ -6,7 +9,7 @@ const onClickSignOut = async () => {
 
 const items = [
   [{
-    label: 'Sign Out',
+    label: t('Sign Out'),
     icon: 'i-heroicons-arrow-right-start-on-rectangle-16-solid',
     click: async () => {
       await onClickSignOut()
@@ -27,7 +30,7 @@ const buttonColor = computed(() => {
                class="hover:underline text-sm"
                active-class="text-primary"
                inactive-class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-          Sign In
+          {{ t("Sign In") }}
         </ULink>
         <span class="mx-1">/</span>
         <ULink
@@ -35,7 +38,7 @@ const buttonColor = computed(() => {
                class="hover:underline text-sm"
                active-class="text-primary"
                inactive-class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-          Sign Up
+          {{ t("Sign Up") }}
         </ULink>
       </div>
       <div v-else>

@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { loadOllamaInstructions, loadKnowledgeBases, type ModelInfo } from '~/utils/settings'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
 
 interface UpdatedOptions {
   title: string
@@ -78,32 +80,32 @@ async function onReset() {
       <UCard>
         <template #header>
           <div class="flex items-center">
-            <span class="mr-auto">Current Chat Settings</span>
+            <span class="mr-auto">{{ t("Current Chat Settings") }}</span>
             <UButton icon="i-material-symbols-close-rounded" color="gray" @click="onClose()"></UButton>
           </div>
         </template>
-        <UFormGroup label="Topic" name="title" class="mb-4">
+        <UFormGroup :label="t('Topic')" name="title" class="mb-4">
           <UInput v-model="state.title" maxlength="40" />
         </UFormGroup>
-        <UFormGroup label="Model" name="model" required class="mb-4">
+        <UFormGroup :label="t('Model')" name="model" required class="mb-4">
           <ModelsSelectMenu v-model="state.model" v-model:modelInfo="currentModel" />
         </UFormGroup>
-        <UFormGroup label="Knowledge Base" name="knowledgeBaseId" class="mb-4">
+        <UFormGroup :label="t('Knowledge Base')" name="knowledgeBaseId" class="mb-4">
           <USelectMenu v-model="state.knowledgeBaseId"
                        :options="knowledgeBases"
                        value-attribute="id"
                        option-attribute="name"
-                       placeholder="Select a knowledge base"></USelectMenu>
+                       :placeholder="t('Select a knowledge base')"></USelectMenu>
         </UFormGroup>
-        <UFormGroup label="Instruction" name="instructionId" class="mb-4">
+        <UFormGroup :label="t('Instruction')" name="instructionId" class="mb-4">
           <USelectMenu v-model="state.instructionId"
                        :options="instructions"
                        option-attribute="name"
                        value-attribute="id"
-                       placeholder="Select Instruction"></USelectMenu>
+                       :placeholder="t('Select Instruction')"></USelectMenu>
           <div class="my-1 text-sm text-muted">{{ instructionContent }}</div>
         </UFormGroup>
-        <UFormGroup label="Attached Messages Count" name="instructionId">
+        <UFormGroup :label="t('Attached Messages Count')" name="instructionId">
           <div class="flex items-center">
             <span class="mr-2 w-6 text-primary-500">{{ state.attachedMessagesCount }}</span>
             <URange v-model="state.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
@@ -111,8 +113,8 @@ async function onReset() {
         </UFormGroup>
         <template #footer>
           <div class="text-right">
-            <UButton color="gray" class="mr-2" @click="onReset">Reset to Default</UButton>
-            <UButton type="submit">Save</UButton>
+            <UButton color="gray" class="mr-2" @click="onReset">{{ t("Reset to Default") }}</UButton>
+            <UButton type="submit">{{ t("Save") }}</UButton>
           </div>
         </template>
       </UCard>

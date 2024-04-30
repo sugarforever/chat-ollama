@@ -81,3 +81,5 @@ export async function loadKnowledgeBases() {
   const response = await $fetchWithAuth('/api/knowledgebases/').catch(() => null)
   return (response?.knowledgeBases || []) as KnowledgeBase[]
 }
+
+export const languageSelected = useStorage("user_language", 'English')// default language

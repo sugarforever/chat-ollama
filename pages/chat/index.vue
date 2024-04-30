@@ -2,6 +2,8 @@
 import type { ComponentInstance } from 'vue'
 import ChatSessionList from '~/components/ChatSessionList.vue'
 import Chat, { type Message } from '~/components/Chat.vue'
+import {useI18n} from "vue-i18n";
+const { t } = useI18n()
 
 export interface ChatSessionSettings extends Partial<Omit<ChatSession, 'id' | 'createTime'>> { }
 
@@ -54,7 +56,7 @@ async function onChangeChatSession(id: number) {
           @change-settings="onChangeSettings"
           @message="onMessage" />
     <div v-else class="grow h-full flex justify-center items-center">
-      <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat">New Chat</UButton>
+      <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat">{{ t("New Chat") }}</UButton>
     </div>
   </div>
 </template>
