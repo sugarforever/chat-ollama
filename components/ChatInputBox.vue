@@ -29,8 +29,8 @@ const tip = computed(() => {
 const isFocus = ref(false)
 const sendModeList = [
   [
-    { label: t('Enter'), value: 'enter', click: onChangeMode },
-    { label: t('Shift + Enter'), value: 'shift-enter', click: onChangeMode },
+    { label: t('chat.Enter'), value: 'enter', click: onChangeMode },
+    { label: t('chat.Shift + Enter'), value: 'shift-enter', click: onChangeMode },
   ]
 ] as const
 const disabledBtn = computed(() => {
@@ -70,7 +70,7 @@ function onReset() {
        :class="[isFocus ? 'shadow-lg shadow-primary-400/30 dark:shadow-primary-700/20' : '', { 'border-primary-400 dark:border-primary-700': isFocus }]">
     <UForm :state="state" @submit="onSubmit">
       <TheTextarea v-model="state.content" :max-rows="15" :min-rows="2" :submit-mode="submitMode"
-                   :placeholder="t('Say something...')" @focus="isFocus = true" @blur="isFocus = false" />
+                   :placeholder="t('chat.saySomething')" @focus="isFocus = true" @blur="isFocus = false" />
       <div class="flex items-center">
         <slot></slot>
         <div class="flex items-center ml-auto">

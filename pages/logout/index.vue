@@ -8,7 +8,7 @@ const { signOut } = useAuth()
   <ClientOnly>
     <div>
       <p>Sign Out</p>
-      <button @click="signOut()">{{ t("Sign Out") }}</button>
+      <button @click="signOut()">{{ t("auth.Sign Out") }}</button>
     </div>
   </ClientOnly>
 </template>

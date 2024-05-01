@@ -23,9 +23,9 @@ const isModify = computed(() => props.type === 'update')
 const validate = (data: typeof state) => {
   const errors = []
   if (!data.name)
-    errors.push({ path: "name", message: t("Required") })
+    errors.push({ path: "name", message: t("global.required") })
   if (!data.instruction)
-    errors.push({ path: "instruction", message: t("Required") })
+    errors.push({ path: "instruction", message: t("global.required") })
   return errors
 }
 
@@ -55,13 +55,13 @@ async function submit(data: typeof state & { id?: number }) {
       } else {
         toast.add({
           title: t('Error'),
-          description: ` ${isModify.value ? 'Failed to edit' : 'Failed to create'} t("instruction")`,
+          description: ` ${isModify.value ? t('Failed to edit') : t('Failed to create')} ${t("instructions.instruction")}`,
           color: 'red',
         })
       }
     })
   } catch (e: any) {
-    toast.add({ title: t('Error'), description: e.message, color: 'red' })
+    toast.add({ title: t('global.error'), description: e.message, color: 'red' })
   }
   loading.value = false
 }
@@ -78,17 +78,17 @@ async function submit(data: typeof state & { id?: number }) {
       </template>
 
       <UForm :validate="validate" :state="state" @submit="onSubmit">
-        <UFormGroup :label="t('Name')" name="name" class="mb-4">
+        <UFormGroup :label="t('global.name')" name="name" class="mb-4">
           <UInput v-model="state.name" autocomplete="off" />
         </UFormGroup>
 
-        <UFormGroup :label="t('Instruction')" name="instruction" class="mb-4">
+        <UFormGroup :label="t('instructions.instruction')" name="instruction" class="mb-4">
           <UTextarea v-model="state.instruction" autoresize :rows="3" :maxrows="8" />
         </UFormGroup>
 
         <div class="text-right">
-          <UButton color="gray" class="mr-2" @click="onClose()">{{ t("Cancel") }}</UButton>
-          <UButton type="submit" :loading>{{ t("Save") }}</UButton>
+          <UButton color="gray" class="mr-2" @click="onClose()">{{ t("global.cancel") }}</UButton>
+          <UButton type="submit" :loading>{{ t("global.save") }}</UButton>
         </div>
       </UForm>
     </UCard>

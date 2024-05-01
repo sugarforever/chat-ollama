@@ -14,8 +14,8 @@ const loading = ref(false)
 const toast = useToast()
 
 const schema = object({
-  name: string().min(1, t("name must be at least 1 characters")).required(t('Required')),
-  password: string().min(8, t('Must be at least 8 characters')).required(t('Required'))
+  name: string().min(1, t("auth.name must be at least 1 characters")).required(t('global.required')),
+  password: string().min(8, t('auth.Must be at least 8 characters')).required(t('global.required'))
 })
 
 type Schema = InferType<typeof schema>
@@ -36,7 +36,7 @@ async function onSubmit() {
     })
   } catch (error: any) {
     toast.add({
-      title: t('Failed to log in'),
+      title: t('auth.Failed to log in'),
       description: error?.statusMessage || error,
       color: 'red'
     })
@@ -48,15 +48,15 @@ async function onSubmit() {
   <ClientOnly>
     <UCard class="w-[400px] mx-auto">
       <template #header>
-        <h1 class="font-bold text-2xl text-center">{{ t("Sign in") }}</h1>
+        <h1 class="font-bold text-2xl text-center">{{ t("auth.Sign In") }}</h1>
       </template>
 
       <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
-        <UFormGroup :label="t('Name')" name="name">
+        <UFormGroup :label="t('global.name')" name="name">
           <UInput v-model="state.name" />
         </UFormGroup>
 
-        <UFormGroup :label="t('Password')" name="password">
+        <UFormGroup :label="t('global.password')" name="password">
           <UInput v-model="state.password" type="password" />
         </UFormGroup>
 

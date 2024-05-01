@@ -134,8 +134,8 @@ const fetchStream = async (url: string, options: RequestInit) => {
   if (response.status !== 200) {
     const { message: respnoseMesage } = await response.json()
     const errInfo = respnoseMesage || `Status Code ${response.status}${' - ' + response.statusText}`
-    toast.add({ title: t('Error'), description: `${errInfo}\n${t("Please make sure proxy is working if it's enabled.")}`, color: 'red' })
-    const errorData = { role: 'assistant', type: 'error', content: t('Oops! Response Exception'), timestamp: Date.now() } as const
+    toast.add({ title: t('global.error'), description: `${errInfo}\n${t("chat.Please make sure proxy is working if its enabled")}`, color: 'red' })
+    const errorData = { role: 'assistant', type: 'error', content: t('chat.Oops! Response Exception'), timestamp: Date.now() } as const
     const id = await saveMessage({
       message: errorData.content,
       model: model.value || '',
@@ -194,7 +194,7 @@ const fetchStream = async (url: string, options: RequestInit) => {
       }
     }
   } else {
-    console.log(t("The browser doesn't support streaming responses."))
+    console.log(t("chat.The browser doesn't support streaming responses"))
   }
 }
 
@@ -368,10 +368,10 @@ defineExpose({ abortChat: onAbortChat })
                       :title="knowledgeBaseInfo.name"
                       class="mx-2" />
       <div class="mx-auto px-4 text-center">
-        <h2 class="line-clamp-1">{{ sessionInfo?.title || t('Untitled') }}</h2>
+        <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
         <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
       </div>
-      <UTooltip v-if="sessionId" :text="t('Modify the current session configuration')">
+      <UTooltip v-if="sessionId" :text="t('chat.Modify the current session configuration')">
         <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
       </UTooltip>
     </div>
@@ -417,7 +417,7 @@ defineExpose({ abortChat: onAbortChat })
                     @submit="onSend"
                     @stop="onAbortChat">
         <div class="text-muted flex">
-          <UTooltip v-if="sessionInfo?.model" :text="t('Current Model')" :popper="{ placement: 'top-start' }">
+          <UTooltip v-if="sessionInfo?.model" :text="t('chat.currentModel')" :popper="{ placement: 'top-start' }">
             <div class="flex items-center mr-4 cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.modelFamily }}</span>
@@ -425,7 +425,7 @@ defineExpose({ abortChat: onAbortChat })
               <span class="text-sm">{{ sessionInfo?.model }}</span>
             </div>
           </UTooltip>
-          <UTooltip :text="t('Attached Message Count')" :popper="{ placement: 'top-start' }">
+          <UTooltip :text="t('chat.Attached Message Count')" :popper="{ placement: 'top-start' }">
             <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>

@@ -56,7 +56,7 @@ async function onChangeChatSession(id: number) {
           @change-settings="onChangeSettings"
           @message="onMessage" />
     <div v-else class="grow h-full flex justify-center items-center">
-      <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat">{{ t("New Chat") }}</UButton>
+      <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat">{{ t("chat.newChat") }}</UButton>
     </div>
   </div>
 </template>
