@@ -1,3 +1,6 @@
+// import { LanguageList } from './config/i18nLanguageList';
+import { LanguageList } from './config/i18n';
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   auth: {
@@ -43,7 +46,7 @@ export default defineNuxtConfig({
     }
   }], "@sidebase/nuxt-auth",
   ['@nuxtjs/i18n', {
-    vueI18n: "@/config/i18n"
+    // vueI18n: "@/config/i18n"
   }]
   ],
   nitro: {
@@ -85,5 +88,14 @@ export default defineNuxtConfig({
       chatMaxAttachedMessages: 50,
     },
     modelProxyUrl: '',
+  },
+  i18n:{
+    locales: LanguageList,
+    lazy: true,
+    langDir: 'locales/',
+    defaultLocale: 'English',
+    //禁用本地化路由
+    strategy: "no_prefix",
+    //禁用本地化路由
   }
 })
