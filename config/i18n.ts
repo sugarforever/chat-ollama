@@ -1,31 +1,18 @@
-// import { languageSelected } from '@/utils/settings'
-
-// import en from '@/locales/en-US.json'
-// import zhCN from '@/locales/zh-CN.json'
-
 interface LanguageItem {
+  // Used for saving, it should be able to automatically match the browser's default language in the future
   code: string,
+  // Used to locate files
   file: string,
+  // Display in language switching UI
+  name: string,
 }
 export const LanguageList: LanguageItem[] = [
-  {code: "English",file:"en-US.json"},
-  {code: "简体中文",file:"zh-CN.json"},
+  {code: "en-US", file:"en-US.json", name:"English"},
+  {code: "zh-CN", file:"zh-CN.json", name:"简体中文"},
 ]
-
-// const i18nConfig = defineI18nConfig(() => ({
-//   legacy: false,
-//   // locale: languageSelected.value,
-//   fallbackLocale: 'English',
-//   messages: {
-//     // "简体中文": zhCN,
-//     // "English": en
-//   },
-// }))
-// export default i18nConfig
-
-export function findLanguageItemByLanguageName(Name:string):LanguageItem {
+export function findLanguageItemByLanguageName(Code:string):LanguageItem {
   for (const languageItem of LanguageList) {
-    if (languageItem.code == Name)return languageItem
+    if (languageItem.code == Code)return languageItem
   }
-  return {code: Name , file: "no find language File"}
+  return {code: Code , file: "no find language File", name:`this language '${Code}' not supported`}
 }

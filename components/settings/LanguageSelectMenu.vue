@@ -1,10 +1,6 @@
 <script setup lang="ts">
-// import { languageSelected } from '@/utils/settings'
 import { useI18n } from 'vue-i18n'
-const { locale, setLocale, t, availableLocales } = useI18n()
-
-console.log("availableLocales>>", availableLocales)
-
+const { locale, setLocale, t } = useI18n()
 import { LanguageList,  findLanguageItemByLanguageName } from '@/config/i18n'
 
 const selectLanguage = computed({
@@ -13,13 +9,9 @@ const selectLanguage = computed({
   },
   set(val) {
     setLocale(val.code)
-    // languageSelected.value = val.code
   }
 })
 function returnData() {
-  // return locale.value
-  console.log("availableLocales", availableLocales)
-  console.log("now Language", locale, findLanguageItemByLanguageName(locale.value))
   return findLanguageItemByLanguageName(locale.value)
 }
 </script>
@@ -31,13 +23,13 @@ function returnData() {
         <USelectMenu :options="LanguageList" v-model="selectLanguage">
           <template #label>
             <span class="text-muted">[</span>
-            <span>{{ selectLanguage.code }}</span>
+            <span>{{ selectLanguage.name }}</span>
             <span class="text-muted">]</span>
           </template>
           <template #option="{ option }">
-            <span>{{ option.file }}</span>
-            <span class="text-muted">[</span>
             <span>{{ option.code }}</span>
+            <span class="text-muted">[</span>
+            <span>{{ option.name }}</span>
             <span class="text-muted">]</span>
           </template>
         </USelectMenu>
