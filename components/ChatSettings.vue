@@ -80,32 +80,32 @@ async function onReset() {
       <UCard>
         <template #header>
           <div class="flex items-center">
-            <span class="mr-auto">{{ t("Current Chat Settings") }}</span>
+            <span class="mr-auto">{{ t("chat.Current Chat Settings") }}</span>
             <UButton icon="i-material-symbols-close-rounded" color="gray" @click="onClose()"></UButton>
           </div>
         </template>
-        <UFormGroup :label="t('Topic')" name="title" class="mb-4">
+        <UFormGroup :label="t('chat.topic')" name="title" class="mb-4">
           <UInput v-model="state.title" maxlength="40" />
         </UFormGroup>
-        <UFormGroup :label="t('Model')" name="model" required class="mb-4">
+        <UFormGroup :label="t('chat.model')" name="model" required class="mb-4">
           <ModelsSelectMenu v-model="state.model" v-model:modelInfo="currentModel" />
         </UFormGroup>
-        <UFormGroup :label="t('Knowledge Base')" name="knowledgeBaseId" class="mb-4">
+        <UFormGroup :label="t('chat.knowledgeBase')" name="knowledgeBaseId" class="mb-4">
           <USelectMenu v-model="state.knowledgeBaseId"
                        :options="knowledgeBases"
                        value-attribute="id"
                        option-attribute="name"
-                       :placeholder="t('Select a knowledge base')"></USelectMenu>
+                       :placeholder="t('chat.Select a knowledge base')"></USelectMenu>
         </UFormGroup>
-        <UFormGroup :label="t('Instruction')" name="instructionId" class="mb-4">
+        <UFormGroup :label="t('instructions.instruction')" name="instructionId" class="mb-4">
           <USelectMenu v-model="state.instructionId"
                        :options="instructions"
                        option-attribute="name"
                        value-attribute="id"
-                       :placeholder="t('Select Instruction')"></USelectMenu>
+                       :placeholder="t('chat.selectInstruction')"></USelectMenu>
           <div class="my-1 text-sm text-muted">{{ instructionContent }}</div>
         </UFormGroup>
-        <UFormGroup :label="t('Attached Messages Count')" name="instructionId">
+        <UFormGroup :label="t('chat.Attached Messages Count')" name="instructionId">
           <div class="flex items-center">
             <span class="mr-2 w-6 text-primary-500">{{ state.attachedMessagesCount }}</span>
             <URange v-model="state.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
@@ -113,8 +113,8 @@ async function onReset() {
         </UFormGroup>
         <template #footer>
           <div class="text-right">
-            <UButton color="gray" class="mr-2" @click="onReset">{{ t("Reset to Default") }}</UButton>
-            <UButton type="submit">{{ t("Save") }}</UButton>
+            <UButton color="gray" class="mr-2" @click="onReset">{{ t("chat.Reset to Default") }}</UButton>
+            <UButton type="submit">{{ t("global.save") }}</UButton>
           </div>
         </template>
       </UCard>

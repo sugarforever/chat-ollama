@@ -39,14 +39,14 @@ const ui = {
 }
 
 const columns = [
-  { key: "name", label: t("Name") },
-  { key: "instruction", label: t("Instruction") },
+  { key: "name", label: t("global.name") },
+  { key: "instruction", label: t("instructions.instruction") },
   { key: "actions" },
 ]
 
 function onCreate() {
   modal.open(InstructionForm, {
-    title: t('Create a new instruction'),
+    title: t('instructions.CreateInstruction'),
     type: 'create',
     onClose: () => modal.close(),
     onSuccess: () => loadInstructions(),
@@ -55,7 +55,7 @@ function onCreate() {
 
 async function onEdit(data: Instruction) {
   modal.open(InstructionForm, {
-    title: t('Update instruction'),
+    title: t('instructions.UpdateInstruction'),
     type: 'update',
     data,
     onClose: () => modal.close(),
@@ -64,8 +64,8 @@ async function onEdit(data: Instruction) {
 }
 
 async function onDelete(data: Instruction) {
-  confirm(`${t("Are you sure deleting instruction")} <b class="text-primary">${data.name}</b> ?`, {
-    title: t('Delete Instruction'),
+  confirm(`${t("instructions.Are you sure deleting instruction")} <b class="text-primary">${data.name}</b> ?`, {
+    title: t('instructions.DeleteInstruction'),
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
@@ -75,7 +75,7 @@ async function onDelete(data: Instruction) {
         })
         await loadInstructions()
       } catch (e) {
-        console.error(t("Failed to delete Ollama instruction"), e)
+        console.error(t("instructions.Failed to delete Ollama instruction"), e)
       }
     }).catch(noop)
 }
@@ -84,18 +84,18 @@ async function onDelete(data: Instruction) {
 <template>
   <div class="max-w-6xl mx-auto">
     <div class="flex items-center mb-4">
-      <h2 class="font-bold text-xl mr-auto">{{ t("Instruction") }}</h2>
+      <h2 class="font-bold text-xl mr-auto">{{ t("instructions.instruction") }}</h2>
       <UButton icon="i-material-symbols-add" @click="onCreate">
-        {{ t("Create") }}
+        {{ t("global.create") }}
       </UButton>
     </div>
-    <UTable :rows="tableRows" :columns :ui :loading class="w-full table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('No items.') }">
+    <UTable :rows="tableRows" :columns :ui :loading class="w-full table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.NoItems') }">
       <template #actions-data="{ row }">
         <div class="action-btn invisible flex">
-          <UTooltip text="Update">
+          <UTooltip :text="t('global.update')">
             <UButton icon="i-heroicons-pencil-square-solid" variant="ghost" class="mx-1" @click="onEdit(row)" />
           </UTooltip>
-          <UTooltip text="Delete">
+          <UTooltip :text="t('global.delete')">
             <UButton color="red" icon="i-heroicons-trash-20-solid" variant="ghost" class="mx-1"
                      @click="onDelete(row)" />
           </UTooltip>

@@ -20,20 +20,20 @@ const toast = useToast()
 const buttons = computed(() => {
   return [
     {
-      label: t('Copy'),
+      label: t('global.copy'),
       icon: 'i-material-symbols-content-copy-outline',
       click: (e: MouseEvent) => {
         (e.currentTarget as any)?.focus()
         if (isSupported.value) {
           copy(props.message.content)
         } else {
-          toast.add({ title: 'Copy failed', color: 'red' })
+          toast.add({ title: t("global.copyFailed"), color: 'red' })
         }
       }
     },
     props.message.role === 'user'
       ? {
-        label: t('Resend'),
+        label: t('chat.resend'),
         icon: 'i-material-symbols-sync',
         click: () => {
           emits('resend')
@@ -41,7 +41,7 @@ const buttons = computed(() => {
       }
       : [],
     {
-      label: t('Remove'),
+      label: t('global.remove'),
       icon: 'i-material-symbols-delete-outline-rounded',
       click: () => {
         emits('remove')

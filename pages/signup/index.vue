@@ -13,13 +13,13 @@ const toast = useToast()
 const loading = ref(false)
 
 const schema = object({
-  name: string().min(1).required(t('Required')),
-  email: string().email(t('Invalid email')),
+  name: string().min(1).required(t('global.required')),
+  email: string().email(t('auth.Invalid email')),
   password: string()
-    .min(8, t('Must be at least 8 characters'))
-    .required(t('Required')),
+    .min(8, t('auth.Must be at least 8 characters'))
+    .required(t('global.required')),
   confirmedPassword: string()
-    .oneOf([yupRef('password'), null as any], t('Passwords must match'))
+    .oneOf([yupRef('password'), null as any], t('auth.Passwords must match'))
 })
 
 type Schema = InferType<typeof schema>
@@ -51,14 +51,14 @@ async function onSubmit() {
         navigateTo("/")
       } else {
         toast.add({
-          title: t('Error'),
-          description: `Failed to sign up. Please try again later.`,
+          title: t('global.error'),
+          description: t("auth.Failed to sign up. Please try again later"),
           color: 'red',
         })
       }
     })
   } catch (e: any) {
-    toast.add({ title: t('Error'), description: e.statusMessage, color: 'red' })
+    toast.add({ title: t('global.error'), description: e.statusMessage, color: 'red' })
   }
   loading.value = false
 }
@@ -67,23 +67,23 @@ async function onSubmit() {
   <ClientOnly>
     <UCard class="w-[400px] mx-auto">
       <template #header>
-        <h1 class="font-bold text-2xl text-center">{{ t("Create your account") }}</h1>
+        <h1 class="font-bold text-2xl text-center">{{ t("auth.Create your account") }}</h1>
       </template>
 
       <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
-        <UFormGroup :label="t('Name')" name="name">
+        <UFormGroup :label="t('global.name')" name="name">
           <UInput v-model="state.name" />
         </UFormGroup>
 
-        <UFormGroup :label="t('Email')" name="email">
+        <UFormGroup :label="t('auth.email')" name="email">
           <UInput v-model="state.email" />
         </UFormGroup>
 
-        <UFormGroup :label="t('Password')" name="password">
+        <UFormGroup :label="t('global.password')" name="password">
           <UInput v-model="state.password" type="password" />
         </UFormGroup>
 
-        <UFormGroup :label="t('Confirmed Password')" name="confirmedPassword">
+        <UFormGroup :label="t('auth.Confirmed Password')" name="confirmedPassword">
           <UInput v-model="state.confirmedPassword" type="password" />
         </UFormGroup>
 

@@ -40,7 +40,7 @@ const fetchStream = async (url: string, options: RequestInit) => {
       })
     }
   } else {
-    console.log(t("The browser doesn't support streaming responses."))
+    console.log(t("models.The browser doesn't support streaming responses"))
   }
 }
 
@@ -64,7 +64,7 @@ const onDownload = async () => {
     emit("modelDownloaded", modelName)
   } catch (error: any) {
     progresses.value = []
-    toast.add({ color: 'red', title: t("Failed to download model"), description: error.message })
+    toast.add({ color: 'red', title: t("models.Failed to download model"), description: error.message })
   }
 
   downloading.value = false
@@ -75,15 +75,15 @@ const onDownload = async () => {
   <UForm :state="state" @submit="onDownload">
     <div class="flex flex-col md:flex-row items-center">
       <div class="flex grow w-full gap-2 md:max-w-lg">
-        <UInput class="flex-1" size="lg" v-model="state.modelName" :placeholder="t('Enter the model name to download')"
+        <UInput class="flex-1" size="lg" v-model="state.modelName" :placeholder="t('models.Enter the model name to download')"
                 required />
         <UButton type="submit" :loading="downloading">
-          {{ t("Download") }}
+          {{ t("global.download") }}
         </UButton>
       </div>
       <div class="text-sm text-gray-500 mt-4 md:mt-0 mx-2 shrink-0">
-        {{ t("Discover models in the") }}
-        <a href="https://ollama.com/library" target="_blank" class="text-blue-500 underline">{{ t("Ollama Model Library.") }}</a>
+        {{ t("models.Discover models in the") }}
+        <a href="https://ollama.com/library" target="_blank" class="text-blue-500 underline">{{ t("models.Ollama Model Library") }}</a>
       </div>
     </div>
     <ul class="flex flex-col gap-2 mt-4 px-3.5 py-2.5 bg-gray-100" v-if="progresses.length > 0">

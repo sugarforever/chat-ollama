@@ -19,12 +19,12 @@ const { data, refresh } = await useFetch('/api/knowledgebases', {
 })
 
 const columns = [
-  { key: 'id', label: t('ID') },
-  { key: 'name', label: t('Name') },
-  { key: 'files', label: t('No. of Files') },
-  { key: 'description', label: t('Description') },
-  { key: 'is_public', label: t('Public') },
-  { key: 'embedding', label: t('Embedding') },
+  { key: 'id', label: t('knowledgeBases.ID') },
+  { key: 'name', label: t('global.name') },
+  { key: 'files', label: t('knowledgeBases.NoOfFiles') },
+  { key: 'description', label: t('knowledgeBases.description') },
+  { key: 'is_public', label: t('knowledgeBases.public') },
+  { key: 'embedding', label: t('knowledgeBases.embedding') },
   { key: 'actions' }
 ]
 
@@ -38,8 +38,8 @@ async function onStartChat(data: KnowledgeBase) {
 }
 
 const onDelete = async (row: KnowledgeBase) => {
-  confirm(`${t("Are you sure deleting knowledge base")} <b class="text-primary">${row.name}</b> ?`, {
-    title: t('Delete Knowledge Base'),
+  confirm(`${t("knowledgeBases.Are you sure deleting knowledge base")} <b class="text-primary">${row.name}</b> ?`, {
+    title: t('knowledgeBases.Delete Knowledge Base'),
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
@@ -48,7 +48,7 @@ const onDelete = async (row: KnowledgeBase) => {
       }).catch((e) => {
         console.error(e)
         toast.add({
-          title: t('Error'),
+          title: t('global.error'),
           description: e.statusMessage,
           color: 'red',
         })
@@ -61,7 +61,7 @@ const onDelete = async (row: KnowledgeBase) => {
 function onShowCreate() {
   modal.open(KnowledgeBaseForm, {
     type: 'create',
-    title: t('Create a New Knowledge Base'),
+    title: t('knowledgeBases.Create a New Knowledge Base'),
     embeddings: embeddings.value,
     onClose: () => modal.close(),
     onSuccess: () => refresh()
@@ -71,7 +71,7 @@ function onShowCreate() {
 function onShowUpdate(data: KnowledgeBase) {
   modal.open(KnowledgeBaseForm, {
     type: 'update',
-    title: t('Update Knowledge Base'),
+    title: t('knowledgeBases.Update Knowledge Base'),
     data,
     embeddings: embeddings.value,
     onClose: () => modal.close(),
@@ -83,14 +83,14 @@ function onShowUpdate(data: KnowledgeBase) {
 <template>
   <div class="max-w-6xl mx-auto">
     <div class="flex items-center mb-4">
-      <h2 class="font-bold text-xl mr-auto">{{ t("Knowledge Bases") }}</h2>
+      <h2 class="font-bold text-xl mr-auto">{{ t("menu.knowledgeBases") }}</h2>
       <UButton icon="i-material-symbols-add"
                @click="onShowCreate">
-        {{ t("Create") }}
+        {{ t("global.create") }}
       </UButton>
     </div>
     <ClientOnly>
-      <UTable :columns="columns" :rows="knowledgeBases" class="table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('No items.') }">
+      <UTable :columns="columns" :rows="knowledgeBases" class="table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.NoItems') }">
         <template #name-data="{ row }">
           <ULink class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline text-wrap text-left"
                  @click="onStartChat(row)">

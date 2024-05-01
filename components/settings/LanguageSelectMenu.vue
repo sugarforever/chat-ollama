@@ -18,8 +18,8 @@ function returnData() {
 
 <template>
   <ClientOnly>
-    <SettingsCard :title="t('Language')">
-      <UFormGroup :label="t('UI Language')" class="mb-4">
+    <SettingsCard :title="t('settings.Language')">
+      <UFormGroup :label="t('settings.UI Language')" class="mb-4">
         <USelectMenu :options="LanguageList" v-model="selectLanguage">
           <template #label>
             <span class="text-muted">[</span>
