@@ -1,14 +1,14 @@
 {
   "menu": {
-    "home": "home",
-    "models": "models",
-    "instructions": "instructions",
-    "knowledgeBases": "knowledge Bases",
-    "chat": "chat",
-    "settings": "settings"
+    "home": "Home",
+    "models": "Models",
+    "instructions": "Instructions",
+    "knowledgeBases": "Knowledge Bases",
+    "chat": "Chat",
+    "settings": "Settings"
   },
   "Home": {
-    "Welcome": "Welcome",
+    "Welcome": "Welcome to ChatOllama",
     "ChatOllama is a web application that allows you to manage your": "ChatOllama is a web application that allows you to manage your",
     "server and chat with the served LLMs from anywhere in the world": "server and chat with the served LLMs from anywhere in the world",
     "Quick Start": "Quick Start",
