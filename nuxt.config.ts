@@ -43,7 +43,9 @@ export default defineNuxtConfig({
         ital: '200..700',
       }
     }
-  }], "@sidebase/nuxt-auth",'@nuxtjs/i18n'
+  }], "@sidebase/nuxt-auth",
+  ['@nuxtjs/i18n', {vueI18n: "@/config/nuxtjsI18n"
+  }]
   ],
   nitro: {
     experimental: {
