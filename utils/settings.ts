@@ -82,4 +82,4 @@ export async function loadKnowledgeBases() {
   return (response?.knowledgeBases || []) as KnowledgeBase[]
 }
 
-export const languageSelected = useStorage("user_language", 'English')// default language
+//export const languageSelected = useStorage("user_language", 'English')// default language
