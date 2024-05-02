@@ -189,7 +189,7 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
           <template #urls>
             <div class="pt-2">
               <UFormGroup :label="t('knowledgeBases.urlsAsKB')" name="urls" class="mb-4">
-                <UTextarea v-model="state.urls" autoresize :maxrows="6" :placeholder="t('One per line')" />
+                <UTextarea v-model="state.urls" autoresize :maxrows="6" :placeholder="t('global.onePerLine')" />
               </UFormGroup>
 
               <UFormGroup :label="t('knowledgeBases.urlPageParser')" name="pageParser" class="mb-4">

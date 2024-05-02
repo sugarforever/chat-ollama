@@ -25,7 +25,8 @@
     "deleteConfirm": "你确定要删除这个模型吗？",
     "downloadFailed": "下载模型失败",
     "modelNameInputPlaceholder": "输入模型名称回车后下载模型",
-    "discover": "从 <a href=\"https://ollama.com/library\" class=\"text-primary\" target=\"_blank\">Ollama 模型库</a>中寻找模型"
+    "discover": "从 <a href=\"https://ollama.com/library\" class=\"text-primary\" target=\"_blank\">Ollama 模型库</a>中寻找模型",
+    "noData": "没有数据"
   },
   "instructions": {
     "instruction": "指令",

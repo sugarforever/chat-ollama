@@ -112,7 +112,7 @@ function formatFileSize(bytes?: number) {
   </div>
 
   <ClientOnly>
-    <UTable :columns="columns" :rows="modelRows" @select="select" v-model="selectedRows" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('No items.') }"></UTable>
+    <UTable :columns="columns" :rows="modelRows" @select="select" v-model="selectedRows" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('models.noData') }"></UTable>
   </ClientOnly>
 
   <UModal v-model="isOpen">
