@@ -85,10 +85,14 @@ async function onSubmit() {
           <UInput v-model="state.confirmedPassword" type="password" />
         </UFormGroup>
 
-        <div class="flex justify-center">
-          <UButton class="mt-4" type="submit" :loading="loading">
+        <div class="pt-4">
+          <UButton class="block w-full" size="lg" type="submit" :loading="loading">
             Sign Up
           </UButton>
+        </div>
+        <div class="text-sm">
+          <span>Have an account?</span>
+          <UButton to="/login" variant="link">Sign in</UButton>
         </div>
       </UForm>
     </UCard>
