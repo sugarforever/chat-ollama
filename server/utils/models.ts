@@ -109,6 +109,7 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
     chat = new ChatOllama({
       baseUrl: keys.ollama.endpoint,
       model: modelName,
+      numPredict: 3000
     })
   };
 
