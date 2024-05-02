@@ -25,7 +25,7 @@ export default defineNuxtConfig({
       isEnabled: false
     }
   },
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   modules: ['@nuxt/ui', '@vueuse/nuxt', ['@nuxtjs/google-fonts', {
     families: {
       'Noto Sans': true,
@@ -61,6 +61,12 @@ export default defineNuxtConfig({
           type: 'image/svg+xml',
           href: '/logo.svg',
         },
+      ],
+      meta: [
+        {
+          name: 'viewport',
+          content: 'width=device-width',
+        }
       ]
     }
   },
