@@ -2,7 +2,7 @@
 import { useStorage } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
 import { KnowledgeBaseForm } from '#components'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 const { token } = useAuth()
@@ -19,7 +19,7 @@ const { data, refresh } = await useFetch('/api/knowledgebases', {
 })
 
 const columns = [
-  { key: 'id', label: t('knowledgeBases.ID') },
+  { key: 'id', label: t('knowledgeBases.id') },
   { key: 'name', label: t('global.name') },
   { key: 'files', label: t('knowledgeBases.NoOfFiles') },
   { key: 'description', label: t('knowledgeBases.description') },
@@ -38,8 +38,8 @@ async function onStartChat(data: KnowledgeBase) {
 }
 
 const onDelete = async (row: KnowledgeBase) => {
-  confirm(`${t("knowledgeBases.Are you sure deleting knowledge base")} <b class="text-primary">${row.name}</b> ?`, {
-    title: t('knowledgeBases.Delete Knowledge Base'),
+  confirm(t("knowledgeBases.deleteConfirm", [`<b class="text-primary">${row.name}</b>`]), {
+    title: t('knowledgeBases.deleteTitle'),
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
@@ -61,7 +61,7 @@ const onDelete = async (row: KnowledgeBase) => {
 function onShowCreate() {
   modal.open(KnowledgeBaseForm, {
     type: 'create',
-    title: t('knowledgeBases.Create a New Knowledge Base'),
+    title: t('knowledgeBases.createTitle'),
     embeddings: embeddings.value,
     onClose: () => modal.close(),
     onSuccess: () => refresh()
@@ -71,7 +71,7 @@ function onShowCreate() {
 function onShowUpdate(data: KnowledgeBase) {
   modal.open(KnowledgeBaseForm, {
     type: 'update',
-    title: t('knowledgeBases.Update Knowledge Base'),
+    title: t('knowledgeBases.updateTitle'),
     data,
     embeddings: embeddings.value,
     onClose: () => modal.close(),

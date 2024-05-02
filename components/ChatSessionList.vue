@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { useStorage } from '@vueuse/core'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 interface ChatSessionInfo extends ChatSession {
   count: number
@@ -39,7 +39,7 @@ function onSelectChat(sessionId: number) {
 }
 
 function onDeleteChat(data: ChatSession) {
-  confirm(`${t("chat.Are you sure deleting Chat")} <b class="text-primary">${data.title}</b> ?`, {
+  confirm(t("chat.deleteChatConfirm", data.title), {
     title: t('chat.deleteChat'),
     dangerouslyUseHTMLString: true,
   })
@@ -111,7 +111,7 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
            @click="onSelectChat(item.id!)">
         <div class="grow overflow-hidden">
           <div class="line-clamp-1">{{ item.title || `${t("chat.newChat")} ${item.id}` }}</div>
-          <div class="text-sm text-muted line-clamp-1">{{ item.count }} {{ t("chat.messages") }}</div>
+          <div class="text-sm text-muted line-clamp-1">{{ t("chat.messagesCount", [item.count]) }}</div>
         </div>
         <UButton icon="i-material-symbols-delete-outline" size="2xs" color="red" class="btn-delete"
                  @click.stop="onDeleteChat(item)"></UButton>

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 const model = computed({
@@ -21,7 +21,7 @@ const model = computed({
       <UFormGroup :label="t('settings.defaultModel')" class="mb-4">
         <ModelsSelectMenu v-model="model" size="lg"></ModelsSelectMenu>
       </UFormGroup>
-      <UFormGroup :label="t('chat.Attached Message Count')">
+      <UFormGroup :label="t('chat.attachedMessagesCount')">
         <div class="flex items-center">
           <span class="mr-2 w-6 text-primary-500">{{ chatDefaultSettings.attachedMessagesCount }}</span>
           <URange v-model="chatDefaultSettings.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { loadOllamaInstructions, loadKnowledgeBases, type ModelInfo } from '~/utils/settings'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 interface UpdatedOptions {
@@ -80,7 +80,7 @@ async function onReset() {
       <UCard>
         <template #header>
           <div class="flex items-center">
-            <span class="mr-auto">{{ t("chat.Current Chat Settings") }}</span>
+            <span class="mr-auto">{{ t("chat.chatSettingsTitle") }}</span>
             <UButton icon="i-material-symbols-close-rounded" color="gray" @click="onClose()"></UButton>
           </div>
         </template>
@@ -95,7 +95,7 @@ async function onReset() {
                        :options="knowledgeBases"
                        value-attribute="id"
                        option-attribute="name"
-                       :placeholder="t('chat.Select a knowledge base')"></USelectMenu>
+                       :placeholder="t('chat.selectKB')"></USelectMenu>
         </UFormGroup>
         <UFormGroup :label="t('instructions.instruction')" name="instructionId" class="mb-4">
           <USelectMenu v-model="state.instructionId"
@@ -105,7 +105,7 @@ async function onReset() {
                        :placeholder="t('chat.selectInstruction')"></USelectMenu>
           <div class="my-1 text-sm text-muted">{{ instructionContent }}</div>
         </UFormGroup>
-        <UFormGroup :label="t('chat.Attached Messages Count')" name="instructionId">
+        <UFormGroup :label="t('chat.attachedMessagesCount')" name="instructionId">
           <div class="flex items-center">
             <span class="mr-2 w-6 text-primary-500">{{ state.attachedMessagesCount }}</span>
             <URange v-model="state.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
@@ -113,7 +113,7 @@ async function onReset() {
         </UFormGroup>
         <template #footer>
           <div class="text-right">
-            <UButton color="gray" class="mr-2" @click="onReset">{{ t("chat.Reset to Default") }}</UButton>
+            <UButton color="gray" class="mr-2" @click="onReset">{{ t("chat.resetToDefault") }}</UButton>
             <UButton type="submit">{{ t("global.save") }}</UButton>
           </div>
         </template>

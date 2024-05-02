@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { ModelItem } from '@/server/api/models/index.get'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 const models = ref<ModelItem[]>([])
@@ -17,14 +17,16 @@ const modelRows = computed(() => {
     }
   })
 })
-const columns = [
-  { key: 'name', label: t('global.name') },
-  { key: 'size', label: t('global.size') },
-  { key: 'family', label: t('models.family') },
-  { key: 'format', label: t('models.format') },
-  { key: 'parameter_size', label: t('models.parameterSize') },
-  { key: 'quantization_level', label: t('models.quantizationLevel') }
-]
+const columns = computed(() => {
+  return [
+    { key: 'name', label: t('global.name') },
+    { key: 'size', label: t('global.size') },
+    { key: 'family', label: t('models.family') },
+    { key: 'format', label: t('models.format') },
+    { key: 'parameter_size', label: t('models.parameterSize') },
+    { key: 'quantization_level', label: t('models.quantizationLevel') }
+  ]
+})
 
 const loadModels = async () => {
   const response = await $fetchWithAuth<ModelItem[]>('/api/models/', {
@@ -120,7 +122,7 @@ function formatFileSize(bytes?: number) {
       </template>
 
       <div>
-        <p class="mb-4">{{ selectedRows.length > 1 ? t("models.Are you ok to delete the following models") : t("models.Are you ok to delete the following model") }}?</p>
+        <p class="mb-4">{{ selectedRows.length > 1 ? t("models.deleteConfirm", ['s']) : t("models.deleteConfirm") }}?</p>
         <ul>
           <li class="font-bold" v-for="row in selectedRows" :key="row.name">{{ row.name }}</li>
         </ul>

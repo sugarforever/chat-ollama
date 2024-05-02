@@ -2,7 +2,7 @@
 import type { Instruction } from '@prisma/client'
 import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 const modal = useModal()
@@ -38,15 +38,17 @@ const ui = {
   },
 }
 
-const columns = [
-  { key: "name", label: t("global.name") },
-  { key: "instruction", label: t("instructions.instruction") },
-  { key: "actions" },
-]
+const columns = computed(() => {
+  return [
+    { key: "name", label: t("global.name") },
+    { key: "instruction", label: t("instructions.instruction") },
+    { key: "actions" },
+  ]
+})
 
 function onCreate() {
   modal.open(InstructionForm, {
-    title: t('instructions.CreateInstruction'),
+    title: t('instructions.createInstruction'),
     type: 'create',
     onClose: () => modal.close(),
     onSuccess: () => loadInstructions(),
@@ -55,7 +57,7 @@ function onCreate() {
 
 async function onEdit(data: Instruction) {
   modal.open(InstructionForm, {
-    title: t('instructions.UpdateInstruction'),
+    title: t('instructions.updateInstruction'),
     type: 'update',
     data,
     onClose: () => modal.close(),
@@ -64,8 +66,8 @@ async function onEdit(data: Instruction) {
 }
 
 async function onDelete(data: Instruction) {
-  confirm(`${t("instructions.Are you sure deleting instruction")} <b class="text-primary">${data.name}</b> ?`, {
-    title: t('instructions.DeleteInstruction'),
+  confirm(`${t("instructions.deleteConfirm")} <b class="text-primary">${data.name}</b> ?`, {
+    title: t('instructions.deleteInstruction'),
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
@@ -75,7 +77,7 @@ async function onDelete(data: Instruction) {
         })
         await loadInstructions()
       } catch (e) {
-        console.error(t("instructions.Failed to delete Ollama instruction"), e)
+        console.error(t("instructions.deleteFailed"), e)
       }
     }).catch(noop)
 }

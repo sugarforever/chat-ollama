@@ -2,7 +2,7 @@
 import type { KnowledgeBase } from '@prisma/client'
 import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '~/config/index'
 import type { PageParser } from '@/server/types/index'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 type OperateType = 'create' | 'update'
@@ -44,15 +44,19 @@ const embeddingList = computed(() => {
 })
 const formRef = shallowRef()
 const showEmbeddingDropdown = ref(false)
-const parserList = [
-  { label: t('global.default'), value: 'default' },
-  { label: t('Jina Reader'), value: 'jinaReader' },
-]
+const parserList = computed(() => {
+  return [
+    { label: t('global.default'), value: 'default' },
+    { label: t('knowledgeBases.jinaReader'), value: 'jinaReader' },
+  ]
+})
 
-const tabs = [
-  { label: t('global.files'), slot: 'files' },
-  { label: t('knowledgeBases.URLs'), slot: 'urls' },
-]
+const tabs = computed(() => {
+  return [
+    { label: t('global.files'), slot: 'files' },
+    { label: t('knowledgeBases.URLs'), slot: 'urls' },
+  ]
+})
 
 watch(embeddingList, (list) => {
   showEmbeddingDropdown.value = list.flat().length > 0
@@ -158,7 +162,7 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
                 <div>{{ item.label }}</div>
               </template>
             </UDropdown>
-            <UInput v-model="state.embedding" class="grow" autocomplete="off" :placeholder="t('knowledgeBases.Input or select an embedding')" @focus="showEmbeddingDropdown = true" />
+            <UInput v-model="state.embedding" class="grow" autocomplete="off" :placeholder="t('knowledgeBases.embeddingInputPlaceholder')" @focus="showEmbeddingDropdown = true" />
           </div>
         </UFormGroup>
 
@@ -167,9 +171,7 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
         </UFormGroup>
 
         <UFormGroup :label="t('knowledgeBases.publicAccessible')" name="public" class="mb-4">
-          <p class="text-xs mb-2 text-pink-600 dark:text-pink-300">{{
-              t("knowledgeBases.Make sure you turn off public access if you do not want your knowledge base to be accessible to others")
-            }}</p>
+          <p class="text-xs mb-2 text-pink-600 dark:text-pink-300">{{ t("knowledgeBases.publicAccessibleTip") }}</p>
           <UToggle v-model="state.isPublic" />
         </UFormGroup>
 
@@ -178,7 +180,7 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
         <UTabs :items="tabs" class="pt-4">
           <template #files>
             <div class="pt-2 min-h-[200px]">
-              <UFormGroup :label="t('knowledgeBases.Files as Knowledge Base')" name="file" class="mb-4">
+              <UFormGroup :label="t('knowledgeBases.filesAsKB')" name="file" class="mb-4">
                 <FileSelector v-model="state.files" />
               </UFormGroup>
             </div>
@@ -186,11 +188,11 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
 
           <template #urls>
             <div class="pt-2">
-              <UFormGroup :label="t('knowledgeBases.URLs as Knowledge Base')" name="urls" class="mb-4">
+              <UFormGroup :label="t('knowledgeBases.urlsAsKB')" name="urls" class="mb-4">
                 <UTextarea v-model="state.urls" autoresize :maxrows="6" :placeholder="t('One per line')" />
               </UFormGroup>
 
-              <UFormGroup :label="t('knowledgeBases.URL page parser')" name="pageParser" class="mb-4">
+              <UFormGroup :label="t('knowledgeBases.urlPageParser')" name="pageParser" class="mb-4">
                 <USelectMenu v-model="state.pageParser" :options="parserList" value-attribute="value" />
               </UFormGroup>
 
@@ -204,8 +206,8 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
               <UFormGroup name="excludeGlobs" class="mb-4">
                 <template #label>
                   <div class="flex items-center">
-                    <div>{{ t("knowledgeBases.URL Exclude Glob") }}</div>
-                    <div class="text-muted mx-2">({{ t("knowledgeBases.Use") }} <code class="text-base text-primary">*</code> {{ t("knowledgeBases.asWildcard") }})</div>
+                    <div>{{ t("knowledgeBases.excludeGlobs") }}</div>
+                    <div class="text-muted mx-2" v-html="t('knowledgeBases.useTip')"></div>
                     <UPopover mode="hover" :popper="{ placement: 'top-end' }" class="block">
                       <div class="i-heroicons-information-circle-20-solid text-lg text-primary"></div>
                       <template #panel>

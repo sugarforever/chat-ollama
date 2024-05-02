@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { Instruction } from '@prisma/client'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 const props = defineProps<{
@@ -55,7 +55,7 @@ async function submit(data: typeof state & { id?: number }) {
       } else {
         toast.add({
           title: t('Error'),
-          description: ` ${isModify.value ? t('Failed to edit') : t('Failed to create')} ${t("instructions.instruction")}`,
+          description: ` ${isModify.value ? t('instructions.editFailed') : t('instructions.createFailed')}`,
           color: 'red',
         })
       }

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useStorage } from '@vueuse/core'
 import { type SubmitMode } from './TheTextarea.vue'
-import {useI18n} from "vue-i18n";
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 export interface ChatBoxFormData {
@@ -23,16 +23,18 @@ const state = reactive<ChatBoxFormData>({
   content: '',
 })
 const tip = computed(() => {
-  const s = sendModeList[0].find(el => el.value === submitMode.value)?.label || ''
+  const s = sendModeList.value[0].find(el => el.value === submitMode.value)?.label || ''
   return `(${s})`
 })
 const isFocus = ref(false)
-const sendModeList = [
-  [
-    { label: t('chat.Enter'), value: 'enter', click: onChangeMode },
-    { label: t('chat.Shift + Enter'), value: 'shift-enter', click: onChangeMode },
+const sendModeList = computed(() => {
+  return [
+    [
+      { label: t('chat.enter'), value: 'enter' as const, click: onChangeMode },
+      { label: t('chat.shiftEnter'), value: 'shift-enter' as const, click: onChangeMode },
+    ]
   ]
-] as const
+})
 const disabledBtn = computed(() => {
   return props.disabled || (!props.loading && !state.content.trim())
 })
@@ -41,7 +43,7 @@ defineExpose({
   reset: onReset
 })
 
-function onChangeMode(this: typeof sendModeList[number][number]) {
+function onChangeMode(this: typeof sendModeList.value[number][number]) {
   submitMode.value = this.value
 }
 

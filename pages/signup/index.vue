@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { object, string, ref as yupRef, type InferType } from 'yup'
-import {useI18n} from "vue-i18n";
+import { object, string, ref as yupRef } from 'yup'
+import { useI18n } from "vue-i18n"
 const { t } = useI18n()
 
 definePageMeta({
@@ -14,15 +14,13 @@ const loading = ref(false)
 
 const schema = object({
   name: string().min(1).required(t('global.required')),
-  email: string().email(t('auth.Invalid email')),
+  email: string().email(t('auth.emailRule1')),
   password: string()
-    .min(8, t('auth.Must be at least 8 characters'))
+    .min(8, t('auth.passwordRule1'))
     .required(t('global.required')),
   confirmedPassword: string()
-    .oneOf([yupRef('password'), null as any], t('auth.Passwords must match'))
+    .oneOf([yupRef('password'), null as any], t('auth.passwordRule2'))
 })
-
-type Schema = InferType<typeof schema>
 
 const state = reactive({
   name: undefined,
@@ -52,7 +50,7 @@ async function onSubmit() {
       } else {
         toast.add({
           title: t('global.error'),
-          description: t("auth.Failed to sign up. Please try again later"),
+          description: t("auth.signUpFailed"),
           color: 'red',
         })
       }
@@ -67,7 +65,7 @@ async function onSubmit() {
   <ClientOnly>
     <UCard class="w-[400px] mx-auto">
       <template #header>
-        <h1 class="font-bold text-2xl text-center">{{ t("auth.Create your account") }}</h1>
+        <h1 class="font-bold text-2xl text-center">{{ t("auth.createAccount") }}</h1>
       </template>
 
       <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
@@ -83,18 +81,18 @@ async function onSubmit() {
           <UInput v-model="state.password" type="password" />
         </UFormGroup>
 
-        <UFormGroup :label="t('auth.Confirmed Password')" name="confirmedPassword">
+        <UFormGroup :label="t('auth.confirmPassword')" name="confirmedPassword">
           <UInput v-model="state.confirmedPassword" type="password" />
         </UFormGroup>
 
         <div class="pt-4">
           <UButton class="block w-full" size="lg" type="submit" :loading="loading">
-            Sign Up
+            {{ t('auth.signUp') }}
           </UButton>
         </div>
         <div class="text-sm">
-          <span>Have an account?</span>
-          <UButton to="/login" variant="link">Sign in</UButton>
+          <span>{{ t('auth.haveAnAccount') }}</span>
+          <UButton to="/login" variant="link">{{ t('auth.signIn') }}</UButton>
         </div>
       </UForm>
     </UCard>
