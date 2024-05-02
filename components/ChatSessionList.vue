@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { useStorage } from '@vueuse/core'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
+
 interface ChatSessionInfo extends ChatSession {
   count: number
 }
@@ -10,6 +9,7 @@ const emits = defineEmits<{
   select: [sessionId: number]
 }>()
 
+const { t } = useI18n()
 const sessionList = ref<ChatSessionInfo[]>([])
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 const confirm = useDialog('confirm')

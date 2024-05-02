@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import { loadOllamaInstructions, loadKnowledgeBases, type ModelInfo } from '~/utils/settings'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
 interface UpdatedOptions {
   title: string
@@ -17,6 +15,8 @@ const props = defineProps<{
   onClose: () => void
   onUpdated?: (data: UpdatedOptions) => void
 }>()
+
+const { t } = useI18n()
 
 const defaultConfig = {
   instructionId: 0,

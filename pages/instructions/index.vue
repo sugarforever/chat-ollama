@@ -2,9 +2,8 @@
 import type { Instruction } from '@prisma/client'
 import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
+const { t } = useI18n()
 const modal = useModal()
 const confirm = useDialog('confirm')
 

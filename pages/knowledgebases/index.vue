@@ -2,9 +2,8 @@
 import { useStorage } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
 import { KnowledgeBaseForm } from '#components'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
+const { t } = useI18n()
 const { token } = useAuth()
 const router = useRouter()
 const modal = useModal()

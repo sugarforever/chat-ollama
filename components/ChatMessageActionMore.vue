@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import { useClipboard } from '@vueuse/core'
 import type { Message } from '~/components/Chat.vue'
-import {useI18n} from "vue-i18n";
-const { t } = useI18n()
 
 const props = defineProps<{
   message: Message
@@ -14,6 +12,7 @@ const emits = defineEmits<{
   remove: []
 }>()
 
+const { t } = useI18n()
 const { copy, isSupported } = useClipboard({ legacy: true })
 const toast = useToast()
 

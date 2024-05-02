@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { ModelItem } from '@/server/api/models/index.get'
-import { useI18n } from "vue-i18n"
+
 const { t } = useI18n()
 
 const models = ref<ModelItem[]>([])

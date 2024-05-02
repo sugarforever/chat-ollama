@@ -2,8 +2,6 @@
 import type { KnowledgeBase } from '@prisma/client'
 import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '~/config/index'
 import type { PageParser } from '@/server/types/index'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
 type OperateType = 'create' | 'update'
 
@@ -16,6 +14,7 @@ const props = defineProps<{
   onClose: () => void
 }>()
 
+const { t } = useI18n()
 const toast = useToast()
 const state = reactive({
   files: [] as File[],

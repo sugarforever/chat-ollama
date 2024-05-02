@@ -2,11 +2,10 @@
 import type { ComponentInstance } from 'vue'
 import ChatSessionList from '~/components/ChatSessionList.vue'
 import Chat, { type Message } from '~/components/Chat.vue'
-import {useI18n} from "vue-i18n";
-const { t } = useI18n()
 
 export interface ChatSessionSettings extends Partial<Omit<ChatSession, 'id' | 'createTime'>> { }
 
+const { t } = useI18n()
 const chatSessionListRef = shallowRef<ComponentInstance<typeof ChatSessionList>>()
 const chatRef = shallowRef<ComponentInstance<typeof Chat>>()
 

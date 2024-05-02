@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { object, string, ref as yupRef } from 'yup'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
 definePageMeta({
   auth: {
@@ -9,7 +7,9 @@ definePageMeta({
   }
 })
 
+const { t } = useI18n()
 const toast = useToast()
+
 const loading = ref(false)
 
 const schema = object({

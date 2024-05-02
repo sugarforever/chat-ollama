@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import { useStorage } from '@vueuse/core'
 import { type SubmitMode } from './TheTextarea.vue'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
 export interface ChatBoxFormData {
   content: string
@@ -18,6 +16,7 @@ const emits = defineEmits<{
   stop: []
 }>()
 
+const { t } = useI18n()
 const submitMode = useStorage<SubmitMode>('sendMode', 'enter')
 const state = reactive<ChatBoxFormData>({
   content: '',

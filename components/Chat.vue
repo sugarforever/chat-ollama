@@ -5,8 +5,6 @@ import { getKeysHeader, loadOllamaInstructions, loadKnowledgeBases } from '@/uti
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
-import {useI18n} from "vue-i18n";
-const { t } = useI18n()
 
 type RelevantDocument = Required<ChatHistory>['relevantDocs'][number]
 type ResponseRelevantDocument = { type: 'relevant_documents', relevant_documents: RelevantDocument[] }
@@ -31,6 +29,8 @@ const emits = defineEmits<{
   message: [data: Message | null]
   changeSettings: [data: ChatSessionSettings]
 }>()
+
+const { t } = useI18n()
 
 const markdown = useMarkdown()
 const modal = useModal()
@@ -384,9 +384,9 @@ defineExpose({ abortChat: onAbortChat })
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
           <div class="border border-primary/20 rounded-lg p-3 box-border"
                :class="[
-        `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
-        message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
-      ]">
+                `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
+                message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
+              ]">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>

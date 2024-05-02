@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-const { locale, setLocale, t } = useI18n()
 import { LanguageList, findLanguageItemByLanguageName } from '@/config/i18n'
+
+const { locale, setLocale, t } = useI18n()
 
 const selectLanguage = computed({
   get() {

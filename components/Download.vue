@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { type ProgressResponse } from 'ollama'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
 const emit = defineEmits(["modelDownloaded"])
 
+const { t } = useI18n()
 const toast = useToast()
 const state = reactive({
   modelName: undefined

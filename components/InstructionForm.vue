@@ -1,7 +1,5 @@
 <script lang="ts" setup>
 import type { Instruction } from '@prisma/client'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
 const props = defineProps<{
   title: string
@@ -11,6 +9,7 @@ const props = defineProps<{
   onClose: () => void
 }>()
 
+const { t } = useI18n()
 const toast = useToast()
 
 const state = reactive({

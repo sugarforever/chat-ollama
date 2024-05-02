@@ -1,8 +1,5 @@
 <script lang="ts" setup>
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
-
-const props = withDefaults(
+withDefaults(
   defineProps<{
     accept?: string
     disabled?: boolean
@@ -14,6 +11,7 @@ const props = withDefaults(
   }
 )
 
+const { t } = useI18n()
 const files = defineModel<File[]>({ default: () => [] })
 
 function onRemove(file: File) {

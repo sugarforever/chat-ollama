@@ -2,9 +2,8 @@
 import type { ContextKeys } from '~/server/middleware/keys'
 import { keysStore } from '~/utils/settings'
 import type { PickupPathKey, TransformTypes } from '~/types/helper'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
+const { t } = useI18n()
 const toast = useToast()
 
 interface LLMListItem {

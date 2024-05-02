@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { object, string } from 'yup'
-import { useI18n } from "vue-i18n"
-const { t } = useI18n()
 
 definePageMeta({
   auth: {
@@ -9,10 +7,12 @@ definePageMeta({
     navigateAuthenticatedTo: '/'
   }
 })
+
+const { t } = useI18n()
 const { signIn } = useAuth()
-const loading = ref(false)
 const toast = useToast()
 
+const loading = ref(false)
 const schema = object({
   name: string().min(1, t("auth.nameRule1")).required(t('global.required')),
   password: string().min(8, t('auth.passwordRule1')).required(t('global.required'))
