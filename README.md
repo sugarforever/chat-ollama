@@ -1,3 +1,5 @@
+English | [简体中文](README.zh-Hans.md)
+
 # ChatOllama
 
 `ChatOllama` is an open source chatbot based on LLMs. It supports a wide range of language models including:
@@ -6,6 +8,9 @@
 - OpenAI
 - Azure OpenAI
 - Anthropic
+- Moonshot
+- Gemini
+- Groq
 
 `ChatOllama` supports multiple types of chat:
 
