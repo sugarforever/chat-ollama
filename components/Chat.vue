@@ -30,6 +30,8 @@ const emits = defineEmits<{
   changeSettings: [data: ChatSessionSettings]
 }>()
 
+const { t } = useI18n()
+
 const markdown = useMarkdown()
 const modal = useModal()
 const toast = useToast()
@@ -132,8 +134,8 @@ const fetchStream = async (url: string, options: RequestInit) => {
   if (response.status !== 200) {
     const { message: respnoseMesage } = await response.json()
     const errInfo = respnoseMesage || `Status Code ${response.status}${' - ' + response.statusText}`
-    toast.add({ title: 'Error', description: `${errInfo}\nPlease make sure proxy is working if it's enabled.`, color: 'red' })
-    const errorData = { role: 'assistant', type: 'error', content: 'Oops! Response Exception', timestamp: Date.now() } as const
+    toast.add({ title: t('global.error'), description: `${errInfo}\n${t("chat.proxyTips")}`, color: 'red' })
+    const errorData = { role: 'assistant', type: 'error', content: t('chat.responseException'), timestamp: Date.now() } as const
     const id = await saveMessage({
       message: errorData.content,
       model: model.value || '',
@@ -192,7 +194,7 @@ const fetchStream = async (url: string, options: RequestInit) => {
       }
     }
   } else {
-    console.log("The browser doesn't support streaming responses.")
+    console.log(t("chat.The browser doesn't support streaming responses"))
   }
 }
 
@@ -366,10 +368,10 @@ defineExpose({ abortChat: onAbortChat })
                       :title="knowledgeBaseInfo.name"
                       class="mx-2" />
       <div class="mx-auto px-4 text-center">
-        <h2 class="line-clamp-1">{{ sessionInfo?.title || 'Untitled' }}</h2>
+        <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
         <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
       </div>
-      <UTooltip v-if="sessionId" text="Modify the current session configuration">
+      <UTooltip v-if="sessionId" :text="t('chat.modifyTips')">
         <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
       </UTooltip>
     </div>
@@ -382,9 +384,9 @@ defineExpose({ abortChat: onAbortChat })
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
           <div class="border border-primary/20 rounded-lg p-3 box-border"
                :class="[
-        `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
-        message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
-      ]">
+                `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
+                message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
+              ]">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
@@ -415,7 +417,7 @@ defineExpose({ abortChat: onAbortChat })
                     @submit="onSend"
                     @stop="onAbortChat">
         <div class="text-muted flex">
-          <UTooltip v-if="sessionInfo?.model" text="Current Model" :popper="{ placement: 'top-start' }">
+          <UTooltip v-if="sessionInfo?.model" :text="t('chat.currentModel')" :popper="{ placement: 'top-start' }">
             <div class="flex items-center mr-4 cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.modelFamily }}</span>
@@ -423,7 +425,7 @@ defineExpose({ abortChat: onAbortChat })
               <span class="text-sm">{{ sessionInfo?.model }}</span>
             </div>
           </UTooltip>
-          <UTooltip text="Attached Message Count" :popper="{ placement: 'top-start' }">
+          <UTooltip :text="t('chat.attachedMessagesCount')" :popper="{ placement: 'top-start' }">
             <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>

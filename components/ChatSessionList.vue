@@ -9,6 +9,7 @@ const emits = defineEmits<{
   select: [sessionId: number]
 }>()
 
+const { t } = useI18n()
 const sessionList = ref<ChatSessionInfo[]>([])
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 const confirm = useDialog('confirm')
@@ -38,8 +39,8 @@ function onSelectChat(sessionId: number) {
 }
 
 function onDeleteChat(data: ChatSession) {
-  confirm(`Are you sure deleting Chat <b class="text-primary">${data.title}</b> ?`, {
-    title: 'Delete Chat',
+  confirm(t("chat.deleteChatConfirm", data.title), {
+    title: t('chat.deleteChat'),
     dangerouslyUseHTMLString: true,
   })
     .then(async () => {
@@ -98,8 +99,8 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
 <template>
   <div class="h-full box-border bg-gray-100 dark:bg-gray-900 border-r dark:border-gray-800">
     <div class="p-3 border-b border-primary-400/30 flex items-center">
-      <h3 class="text-primary-600 dark:text-primary-300 mr-auto">All Chats ({{ sessionList.length }})</h3>
-      <UTooltip text="New Chat" :popper="{ placement: 'top' }">
+      <h3 class="text-primary-600 dark:text-primary-300 mr-auto">{{ t("chat.allChats") }} ({{ sessionList.length }})</h3>
+      <UTooltip :text="t('chat.newChat')" :popper="{ placement: 'top' }">
         <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat"></UButton>
       </UTooltip>
     </div>
@@ -109,8 +110,8 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
            :class="{ 'bg-primary-100 dark:bg-primary-700/30 activated': currentSessionId === item.id }"
            @click="onSelectChat(item.id!)">
         <div class="grow overflow-hidden">
-          <div class="line-clamp-1">{{ item.title || `New Chat ${item.id}` }}</div>
-          <div class="text-sm text-muted line-clamp-1">{{ item.count }} messages</div>
+          <div class="line-clamp-1">{{ item.title || `${t("chat.newChat")} ${item.id}` }}</div>
+          <div class="text-sm text-muted line-clamp-1">{{ t("chat.messagesCount", [item.count]) }}</div>
         </div>
         <UButton icon="i-material-symbols-delete-outline" size="2xs" color="red" class="btn-delete"
                  @click.stop="onDeleteChat(item)"></UButton>

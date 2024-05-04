@@ -9,6 +9,7 @@ const props = defineProps<{
   onClose: () => void
 }>()
 
+const { t } = useI18n()
 const toast = useToast()
 
 const state = reactive({
@@ -21,9 +22,9 @@ const isModify = computed(() => props.type === 'update')
 const validate = (data: typeof state) => {
   const errors = []
   if (!data.name)
-    errors.push({ path: "name", message: "Required" })
+    errors.push({ path: "name", message: t("global.required") })
   if (!data.instruction)
-    errors.push({ path: "instruction", message: "Required" })
+    errors.push({ path: "instruction", message: t("global.required") })
   return errors
 }
 
@@ -52,14 +53,14 @@ async function submit(data: typeof state & { id?: number }) {
         props.onClose()
       } else {
         toast.add({
-          title: 'Error',
-          description: `Failed to ${isModify.value ? 'edit' : 'create'} instruction`,
+          title: t('Error'),
+          description: ` ${isModify.value ? t('instructions.editFailed') : t('instructions.createFailed')}`,
           color: 'red',
         })
       }
     })
   } catch (e: any) {
-    toast.add({ title: 'Error', description: e.message, color: 'red' })
+    toast.add({ title: t('global.error'), description: e.message, color: 'red' })
   }
   loading.value = false
 }
@@ -76,17 +77,17 @@ async function submit(data: typeof state & { id?: number }) {
       </template>
 
       <UForm :validate="validate" :state="state" @submit="onSubmit">
-        <UFormGroup label="Name" name="name" class="mb-4">
+        <UFormGroup :label="t('global.name')" name="name" class="mb-4">
           <UInput v-model="state.name" autocomplete="off" />
         </UFormGroup>
 
-        <UFormGroup label="Instruction" name="instruction" class="mb-4">
+        <UFormGroup :label="t('instructions.instruction')" name="instruction" class="mb-4">
           <UTextarea v-model="state.instruction" autoresize :rows="3" :maxrows="8" />
         </UFormGroup>
 
         <div class="text-right">
-          <UButton color="gray" class="mr-2" @click="onClose()">Cancel</UButton>
-          <UButton type="submit" :loading>Save</UButton>
+          <UButton color="gray" class="mr-2" @click="onClose()">{{ t("global.cancel") }}</UButton>
+          <UButton type="submit" :loading>{{ t("global.save") }}</UButton>
         </div>
       </UForm>
     </UCard>

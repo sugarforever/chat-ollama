@@ -3,9 +3,11 @@ import type { ContextKeys } from '~/server/middleware/keys'
 import { keysStore } from '~/utils/settings'
 import type { PickupPathKey, TransformTypes } from '~/types/helper'
 
+const { t } = useI18n()
 const toast = useToast()
 
 interface LLMListItem {
+  key: string
   title: string
   fields: Array<{
     label: string
@@ -16,72 +18,80 @@ interface LLMListItem {
   }>
 }
 
-const proxyTips = 'Only works when the current Endpoint and Proxy Settings is set.'
-const LLMList: LLMListItem[] = [
-  {
-    title: 'Ollama Server',
-    fields: [
-      { label: 'Endpoint', value: 'ollama.endpoint', type: 'input', placeholder: '', rule: 'url' },
-      { label: 'User Name', value: 'ollama.username', type: 'input', placeholder: 'Optional' },
-      { label: 'Password', value: 'ollama.password', type: 'password', placeholder: 'Optional' }
-    ]
-  },
-  {
-    title: 'OpenAI',
-    fields: [
-      { label: 'Key', value: 'openai.key', type: 'password', placeholder: 'OpenAI API Key' },
-      { label: 'Endpoint', value: 'openai.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
-      { label: 'Proxy', value: 'openai.proxy', type: 'checkbox', placeholder: proxyTips },
-    ]
-  },
-  {
-    title: 'Azure OpenAI',
-    fields: [
-      { label: 'Key', value: 'azureOpenai.key', type: 'password', placeholder: 'Azure OpenAI API Key' },
-      { label: 'Endpoint', value: 'azureOpenai.endpoint', type: 'input' },
-      { label: 'Deployment Name', value: 'azureOpenai.deploymentName', type: 'input' },
-      { label: 'Proxy', value: 'azureOpenai.proxy', type: 'checkbox', placeholder: proxyTips },
-    ]
-  },
-  {
-    title: 'Anthropic',
-    fields: [
-      { label: 'Key', value: 'anthropic.key', type: 'password', placeholder: 'Anthropic API Key' },
-      { label: 'Endpoint', value: 'anthropic.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
-      { label: 'Proxy', value: 'anthropic.proxy', type: 'checkbox', placeholder: proxyTips },
-    ]
-  },
-  {
-    title: 'Moonshot',
-    fields: [
-      { label: 'Key', value: 'moonshot.key', type: 'password', placeholder: 'Moonshot API Key' },
-      { label: 'Endpoint', value: 'moonshot.endpoint', type: 'input', placeholder: 'Optional', rule: 'url' },
-    ]
-  },
-  {
-    title: 'Gemini',
-    fields: [
-      { label: 'Key', value: 'gemini.key', type: 'password', placeholder: 'Gemini API Key' },
-    ]
-  },
-  {
-    title: 'Groq',
-    fields: [
-      { label: 'Key', value: 'groq.key', type: 'password', placeholder: 'Groq API Key' },
-      { label: 'Endpoint', value: 'groq.endpoint', type: 'input', placeholder: 'Optional' },
-      { label: 'Proxy', value: 'groq.proxy', type: 'checkbox', placeholder: proxyTips },
-    ]
-  },
-]
+const LLMList = computed<LLMListItem[]>(() => {
+  return [
+    {
+      key: 'ollamaServer',
+      title: t('settings.ollamaServer'),
+      fields: [
+        { label: t('settings.endpoint'), value: 'ollama.endpoint', type: 'input', placeholder: '', rule: 'url' },
+        { label: t('global.userName'), value: 'ollama.username', type: 'input', placeholder: t('global.optional') },
+        { label: t('global.password'), value: 'ollama.password', type: 'password', placeholder: t('global.optional') }
+      ]
+    },
+    {
+      key: 'openAi',
+      title: t('settings.openAi'),
+      fields: [
+        { label: t('settings.apiKey'), value: 'openai.key', type: 'password', placeholder: t('settings.apiKey') },
+        { label: t('settings.endpoint'), value: 'openai.endpoint', type: 'input', placeholder: t('global.optional'), rule: 'url' },
+        { label: t('settings.proxy'), value: 'openai.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
+      ]
+    },
+    {
+      key: 'azureOpenAi',
+      title: t('settings.azureOpenAi'),
+      fields: [
+        { label: t('settings.apiKey'), value: 'azureOpenai.key', type: 'password', placeholder: t('settings.apiKey') },
+        { label: t('settings.endpoint'), value: 'azureOpenai.endpoint', type: 'input' },
+        { label: t('settings.azureDeploymentName'), value: 'azureOpenai.deploymentName', type: 'input' },
+        { label: t('settings.proxy'), value: 'azureOpenai.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
+      ]
+    },
+    {
+      key: 'anthropic',
+      title: t('settings.anthropic'),
+      fields: [
+        { label: t('settings.apiKey'), value: 'anthropic.key', type: 'password', placeholder: t('settings.apiKey') },
+        { label: t('settings.endpoint'), value: 'anthropic.endpoint', type: 'input', placeholder: t('global.optional'), rule: 'url' },
+        { label: t('settings.proxy'), value: 'anthropic.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
+      ]
+    },
+    {
+      key: 'moonshot',
+      title: t('settings.moonshot'),
+      fields: [
+        { label: t('settings.apiKey'), value: 'moonshot.key', type: 'password', placeholder: t('settings.apiKey') },
+        { label: t('settings.endpoint'), value: 'moonshot.endpoint', type: 'input', placeholder: t('global.optional'), rule: 'url' },
+      ]
+    },
+    {
+      key: 'gemini',
+      title: t('settings.gemini'),
+      fields: [
+        { label: t('settings.apiKey'), value: 'gemini.key', type: 'password', placeholder: t('settings.apiKey') },
+      ]
+    },
+    {
+      key: 'groq',
+      title: t('settings.groq'),
+      fields: [
+        { label: t('settings.apiKey'), value: 'groq.key', type: 'password', placeholder: t('settings.apiKey') },
+        { label: t('settings.endpoint'), value: 'groq.endpoint', type: 'input', placeholder: t('global.optional') },
+        { label: t('settings.proxy'), value: 'groq.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
+      ]
+    },
+  ]
+})
 
-const currentLLM = ref(LLMList[0].title)
-const currentLLMFields = computed(() => LLMList.find(el => el.title === currentLLM.value)!.fields)
+const currentLLM = ref(LLMList.value[0].key)
+const currentLLMFields = computed(() => LLMList.value.find(el => el.key === currentLLM.value)!.fields)
 const state = reactive(getData())
 
 const validate = (data: typeof state) => {
   const errors: Array<{ path: string, message: string } | null> = []
 
-  LLMList.flatMap(el => el.fields).filter(el => el.rule).forEach(el => {
+  LLMList.value.flatMap(el => el.fields).filter(el => el.rule).forEach(el => {
     const key = el.value
     if (el.rule === 'url' && data[key]) {
       errors.push(checkHost(key, el.label))
@@ -97,18 +107,18 @@ const onSubmit = async () => {
     return key in state ? state[key] : value
   })
 
-  toast.add({ title: `Set successfully!`, color: 'green' })
+  toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
 }
 
 const checkHost = (key: keyof typeof state, title: string) => {
   const url = state[key]
   if (!url || (typeof url === 'string' && /^https?:\/\//i.test(url))) return null
 
-  return { path: key, message: `${title} must start with http:// or https://` }
+  return { path: key, message: t('settings.linkRuleMessage', [title]) }
 }
 
 function getData() {
-  return LLMList.reduce((acc, cur) => {
+  return LLMList.value.reduce((acc, cur) => {
     cur.fields.forEach(el => {
       (acc as any)[el.value] = el.value.split('.').reduce((a, c) => (a as any)[c], keysStore.value)
     })
@@ -148,11 +158,11 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
       <SettingsCard>
         <template #header>
           <div class="flex flex-wrap">
-            <UButton v-for="item, i in LLMList"
-                     :key="item.title"
-                     :color="currentLLM == item.title ? 'primary' : 'gray'"
+            <UButton v-for="item in LLMList"
+                     :key="item.key"
+                     :color="currentLLM == item.key ? 'primary' : 'gray'"
                      class="m-1"
-                     @click="currentLLM = item.title">{{ item.title }}</UButton>
+                     @click="currentLLM = item.key">{{ item.title }}</UButton>
           </div>
         </template>
         <div>
@@ -178,7 +188,7 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
 
         <div class="">
           <UButton type="submit">
-            Save
+            {{ t("global.save") }}
           </UButton>
         </div>
       </SettingsCard>

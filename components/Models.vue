@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import type { ModelItem } from '@/server/api/models/index.get'
 
+const { t } = useI18n()
+
 const models = ref<ModelItem[]>([])
 const modelRows = computed(() => {
   return models.value.map((model) => {
@@ -15,14 +17,16 @@ const modelRows = computed(() => {
     }
   })
 })
-const columns = [
-  { key: 'name', label: 'Name' },
-  { key: 'size', label: 'Size' },
-  { key: 'family', label: 'Family' },
-  { key: 'format', label: 'Format' },
-  { key: 'parameter_size', label: 'Parameter Size' },
-  { key: 'quantization_level', label: 'Quantization Level' }
-]
+const columns = computed(() => {
+  return [
+    { key: 'name', label: t('global.name') },
+    { key: 'size', label: t('global.size') },
+    { key: 'family', label: t('models.family') },
+    { key: 'format', label: t('models.format') },
+    { key: 'parameter_size', label: t('models.parameterSize') },
+    { key: 'quantization_level', label: t('models.quantizationLevel') }
+  ]
+})
 
 const loadModels = async () => {
   const response = await $fetchWithAuth<ModelItem[]>('/api/models/', {
@@ -44,7 +48,7 @@ const select = (row: ModelItem) => {
 const actions = [
   [{
     key: 'delete',
-    label: 'Delete',
+    label: t('global.delete'),
     icon: 'i-heroicons-trash-20-solid',
     click: async () => {
       isOpen.value = true
@@ -102,23 +106,23 @@ function formatFileSize(bytes?: number) {
   <div class="mt-3 h-7">
     <UDropdown v-if="selectedRows.length > 0" :items="actions" :ui="{ width: 'w-36' }">
       <UButton icon="i-heroicons-chevron-down" trailing color="gray" size="xs">
-        Operations
+        {{ t("global.operations") }}
       </UButton>
     </UDropdown>
   </div>
 
   <ClientOnly>
-    <UTable :columns="columns" :rows="modelRows" @select="select" v-model="selectedRows"></UTable>
+    <UTable :columns="columns" :rows="modelRows" @select="select" v-model="selectedRows" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('models.noData') }"></UTable>
   </ClientOnly>
 
   <UModal v-model="isOpen">
     <UCard :ui="{ ring: '', divide: 'divide-y divide-gray-100 dark:divide-gray-800' }">
       <template #header>
-        <span class="font-bold text-lg">Warning</span>
+        <span class="font-bold text-lg">{{ t("global.warning") }}</span>
       </template>
 
       <div>
-        <p class="mb-4">Are you ok to delete the following model{{ selectedRows.length > 1 ? 's' : '' }}?</p>
+        <p class="mb-4">{{ selectedRows.length > 1 ? t("models.deleteConfirm", ['s']) : t("models.deleteConfirm") }}?</p>
         <ul>
           <li class="font-bold" v-for="row in selectedRows" :key="row.name">{{ row.name }}</li>
         </ul>
@@ -126,8 +130,8 @@ function formatFileSize(bytes?: number) {
 
       <template #footer>
         <div class="flex flex-row gap-4">
-          <UButton class="w-[80px] justify-center" color="primary" variant="solid" @click="onDeleteModel">Ok</UButton>
-          <UButton class="w-[80px] justify-center" color="white" variant="solid" @click="onCancel">Cancel</UButton>
+          <UButton class="w-[80px] justify-center" color="primary" variant="solid" @click="onDeleteModel">{{ t("global.ok") }}</UButton>
+          <UButton class="w-[80px] justify-center" color="white" variant="solid" @click="onCancel">{{ t("global.cancel") }}</UButton>
         </div>
       </template>
     </UCard>

@@ -5,6 +5,7 @@ import Chat, { type Message } from '~/components/Chat.vue'
 
 export interface ChatSessionSettings extends Partial<Omit<ChatSession, 'id' | 'createTime'>> { }
 
+const { t } = useI18n()
 const chatSessionListRef = shallowRef<ComponentInstance<typeof ChatSessionList>>()
 const chatRef = shallowRef<ComponentInstance<typeof Chat>>()
 
@@ -54,7 +55,7 @@ async function onChangeChatSession(id: number) {
           @change-settings="onChangeSettings"
           @message="onMessage" />
     <div v-else class="grow h-full flex justify-center items-center">
-      <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat">New Chat</UButton>
+      <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat">{{ t("chat.newChat") }}</UButton>
     </div>
   </div>
 </template>

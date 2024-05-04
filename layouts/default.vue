@@ -1,14 +1,18 @@
 <script setup>
-const links = [
-  [
-    { label: 'Home', icon: 'i-heroicons-home', to: '/' },
-    { label: 'Models', icon: 'i-heroicons-rectangle-stack', to: '/models' },
-    { label: 'Instructions', icon: 'i-iconoir-terminal', to: '/instructions' },
-    { label: 'Knowledge Bases', icon: 'i-heroicons-book-open', to: '/knowledgebases' },
-    { label: 'Chat', icon: 'i-iconoir-chat-lines', to: '/chat' },
-    { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: '/settings' }
-  ],
-]
+const { t } = useI18n()
+
+const links = computed(() => {
+  return [
+    [
+      { label: t('menu.home'), icon: 'i-heroicons-home', to: '/' },
+      { label: t('menu.models'), icon: 'i-heroicons-rectangle-stack', to: '/models' },
+      { label: t('menu.instructions'), icon: 'i-iconoir-terminal', to: '/instructions' },
+      { label: t('menu.knowledgeBases'), icon: 'i-heroicons-book-open', to: '/knowledgebases' },
+      { label: t('menu.chat'), icon: 'i-iconoir-chat-lines', to: '/chat' },
+      { label: t('menu.settings'), icon: 'i-heroicons-cog-6-tooth', to: '/settings' }
+    ],
+  ]
+})
 </script>
 <template>
   <div class="border-b border-gray-200 dark:border-gray-700">

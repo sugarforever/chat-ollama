@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+const { t } = useI18n()
+
 const model = computed({
   get() {
     const val = chatDefaultSettings.value.model
@@ -14,11 +16,11 @@ const model = computed({
 
 <template>
   <ClientOnly>
-    <SettingsCard title="Chat Settings">
-      <UFormGroup label="Default Model" class="mb-4">
+    <SettingsCard :title="t('settings.chatSettings')">
+      <UFormGroup :label="t('settings.defaultModel')" class="mb-4">
         <ModelsSelectMenu v-model="model" size="lg"></ModelsSelectMenu>
       </UFormGroup>
-      <UFormGroup label="Attached Message Count">
+      <UFormGroup :label="t('chat.attachedMessagesCount')">
         <div class="flex items-center">
           <span class="mr-2 w-6 text-primary-500">{{ chatDefaultSettings.attachedMessagesCount }}</span>
           <URange v-model="chatDefaultSettings.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />

@@ -1,3 +1,5 @@
+import { LanguageList } from './config/i18n'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   auth: {
@@ -26,22 +28,29 @@ export default defineNuxtConfig({
     }
   },
   devtools: { enabled: false },
-  modules: ['@nuxt/ui', '@vueuse/nuxt', ['@nuxtjs/google-fonts', {
-    families: {
-      'Noto Sans': true,
-      'Josefin+Sans': true,
-      Lato: [100, 300],
-      Raleway: {
-        wght: [100, 400],
-        ital: [100]
-      },
-      Inter: '200..700',
-      'Crimson Pro': {
-        wght: '200..900',
-        ital: '200..700',
+  modules: [
+    '@nuxt/ui', '@vueuse/nuxt',
+    ['@nuxtjs/google-fonts', {
+      families: {
+        'Noto Sans': true,
+        'Josefin+Sans': true,
+        Lato: [100, 300],
+        Raleway: {
+          wght: [100, 400],
+          ital: [100]
+        },
+        Inter: '200..700',
+        'Crimson Pro': {
+          wght: '200..900',
+          ital: '200..700',
+        }
       }
-    }
-  }], "@sidebase/nuxt-auth"],
+    }],
+    "@sidebase/nuxt-auth",
+    ['@nuxtjs/i18n', {
+      vueI18n: "@/config/nuxtjsI18n"
+    }]
+  ],
   nitro: {
     experimental: {
       openAPI: true
@@ -81,5 +90,21 @@ export default defineNuxtConfig({
       chatMaxAttachedMessages: 50,
     },
     modelProxyUrl: '',
+  },
+  i18n: {
+    //Asynchronous call, on-demand loading
+    locales: LanguageList,
+    lazy: true,
+    langDir: 'locales/',
+    defaultLocale: 'en-US',//def Language, please use Language code
+    strategy: "no_prefix",
+    compilation: {
+      strictMessage: false,
+    },
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_redirected',
+      redirectOn: 'root',
+    },
   }
 })
