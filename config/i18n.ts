@@ -7,12 +7,12 @@ interface LanguageItem {
   name: string,
 }
 export const LanguageList: LanguageItem[] = [
-  {code: "en-US", file:"en-US.json", name:"English"},
-  {code: "zh-CN", file:"zh-CN.json", name:"简体中文"},
+  { code: "en-US", file: "en-US.json", name: "English" },
+  { code: "zh-CN", file: "zh-CN.json", name: "简体中文" },
 ]
-export function findLanguageItemByLanguageName(Code:string):LanguageItem {
+export function findLanguageItemByLanguageName(Code: string): LanguageItem {
   for (const languageItem of LanguageList) {
-    if (languageItem.code == Code)return languageItem
+    if (languageItem.code == Code) return languageItem
   }
-  return {code: Code , file: "no find language File", name:`this language '${Code}' not supported`}
+  return { code: Code, file: "Language file not found", name: `This language '${Code}' is not supported` }
 }
