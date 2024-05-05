@@ -12,7 +12,7 @@ const { t } = useI18n()
       <li v-html="t('home.step1')"></li>
       <li v-html="t('home.step2')"></li>
       <li>
-        {{ t('home.step3') }}
+        <div>{{ t('home.step3') }}</div>
         <ul class="list-disc list-inside ml-4">
           <li v-html="t('home.step3_1')"></li>
           <li v-html="t('home.step3_2')"></li>
