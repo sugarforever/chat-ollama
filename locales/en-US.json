@@ -12,7 +12,7 @@
     "description": "ChatOllama is a web application that allows you to manage your <a class=\"text-primary font-bold\" href=\"https://ollama.ai\" target=\"_blank\">Ollama</a> server and chat with the served LLMs from anywhere in the world.",
     "quickStart": "Quick Start",
     "step1": "Make sure your Ollama server is publicly accessible. If required, you can use <a class=\"text-primary\" href=\"https://ngrok.com/\" target=\"_blank\">ngrok</a> to expose your Ollama server in your local machine to the public.",
-    "step2": "Go to <a class=\"text-primary\" href=\"/settings\">@:menu.settings</a> to set the host of your Ollama server.",
+    "step2": "Go to <a class=\"text-primary\" href=\"/settings\"> @:menu.settings </a> to set the host of your Ollama server.",
     "step3": "Start enjoying the excellence of Ollama.",
     "step3_1": "Models management(list / download / delete) - <a class=\"text-primary\" href=\"/models\">Link</a>",
     "step3_2": "Chat with the models - <a class=\"text-primary\" href=\"/chat\">Link</a>"
