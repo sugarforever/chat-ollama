@@ -89,7 +89,7 @@ function onShowUpdate(data: KnowledgeBase) {
       </UButton>
     </div>
     <ClientOnly>
-      <UTable :columns="columns" :rows="knowledgeBases" class="table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.NoItems') }">
+      <UTable :columns="columns" :rows="knowledgeBases" class="table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }">
         <template #name-data="{ row }">
           <ULink class="text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 underline text-wrap text-left"
                  @click="onStartChat(row)">

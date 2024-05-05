@@ -25,8 +25,7 @@
     "deleteConfirm": "Are you ok to delete the following model(s)?",
     "downloadFailed": "Failed to download model",
     "modelNameInputPlaceholder": "Enter the model name to download",
-    "discover": "Discover models in the <a href=\"https://ollama.com/library\" class=\"text-primary\" target=\"_blank\">Ollama Model Library</a>",
-    "noData": "No items."
+    "discover": "Discover models in the <a href=\"https://ollama.com/library\" class=\"text-primary\" target=\"_blank\">Ollama Model Library</a>"
   },
   "instructions": {
     "instruction": "Instruction",
@@ -128,7 +127,7 @@
     "name": "Name",
     "size": "Size",
     "operations": "Operations",
-    "NoItems": "No Items",
+    "noData": "No items",
     "ok": "OK",
     "delete": "Delete",
     "download": "Download",

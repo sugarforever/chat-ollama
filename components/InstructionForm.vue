@@ -53,7 +53,7 @@ async function submit(data: typeof state & { id?: number }) {
         props.onClose()
       } else {
         toast.add({
-          title: t('Error'),
+          title: t('global.error'),
           description: ` ${isModify.value ? t('instructions.editFailed') : t('instructions.createFailed')}`,
           color: 'red',
         })

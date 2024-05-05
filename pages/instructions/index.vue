@@ -90,7 +90,7 @@ async function onDelete(data: Instruction) {
         {{ t("global.create") }}
       </UButton>
     </div>
-    <UTable :rows="tableRows" :columns :ui :loading class="w-full table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.NoItems') }">
+    <UTable :rows="tableRows" :columns :ui :loading class="w-full table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }">
       <template #actions-data="{ row }">
         <div class="action-btn invisible flex">
           <UTooltip :text="t('global.update')">
