@@ -3,8 +3,8 @@ import { computed, ref } from 'vue'
 import type { ModelItem } from '@/server/api/models/index.get'
 
 const { t } = useI18n()
+const { loadModels, models } = useModels({ forceReload: true })
 
-const models = ref<ModelItem[]>([])
 const modelRows = computed(() => {
   return models.value.map((model) => {
     return {
@@ -28,13 +28,6 @@ const columns = computed(() => {
   ]
 })
 
-const loadModels = async () => {
-  const response = await $fetchWithAuth<ModelItem[]>('/api/models/', {
-    headers: getKeysHeader()
-  })
-  models.value = response
-}
-
 const selectedRows = ref<ModelItem[]>([])
 const select = (row: ModelItem) => {
   const index = selectedRows.value.findIndex((item) => item.name === row.name)
@@ -55,10 +48,6 @@ const actions = [
     }
   }]
 ]
-
-const onModelDownloaded = () => {
-  loadModels()
-}
 
 // Modal
 const isOpen = ref(false)
@@ -87,10 +76,6 @@ const resetModal = () => {
   isOpen.value = false
 }
 
-onMounted(() => {
-  loadModels()
-})
-
 function formatFileSize(bytes?: number) {
   if (bytes === undefined) return '-'
   if (bytes === 0) return '0 Bytes'
@@ -102,7 +87,7 @@ function formatFileSize(bytes?: number) {
 </script>
 
 <template>
-  <Download @modelDownloaded="onModelDownloaded" />
+  <Download @modelDownloaded="loadModels" />
   <div class="mt-3 h-7">
     <UDropdown v-if="selectedRows.length > 0" :items="actions" :ui="{ width: 'w-36' }">
       <UButton icon="i-heroicons-chevron-down" trailing color="gray" size="xs">

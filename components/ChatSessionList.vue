@@ -10,6 +10,8 @@ const emits = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const createChatSession = useCreateChatSession()
+
 const sessionList = ref<ChatSessionInfo[]>([])
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 const confirm = useDialog('confirm')

@@ -16,6 +16,8 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const toast = useToast()
+const { ollamaEmbeddingModels } = useModels()
+
 const state = reactive({
   files: [] as File[],
   name: props.data?.name || '',
@@ -29,14 +31,15 @@ const state = reactive({
 })
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
-const embeddings = [
-  generateEmbeddingData('Ollama', props.embeddings.filter(e => ![...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS].includes(e)), 'group'),
-  generateEmbeddingData('OpenAI', OPENAI_EMBEDDING_MODELS, 'group'),
-  generateEmbeddingData('Gemini', GEMINI_EMBEDDING_MODELS, 'group'),
-]
 const embeddingList = computed(() => {
   const val = state.embedding.toLowerCase()
-  return embeddings.flatMap(items => {
+  const getEmbeddingFromKnowledgeBaseList = props.embeddings.filter(e => ![...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS].includes(e))
+  const ollamaEmbeddingList = [...new Set([...ollamaEmbeddingModels.value.map(e => e.value), ...getEmbeddingFromKnowledgeBaseList])]
+  return [
+    generateEmbeddingData('Ollama', ollamaEmbeddingList, 'group'),
+    generateEmbeddingData('OpenAI', OPENAI_EMBEDDING_MODELS, 'group'),
+    generateEmbeddingData('Gemini', GEMINI_EMBEDDING_MODELS, 'group'),
+  ].flatMap(items => {
     const arr = items.filter(el => 'slot' in el || el.value.toLowerCase().includes(val))
     return arr.length > 1 ? [arr] : []
   })

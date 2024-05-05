@@ -8,6 +8,7 @@
   "vue.format.wrapAttributes": "preserve-aligned",
   "html.format.wrapLineLength": 0,
   "cSpell.words": [
+    "composables",
     "dexie",
     "groq",
     "jina",

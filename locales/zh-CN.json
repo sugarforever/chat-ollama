@@ -83,7 +83,9 @@
     "responseException": "哎呀！响应异常",
     "selectKB": "选择一个知识库",
     "selectInstruction": "选择指令",
-    "resend": "重发"
+    "resend": "重发",
+    "noModelFound": "没有找到模型",
+    "noModelFoundDesc": "请先在模型管理页面下载模型"
   },
   "settings": {
     "ollamaServer": "Ollama 服务",

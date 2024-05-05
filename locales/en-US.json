@@ -83,7 +83,9 @@
     "responseException": "Oops! Response Exception",
     "selectKB": "Select a knowledge base",
     "selectInstruction": "Select an Instruction",
-    "resend": "Resend"
+    "resend": "Resend",
+    "noModelFound": "No model found",
+    "noModelFoundDesc": "Please download a model first."
   },
   "settings": {
     "ollamaServer": "Ollama Server",

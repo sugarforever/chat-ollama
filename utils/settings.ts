@@ -55,28 +55,6 @@ export const loadOllamaInstructions = async () => {
   }
 }
 
-export interface ModelInfo {
-  label: string
-  value: string
-  family?: string
-}
-
-export async function loadModels(): Promise<ModelInfo[]> {
-  const response = await $fetchWithAuth('/api/models/', {
-    headers: getKeysHeader(),
-  })
-  return response
-    // filter out nomic-bert family models，as they as embedding models do not support chat apparently.
-    .filter(el => el?.details?.family !== 'nomic-bert')
-    .map(el => {
-      return {
-        label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`,
-        value: el.name!,
-        family: el?.details?.family,
-      }
-    })
-}
-
 export async function loadKnowledgeBases() {
   const response = await $fetchWithAuth('/api/knowledgebases/').catch(() => null)
   return (response?.knowledgeBases || []) as KnowledgeBase[]

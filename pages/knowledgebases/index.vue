@@ -10,6 +10,7 @@ const modal = useModal()
 const confirm = useDialog('confirm')
 const toast = useToast()
 const currentSessionId = useStorage<number>('currentSessionId', 0)
+const createChatSession = useCreateChatSession()
 
 const { data, refresh } = await useFetch('/api/knowledgebases', {
   headers: {
