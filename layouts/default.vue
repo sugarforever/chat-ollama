@@ -19,7 +19,7 @@ const links = computed(() => {
     <div class="flex items-center justify-between max-w-6xl mx-auto px-4">
       <h1 class="flex flex-row items-center mr-2">
         <TheLogo class="w-[32px] h-[32px] mr-2" />
-        <span class="text-primary font-semibold text-lg">ChatOllama</span>
+        <span class="text-primary font-semibold text-lg">{{ $config.public.appName }}</span>
       </h1>
       <div>
         <ClientOnly>

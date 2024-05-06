@@ -1,4 +1,5 @@
 import { LanguageList } from './config/i18n'
+import { APP_NAME } from './config/index'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -76,7 +77,8 @@ export default defineNuxtConfig({
           name: 'viewport',
           content: 'width=device-width',
         }
-      ]
+      ],
+      title: APP_NAME,
     }
   },
   runtimeConfig: {
@@ -88,6 +90,7 @@ export default defineNuxtConfig({
       },
       modelProxyEnabled: false,
       chatMaxAttachedMessages: 50,
+      appName: APP_NAME,
     },
     modelProxyUrl: '',
   },
