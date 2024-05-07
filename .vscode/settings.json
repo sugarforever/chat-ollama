@@ -7,6 +7,16 @@
   "html.format.wrapAttributes": "preserve-aligned",
   "vue.format.wrapAttributes": "preserve-aligned",
   "html.format.wrapLineLength": 0,
+  "prettier.enable": false,
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[vue]": {
+    "editor.defaultFormatter": "Vue.volar"
+  },
   "cSpell.words": [
     "composables",
     "dexie",
