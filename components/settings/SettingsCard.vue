@@ -1,12 +1,15 @@
 <script lang="ts" setup>
 
-defineProps<{
+const props = defineProps<{
   title?: string
+  subtitle?: string
 }>()
+
+const slots = useSlots()
 
 const ui = {
   header: {
-    base: 'font-bold rounded-lg',
+    base: ['font-bold', 'rounded-lg', props.title || props.subtitle || slots.header ? '' : 'hidden'],
     background: 'bg-[rgb(var(--color-gray-50))] dark:bg-[rgb(var(--color-gray-900))]',
     padding: 'p-1',
   },
@@ -22,6 +25,7 @@ const ui = {
       <slot name="header">
         <div class="py-2">
           {{ title }}
+          <span v-if="subtitle" class="ml-2 font-normal" v-html="subtitle"></span>
         </div>
       </slot>
     </template>

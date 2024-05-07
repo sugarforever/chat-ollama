@@ -83,6 +83,9 @@ export class RecursiveUrlLoader extends BaseDocumentLoader implements DocumentLo
     const allLinks = Array.from(
       new JSDOM(html).window.document.querySelectorAll('a')
     ).map((a) => a.href)
+
+    console.log("All Links: ", allLinks)
+
     const absolutePaths = []
     // eslint-disable-next-line no-script-url
     const invalidPrefixes = ['javascript:', 'mailto:', '#']
@@ -119,11 +122,14 @@ export class RecursiveUrlLoader extends BaseDocumentLoader implements DocumentLo
         this.excludeDirs.some((exDir) => standardizedLink.startsWith(exDir))
         ||
         this.excludeGlobs.some(r => r.test(standardizedLink))
-      )
+      ) {
+        console.log("URL excluded: ", standardizedLink)
         continue
+      }
 
       if (link.startsWith('http')) {
         const isAllowed = !this.preventOutside || link.startsWith(baseUrl)
+        console.log(`URL ${link} is allowed: ${isAllowed}`)
         if (isAllowed) absolutePaths.push(link)
       } else if (link.startsWith('//')) {
         const base = new URL(baseUrl)
@@ -180,10 +186,10 @@ export class RecursiveUrlLoader extends BaseDocumentLoader implements DocumentLo
     visited: Set<string> = new Set<string>(),
     depth = 0
   ): Promise<Document[]> {
+    console.log(`URL ${inputUrl} at depth ${depth}`)
     if (depth >= this.maxDepth) return []
 
-    let url = inputUrl
-    if (!inputUrl.endsWith('/')) url += '/'
+    const url = inputUrl
 
     const isExcluded = this.excludeDirs.some((exDir) => url.startsWith(exDir)) || this.excludeGlobs.some(r => r.test(url))
     if (isExcluded) return []
@@ -198,6 +204,9 @@ export class RecursiveUrlLoader extends BaseDocumentLoader implements DocumentLo
 
     const childUrls: string[] = this.getChildLinks(res, url)
 
+    console.log("Input URL: ", inputUrl)
+    console.log("Child URLs: ", childUrls)
+
     const results = await Promise.all(
       childUrls.map((childUrl) =>
         (async () => {
@@ -207,16 +216,14 @@ export class RecursiveUrlLoader extends BaseDocumentLoader implements DocumentLo
           const childDoc = await this.getUrlAsDoc(childUrl)
           if (!childDoc) return null
 
-          if (childUrl.endsWith('/')) {
-            const childUrlResponses = await this.getChildUrlsRecursive(
-              childUrl,
-              visited,
-              depth + 1
-            )
-            return [childDoc, ...childUrlResponses]
-          }
 
-          return [childDoc]
+          const childUrlResponses = await this.getChildUrlsRecursive(
+            childUrl,
+            visited,
+            depth + 1
+          )
+
+          return [childDoc, ...childUrlResponses]
         })()
       )
     )

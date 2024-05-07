@@ -16,21 +16,24 @@ const emits = defineEmits<{
   stop: []
 }>()
 
+const { t } = useI18n()
 const submitMode = useStorage<SubmitMode>('sendMode', 'enter')
 const state = reactive<ChatBoxFormData>({
   content: '',
 })
 const tip = computed(() => {
-  const s = sendModeList[0].find(el => el.value === submitMode.value)?.label || ''
+  const s = sendModeList.value[0].find(el => el.value === submitMode.value)?.label || ''
   return `(${s})`
 })
 const isFocus = ref(false)
-const sendModeList = [
-  [
-    { label: 'Enter', value: 'enter', click: onChangeMode },
-    { label: 'Shift + Enter', value: 'shift-enter', click: onChangeMode },
+const sendModeList = computed(() => {
+  return [
+    [
+      { label: t('chat.enter'), value: 'enter' as const, click: onChangeMode },
+      { label: t('chat.shiftEnter'), value: 'shift-enter' as const, click: onChangeMode },
+    ]
   ]
-] as const
+})
 const disabledBtn = computed(() => {
   return props.disabled || (!props.loading && !state.content.trim())
 })
@@ -39,7 +42,7 @@ defineExpose({
   reset: onReset
 })
 
-function onChangeMode(this: typeof sendModeList[number][number]) {
+function onChangeMode(this: typeof sendModeList.value[number][number]) {
   submitMode.value = this.value
 }
 
@@ -68,7 +71,7 @@ function onReset() {
        :class="[isFocus ? 'shadow-lg shadow-primary-400/30 dark:shadow-primary-700/20' : '', { 'border-primary-400 dark:border-primary-700': isFocus }]">
     <UForm :state="state" @submit="onSubmit">
       <TheTextarea v-model="state.content" :max-rows="15" :min-rows="2" :submit-mode="submitMode"
-                   placeholder="Say something..." @focus="isFocus = true" @blur="isFocus = false" />
+                   :placeholder="t('chat.saySomething')" @focus="isFocus = true" @blur="isFocus = false" />
       <div class="flex items-center">
         <slot></slot>
         <div class="flex items-center ml-auto">

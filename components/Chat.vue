@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMutationObserver, useThrottleFn, useScroll } from '@vueuse/core'
 import type { KnowledgeBase } from '@prisma/client'
-import { fetchHeadersOllama, fetchHeadersThirdApi, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
+import { getKeysHeader, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
@@ -13,7 +13,7 @@ export interface Message {
   id?: number
   role: 'system' | 'assistant' | 'user'
   content: string
-  type?: 'loading' | 'canceled'
+  type?: 'loading' | 'canceled' | 'error'
   timestamp: number
   relevantDocs?: RelevantDocument[]
 }
@@ -30,8 +30,11 @@ const emits = defineEmits<{
   changeSettings: [data: ChatSessionSettings]
 }>()
 
+const { t } = useI18n()
+
 const markdown = useMarkdown()
 const modal = useModal()
+const toast = useToast()
 const sessionInfo = ref<ChatSession>()
 const knowledgeBases: KnowledgeBase[] = []
 const knowledgeBaseInfo = ref<KnowledgeBase>()
@@ -99,7 +102,7 @@ async function loadChatHistory(sessionId?: number) {
         content: el.message,
         role: el.role,
         timestamp: el.timestamp,
-        type: el.canceled ? 'canceled' : undefined,
+        type: el.canceled ? 'canceled' : (el.failed ? 'error' : undefined),
         relevantDocs: el.relevantDocs
       } as const
     })
@@ -128,6 +131,24 @@ const processRelevantDocuments = async (chunk: ResponseRelevantDocument) => {
 const fetchStream = async (url: string, options: RequestInit) => {
   const response = await fetchWithAuth(url, options)
 
+  if (response.status !== 200) {
+    const { message: respnoseMesage } = await response.json()
+    const errInfo = respnoseMesage || `Status Code ${response.status}${' - ' + response.statusText}`
+    toast.add({ title: t('global.error'), description: `${errInfo}\n${t("chat.proxyTips")}`, color: 'red' })
+    const errorData = { role: 'assistant', type: 'error', content: t('chat.responseException'), timestamp: Date.now() } as const
+    const id = await saveMessage({
+      message: errorData.content,
+      model: model.value || '',
+      role: errorData.role,
+      timestamp: errorData.timestamp,
+      canceled: false,
+      failed: true,
+    })
+    messages.value = messages.value.filter((message) => message.type !== 'loading').concat({ id, ...errorData })
+    nextTick(() => scrollToBottom('auto'))
+    return
+  }
+
   if (response.body) {
     messages.value = messages.value.filter((message) => message.type !== 'loading')
     const reader = response.body.getReader()
@@ -150,12 +171,6 @@ const fetchStream = async (url: string, options: RequestInit) => {
             const lastItem = messages.value[messages.value.length - 1]
             if (messages.value.length > 0 && lastItem.role === 'assistant') {
               lastItem.content += content
-              if (lastItem.id && props.sessionId) {
-                await clientDB.chatHistories
-                  .where('id')
-                  .equals(lastItem.id)
-                  .modify({ message: lastItem.content })
-              }
             } else {
               const timestamp = Date.now()
               const id = await saveMessage({
@@ -163,7 +178,8 @@ const fetchStream = async (url: string, options: RequestInit) => {
                 model: model.value || '',
                 role: 'assistant',
                 timestamp,
-                canceled: false
+                canceled: false,
+                failed: false,
               })
               const itemData = { id, role: 'assistant', content, timestamp } as const
               if (messages.value.length >= limitHistorySize) {
@@ -178,7 +194,7 @@ const fetchStream = async (url: string, options: RequestInit) => {
       }
     }
   } else {
-    console.log("The browser doesn't support streaming responses.")
+    console.log(t("chat.The browser doesn't support streaming responses"))
   }
 }
 
@@ -202,6 +218,7 @@ const onSend = async (data: ChatBoxFormData) => {
     role: 'user',
     timestamp,
     canceled: false,
+    failed: false,
     instructionId: instructionInfo.value?.id,
     knowledgeBaseId: knowledgeBaseInfo.value?.id
   })
@@ -230,18 +247,22 @@ const onSend = async (data: ChatBoxFormData) => {
     scrollToBottom('smooth')
   })
 
+  const f = setInterval(() => syncLatestMessageToLocalDB(), 250)
+
   const controller = new AbortController()
   abortHandler = () => controller.abort()
+
   await fetchStream('/api/models/chat', {
     method: 'POST',
     body: body,
     headers: {
-      ...fetchHeadersOllama.value,
-      ...fetchHeadersThirdApi.value,
+      ...getKeysHeader(),
       'Content-Type': 'application/json',
     },
     signal: controller.signal,
-  })
+  }).finally(() => clearInterval(f))
+
+  await syncLatestMessageToLocalDB()
 
   sending.value = false
 }
@@ -263,10 +284,7 @@ async function onAbortChat() {
       messages.value.pop()
     } else if (lastOne.role === 'assistant') {
       lastOne.type = 'canceled'
-      await clientDB.chatHistories
-        .where('id')
-        .equals(lastOne.id!)
-        .modify({ canceled: true })
+      await syncLatestMessageToLocalDB({ canceled: true })
     }
   }
   sending.value = false
@@ -325,6 +343,18 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
     : Math.random()
 }
 
+async function syncLatestMessageToLocalDB(data?: Partial<ChatHistory>) {
+  const lastItem = messages.value[messages.value.length - 1]
+  if (messages.value.length > 0 && lastItem.role === 'assistant') {
+    if (lastItem.id && props.sessionId) {
+      await clientDB.chatHistories
+        .where('id')
+        .equals(lastItem.id)
+        .modify({ ...data, message: lastItem.content })
+    }
+  }
+}
+
 defineExpose({ abortChat: onAbortChat })
 </script>
 
@@ -338,10 +368,10 @@ defineExpose({ abortChat: onAbortChat })
                       :title="knowledgeBaseInfo.name"
                       class="mx-2" />
       <div class="mx-auto px-4 text-center">
-        <h2 class="line-clamp-1">{{ sessionInfo?.title || 'Untitled' }}</h2>
+        <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
         <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
       </div>
-      <UTooltip v-if="sessionId" text="Modify the current session configuration">
+      <UTooltip v-if="sessionId" :text="t('chat.modifyTips')">
         <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
       </UTooltip>
     </div>
@@ -353,7 +383,10 @@ defineExpose({ abortChat: onAbortChat })
         <div class="leading-6 text-sm flex items-center max-w-full message-content"
              :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': message.role === 'user' }">
           <div class="border border-primary/20 rounded-lg p-3 box-border"
-               :class="`${message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800 max-w-[calc(100%-2rem)]' : 'bg-primary-50 dark:bg-primary-400/60 max-w-full'}`">
+               :class="[
+                `${message.role == 'assistant' ? 'max-w-[calc(100%-2rem)]' : 'max-w-full'}`,
+                message.type === 'error' ? 'bg-red-50 dark:bg-red-800/60' : (message.role == 'assistant' ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
+              ]">
             <div v-if="message.type === 'loading'"
                  class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid">
             </div>
@@ -384,7 +417,7 @@ defineExpose({ abortChat: onAbortChat })
                     @submit="onSend"
                     @stop="onAbortChat">
         <div class="text-muted flex">
-          <UTooltip v-if="sessionInfo?.model" text="Current Model" :popper="{ placement: 'top-start' }">
+          <UTooltip v-if="sessionInfo?.model" :text="t('chat.currentModel')" :popper="{ placement: 'top-start' }">
             <div class="flex items-center mr-4 cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.modelFamily }}</span>
@@ -392,7 +425,7 @@ defineExpose({ abortChat: onAbortChat })
               <span class="text-sm">{{ sessionInfo?.model }}</span>
             </div>
           </UTooltip>
-          <UTooltip text="Attached Message Count" :popper="{ placement: 'top-start' }">
+          <UTooltip :text="t('chat.attachedMessagesCount')" :popper="{ placement: 'top-start' }">
             <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
               <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
               <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>
