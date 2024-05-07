@@ -15,6 +15,7 @@ export function useCreateChatSession() {
       instructionId: params?.instructionId || 0,
       knowledgeBaseId: params?.knowledgeBaseId || 0,
       attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount,
+      isTop: 0,
     }
 
     // set default model

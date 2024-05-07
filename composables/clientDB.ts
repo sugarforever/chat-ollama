@@ -10,6 +10,7 @@ export interface ChatSession {
   instructionId?: number
   knowledgeBaseId?: number
   attachedMessagesCount: number
+  isTop: number
 }
 
 export interface ChatHistory {

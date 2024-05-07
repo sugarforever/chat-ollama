@@ -40,6 +40,12 @@ function onSelectChat(sessionId: number) {
   emits('select', sessionId)
 }
 
+async function onTopChat (item: ChatSessionInfo, direction: string){
+  // 设置clientDB中 chatSessions 的isTop字段为true
+  clientDB.chatSessions.update(item.id!, { isTop:direction=='up' ? Date.now() : 0})
+  sessionList.value = await getSessionList()
+}
+
 function onDeleteChat(data: ChatSession) {
   confirm(t("chat.deleteChatConfirm", data.title), {
     title: t('chat.deleteChat'),
@@ -64,6 +70,7 @@ function onDeleteChat(data: ChatSession) {
 }
 
 async function getSessionList() {
+  debugger
   const list: ChatSessionInfo[] = []
   const result = await clientDB.chatSessions.orderBy('updateTime').reverse().toArray()
 
@@ -71,6 +78,13 @@ async function getSessionList() {
     const count = await clientDB.chatHistories.where('sessionId').equals(item.id!).count()
     list.push({ ...item, count })
   }
+
+  list.sort((a, b) => {
+    if(a.isTop){
+      return b.isTop - a.isTop
+    }
+    return b.updateTime - a.updateTime
+  })
 
   return list
 }
@@ -109,14 +123,23 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
     <TransitionGroup tag="div" name="list" class="h-[calc(100%-57px)] overflow-auto">
       <div v-for="item in sessionList" :key="item.id"
            class="session-item dark:text-gray-300 hover:bg-primary-100 dark:hover:bg-primary-700/30 p-3 cursor-pointer border-b border-gray-200 dark:border-gray-800 flex items-center"
-           :class="{ 'bg-primary-100 dark:bg-primary-700/30 activated': currentSessionId === item.id }"
+           
+           :class="{'bg-slate-200 dark:bg-slate-700/30': currentSessionId !== item.id? item.isTop:'', 'bg-primary-100  dark:bg-primary-700/30 activated ': currentSessionId === item.id}"
            @click="onSelectChat(item.id!)">
         <div class="grow overflow-hidden">
           <div class="line-clamp-1">{{ item.title || `${t("chat.newChat")} ${item.id}` }}</div>
-          <div class="text-sm text-muted line-clamp-1">{{ t("chat.messagesCount", [item.count]) }}</div>
+          <div class="text-sm text-muted line-clamp-1">{{ t("chat.messagesCount", [item.count]) }}
+            <div>
+              <UButton v-if="!item.isTop" icon="i-material-symbols-vertical-align-top" size="2xs" color="blue" class="mx-1 btn-delete"
+                    @click.stop="onTopChat(item,'up')"></UButton>
+              <UButton v-if="item.isTop" icon="i-material-symbols-vertical-align-bottom-rounded" size="2xs" color="blue" class="mx-1 btn-delete"
+                    @click.stop="onTopChat(item,'down')"></UButton>
+              <UButton icon="i-material-symbols-delete-outline" size="2xs" color="red" class="btn-delete"
+                    @click.stop="onDeleteChat(item)"></UButton>
+            </div>
+          </div>
         </div>
-        <UButton icon="i-material-symbols-delete-outline" size="2xs" color="red" class="btn-delete"
-                 @click.stop="onDeleteChat(item)"></UButton>
+        
       </div>
     </TransitionGroup>
   </div>
