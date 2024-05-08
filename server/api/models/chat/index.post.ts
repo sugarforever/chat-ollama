@@ -8,6 +8,7 @@ import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
 import { createChatModel, createEmbeddings } from '@/server/utils/models'
 import { createRetriever } from '@/server/retriever'
+import { BaseMessageLike } from '@langchain/core/messages'
 
 interface RequestBody {
   knowledgebaseId: number
@@ -43,6 +44,9 @@ Answer:
 const serializeMessages = (messages: RequestBody['messages']): string =>
   messages.map((message) => `${message.role}: ${message.content}`).join("\n")
 
+const transformMessages = (messages: RequestBody['messages']): BaseMessageLike[] =>
+  messages.map((message) => [message.role, message.content])
+
 export default defineEventHandler(async (event) => {
   const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
 
@@ -60,7 +64,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const embeddings = createEmbeddings(knowledgebase.embedding!, event)
-    const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`)
+    const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id} `)
 
     const chat = createChatModel(model, family, event)
     const query = messages[messages.length - 1].content
@@ -125,7 +129,7 @@ export default defineEventHandler(async (event) => {
               content: chunk?.content
             }
           }
-          yield `${JSON.stringify(message)}\n\n`
+          yield `${JSON.stringify(message)} \n\n`
         }
       }
 
@@ -133,11 +137,23 @@ export default defineEventHandler(async (event) => {
         type: "relevant_documents",
         relevant_documents: rerankedDocuments
       }
-      yield `${JSON.stringify(docsChunk)}\n\n`
+      yield `${JSON.stringify(docsChunk)} \n\n`
     })())
     return sendStream(event, readableStream)
   } else {
     const llm = createChatModel(model, family, event)
+
+    if (!stream) {
+      const response = await llm.invoke(transformMessages(messages))
+
+      return {
+        message: {
+          role: 'assistant',
+          content: response?.content
+        }
+      }
+    }
+
     const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
       return [message.role, message.content]
     }))
@@ -150,7 +166,7 @@ export default defineEventHandler(async (event) => {
             content: chunk?.content
           }
         }
-        yield `${JSON.stringify(message)}\n\n`
+        yield `${JSON.stringify(message)} \n\n`
       }
     })())
 
