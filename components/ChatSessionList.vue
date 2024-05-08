@@ -70,23 +70,25 @@ function onDeleteChat(data: ChatSession) {
 }
 
 async function getSessionList() {
-  debugger
   const list: ChatSessionInfo[] = []
   const result = await clientDB.chatSessions.orderBy('updateTime').reverse().toArray()
 
   for (const item of result) {
     const count = await clientDB.chatHistories.where('sessionId').equals(item.id!).count()
-    list.push({ ...item, count })
+    list.push({ ...item, isTop: item.isTop || 0, count })
   }
 
-  list.sort((a, b) => {
-    if (a.isTop) {
-      return b.isTop - a.isTop
-    }
-    return b.updateTime - a.updateTime
-  })
+  return sortSessionList(list)
+}
 
-  return list
+function sortSessionList(data: ChatSessionInfo[]) {
+  const pinTopList: ChatSessionInfo[] = []
+  const list: ChatSessionInfo[] = []
+
+  data.forEach(el => el.isTop > 0 ? pinTopList.push(el) : list.push(el))
+  pinTopList.sort((a, b) => b.isTop - a.isTop)
+  list.sort((a, b) => b.updateTime - a.updateTime)
+  return [...pinTopList, ...list]
 }
 
 async function updateMessageCount(offset: number) {
@@ -106,7 +108,7 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
 
   if (Object.keys(savedData).length > 0) {
     Object.assign(currentSession, savedData)
-    sessionList.value.sort((a, b) => b.updateTime - a.updateTime)
+    sessionList.value = sortSessionList(sessionList.value)
     await clientDB.chatSessions.where('id').equals(currentSessionId.value).modify(savedData)
   }
 }
