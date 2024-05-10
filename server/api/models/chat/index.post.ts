@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const embeddings = createEmbeddings(knowledgebase.embedding!, event)
-    const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id} `)
+    const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`)
 
     const chat = createChatModel(model, family, event)
     const query = messages[messages.length - 1].content
