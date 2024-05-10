@@ -7,6 +7,11 @@
     "chat": "Chat",
     "settings": "Settings"
   },
+  "colorMode": {
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
   "home": {
     "welcome": "Welcome to ChatOllama",
     "description": "ChatOllama is a web application that allows you to manage your <a class=\"text-primary font-bold\" href=\"https://ollama.ai\" target=\"_blank\">Ollama</a> server and chat with the served LLMs from anywhere in the world.",

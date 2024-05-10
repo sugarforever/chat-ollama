@@ -7,6 +7,11 @@
     "chat": "对话",
     "settings": "设置"
   },
+  "colorMode": {
+    "system": "自动",
+    "light": "浅色",
+    "dark": "深色"
+  },
   "home": {
     "welcome": "欢迎来到 ChatOllama",
     "description": "ChatOllama 是一个网络应用程序，可以用来管理您的 <a class=\"text-primary font-bold\" href=\"https://ollama.ai\" target=\"_blank\">Ollama</a> 服务器，并与来自世界任何地方的 LLMs 聊天。",
