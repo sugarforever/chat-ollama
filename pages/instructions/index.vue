@@ -92,7 +92,7 @@ async function onDelete(data: Instruction) {
     </div>
     <UTable :rows="tableRows" :columns :ui :loading class="w-full table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }">
       <template #actions-data="{ row }">
-        <div class="action-btn invisible flex">
+        <div class="action-btn">
           <UTooltip :text="t('global.update')">
             <UButton icon="i-heroicons-pencil-square-solid" variant="ghost" class="mx-1" @click="onEdit(row)" />
           </UTooltip>

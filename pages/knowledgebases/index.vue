@@ -123,7 +123,7 @@ function onShowUpdate(data: KnowledgeBase) {
         </template>
 
         <template #actions-data="{ row }">
-          <div class="action-btn invisible flex">
+          <div class="action-btn">
             <UTooltip text="Update">
               <UButton icon="i-heroicons-pencil-square-solid" variant="ghost" class="mx-1" @click="onShowUpdate(row)" />
             </UTooltip>
