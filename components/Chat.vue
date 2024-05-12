@@ -157,7 +157,7 @@ const fetchStream = async (url: string, options: RequestInit) => {
       if (done) break
 
       const chunk = new TextDecoder().decode(value)
-      for (const line of chunk.split('\n\n')) {
+      for (const line of chunk.split(' \n\n')) {
         if (!line) continue
 
         console.log('line: ', line)
@@ -209,7 +209,7 @@ const onSend = async (data: ChatBoxFormData) => {
   chatInputBoxRef.value?.reset()
 
   const instructionMessage = instructionInfo.value
-    ? { role: "system", content: instructionInfo.value.instruction, timestamp }
+    ? { role: "system", content: instructionInfo.value.instruction }
     : []
 
   const id = await saveMessage({
@@ -225,14 +225,14 @@ const onSend = async (data: ChatBoxFormData) => {
 
   const userMessage = { role: "user", id, content: input, timestamp } as const
   emits('message', userMessage)
-
+  const attachedMessagesCount = sessionInfo.value?.attachedMessagesCount || 0
   const body = JSON.stringify({
     knowledgebaseId: knowledgeBaseInfo.value?.id,
     model: model.value,
     family: modelFamily.value,
     messages: [
       instructionMessage,
-      messages.value.slice(-(sessionInfo.value?.attachedMessagesCount || 0)),
+      attachedMessagesCount > 0 ? messages.value.slice(-attachedMessagesCount) : [],
       omit(userMessage, ['id'])
     ].flat(),
     stream: true,
