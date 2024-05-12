@@ -232,7 +232,7 @@ const onSend = async (data: ChatBoxFormData) => {
     family: modelFamily.value,
     messages: [
       instructionMessage,
-      messages.value.slice(messages.value.length - sessionInfo.value!.attachedMessagesCount),
+      messages.value.slice(-(sessionInfo.value?.attachedMessagesCount || 0)),
       omit(userMessage, ['id'])
     ].flat(),
     stream: true,
