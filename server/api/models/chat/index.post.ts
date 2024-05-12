@@ -2,7 +2,8 @@ import { Readable } from 'stream'
 import { formatDocumentsAsString } from "langchain/util/document"
 import { PromptTemplate } from "@langchain/core/prompts"
 import { RunnableSequence } from "@langchain/core/runnables"
-import { CohereRerank } from "@langchain/cohere"
+// import { CohereRerank } from "@langchain/cohere"
+import { CohereRerank } from "@/server/rerank/cohere"
 import { setEventStreamResponse } from '@/server/utils'
 import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
@@ -75,12 +76,15 @@ export default defineEventHandler(async (event) => {
 
     let rerankedDocuments = relevant_docs
 
-    if (process.env.COHERE_API_KEY) {
-      const cohereRerank = new CohereRerank({
+    if ((process.env.COHERE_API_KEY || process.env.COHERE_BASE_URL) && process.env.COHERE_MODEL) {
+      const options = {
         apiKey: process.env.COHERE_API_KEY,
-        model: "rerank-multilingual-v2.0",
+        baseUrl: process.env.COHERE_BASE_URL,
+        model: process.env.COHERE_MODEL,
         topN: 4
-      })
+      }
+      console.log("Cohere Rerank Options: ", options)
+      const cohereRerank = new CohereRerank(options)
       rerankedDocuments = await cohereRerank.compressDocuments(relevant_docs, query)
       console.log("Cohere reranked documents: ", rerankedDocuments)
     }
