@@ -152,12 +152,21 @@ const fetchStream = async (url: string, options: RequestInit) => {
   if (response.body) {
     messages.value = messages.value.filter((message) => message.type !== 'loading')
     const reader = response.body.getReader()
+    const splitter = ' \n\n'
+    let prevPart = ''
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
 
-      const chunk = new TextDecoder().decode(value)
-      for (const line of chunk.split(' \n\n')) {
+      const chunk = prevPart + new TextDecoder().decode(value)
+
+      if (!chunk.includes(splitter)) {
+        prevPart = chunk
+        continue
+      }
+      prevPart = ''
+
+      for (const line of chunk.split(splitter)) {
         if (!line) continue
 
         console.log('line: ', line)
