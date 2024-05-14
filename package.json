@@ -8,6 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "prisma-deploy": "prisma migrate deploy",
     "prisma-migrate": "prisma migrate dev",
     "prisma-generate": "prisma generate",
     "prisma-push": "prisma db push"
