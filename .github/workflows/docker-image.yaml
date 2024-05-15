@@ -19,8 +19,8 @@ jobs:
     - name: Build the Docker image
       run: |
         TIMESTAMP="${{ steps.timestamp.outputs.timestamp }}"
-        docker build . --file Dockerfile --tag 0001coder/chatollama:${TIMESTAMP}
-        docker tag 0001coder/chatollama:${TIMESTAMP} 0001coder/chatollama:latest
+        docker build . --file Dockerfile --tag gallexy/chatollama:${TIMESTAMP}
+        docker tag gallexy/chatollama:${TIMESTAMP} gallexy/chatollama:latest
 
     - name: Log in to Docker Hub
       run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
@@ -28,5 +28,5 @@ jobs:
     - name: Push Docker image to registry
       run: |
         TIMESTAMP="${{ steps.timestamp.outputs.timestamp }}"
-        docker push 0001coder/chatollama:${TIMESTAMP}
-        docker push 0001coder/chatollama:latest
+        docker push gallexy/chatollama:${TIMESTAMP}
+        docker push gallexy/chatollama:latest
