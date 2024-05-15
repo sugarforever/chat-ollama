@@ -20,7 +20,7 @@ jobs:
       run: |
         TIMESTAMP="${{ steps.timestamp.outputs.timestamp }}"
         docker build . --file Dockerfile --tag gallexy/chatollama:${TIMESTAMP}
-        docker tag 0001coder/chatollama:${TIMESTAMP} gallexy/chatollama:latest
+        docker tag gallexy/chatollama:${TIMESTAMP} gallexy/chatollama:latest
 
     - name: Log in to Docker Hub
       run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
