@@ -6,7 +6,7 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { ChatAnthropic } from "@langchain/anthropic"
 import { ChatOllama } from "@langchain/community/chat_models/ollama"
 import { ChatOpenAI } from '@langchain/openai'
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
+import { ChatGoogleGenerativeAI } from "~/server/models/genai/generative-ai"
 import { ChatGroq } from "@langchain/groq"
 import { AzureChatOpenAI } from "@langchain/azure-openai"
 import { type H3Event } from 'h3'
@@ -90,6 +90,7 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
   } else if (family === MODEL_FAMILIES.gemini && GEMINI_MODELS.includes(modelName)) {
     console.log(`Chat with Gemini ${modelName}`)
     chat = new ChatGoogleGenerativeAI({
+      apiVersion: "v1beta",
       apiKey: keys.gemini.key,
       modelName: modelName
     })

@@ -33,6 +33,7 @@
     "vue-router": "^4.3.0"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.11.1",
     "@iconify-json/heroicons": "^1.1.20",
     "@iconify-json/iconoir": "^1.1.42",
     "@iconify-json/material-symbols": "^1.1.76",
@@ -42,7 +43,7 @@
     "@langchain/cohere": "^0.0.6",
     "@langchain/community": "^0.0.33",
     "@langchain/core": "^0.1.54",
-    "@langchain/google-genai": "^0.0.10",
+    "@langchain/google-genai": "^0.0.13",
     "@langchain/groq": "^0.0.5",
     "@langchain/openai": "^0.0.15",
     "@nuxt/ui": "^2.15.1",
