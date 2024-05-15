@@ -1,14 +1,19 @@
+
 name: Docker Images
+
 
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - "*"
+  workflow_dispatch:
 
 jobs:
-  build:
+  build_and_push:
     runs-on: ubuntu-latest
 
     steps:
+
     - uses: actions/checkout@v4
 
     # Generate a timestamp and store it in a variable
