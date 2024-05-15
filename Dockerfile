@@ -2,7 +2,7 @@ ARG NODE_VERSION=20.12.2
 
 FROM node:${NODE_VERSION}-slim
 
-RUN apt-get update && apt-get install -y openssl
+RUN apt-get update && apt-get install -y openssl iputils-ping net-tools
 
 WORKDIR /app
 
