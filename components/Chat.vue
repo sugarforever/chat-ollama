@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { useMutationObserver, useThrottleFn, useScroll } from '@vueuse/core'
 import type { KnowledgeBase } from '@prisma/client'
-import { getKeysHeader, loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
+import { loadOllamaInstructions, loadKnowledgeBases } from '@/utils/settings'
 import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
 
 type RelevantDocument = Required<ChatHistory>['relevantDocs'][number]
-type ResponseRelevantDocument = { type: 'relevant_documents', relevant_documents: RelevantDocument[] }
 
 export interface Message {
   id?: number
@@ -31,10 +30,10 @@ const emits = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { request, stopAll } = useStreamChat()
 
 const markdown = useMarkdown()
 const modal = useModal()
-const toast = useToast()
 const sessionInfo = ref<ChatSession>()
 const knowledgeBases: KnowledgeBase[] = []
 const knowledgeBaseInfo = ref<KnowledgeBase>()
@@ -45,7 +44,6 @@ const model = ref('')
 const modelFamily = ref('')
 const messages = ref<Message[]>([])
 const sending = ref(false)
-let abortHandler: (() => void) | null = null
 const limitHistorySize = 20
 const messageListEl = shallowRef<HTMLElement>()
 const behavior = ref<ScrollBehavior>('auto')
@@ -110,100 +108,20 @@ async function loadChatHistory(sessionId?: number) {
   return []
 }
 
-const processRelevantDocuments = async (chunk: ResponseRelevantDocument) => {
-  if (chunk.type !== 'relevant_documents') return
+const processRelevantDocuments = async (docs: RelevantDocument[]) => {
   const lastMessage = messages.value[messages.value.length - 1]
-  if (lastMessage?.role === 'assistant' && chunk.relevant_documents) {
-    lastMessage.relevantDocs = chunk.relevant_documents
+  if (lastMessage?.role === 'assistant' && docs) {
+    lastMessage.relevantDocs = docs
     await clientDB.chatHistories
       .where('id')
       .equals(lastMessage.id!)
       .modify({
-        relevantDocs: chunk.relevant_documents.map(el => {
+        relevantDocs: docs.map(el => {
           const pageContent = el.pageContent.slice(0, 100) + (el.pageContent.length > 0 ? '...' : '') // Avoid saving large-sized content
           return { ...el, pageContent }
         })
       })
     emits('message', lastMessage)
-  }
-}
-
-const fetchStream = async (url: string, options: RequestInit) => {
-  const response = await fetchWithAuth(url, options)
-
-  if (response.status !== 200) {
-    const { message: respnoseMesage } = await response.json()
-    const errInfo = respnoseMesage || `Status Code ${response.status}${' - ' + response.statusText}`
-    toast.add({ title: t('global.error'), description: `${errInfo}\n${t("chat.proxyTips")}`, color: 'red' })
-    const errorData = { role: 'assistant', type: 'error', content: t('chat.responseException'), timestamp: Date.now() } as const
-    const id = await saveMessage({
-      message: errorData.content,
-      model: model.value || '',
-      role: errorData.role,
-      timestamp: errorData.timestamp,
-      canceled: false,
-      failed: true,
-    })
-    messages.value = messages.value.filter((message) => message.type !== 'loading').concat({ id, ...errorData })
-    nextTick(() => scrollToBottom('auto'))
-    return
-  }
-
-  if (response.body) {
-    messages.value = messages.value.filter((message) => message.type !== 'loading')
-    const reader = response.body.getReader()
-    const splitter = ' \n\n'
-    let prevPart = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      const chunk = prevPart + new TextDecoder().decode(value)
-
-      if (!chunk.includes(splitter)) {
-        prevPart = chunk
-        continue
-      }
-      prevPart = ''
-
-      for (const line of chunk.split(splitter)) {
-        if (!line) continue
-
-        console.log('line: ', line)
-        const chatMessage = JSON.parse(line) as { message: Message } | ResponseRelevantDocument
-
-        if ('type' in chatMessage) {
-          await processRelevantDocuments(chatMessage)
-        } else {
-          const content = chatMessage?.message?.content
-          if (content) {
-            const lastItem = messages.value[messages.value.length - 1]
-            if (messages.value.length > 0 && lastItem.role === 'assistant') {
-              lastItem.content += content
-            } else {
-              const timestamp = Date.now()
-              const id = await saveMessage({
-                message: content,
-                model: model.value || '',
-                role: 'assistant',
-                timestamp,
-                canceled: false,
-                failed: false,
-              })
-              const itemData = { id, role: 'assistant', content, timestamp } as const
-              if (messages.value.length >= limitHistorySize) {
-                messages.value = [...messages.value, itemData].slice(-limitHistorySize)
-              } else {
-                messages.value.push(itemData)
-              }
-            }
-            emits('message', lastItem)
-          }
-        }
-      }
-    }
-  } else {
-    console.log(t("chat.The browser doesn't support streaming responses"))
   }
 }
 
@@ -235,17 +153,6 @@ const onSend = async (data: ChatBoxFormData) => {
   const userMessage = { role: "user", id, content: input, timestamp } as const
   emits('message', userMessage)
   const attachedMessagesCount = sessionInfo.value?.attachedMessagesCount || 0
-  const body = JSON.stringify({
-    knowledgebaseId: knowledgeBaseInfo.value?.id,
-    model: model.value,
-    family: modelFamily.value,
-    messages: [
-      instructionMessage,
-      attachedMessagesCount > 0 ? messages.value.slice(-attachedMessagesCount) : [],
-      omit(userMessage, ['id'])
-    ].flat(),
-    stream: true,
-  })
 
   messages.value.push(
     userMessage,
@@ -258,22 +165,70 @@ const onSend = async (data: ChatBoxFormData) => {
 
   const f = setInterval(() => syncLatestMessageToLocalDB(), 250)
 
-  const controller = new AbortController()
-  abortHandler = () => controller.abort()
-
-  await fetchStream('/api/models/chat', {
-    method: 'POST',
-    body: body,
-    headers: {
-      ...getKeysHeader(),
-      'Content-Type': 'application/json',
-    },
-    signal: controller.signal,
-  }).finally(() => clearInterval(f))
-
-  await syncLatestMessageToLocalDB()
+  await chatRequest({
+    knowledgebaseId: knowledgeBaseInfo.value?.id,
+    model: model.value,
+    family: modelFamily.value,
+    messages: [
+      instructionMessage,
+      attachedMessagesCount > 0 ? messages.value.slice(-attachedMessagesCount) : [],
+      omit(userMessage, ['id'])
+    ].flat(),
+    stream: true,
+  })
+    .then(() => syncLatestMessageToLocalDB())
+    .finally(() => clearInterval(f))
 
   sending.value = false
+}
+
+async function chatRequest(data: Record<string, any>) {
+  let responded = false
+  await request(data, {
+    onMessage: async res => {
+      if (!responded) {
+        messages.value = messages.value.filter((message) => message.type !== 'loading')
+        responded = true
+      }
+      const content = res.content
+      if (!content) return
+
+      const lastItem = messages.value[messages.value.length - 1]
+      if (messages.value.length > 0 && lastItem.role === 'assistant') {
+        lastItem.content += content
+      } else {
+        const timestamp = Date.now()
+        const id = await saveMessage({
+          message: content,
+          model: model.value || '',
+          role: 'assistant',
+          timestamp,
+          canceled: false,
+          failed: false,
+        })
+        const itemData = { id, role: 'assistant', content, timestamp } as const
+        if (messages.value.length >= limitHistorySize) {
+          messages.value = [...messages.value, itemData].slice(-limitHistorySize)
+        } else {
+          messages.value.push(itemData)
+        }
+      }
+      emits('message', lastItem)
+    },
+    onRelevantDocuments: res => processRelevantDocuments(res),
+    onError: async res => {
+      const id = await saveMessage({
+        message: res.content,
+        model: model.value || '',
+        role: res.role,
+        timestamp: res.timestamp,
+        canceled: false,
+        failed: true,
+      })
+      messages.value = messages.value.filter((message) => message.type !== 'loading').concat({ id, ...res })
+      nextTick(() => scrollToBottom('auto'))
+    }
+  })
 }
 
 onMounted(async () => {
@@ -286,7 +241,7 @@ onMounted(async () => {
 })
 
 async function onAbortChat() {
-  abortHandler?.()
+  stopAll()
   if (messages.value.length > 0) {
     const lastOne = messages.value[messages.value.length - 1]
     if (lastOne.type === 'loading') {
@@ -409,8 +364,8 @@ defineExpose({ abortChat: onAbortChat })
           </div>
           <ChatMessageActionMore :message="message"
                                  :disabled="sending"
-                                 @resend="onResend(message)"
-                                 @remove="onRemove(message)">
+                                 @resend="() => onResend(message)"
+                                 @remove="() => onRemove(message)">
             <UButton :class="{ invisible: sending }" icon="i-material-symbols-more-vert" color="gray"
                      :variant="'link'"
                      class="action-more">
