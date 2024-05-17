@@ -1,5 +1,5 @@
 
-name: Docker Images
+name: Build and push Docker Images for multiple platforms
 
 
 on:
