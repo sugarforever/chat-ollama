@@ -27,10 +27,6 @@ services:
     volumes:
       - redis_data:/data
 
-  busybox:
-    image: busybox:latest
-    restart: always
-
 volumes:
   chromadb_data:
   redis_data:
