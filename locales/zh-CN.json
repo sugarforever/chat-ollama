@@ -157,6 +157,8 @@
     "optional": "可选项目",
     "userName": "用户名称",
     "password": "密码",
-    "streamError": "您的浏览器不支持流式响应，请使用最新版本的浏览器。"
+    "streamError": "您的浏览器不支持流式响应，请使用最新版本的浏览器。",
+    "confirmText": "确定",
+    "cancelText": "取消"
   }
 }
