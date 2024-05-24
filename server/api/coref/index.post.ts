@@ -2,7 +2,7 @@ import { resolveCoreference } from '@/server/coref'
 import { AIMessage, HumanMessage } from '@langchain/core/messages'
 
 export default defineEventHandler(async (event) => {
-  const { model, family, query, messages } = await readBody(event)
+  const { query, messages } = await readBody(event)
   const messagesList = []
   for (const message of messages) {
     if (message.role === "human") {
@@ -11,11 +11,15 @@ export default defineEventHandler(async (event) => {
       messagesList.push(new AIMessage(message.content))
     }
   }
-  const chat = createChatModel(model, family, event)
-  const answer = await resolveCoreference(
-    query,
-    messagesList,
-    process.env.OPENAI_API_KEY)
+
+  let answer = { input: query, output: query }
+  if (process.env.OPENAI_API_KEY) {
+    answer = await resolveCoreference(
+      query,
+      messagesList,
+      process.env.OPENAI_API_KEY)
+  }
+
   return {
     answer
   }
