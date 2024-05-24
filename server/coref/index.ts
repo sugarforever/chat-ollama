@@ -1,13 +1,7 @@
-import { createHistoryAwareRetriever } from "langchain/chains/history_aware_retriever"
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts"
-import { LanguageModelLike } from '@langchain/core/language_models/base'
-import { DocumentInterface } from '@langchain/core/documents'
-import { RunnableInterface } from '@langchain/core/runnables'
-import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages'
+import { BaseMessage } from '@langchain/core/messages'
 import { ChatOpenAI } from '@langchain/openai'
-import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { JsonOutputParser } from "@langchain/core/output_parsers"
-import Chat from '~/components/Chat.vue'
 
 const PROMPT = `
 Given a chat history and the latest user question which might reference context in the chat history, formulate a standalone question which can be understood without the chat history.
