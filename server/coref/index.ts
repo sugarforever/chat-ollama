@@ -43,7 +43,7 @@ export const resolveCoreference = async (
     })
     const llm = new ChatOpenAI({
       openAIApiKey,
-      modelName: "gpt-3.5-turbo"
+      modelName: "gpt-4o"
     })
     const chain = llm.pipe(new JsonOutputParser<CorefResult>())
     return await chain.invoke(prompt)
