@@ -6,3 +6,18 @@ declare module 'vue-i18n' {
 
   export interface DefineLocaleMessage extends En { }
 }
+
+declare module '@nuxt/schema' {
+  interface PublicRuntimeConfig {
+    kb: {
+      create: {
+        role: string
+      }
+    },
+    modelProxyEnabled: boolean
+    chatMaxAttachedMessages: number
+    appName: string
+  }
+}
+
+export { }

@@ -159,6 +159,8 @@
     "password": "Password",
     "streamError": "The browser doesn't support streaming responses.",
     "confirmText": "confirm",
-    "cancelText": "cancel"
+    "cancelText": "cancel",
+    "selectModel": "Select a model",
+    "selectModels": "Select models"
   }
 }

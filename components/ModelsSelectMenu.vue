@@ -11,6 +11,8 @@ const props = withDefaults(defineProps<{
 type ModelName = string
 type ModelFamilyName = string
 
+const { t } = useI18n()
+
 const value = defineModel<[ModelName, ModelFamilyName]>({ default: [] })
 const currentModel = defineModel<ModelInfo>('modelInfo')
 
@@ -49,7 +51,7 @@ function getModelItem() {
     <USelectMenu v-model="selectValue"
                  :options="chatModels"
                  :size
-                 placeholder="Select a model">
+                 :placeholder="t('global.selectModel')">
       <template #label>
         <span>{{ currentModel?.family }}</span>
         <span class="text-muted">/</span>

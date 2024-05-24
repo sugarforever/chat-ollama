@@ -5,6 +5,8 @@ export interface ModelInfo {
   label: string
   value: string
   family?: string
+  /** model name */
+  name: string
 }
 
 interface Options {
@@ -25,8 +27,9 @@ export function useModels(options?: Options) {
       .filter(el => !OLLAMA_EMBEDDING_FAMILY_LIST.includes(el?.details?.family))
       .map(el => ({
         label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`,
-        value: el.name!,
+        name: el.name!,
         family: el?.details?.family,
+        value: [el?.details?.family || '', el.name!].join(':'),
       }))
   })
 

@@ -1,14 +1,26 @@
 import { getKeysHeader } from '@/utils/settings'
+import type { SetRequired } from 'type-fest'
+import type { ChatMessage } from '~/types/chat'
 
 type RelevantDocument = Required<ChatHistory>['relevantDocs'][number]
 type ResponseRelevantDocument = { type: 'relevant_documents', relevant_documents: RelevantDocument[] }
-type ChatMessage = { message: { role: string, content: string } }
+type ResponseMessage = { message: { role: string, content: string } }
 type ErrorMessage = { role: 'assistant', type: 'error', content: string, timestamp: number }
 
 interface RequestOptions {
-  onMessage?: (message: ChatMessage['message']) => Promise<void>
+  onMessage?: (message: ResponseMessage['message']) => Promise<void>
   onRelevantDocuments?: (relevantDocuments: RelevantDocument[]) => Promise<void>
   onError?: (data: ErrorMessage, errMsg: string) => Promise<void>
+  onAbort?: () => void
+}
+
+export interface RequestData {
+  knowledgebaseId?: number
+  /** family:model */
+  model: string
+  family?: string
+  messages: Array<SetRequired<Partial<ChatMessage>, 'role' | 'content'>>
+  stream: boolean
 }
 
 export function useStreamChat() {
@@ -16,9 +28,12 @@ export function useStreamChat() {
   const { t } = useI18n()
   const abortHandlerSet = new Set<() => void>()
 
-  async function request(data: Record<string, any>, options?: RequestOptions) {
+  async function request(data: RequestData, options?: RequestOptions) {
     const controller = new AbortController()
-    abortHandlerSet.add(() => controller.abort())
+    abortHandlerSet.add(() => {
+      controller.abort()
+      options?.onAbort?.()
+    })
 
     const response = await fetchWithAuth('/api/models/chat', {
       method: 'POST',
@@ -56,8 +71,8 @@ export function useStreamChat() {
         for (const line of chunk.split(splitter)) {
           if (!line) continue
 
-          console.log('line: ', line)
-          const chatMessage = JSON.parse(line) as ChatMessage | ResponseRelevantDocument
+          console.log(`%c${data.family}:${data.model}`, 'color:#818cf8', line)
+          const chatMessage = JSON.parse(line) as ResponseMessage | ResponseRelevantDocument
 
           if ('type' in chatMessage && chatMessage.type === 'relevant_documents') {
             await options?.onRelevantDocuments?.(chatMessage.relevant_documents)
