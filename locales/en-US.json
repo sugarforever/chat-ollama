@@ -157,6 +157,8 @@
     "optional": "Optional",
     "userName": "User Name",
     "password": "Password",
-    "streamError": "The browser doesn't support streaming responses."
+    "streamError": "The browser doesn't support streaming responses.",
+    "confirmText": "confirm",
+    "cancelText": "cancel"
   }
 }
