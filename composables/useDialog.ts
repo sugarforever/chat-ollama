@@ -11,6 +11,7 @@ interface Options {
 }
 
 export function useDialog(type: 'modal' | 'confirm' | 'alert') {
+  const { t } = useI18n()
   const modal = useModal()
 
   const TheConfirm = defineComponent({
@@ -26,11 +27,11 @@ export function useDialog(type: 'modal' | 'confirm' | 'alert') {
       },
       confirmText: {
         type: String,
-        default: 'Confirm',
+        default: t('global.confirmText'),
       },
       cancelText: {
         type: String,
-        default: 'Cancel',
+        default: t('global.cancelText'),
       },
       onClose: {
         type: Function,
