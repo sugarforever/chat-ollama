@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const answer = await resolveCoreference(
     query,
     messagesList,
-    chat)
+    process.env.OPENAI_API_KEY)
   return {
     answer
   }
