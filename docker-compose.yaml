@@ -17,8 +17,8 @@ services:
       - COHERE_BASE_URL=http://peanutshell:8000/v1
     image: 0001coder/chatollama:latest
     pull_policy: always
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    #extra_hosts:
+    #  - "host.docker.internal:host-gateway"
     ports:
       - "3000:3000"
     restart: always

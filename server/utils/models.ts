@@ -53,7 +53,7 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
   const keys = event.context.keys
   let chat = null
   if (family === MODEL_FAMILIES.openai && OPENAI_GPT_MODELS.includes(modelName)) {
-    console.log("Chat with OpenAI, host:", keys.openai.endpoint)
+    console.log("Chat with OpenAI, host:", keys.openai?.endpoint)
     chat = new ChatOpenAI({
       configuration: {
         baseURL: getProxyEndpoint(keys.openai.endpoint, keys.openai.proxy),

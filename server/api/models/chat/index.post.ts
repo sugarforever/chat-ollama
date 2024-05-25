@@ -9,7 +9,8 @@ import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
 import { createChatModel, createEmbeddings } from '@/server/utils/models'
 import { createRetriever } from '@/server/retriever'
-import { BaseMessageLike } from '@langchain/core/messages'
+import { AIMessage, BaseMessage, BaseMessageLike, HumanMessage } from '@langchain/core/messages'
+import { resolveCoreference } from '~/server/coref'
 
 interface RequestBody {
   knowledgebaseId: number
@@ -48,6 +49,19 @@ const serializeMessages = (messages: RequestBody['messages']): string =>
 const transformMessages = (messages: RequestBody['messages']): BaseMessageLike[] =>
   messages.map((message) => [message.role, message.content])
 
+const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => {
+  const normalizedMessages = []
+  for (const message of messages) {
+    if (message.role === "user") {
+      normalizedMessages.push(new HumanMessage(message.content))
+    } else if (message.role === "assistant") {
+      normalizedMessages.push(new AIMessage(message.content))
+    }
+  }
+
+  return normalizedMessages
+}
+
 export default defineEventHandler(async (event) => {
   const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
 
@@ -71,7 +85,15 @@ export default defineEventHandler(async (event) => {
     const query = messages[messages.length - 1].content
     console.log("User query: ", query)
 
-    const relevant_docs = await retriever.getRelevantDocuments(query)
+    const reformulatedResult = await resolveCoreference(
+      query,
+      normalizeMessages(messages),
+      process.env.OPENAI_API_KEY
+    )
+    const reformulatedQuery = reformulatedResult.output || query
+    console.log("Reformulated query: ", reformulatedQuery)
+
+    const relevant_docs = await retriever.getRelevantDocuments(reformulatedQuery)
     console.log("Relevant documents: ", relevant_docs)
 
     let rerankedDocuments = relevant_docs
@@ -85,7 +107,7 @@ export default defineEventHandler(async (event) => {
       }
       console.log("Cohere Rerank Options: ", options)
       const cohereRerank = new CohereRerank(options)
-      rerankedDocuments = await cohereRerank.compressDocuments(relevant_docs, query)
+      rerankedDocuments = await cohereRerank.compressDocuments(relevant_docs, reformulatedQuery)
       console.log("Cohere reranked documents: ", rerankedDocuments)
     }
 
