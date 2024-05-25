@@ -50,8 +50,6 @@ function onDeleteChat(data: ChatSession) {
   confirm(t("chat.deleteChatConfirm", [data.title || `${t("chat.newChat")} ${data.id}`]), {
     title: t('chat.deleteChat'),
     dangerouslyUseHTMLString: true,
-    confirmText: t('global.confirmText'),
-    cancelText: t('global.cancelText'),
   })
     .then(async () => {
 
