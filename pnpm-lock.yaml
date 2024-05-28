@@ -20,6 +20,9 @@ dependencies:
   '@iconify-json/mdi':
     specifier: ^1.1.66
     version: 1.1.66
+  '@iconify-json/svg-spinners':
+    specifier: ^1.1.2
+    version: 1.1.2
   '@langchain/anthropic':
     specifier: ^0.1.10
     version: 0.1.10
@@ -1278,6 +1281,12 @@ packages:
 
   /@iconify-json/mdi@1.1.66:
     resolution: {integrity: sha512-7KPF2RVUUWav/hXCM8Ti/smqu3cmgePJpiX9CSkldiL+80+eBRBeKlc4vPOc9jhAItlqIU1vKsbKoPP0JIfgbg==}
+    dependencies:
+      '@iconify/types': 2.0.0
+    dev: false
+
+  /@iconify-json/svg-spinners@1.1.2:
+    resolution: {integrity: sha512-Aab6SqkORaTJ1W+ooufn6C8BsBitrn3uk8iRQLPA6pjhyvQAhkKCGMctyXIL5ZjrycnoFVsZ4mx7KnwEMra8qg==}
     dependencies:
       '@iconify/types': 2.0.0
     dev: false
@@ -3923,7 +3932,7 @@ packages:
       react:
         optional: true
     dependencies:
-      next: 13.5.6(@babel/core@7.24.5)(react-dom@18.3.1)(react@18.3.1)(sass@1.74.1)
+      next: 13.5.6(@babel/core@7.24.4)(react-dom@18.3.1)(react@18.3.1)(sass@1.74.1)
       react: 18.3.1
       server-only: 0.0.1
     dev: false
@@ -7704,7 +7713,7 @@ packages:
       '@panva/hkdf': 1.1.1
       cookie: 0.5.0
       jose: 4.15.5
-      next: 13.5.6(@babel/core@7.24.5)(react-dom@18.3.1)(react@18.3.1)(sass@1.74.1)
+      next: 13.5.6(@babel/core@7.24.4)(react-dom@18.3.1)(react@18.3.1)(sass@1.74.1)
       oauth: 0.9.15
       openid-client: 5.6.5
       preact: 10.20.2
@@ -7713,7 +7722,7 @@ packages:
       react-dom: 18.3.1(react@18.3.1)
       uuid: 8.3.2
 
-  /next@13.5.6(@babel/core@7.24.5)(react-dom@18.3.1)(react@18.3.1)(sass@1.74.1):
+  /next@13.5.6(@babel/core@7.24.4)(react-dom@18.3.1)(react@18.3.1)(sass@1.74.1):
     resolution: {integrity: sha512-Y2wTcTbO4WwEsVb4A8VSnOsG1I9ok+h74q0ZdxkwM3EODqrs4pasq7O0iUxbcS9VtWMicG7f3+HAj0r1+NtKSw==}
     engines: {node: '>=16.14.0'}
     hasBin: true
@@ -7736,7 +7745,7 @@ packages:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       sass: 1.74.1
-      styled-jsx: 5.1.1(@babel/core@7.24.5)(react@18.3.1)
+      styled-jsx: 5.1.1(@babel/core@7.24.4)(react@18.3.1)
       watchpack: 2.4.0
     optionalDependencies:
       '@next/swc-darwin-arm64': 13.5.6
@@ -9731,7 +9740,7 @@ packages:
     resolution: {integrity: sha512-J8bbNyKKXl5qYcR36TIO8W3mVGVHrmmxsd5PAItGkmyzwJvybiw2IVq5nqd0i4LSNSkB/sx9VHllbfFdr9k1JA==}
     dev: false
 
-  /styled-jsx@5.1.1(@babel/core@7.24.5)(react@18.3.1):
+  /styled-jsx@5.1.1(@babel/core@7.24.4)(react@18.3.1):
     resolution: {integrity: sha512-pW7uC1l4mBZ8ugbiZrcIsiIvVx1UmTfw7UkC3Um2tmfUq9Bhk8IiyEIPl6F8agHgjzku6j0xQEZbfA5uSgSaCw==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
@@ -9744,7 +9753,7 @@ packages:
       babel-plugin-macros:
         optional: true
     dependencies:
-      '@babel/core': 7.24.5
+      '@babel/core': 7.24.4
       client-only: 0.0.1
       react: 18.3.1
 

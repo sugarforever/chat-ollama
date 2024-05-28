@@ -58,7 +58,7 @@ export default defineNuxtConfig({
     }
   },
   ui: {
-    icons: ['heroicons', 'iconoir', 'material-symbols', 'mdi']
+    icons: ['heroicons', 'iconoir', 'material-symbols', 'mdi', 'svg-spinners']
   },
   css: [
     '~/assets/index.scss',
@@ -109,5 +109,10 @@ export default defineNuxtConfig({
       cookieKey: 'i18n_redirected',
       redirectOn: 'root',
     },
+  },
+  vite: {
+    worker: {
+      format: 'es'
+    }
   }
 })

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ComponentInstance } from 'vue'
 import ChatSessionList from '~/components/ChatSessionList.vue'
-import Chat, { type Message } from '~/components/Chat.vue'
+import Chat from '~/components/Chat.vue'
+import type { ChatMessage } from '@/types/chat'
 
 export interface ChatSessionSettings extends Partial<Omit<ChatSession, 'id' | 'createTime'>> { }
 
@@ -16,7 +17,7 @@ function onChangeSettings(data: ChatSessionSettings) {
   chatSessionListRef.value?.updateSessionInfo({ ...data, forceUpdateTitle: true })
 }
 
-function onMessage(data: Message | null) {
+function onMessage(data: ChatMessage | null) {
   // remove a message if it's null
   if (data === null) {
     chatSessionListRef.value?.updateMessageCount(-1)
@@ -25,7 +26,7 @@ function onMessage(data: Message | null) {
 
   chatSessionListRef.value?.updateSessionInfo({
     title: data.content.slice(0, 20),
-    updateTime: data.timestamp,
+    updateTime: data.endTime || data.startTime,
   })
   if (latestMessageId.value !== data.id) {
     chatSessionListRef.value?.updateMessageCount(1)
@@ -38,7 +39,6 @@ function onNewChat() {
 }
 
 async function onChangeChatSession(id: number) {
-  await chatRef.value?.abortChat()
   sessionId.value = id
 }
 </script>

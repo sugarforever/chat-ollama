@@ -10,8 +10,7 @@ export function useCreateChatSession() {
       createTime: Date.now(),
       updateTime: Date.now(),
       title: params?.title || '',
-      model: params?.model || chatDefaultSettings.value.model[0],
-      modelFamily: params?.modelFamily || '',
+      models: params?.models || chatDefaultSettings.value.models,
       instructionId: params?.instructionId || 0,
       knowledgeBaseId: params?.knowledgeBaseId || 0,
       attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount,
@@ -23,9 +22,8 @@ export function useCreateChatSession() {
     if (chatModels.value.length === 0) {
       toast.add({ title: t('chat.noModelFound'), description: t('chat.noModelFoundDesc'), color: 'red' })
     } else {
-      const model = chatModels.value.find(m => m.value === baseData.model) || chatModels.value[0]
-      baseData.model = model.value
-      baseData.modelFamily = model.family || ''
+      const availableModels = baseData.models.filter(m => chatModels.value.some(cm => cm.value === m))
+      baseData.models = availableModels
     }
 
     const id = await clientDB.chatSessions.add(baseData)
