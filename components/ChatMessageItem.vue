@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { MODEL_FAMILY_SEPARATOR } from '~/config'
 import type { ChatMessage } from '~/types/chat'
 
 const props = defineProps<{
@@ -24,6 +25,19 @@ const contentClass = computed(() => {
       : (isModelMessage.value ? 'bg-gray-50 dark:bg-gray-800' : 'bg-primary-50 dark:bg-primary-400/60'),
   ]
 })
+
+const timeUsed = computed(() => {
+  const endTime = props.message.type === 'loading' ? Date.now() : props.message.endTime
+  return Number(((endTime - props.message.startTime) / 1000).toFixed(1))
+})
+
+const modelName = computed(() => {
+  return props.message.model.split(MODEL_FAMILY_SEPARATOR)
+})
+
+watch(() => props.showToggleButton, (value) => {
+  opened.value = value === true ? false : true
+})
 </script>
 
 <template>
@@ -31,16 +45,26 @@ const contentClass = computed(() => {
        :class="{ 'items-end': message.role === 'user' }">
     <div class="text-gray-500 dark:text-gray-400 p-1">
       <Icon v-if="message.role === 'user'" name="i-material-symbols-account-circle" class="text-lg" />
-      <span v-else class="text-sm">{{ message.model }}</span>
+      <div v-else class="text-sm flex items-center">
+        <UTooltip :text="modelName[0]" :popper="{ placement: 'top' }">
+          <span class="text-primary/80">{{ modelName[1] }}</span>
+        </UTooltip>
+        <template v-if="timeUsed > 0">
+          <span class="mx-2 text-muted/20 text-xs">|</span>
+          <span class="text-gray-400 dark:text-gray-500 text-xs">{{ timeUsed }}s</span>
+        </template>
+      </div>
     </div>
     <div class="leading-6 text-sm flex items-center max-w-full message-content"
          :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': !isModelMessage }">
       <div class="flex border border-primary/20 rounded-lg overflow-hidden box-border"
            :class="contentClass">
-        <div v-if="message.type === 'loading'" class="text-xl text-primary animate-spin i-heroicons-arrow-path-solid" />
+        <div v-if="message.type === 'loading'" class="text-xl text-primary p-3">
+          <span class="block i-svg-spinners-3-dots-scale"></span>
+        </div>
         <template v-else-if="isModelMessage">
           <div class="p-3 overflow-hidden">
-            <div v-html="markdown.render(message.content)" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
+            <div v-html="markdown.render(message.content || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
             <Sources v-show="opened" :relevant_documents="message?.relevantDocs || []" />
           </div>
           <MessageToggleCollapseButton v-if="showToggleButton" :opened="opened" @click="opened = !opened" />

@@ -22,8 +22,8 @@ export function useCreateChatSession() {
     if (chatModels.value.length === 0) {
       toast.add({ title: t('chat.noModelFound'), description: t('chat.noModelFoundDesc'), color: 'red' })
     } else {
-      const model = chatModels.value.find(m => m.value === baseData.model) || chatModels.value[0]
-      baseData.models = [model.value]
+      const availableModels = baseData.models.filter(m => chatModels.value.some(cm => cm.value === m))
+      baseData.models = availableModels
     }
 
     const id = await clientDB.chatSessions.add(baseData)

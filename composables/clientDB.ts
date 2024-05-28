@@ -18,7 +18,8 @@ export interface ChatHistory {
   id?: number
   sessionId: number
   message: string
-  timestamp: number
+  startTime: number
+  endTime: number
   model: string
   role: 'user' | 'assistant'
   canceled: boolean

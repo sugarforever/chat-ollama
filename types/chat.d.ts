@@ -4,6 +4,7 @@ export interface ChatMessage {
   model: string
   content: string
   type?: 'loading' | 'canceled' | 'error'
-  timestamp: number
+  startTime: number
+  endTime: number
   relevantDocs?: RelevantDocument[]
 }
