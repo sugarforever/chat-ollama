@@ -20,13 +20,17 @@ defineProps<{
       <div class="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-2 rounded"
            v-for="(relevant_document, index) in relevant_documents"
            :key="index">
-        <Source :source="relevant_document?.metadata?.source" />
-        <UPopover mode="hover" :popper="{ placement: 'right' }">
-          <pre class="line-clamp-3 text-gray-500 text-sm whitespace-break-spaces"
-               v-html="relevant_document?.pageContent" />
-          <template #panel>
-            <pre class="p-4 text-gray-500 text-sm whitespace-break-spaces"
+        <UPopover mode="hover">
+          <div>
+            <Source :source="relevant_document?.metadata?.source" />
+            <pre class="line-clamp-3 text-gray-500 text-sm whitespace-break-spaces"
                  v-html="relevant_document?.pageContent" />
+          </div>
+          <template #panel>
+            <div class="max-h-[40vh] overflow-auto">
+              <pre class="p-4 text-gray-500 text-sm whitespace-break-spaces"
+                   v-html="relevant_document?.pageContent" />
+            </div>
           </template>
         </UPopover>
       </div>
