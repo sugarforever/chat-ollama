@@ -25,10 +25,11 @@ export function useModels(options?: Options) {
   const opts = Object.assign({ immediate: true, forceReload: false }, options)
   const loading = ref(false)
   const OLLAMA_EMBEDDING_FAMILY_LIST = ['nomic-bert']
+  const embeddingRegExp = /(\b|_)embed(d?ed|d?ings?)?(\b|_)/i
 
   const chatModels = computed(() => {
     return models.value
-      .filter(el => !OLLAMA_EMBEDDING_FAMILY_LIST.includes(el?.details?.family))
+      .filter(el => !OLLAMA_EMBEDDING_FAMILY_LIST.includes(el?.details?.family) || !embeddingRegExp.test(el.name!))
       .map(el => ({
         label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`,
         name: el.name!,
@@ -39,7 +40,7 @@ export function useModels(options?: Options) {
 
   const ollamaEmbeddingModels = computed(() => {
     return models.value
-      .filter(el => OLLAMA_EMBEDDING_FAMILY_LIST.includes(el?.details?.family))
+      .filter(el => OLLAMA_EMBEDDING_FAMILY_LIST.includes(el?.details?.family) || embeddingRegExp.test(el.name!))
       .map(el => ({ label: el.name!, value: el.name!, family: el?.details?.family }))
   })
 
