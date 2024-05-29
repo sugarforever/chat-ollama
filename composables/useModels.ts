@@ -29,7 +29,7 @@ export function useModels(options?: Options) {
 
   const chatModels = computed(() => {
     return models.value
-      .filter(el => !OLLAMA_EMBEDDING_FAMILY_LIST.includes(el?.details?.family) || !embeddingRegExp.test(el.name!))
+      .filter(el => !OLLAMA_EMBEDDING_FAMILY_LIST.includes(el?.details?.family) && !embeddingRegExp.test(el.name!))
       .map(el => ({
         label: `${el?.details?.family === "Azure OpenAI" ? `Azure ${el.name}` : el.name}`,
         name: el.name!,
