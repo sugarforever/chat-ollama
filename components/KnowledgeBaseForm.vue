@@ -60,10 +60,6 @@ const tabs = computed(() => {
   ]
 })
 
-watch(embeddingList, (list) => {
-  showEmbeddingDropdown.value = list.flat().length > 0
-})
-
 async function onSubmit() {
   loading.value = true
   const formData = new FormData()
@@ -157,7 +153,7 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
           <div class="flex">
             <UDropdown v-model:open="showEmbeddingDropdown"
                        :items="embeddingList"
-                       :ui="{ item: { disabled: 'pointer-events-none' } }"
+                       :ui="{ item: { disabled: 'pointer-events-none' }, width: 'w-auto' }"
                        :popper="{ placement: 'bottom-start' }">
               <div></div>
               <template #group="{ item }">
