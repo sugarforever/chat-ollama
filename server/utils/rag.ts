@@ -81,9 +81,7 @@ export const ingestDocument = async (
   }
 
   const embeddings = createEmbeddings(embedding, event)
-  const retriever = await createRetriever(embeddings, collectionName)
-
-  await retriever.addDocuments(docs)
+  await createRetriever(embeddings, collectionName, docs)
 
   console.log(`${docs.length} documents added to collection ${collectionName}.`)
 }
