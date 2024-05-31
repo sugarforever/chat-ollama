@@ -5,7 +5,7 @@ services:
       - "8000:8000"
     restart: always
     volumes:
-      - chromadb_data:/chroma/.chroma/index
+      - chromadb_data:/chroma/chroma
 
   chatollama:
     environment:
