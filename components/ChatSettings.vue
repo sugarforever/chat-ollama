@@ -13,9 +13,11 @@ const props = defineProps<{
   sessionId: number
   onClose: () => void
   onUpdated?: (data: UpdatedOptions) => void
+  onClear?: () => void
 }>()
 
 const { t } = useI18n()
+const confirm = useDialog('confirm')
 
 const defaultConfig = {
   instructionId: 0,
@@ -43,6 +45,16 @@ onMounted(() => {
       Object.assign(state, pick(res, Object.keys(state) as (keyof typeof state)[]))
     })
 })
+
+function onClearHistory() {
+  props.onClose()
+  nextTick(() => {
+    confirm(t('chat.clearConfirmTip')).then(async () => {
+      await clientDB.chatHistories.where('sessionId').equals(props.sessionId).delete()
+      props.onClear?.()
+    }).catch(noop)
+  })
+}
 
 async function onSave() {
   const knowledgeBaseInfo = knowledgeBases.find(el => el.id === state.knowledgeBaseId)
@@ -101,6 +113,9 @@ async function onReset() {
             <URange v-model="state.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
           </div>
         </UFormGroup>
+        <div class="text-center mt-6">
+          <UButton icon="i-material-symbols-delete-history" color="red" @click="onClearHistory">{{ t('chat.clearBtn') }}</UButton>
+        </div>
         <template #footer>
           <div class="text-right">
             <UButton color="gray" class="mr-2" @click="onReset">{{ t("chat.resetToDefault") }}</UButton>

@@ -90,7 +90,9 @@
     "selectInstruction": "选择指令",
     "resend": "重发",
     "noModelFound": "没有找到模型",
-    "noModelFoundDesc": "请先在模型管理页面下载模型"
+    "noModelFoundDesc": "请先在模型管理页面下载模型",
+    "clearBtn": "清空历史消息",
+    "clearConfirmTip": "确定要清空该对话的所有历史消息吗？"
   },
   "settings": {
     "ollamaServer": "Ollama 服务",
