@@ -90,7 +90,9 @@
     "selectInstruction": "Select an Instruction",
     "resend": "Resend",
     "noModelFound": "No model found",
-    "noModelFoundDesc": "Please download a model first."
+    "noModelFoundDesc": "Please download a model first.",
+    "clearBtn": "Clear history messages",
+    "clearConfirmTip": "Are you sure you want to clear all history messages for this conversation?"
   },
   "settings": {
     "ollamaServer": "Ollama Server",
@@ -158,9 +160,10 @@
     "userName": "User Name",
     "password": "Password",
     "streamError": "The browser doesn't support streaming responses.",
-    "confirmText": "confirm",
-    "cancelText": "cancel",
+    "confirmText": "Confirm",
+    "cancelText": "Cancel",
     "selectModel": "Select a model",
-    "selectModels": "Select models"
+    "selectModels": "Select models",
+    "confirmTitle": "Confirm action"
   }
 }

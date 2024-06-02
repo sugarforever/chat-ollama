@@ -90,7 +90,9 @@
     "selectInstruction": "选择指令",
     "resend": "重发",
     "noModelFound": "没有找到模型",
-    "noModelFoundDesc": "请先在模型管理页面下载模型"
+    "noModelFoundDesc": "请先在模型管理页面下载模型",
+    "clearBtn": "清空历史消息",
+    "clearConfirmTip": "确定要清空该对话的所有历史消息吗？"
   },
   "settings": {
     "ollamaServer": "Ollama 服务",
@@ -158,6 +160,7 @@
     "userName": "用户名称",
     "password": "密码",
     "streamError": "您的浏览器不支持流式响应，请使用最新版本的浏览器。",
+    "confirmTitle": "确定操作",
     "confirmText": "确定",
     "cancelText": "取消",
     "selectModel": "选择模型",

@@ -223,6 +223,9 @@ function onOpenSettings() {
       instructionInfo.value = data.instructionInfo
 
       emits('changeSettings', updatedSessionInfo)
+    },
+    onClear: () => {
+      messages.value = []
     }
   })
 }
