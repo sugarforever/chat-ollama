@@ -158,6 +158,7 @@
     "userName": "用户名称",
     "password": "密码",
     "streamError": "您的浏览器不支持流式响应，请使用最新版本的浏览器。",
+    "confirmTitle": "确定操作",
     "confirmText": "确定",
     "cancelText": "取消",
     "selectModel": "选择模型",

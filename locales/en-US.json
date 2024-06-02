@@ -158,9 +158,10 @@
     "userName": "User Name",
     "password": "Password",
     "streamError": "The browser doesn't support streaming responses.",
-    "confirmText": "confirm",
-    "cancelText": "cancel",
+    "confirmText": "Confirm",
+    "cancelText": "Cancel",
     "selectModel": "Select a model",
-    "selectModels": "Select models"
+    "selectModels": "Select models",
+    "confirmTitle": "Confirm action"
   }
 }

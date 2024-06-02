@@ -19,7 +19,7 @@ export function useDialog(type: 'modal' | 'confirm' | 'alert') {
     props: {
       title: {
         type: String,
-        default: 'Confirm Action',
+        default: t('global.confirmTitle'),
       },
       description: {
         type: String as PropType<string | VNode>,
