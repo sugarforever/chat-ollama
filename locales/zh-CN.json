@@ -69,7 +69,6 @@
   "chat": {
     "newChat": "新建对话",
     "allChats": "所有对话",
-    "messagesCount": "{0} 条消息",
     "untitled": "无标题",
     "modifyTips": "修改当前会话配置",
     "currentModel": "当前模型",
@@ -92,7 +91,9 @@
     "noModelFound": "没有找到模型",
     "noModelFoundDesc": "请先在模型管理页面下载模型",
     "clearBtn": "清空历史消息",
-    "clearConfirmTip": "确定要清空该对话的所有历史消息吗？"
+    "clearConfirmTip": "确定要清空该对话的所有历史消息吗？",
+    "pin": "置顶",
+    "unpin": "取消置顶"
   },
   "settings": {
     "ollamaServer": "Ollama 服务",

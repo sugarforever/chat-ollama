@@ -69,7 +69,6 @@
   "chat": {
     "newChat": "New Chat",
     "allChats": "All Chats",
-    "messagesCount": "{0} Messages",
     "untitled": "Untitled",
     "modifyTips": "Modify the current session configuration",
     "currentModel": "Current Model",
@@ -92,7 +91,9 @@
     "noModelFound": "No model found",
     "noModelFoundDesc": "Please download a model first.",
     "clearBtn": "Clear history messages",
-    "clearConfirmTip": "Are you sure you want to clear all history messages for this conversation?"
+    "clearConfirmTip": "Are you sure you want to clear all history messages for this conversation?",
+    "pin": "Pin",
+    "unpin": "Unpin"
   },
   "settings": {
     "ollamaServer": "Ollama Server",

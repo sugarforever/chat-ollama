@@ -20,7 +20,6 @@ function onChangeSettings(data: ChatSessionSettings) {
 function onMessage(data: ChatMessage | null) {
   // remove a message if it's null
   if (data === null) {
-    chatSessionListRef.value?.updateMessageCount(-1)
     return
   }
 
@@ -29,7 +28,6 @@ function onMessage(data: ChatMessage | null) {
     updateTime: data.endTime || data.startTime,
   })
   if (latestMessageId.value !== data.id) {
-    chatSessionListRef.value?.updateMessageCount(1)
     latestMessageId.value = data.id!
   }
 }
