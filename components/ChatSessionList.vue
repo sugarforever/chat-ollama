@@ -1,12 +1,15 @@
 <script lang="ts" setup>
 import { useStorage } from '@vueuse/core'
+import { USlideover } from '#components'
 
 const emits = defineEmits<{
   select: [sessionId: number]
+  closePanel: []
 }>()
 
 const { t } = useI18n()
 const createChatSession = useCreateChatSession()
+const { isMobile } = useMediaBreakpoints()
 
 const sessionList = ref<ChatSession[]>([])
 const currentSessionId = useStorage<number>('currentSessionId', 0)
@@ -105,18 +108,20 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
 </script>
 
 <template>
-  <div class="h-full box-border border-r dark:border-gray-800">
+  <Component :is="isMobile ? USlideover : 'div'"
+             :class="isMobile ? 'w-[80vw] max-w-[400px] h-full' : 'border-r dark:border-gray-800'"
+             class="h-full box-border">
     <div class="p-3 border-b border-primary-400/30 flex items-center">
       <h3 class="text-primary-600 dark:text-primary-300 mr-auto">{{ t("chat.allChats") }} ({{ sessionList.length }})</h3>
       <UTooltip :text="t('chat.newChat')" :popper="{ placement: 'top' }">
         <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat"></UButton>
       </UTooltip>
+      <UButton icon="i-material-symbols-close-rounded" color="gray" class="md:hidden ml-4" @click="emits('closePanel')"></UButton>
     </div>
     <TransitionGroup tag="div" name="list" class="h-[calc(100%-57px)] overflow-auto">
       <div v-for="item in sessionList" :key="item.id"
-           class="session-item relative box-border p-2 cursor-pointer dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/30 border-b border-gray-100 dark:border-gray-900"
-
-           :class="{ '!bg-primary-300/10': item.isTop }"
+           class="session-item relative box-border p-2 cursor-pointer dark:text-gray-300 border-b border-gray-100 dark:border-gray-100/5"
+           :class="item.isTop ? 'bg-primary-300/10 dark:bg-primary-800/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'"
            @click="onSelectChat(item.id!)">
         <div class="w-full flex items-center text-sm h-[32px]">
           <div class="line-clamp-1 grow opacity-80"
@@ -130,7 +135,7 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
         <div v-if="item.isTop" class="triangle"></div>
       </div>
     </TransitionGroup>
-  </div>
+  </Component>
 </template>
 
 <style lang="scss" scoped>

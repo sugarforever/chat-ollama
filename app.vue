@@ -3,6 +3,7 @@
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    <USlideovers />
     <UModals />
   </div>
 </template>

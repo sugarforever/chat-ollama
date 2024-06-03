@@ -93,7 +93,8 @@
     "clearBtn": "清空历史消息",
     "clearConfirmTip": "确定要清空该对话的所有历史消息吗？",
     "pin": "置顶",
-    "unpin": "取消置顶"
+    "unpin": "取消置顶",
+    "stop": "停止"
   },
   "settings": {
     "ollamaServer": "Ollama 服务",

@@ -275,14 +275,16 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
 </script>
 
 <template>
-  <div class="flex flex-col box-border dark:text-gray-300 -mx-4">
+  <div class="flex flex-col box-border dark:text-gray-300 md:-mx-4">
     <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
+      <slot name="left-menu-btn"></slot>
       <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
                       :title="instructionInfo.name"
-                      :description="instructionInfo.instruction" />
+                      :description="instructionInfo.instruction"
+                      class="hidden md:block" />
       <ChatConfigInfo v-if="knowledgeBaseInfo" icon="i-heroicons-book-open"
                       :title="knowledgeBaseInfo.name"
-                      class="mx-2" />
+                      class="mx-2 hidden md:block" />
       <div class="mx-auto px-4 text-center">
         <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
         <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>

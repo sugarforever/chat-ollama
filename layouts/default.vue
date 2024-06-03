@@ -10,8 +10,8 @@ watch(() => route.path, () => {
 </script>
 
 <template>
-  <div class="border-b border-gray-200 dark:border-gray-700" style="--top-height: 48px;">
-    <div class="flex items-center justify-between max-w-6xl mx-auto px-4 h-[var(--top-height)]">
+  <div class="border-b border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between max-w-6xl mx-auto px-4 box-border h-[var(--top-height)]">
       <h1 class="flex flex-row items-center mr-2">
         <TheLogo class="w-[32px] h-[32px] mr-2" />
         <span class="text-primary font-semibold text-lg">{{ $config.public.appName }}</span>
@@ -42,7 +42,7 @@ watch(() => route.path, () => {
       </div>
     </div>
   </div>
-  <div id="main" class="p-4 box-border overflow-auto" style="height: calc(100% - 61px)">
+  <div id="main" class="p-2 md:p-4 box-border overflow-auto" style="height: calc(100% - var(--top-height) - 1px)">
     <slot />
   </div>
   <UNotifications />

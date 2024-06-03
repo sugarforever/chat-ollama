@@ -93,7 +93,8 @@
     "clearBtn": "Clear history messages",
     "clearConfirmTip": "Are you sure you want to clear all history messages for this conversation?",
     "pin": "Pin",
-    "unpin": "Unpin"
+    "unpin": "Unpin",
+    "stop": "Stop"
   },
   "settings": {
     "ollamaServer": "Ollama Server",
