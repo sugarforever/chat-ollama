@@ -16,6 +16,7 @@ const emits = defineEmits<{
   stop: []
 }>()
 
+const { isMobile } = useMediaBreakpoints()
 const { t } = useI18n()
 const submitMode = useStorage<SubmitMode>('sendMode', 'enter')
 const state = reactive<ChatBoxFormData>({
@@ -23,7 +24,7 @@ const state = reactive<ChatBoxFormData>({
 })
 const tip = computed(() => {
   const s = sendModeList.value[0].find(el => el.value === submitMode.value)?.label || ''
-  return `(${s})`
+  return ` (${s})`
 })
 const isFocus = ref(false)
 const sendModeList = computed(() => {
@@ -37,6 +38,7 @@ const sendModeList = computed(() => {
 const disabledBtn = computed(() => {
   return props.disabled || (!props.loading && !state.content.trim())
 })
+const btnTip = computed(() => props.loading ? t('chat.stop') : (isMobile.value ? '' : tip.value))
 
 defineExpose({
   reset: onReset
@@ -76,11 +78,11 @@ function onReset() {
         <slot></slot>
         <div class="flex items-center ml-auto">
           <ClientOnly>
-            <UButton type="submit" :disabled="disabledBtn" class="send-btn"
+            <UButton type="submit" :disabled="disabledBtn" :class="{ 'send-btn': !isMobile }"
                      :icon="loading ? 'i-iconoir-square' : 'i-iconoir-send-diagonal'" @click="onStop">
-              <span class="text-xs tip-text">{{ loading ? ' Stop' : tip }}</span>
+              <span class="text-xs tip-text" v-show="btnTip">{{ btnTip }}</span>
             </UButton>
-            <UDropdown :items="sendModeList" :popper="{ placement: 'top-end' }">
+            <UDropdown v-if="!isMobile" :items="sendModeList" :popper="{ placement: 'top-end' }">
               <UButton trailing-icon="i-heroicons-chevron-down-20-solid" class="arrow-btn" />
             </UDropdown>
           </ClientOnly>

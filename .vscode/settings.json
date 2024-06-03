@@ -23,7 +23,8 @@
     "groq",
     "jina",
     "knowledgebase",
-    "nuxt"
+    "nuxt",
+    "Slideover"
   ],
   "i18n-ally.localesPaths": [
     "locales"
