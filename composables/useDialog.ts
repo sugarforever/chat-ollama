@@ -62,10 +62,11 @@ export function useDialog(type: 'modal' | 'confirm' | 'alert') {
               h(LazyUButton, {
                 icon: 'i-material-symbols-close-rounded',
                 color: 'gray',
-                onClick: () => {
+                onClick: props.onClose,
+                onTouchstart: (e: TouchEvent) => {
+                  e.stopPropagation()
                   props.onClose()
-                  props.onDone()
-                }
+                },
               })
             ]),
             default: props.component
@@ -77,9 +78,23 @@ export function useDialog(type: 'modal' | 'confirm' | 'alert') {
               ? undefined
               : () => h('div', { class: 'flex justify-end gap-2' }, [
                 type === 'confirm'
-                  ? h(LazyUButton, { color: 'gray', class: 'mr-2', onClick: props.onClose }, { default: () => props.cancelText })
+                  ? h(LazyUButton, {
+                    color: 'gray',
+                    class: 'mr-2',
+                    onClick: props.onClose,
+                    onTouchstart: (e: TouchEvent) => {
+                      e.stopPropagation()
+                      props.onClose()
+                    },
+                  }, { default: () => props.cancelText })
                   : null,
-                h(LazyUButton, { onClick: props.onDone }, { default: () => props.confirmText }),
+                h(LazyUButton, {
+                  onClick: props.onDone,
+                  onTouchstart: (e: TouchEvent) => {
+                    e.stopPropagation()
+                    props.onDone()
+                  },
+                }, { default: () => props.confirmText }),
               ])
           })
         ]
