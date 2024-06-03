@@ -21,7 +21,7 @@ const buttons = computed(() => {
     { label: t('chat.pin'), type: 'pin', icon: 'i-material-symbols-keep-outline', color: 'gray', class: '', visible: !props.data.isTop },
     { label: t('chat.unpin'), type: 'unpin', icon: 'i-material-symbols-keep-off-outline', color: 'gray', class: '', visible: props.data.isTop },
     { label: t('chat.deleteChat'), type: 'delete', icon: 'i-material-symbols-delete-outline', color: 'red', class: '', visible: true },
-  ]
+  ] as const
 })
 
 function onClick(type: 'pin' | 'unpin' | 'delete') {
@@ -42,7 +42,15 @@ function onClick(type: 'pin' | 'unpin' | 'delete') {
 
 <template>
   <div v-if="isTouchDevice" class="flex">
-    <UButton v-for="item in buttons" :key="item.type" :icon="item.icon" color="gray" variant="ghost" size="sm" class="opacity-50"></UButton>
+    <template v-for="item in buttons" :key="item.type">
+      <UButton v-if="item.visible"
+               :icon="item.icon"
+               color="gray"
+               variant="ghost"
+               size="sm"
+               class="opacity-50 mx-2"
+               @click="onClick(item.type)"></UButton>
+    </template>
   </div>
   <UPopover v-else v-model:open="open" mode="hover">
     <UButton icon="i-material-symbols-more-vert" variant="link" color="gray" size="sm" class="opacity-50"></UButton>
@@ -54,7 +62,8 @@ function onClick(type: 'pin' | 'unpin' | 'delete') {
                    :color="item.color"
                    variant="ghost"
                    :class="{ 'border-t dark:border-gray-800': i > 0 }"
-                   class="rounded-none px-4">{{ item.label }}</UButton>
+                   class="rounded-none px-4"
+                   @click="onClick(item.type)">{{ item.label }}</UButton>
         </template>
       </div>
     </template>
