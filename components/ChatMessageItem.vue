@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { MODEL_FAMILY_SEPARATOR } from '~/config'
 import type { ChatMessage } from '~/types/chat'
 
 const props = defineProps<{
@@ -32,7 +31,7 @@ const timeUsed = computed(() => {
 })
 
 const modelName = computed(() => {
-  return props.message.model.split(MODEL_FAMILY_SEPARATOR)
+  return parseModelValue(props.message.model)
 })
 
 watch(() => props.showToggleButton, (value) => {
@@ -46,8 +45,8 @@ watch(() => props.showToggleButton, (value) => {
     <div class="text-gray-500 dark:text-gray-400 p-1">
       <Icon v-if="message.role === 'user'" name="i-material-symbols-account-circle" class="text-lg" />
       <div v-else class="text-sm flex items-center">
-        <UTooltip :text="modelName[0]" :popper="{ placement: 'top' }">
-          <span class="text-primary/80">{{ modelName[1] }}</span>
+        <UTooltip :text="modelName.family" :popper="{ placement: 'top' }">
+          <span class="text-primary/80">{{ modelName.name }}</span>
         </UTooltip>
         <template v-if="timeUsed > 0">
           <span class="mx-2 text-muted/20 text-xs">|</span>

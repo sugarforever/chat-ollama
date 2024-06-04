@@ -28,6 +28,8 @@ export type WorkerSendMessage = { uid: number, sessionId: number, id: number, } 
   | { type: 'abort' }
 )
 
+const MODEL_FAMILY_SEPARATOR = '/'
+
 let db: typeof clientDB
 import('~/composables/clientDB').then(mod => {
   db = mod.clientDB
@@ -37,6 +39,11 @@ const abortHandlerMap = new Map<string /** sessionId:uid */, () => void>()
 
 function sendMessageToMain(data: WorkerSendMessage) {
   postMessage(data)
+}
+
+function parseModelValue(val: string) {
+  const [family, ...parts] = val.split(MODEL_FAMILY_SEPARATOR)
+  return { family, name: parts.join(MODEL_FAMILY_SEPARATOR) }
 }
 
 async function chatRequest(uid: number, data: RequestData, headers: Record<string, any>) {
@@ -51,7 +58,7 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
     sendMessageToMain({ uid, id, sessionId: data.sessionId, type: 'abort' })
   })
 
-  const [family, model] = data.model.split('/')
+  const { family, name: model } = parseModelValue(data.model)
 
   const response = await fetch('/api/models/chat', {
     method: 'POST',

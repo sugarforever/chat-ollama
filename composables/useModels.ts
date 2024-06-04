@@ -89,3 +89,8 @@ export function useModels(options?: Options) {
 
   return { models, chatModels, ollamaEmbeddingModels, loadModels, loading }
 }
+
+export function parseModelValue(val: string) {
+  const [family, ...parts] = val.split(MODEL_FAMILY_SEPARATOR)
+  return { family, name: parts.join(MODEL_FAMILY_SEPARATOR) }
+}
