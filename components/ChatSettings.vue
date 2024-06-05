@@ -48,12 +48,12 @@ onMounted(() => {
 
 function onClearHistory() {
   props.onClose()
-  nextTick(() => {
+  setTimeout(() => {
     confirm(t('chat.clearConfirmTip')).then(async () => {
       await clientDB.chatHistories.where('sessionId').equals(props.sessionId).delete()
       props.onClear?.()
     }).catch(noop)
-  })
+  }, 50)
 }
 
 async function onSave() {
