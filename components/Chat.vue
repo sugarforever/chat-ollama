@@ -209,7 +209,7 @@ async function onAbortChat() {
 function onOpenSettings() {
   modal.open(ChatSettings, {
     sessionId: props.sessionId!,
-    onClose: () => modal.close(),
+    onClose: () => modal.reset(),
     onUpdated: data => {
       const updatedSessionInfo: Partial<ChatSession> = {
         title: data.title,
