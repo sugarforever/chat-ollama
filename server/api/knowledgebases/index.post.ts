@@ -62,6 +62,7 @@ export default defineEventHandler(async (event) => {
           id: affected.id
         }
       })
+      console.log('Failed to ingest documents. Deleted knowledge base with id ', affected.id)
       throw e
     }
   })
