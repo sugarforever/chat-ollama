@@ -52,39 +52,21 @@ export default defineEventHandler(async (event) => {
   })
   console.log(`Created knowledge base ${name}: ${affected.id} by ${currentUser ? currentUser.name : 'anonymous'}`)
 
-  try {
-    await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event)
-    for (const uploadedFile of uploadedFiles) {
-      const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
-        data: {
-          url: uploadedFile.filename!,
-          knowledgeBaseId: affected.id
+  setImmediate(async () => {
+    try {
+      await ingestDocument(uploadedFiles, affected, `collection_${affected.id}`, affected.embedding!, event)
+      await ingestURLs(urls, affected, `collection_${affected.id}`, affected.embedding!, event)
+    } catch (e) {
+      await prisma.knowledgeBase.delete({
+        where: {
+          id: affected.id
         }
       })
-
-      console.log("KnowledgeBaseFile with ID: ", createdKnowledgeBaseFile.id)
+      throw e
     }
+  })
 
-    const allUrls = await ingestURLs(urls, `collection_${affected.id}`, affected.embedding!, event)
-    for (const url of allUrls) {
-      const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
-        data: {
-          url: url,
-          knowledgeBaseId: affected.id
-        }
-      })
-
-      console.log("Knowledge base file created with ID: ", createdKnowledgeBaseFile.id)
-    }
-  } catch (e) {
-    await prisma.knowledgeBase.delete({
-      where: {
-        id: affected.id
-      }
-    })
-    throw e
-  }
-
+  console.log("Created knowledge base: ", affected.id)
   return {
     status: "success"
   }
