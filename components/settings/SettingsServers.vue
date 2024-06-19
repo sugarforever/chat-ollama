@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContextKeys } from '~/server/middleware/keys'
-import { keysStore } from '~/utils/settings'
+import { keysStore, DEFAULT_KEYS_STORE } from '~/utils/settings'
 import type { PickupPathKey, TransformTypes } from '~/types/helper'
 
 const { t } = useI18n()
@@ -70,6 +70,8 @@ const LLMList = computed<LLMListItem[]>(() => {
       title: t('settings.gemini'),
       fields: [
         { label: t('settings.apiKey'), value: 'gemini.key', type: 'password', placeholder: t('settings.apiKey') },
+        { label: t('settings.endpoint'), value: 'gemini.endpoint', type: 'input', placeholder: t('global.optional'), rule: 'url' },
+        { label: t('settings.proxy'), value: 'gemini.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
       ]
     },
     {
@@ -102,7 +104,7 @@ const validate = (data: typeof state) => {
 }
 
 const onSubmit = async () => {
-  keysStore.value = recursiveObject(keysStore.value, (keyPaths, value) => {
+  keysStore.value = recursiveObject(DEFAULT_KEYS_STORE, (keyPaths, value) => {
     const key = keyPaths.join('.') as keyof typeof state
     return key in state ? state[key] : value
   })

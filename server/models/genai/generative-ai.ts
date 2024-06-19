@@ -33,6 +33,7 @@ export type BaseMessageExamplePair = {
  * An interface defining the input to the ChatGoogleGenerativeAI class.
  */
 export interface GoogleGenerativeAIChatInput extends BaseChatModelParams {
+  baseUrl?: string
   /**
      * Version of API endpoint to call (e.g. "v1" or "v1beta"). If not specified,
      * defaults to latest stable version.
@@ -268,7 +269,7 @@ export class ChatGoogleGenerativeAI
         topP: this.topP,
         topK: this.topK,
       },
-    }, { apiVersion: this.apiVersion })
+    }, { apiVersion: this.apiVersion, baseUrl: fields?.baseUrl })
   }
 
   _combineLLMOutput() {

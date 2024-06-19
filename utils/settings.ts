@@ -7,7 +7,7 @@ function getLocalValue(key: string) {
   return process.server ? '' : (localStorage.getItem(key) || '')
 }
 
-export const keysStore = useStorage<ContextKeys>('keys', {
+export const DEFAULT_KEYS_STORE: ContextKeys = {
   ollama: {
     endpoint: getLocalValue('ollama.host'),
     username: getLocalValue('ollama.username'),
@@ -35,13 +35,17 @@ export const keysStore = useStorage<ContextKeys>('keys', {
   },
   gemini: {
     key: getLocalValue('keys.gemini_api_key'),
+    proxy: false,
+    endpoint: '',
   },
   groq: {
     key: getLocalValue('keys.groq_api_key'),
     endpoint: getLocalValue('keys.groq_api_host'),
     proxy: false,
   },
-} as ContextKeys)
+}
+
+export const keysStore = useStorage<ContextKeys>('keys', DEFAULT_KEYS_STORE)
 
 export const getKeysHeader = () => ({ 'x-chat-ollama-keys': JSON.stringify(keysStore.value) })
 
