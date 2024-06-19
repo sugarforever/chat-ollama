@@ -28,6 +28,8 @@ export interface ContextKeys {
   },
   gemini: {
     key: string
+    endpoint: string
+    proxy: boolean
   },
   groq: {
     key: string

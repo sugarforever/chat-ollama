@@ -88,11 +88,12 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
       modelName: modelName
     })
   } else if (family === MODEL_FAMILIES.gemini && GEMINI_MODELS.includes(modelName)) {
-    console.log(`Chat with Gemini ${modelName}`)
+    console.log(`Chat with Gemini ${modelName}, host:`, keys.gemini.endpoint)
     chat = new ChatGoogleGenerativeAI({
       apiVersion: "v1beta",
       apiKey: keys.gemini.key,
-      modelName: modelName
+      modelName: modelName,
+      baseUrl: getProxyEndpoint(keys.gemini.endpoint, keys.gemini.proxy),
     })
   } else if (family === MODEL_FAMILIES.groq && GROQ_MODELS.includes(modelName)) {
     // @langchain/grop does not support configuring groq's baseURL, but groq sdk supports receiving environment variables.
