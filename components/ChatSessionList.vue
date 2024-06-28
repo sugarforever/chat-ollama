@@ -120,19 +120,23 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
     </div>
     <TransitionGroup tag="div" name="list" class="h-[calc(100%-57px)] overflow-auto">
       <div v-for="item in sessionList" :key="item.id"
-           class="session-item relative box-border p-2 cursor-pointer dark:text-gray-300 border-b border-gray-100 dark:border-gray-100/5"
-           :class="item.isTop ? 'bg-primary-300/10 dark:bg-primary-800/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'"
+           class="session-item relative box-border p-2 cursor-pointer dark:text-gray-300 border-b border-b-gray-100 dark:border-b-gray-100/5 border-l-2"
+           :class="[
+            item.isTop ? 'bg-primary-300/10 dark:bg-primary-800/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30',
+            currentSessionId === item.id ? 'border-l-pink-700/80 dark:border-l-pink-400/80' : 'border-l-transparent'
+          ]"
            @click="onSelectChat(item.id!)">
         <div class="w-full flex items-center text-sm h-[32px]">
-          <div class="line-clamp-1 grow opacity-80"
-               :class="currentSessionId === item.id ? 'text-pink-700  dark:text-pink-400 font-bold' : 'opacity-80'">{{ item.title || `${t("chat.newChat")} ${item.id}` }}</div>
+          <div class="line-clamp-1 grow"
+               :class="currentSessionId === item.id ? 'text-pink-700  dark:text-pink-400 font-bold' : 'opacity-80'">
+            {{ item.title || `${t("chat.newChat")} ${item.id}` }}
+          </div>
           <ChatSessionListActionMore :data="item"
                                      class="action-more"
                                      @pin="onTopChat(item, 'up')"
                                      @unpin="onTopChat(item, 'down')"
                                      @delete="onDeleteChat(item)" />
         </div>
-        <div v-if="item.isTop" class="triangle"></div>
       </div>
     </TransitionGroup>
   </Component>
@@ -154,18 +158,6 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
       display: block;
     }
   }
-}
-
-.triangle {
-  $size: 6px;
-  width: 0;
-  height: 0;
-  position: absolute;
-  top: -$size;
-  left: -$size;
-  border: $size solid transparent;
-  border-top-color: rgba(var(--color-primary-500) / 0.6);
-  transform: rotate(135deg);
 }
 
 .list-enter-active,
