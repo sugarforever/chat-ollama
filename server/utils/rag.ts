@@ -9,6 +9,7 @@ import { MultiPartData, H3Event } from 'h3'
 import { createRetriever } from '@/server/retriever'
 import type { PageParser } from '@/server/types'
 import { RecursiveUrlLoader, type RecursiveUrlLoaderOptions } from '@/server/utils/recursiveUrlLoader'
+import { KnowledgeBase } from '@prisma/client'
 
 export const loadDocuments = async (file: MultiPartData) => {
   const Loaders = {
@@ -68,6 +69,7 @@ export const loadURL = async (url: string, options: LoadUrlOptions) => {
 
 export const ingestDocument = async (
   files: MultiPartData[],
+  knowledgeBase: KnowledgeBase,
   collectionName: string,
   embedding: string,
   event: H3Event
@@ -75,9 +77,30 @@ export const ingestDocument = async (
   const docs = []
 
   for (const file of files) {
+    const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
+      data: {
+        url: file.filename!,
+        knowledgeBaseId: knowledgeBase.id,
+        status: 0
+      }
+    })
+
+    console.log(`KnowledgeBaseFile with ID: ${createdKnowledgeBaseFile.id}, status 0`)
+
     const loadedDocs = await loadDocuments(file)
     loadedDocs.forEach((doc) => doc.metadata.source = file.filename)
     docs.push(...loadedDocs)
+
+    await prisma.knowledgeBaseFile.update({
+      where: {
+        id: createdKnowledgeBaseFile.id
+      },
+      data: {
+        status: 1
+      }
+    })
+
+    console.log(`Updated KnowledgeBaseFile with ID: ${createdKnowledgeBaseFile.id} to status 1`)
   }
 
   const embeddings = createEmbeddings(embedding, event)
@@ -88,30 +111,46 @@ export const ingestDocument = async (
 
 export const ingestURLs = async (
   urls: string[],
+  knowledgeBase: KnowledgeBase,
   collectionName: string,
   embedding: string,
   event: H3Event
 ) => {
-  const docs: Document[] = []
+  const embeddings = createEmbeddings(embedding, event)
+  const retriever = await createRetriever(embeddings, collectionName)
   const entryAndChildUrls = new Set<string>()
   const { pageParser, maxDepth, excludeGlobs } = await parseKnowledgeBaseFormRequest(event)
 
   for (const url of urls) {
     const loadedDocs = await loadURL(url, { pageParser, maxDepth, excludeGlobs })
-    loadedDocs.forEach(doc => {
-      docs.push(doc)
-      entryAndChildUrls.add(doc.metadata.source.replace(/\/$/, ''))
-    })
+
+    for (const doc of loadedDocs) {
+      const url = doc.metadata.source.replace(/\/$/, '')
+
+      const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
+        data: {
+          url: url,
+          knowledgeBaseId: knowledgeBase.id,
+          status: 0
+        }
+      })
+
+      console.log(`Knowledge base file with URL ${url} created with ID: ${createdKnowledgeBaseFile.id}`)
+
+      await retriever.addDocuments([doc])
+      await prisma.knowledgeBaseFile.update({
+        where: {
+          id: createdKnowledgeBaseFile.id
+        },
+        data: {
+          status: 1
+        }
+      })
+
+      console.log(`Knowledge base file with URL ${url} updated to status 1`)
+    }
+    entryAndChildUrls.add(url)
   }
-
-  const embeddings = createEmbeddings(embedding, event)
-  const retriever = await createRetriever(embeddings, collectionName)
-
-  await retriever.addDocuments(docs)
-
-  console.log(`${docs.length} URLs added to collection ${collectionName}.`)
-
+  console.log(`${entryAndChildUrls.size} URLs added to collection ${collectionName}.`)
   console.log('All URLs:', entryAndChildUrls)
-
-  return entryAndChildUrls
 }
