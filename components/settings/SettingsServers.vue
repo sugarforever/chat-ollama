@@ -11,6 +11,7 @@ type PathKeys = PickupPathKey<Omit<ContextKeys, 'custom'>>
 const { t } = useI18n()
 const toast = useToast()
 const modal = useModal()
+const { loadModels } = useModels({ forceReload: true })
 
 interface LLMListItem {
   key: string
@@ -115,6 +116,7 @@ const onSubmit = async () => {
     const key = keyPaths.join('.') as keyof typeof state
     return key in state ? state[key] : value
   })
+  loadModels()
 
   toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
 }
@@ -147,6 +149,7 @@ function onUpdateCustomServer(data: ContextKeys['custom'][number]) {
   const index = state.custom.findIndex(el => el.name === currentCustomServer.value!.name)
   state.custom[index] = data
   keysStore.value.custom.splice(index, 1, data)
+  loadModels()
   toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
 }
 
@@ -155,6 +158,7 @@ function onRemoveCustomServer() {
   state.custom.splice(index, 1)
   keysStore.value.custom.splice(index, 1)
   currentLLM.value = LLMList.value[0].key
+  loadModels()
 }
 
 const checkHost = (key: keyof typeof state, title: string) => {
