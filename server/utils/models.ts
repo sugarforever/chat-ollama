@@ -13,6 +13,7 @@ import { type H3Event } from 'h3'
 import { type Ollama } from 'ollama'
 import { proxyTokenGenerate } from '~/server/utils/proxyToken'
 import { ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, GEMINI_EMBEDDING_MODELS, GEMINI_MODELS, GROQ_MODELS, MODEL_FAMILIES, MOONSHOT_MODELS, OPENAI_EMBEDDING_MODELS, OPENAI_GPT_MODELS } from '~/config/index'
+import type { ContextKeys } from '~/server/middleware/keys'
 
 export function isApiEmbeddingModelExists(embeddingModelName: string) {
   return [...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS].includes(embeddingModelName)
@@ -49,73 +50,97 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
   }
 }
 
-export const createChatModel = (modelName: string, family: string, event: H3Event): BaseChatModel => {
-  const keys = event.context.keys
-  let chat = null
-  if (family === MODEL_FAMILIES.openai && OPENAI_GPT_MODELS.includes(modelName)) {
-    console.log("Chat with OpenAI, host:", keys.openai?.endpoint)
-    chat = new ChatOpenAI({
-      configuration: {
-        baseURL: getProxyEndpoint(keys.openai.endpoint, keys.openai.proxy),
-      },
-      openAIApiKey: keys.openai.key,
+function openaiApiFillPath(endpoint: string) {
+  if (!/\/v\d$/i.test(endpoint)) {
+    endpoint = endpoint.replace(/\/+$/, '') + '/v1'
+  }
+  return endpoint
+}
+
+type InitChatParams = { key: string, endpoint: string, proxy?: boolean, deploymentName?: string }
+function initChat(family: string, modelName: string, params: InitChatParams, isCustomModel = false) {
+  console.log(`Chat with [${family} ${modelName}]`, params.endpoint ? `, Host: ${params.endpoint}` : '')
+  let endpoint = getProxyEndpoint(params.endpoint, params?.proxy || false)
+
+  if (family === MODEL_FAMILIES.openai && (isCustomModel || OPENAI_GPT_MODELS.includes(modelName))) {
+    return new ChatOpenAI({
+      configuration: { baseURL: openaiApiFillPath(endpoint) },
+      openAIApiKey: params.key,
       modelName: modelName,
     })
-  } else if (family === MODEL_FAMILIES.azureOpenai && AZURE_OPENAI_GPT_MODELS.includes(modelName)) {
-    console.log(`Chat with Azure OpenAI endpoint: ${keys.azureOpenai.endpoint} , deployment: ${keys.azureOpenai.deploymentName}`)
-    chat = new AzureChatOpenAI({
-      azureOpenAIEndpoint: getProxyEndpoint(keys.azureOpenai.endpoint, keys.azureOpenai.proxy),
-      azureOpenAIApiKey: keys.azureOpenai.key,
-      azureOpenAIApiDeploymentName: keys.azureOpenai.deploymentName,
+  }
+
+  if (family === MODEL_FAMILIES.azureOpenai && (isCustomModel || AZURE_OPENAI_GPT_MODELS.includes(modelName))) {
+    return new AzureChatOpenAI({
+      azureOpenAIEndpoint: endpoint,
+      azureOpenAIApiKey: params.key,
+      azureOpenAIApiDeploymentName: params.deploymentName,
       modelName: modelName,
     })
-  } else if (family === MODEL_FAMILIES.anthropic && ANTHROPIC_MODELS.includes(modelName)) {
-    console.log("Chat with Anthropic, host:", keys.anthropic.endpoint)
-    chat = new ChatAnthropic({
-      anthropicApiUrl: getProxyEndpoint(keys.anthropic.endpoint, keys.anthropic.proxy),
-      anthropicApiKey: keys.anthropic.key,
+  }
+
+  if (family === MODEL_FAMILIES.anthropic && (isCustomModel || ANTHROPIC_MODELS.includes(modelName))) {
+    return new ChatAnthropic({
+      anthropicApiUrl: endpoint,
+      anthropicApiKey: params.key,
       modelName: modelName,
     })
-  } else if (family === MODEL_FAMILIES.moonshot && MOONSHOT_MODELS.includes(modelName)) {
+  }
+
+  if (family === MODEL_FAMILIES.moonshot && (isCustomModel || MOONSHOT_MODELS.includes(modelName))) {
     // Reuse openai's sdk
-    const endpoint = keys.moonshot.endpoint || "https://api.moonshot.cn/v1"
-    console.log("Chat with Moonshot, host:", endpoint)
-    chat = new ChatOpenAI({
-      configuration: {
-        baseURL: endpoint,
-      },
-      openAIApiKey: keys.moonshot.key,
+    const endpoint = params.endpoint || "https://api.moonshot.cn/v1"
+    return new ChatOpenAI({
+      configuration: { baseURL: openaiApiFillPath(endpoint) },
+      openAIApiKey: params.key,
       modelName: modelName
     })
-  } else if (family === MODEL_FAMILIES.gemini && GEMINI_MODELS.includes(modelName)) {
-    console.log(`Chat with Gemini ${modelName}, host:`, keys.gemini.endpoint)
-    chat = new ChatGoogleGenerativeAI({
+  }
+
+  if (family === MODEL_FAMILIES.gemini && (isCustomModel || GEMINI_MODELS.includes(modelName))) {
+    return new ChatGoogleGenerativeAI({
       apiVersion: "v1beta",
-      apiKey: keys.gemini.key,
+      apiKey: params.key,
       modelName: modelName,
-      baseUrl: getProxyEndpoint(keys.gemini.endpoint, keys.gemini.proxy),
+      baseUrl: endpoint,
     })
-  } else if (family === MODEL_FAMILIES.groq && GROQ_MODELS.includes(modelName)) {
+  }
+
+  if (family === MODEL_FAMILIES.groq && (isCustomModel || GROQ_MODELS.includes(modelName))) {
     // @langchain/grop does not support configuring groq's baseURL, but groq sdk supports receiving environment variables.
-    if (keys.groq.endpoint) {
-      process.env.GROQ_BASE_URL = getProxyEndpoint(keys.groq.endpoint, keys.groq.proxy)
+    if (params.endpoint) {
+      process.env.GROQ_BASE_URL = getProxyEndpoint(params.endpoint, params?.proxy || false)
     }
-    console.log(`Chat with Groq ${modelName}`)
-    chat = new ChatGroq({
-      apiKey: keys.groq.key,
+    return new ChatGroq({
+      apiKey: params.key,
       verbose: true,
       modelName: modelName,
     })
-  } else {
-    console.log("Chat with Ollama, host:", keys.ollama.endpoint)
-    chat = new ChatOllama({
-      baseUrl: keys.ollama.endpoint,
-      model: modelName,
-      numPredict: 3000
-    })
-  };
+  }
 
-  return chat
+  return null
+}
+
+export const createChatModel = (modelName: string, family: string, event: H3Event): BaseChatModel => {
+  const keys = event.context.keys
+  const [familyValue] = Object.entries(MODEL_FAMILIES).find(([key, val]) => val === family) || []
+
+  if (familyValue) {
+    const data = keys[familyValue as Exclude<keyof ContextKeys, 'ollama' | 'custom'>]
+    return initChat(family, modelName, data)!
+  }
+
+  const customModel = keys.custom.find(el => el.name === family)
+  if (customModel && MODEL_FAMILIES.hasOwnProperty(customModel.aiType)) {
+    return initChat(MODEL_FAMILIES[customModel.aiType as keyof typeof MODEL_FAMILIES], modelName, customModel, true)!
+  }
+
+  console.log("Chat with Ollama, Host:", keys.ollama.endpoint)
+  return new ChatOllama({
+    baseUrl: keys.ollama.endpoint,
+    model: modelName,
+    numPredict: 3000
+  })
 }
 
 function getProxyEndpoint(endpoint: string, useProxy: boolean) {

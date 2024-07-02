@@ -2,16 +2,22 @@
 import type { ContextKeys } from '~/server/middleware/keys'
 import { keysStore, DEFAULT_KEYS_STORE } from '~/utils/settings'
 import type { PickupPathKey, TransformTypes } from '~/types/helper'
+import CreateCustomServer from './CreateCustomServer.vue'
+import CustomServerForm from './CustomServerForm.vue'
+import { deepClone } from '~/composables/helpers'
+
+type PathKeys = PickupPathKey<Omit<ContextKeys, 'custom'>>
 
 const { t } = useI18n()
 const toast = useToast()
+const modal = useModal()
 
 interface LLMListItem {
   key: string
   title: string
   fields: Array<{
     label: string
-    value: PickupPathKey<ContextKeys>
+    value: PathKeys
     type: 'input' | 'password' | 'checkbox'
     placeholder?: string
     rule?: 'url'
@@ -87,8 +93,9 @@ const LLMList = computed<LLMListItem[]>(() => {
 })
 
 const currentLLM = ref(LLMList.value[0].key)
-const currentLLMFields = computed(() => LLMList.value.find(el => el.key === currentLLM.value)!.fields)
+const currentLLMFields = computed(() => LLMList.value.find(el => el.key === currentLLM.value)?.fields || [])
 const state = reactive(getData())
+const currentCustomServer = computed(() => state.custom.find(el => el.name === currentLLM.value))
 
 const validate = (data: typeof state) => {
   const errors: Array<{ path: string, message: string } | null> = []
@@ -112,6 +119,44 @@ const onSubmit = async () => {
   toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
 }
 
+function onAddCustomServer() {
+  modal.open(CreateCustomServer, {
+    onClose: () => modal.close(),
+    onCreate: name => {
+      if (state.custom.some(el => el.name === name)) {
+        toast.add({ title: t(`settings.customServiceNameExists`), color: 'red' })
+        return
+      }
+      const data = {
+        name,
+        aiType: '',
+        endpoint: '',
+        key: '',
+        models: [],
+        proxy: false,
+      }
+      state.custom.push(data)
+      keysStore.value = Object.assign(keysStore.value, { custom: (keysStore.value.custom || []).concat(data) })
+      currentLLM.value = name
+      modal.close()
+    }
+  })
+}
+
+function onUpdateCustomServer(data: ContextKeys['custom'][number]) {
+  const index = state.custom.findIndex(el => el.name === currentCustomServer.value!.name)
+  state.custom[index] = data
+  keysStore.value.custom.splice(index, 1, data)
+  toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
+}
+
+function onRemoveCustomServer() {
+  const index = state.custom.findIndex(el => el.name === currentCustomServer.value!.name)
+  state.custom.splice(index, 1)
+  keysStore.value.custom.splice(index, 1)
+  currentLLM.value = LLMList.value[0].key
+}
+
 const checkHost = (key: keyof typeof state, title: string) => {
   const url = state[key]
   if (!url || (typeof url === 'string' && /^https?:\/\//i.test(url))) return null
@@ -120,12 +165,14 @@ const checkHost = (key: keyof typeof state, title: string) => {
 }
 
 function getData() {
-  return LLMList.value.reduce((acc, cur) => {
+  const data = LLMList.value.reduce((acc, cur) => {
     cur.fields.forEach(el => {
       (acc as any)[el.value] = el.value.split('.').reduce((a, c) => (a as any)[c], keysStore.value)
     })
     return acc
-  }, {} as TransformTypes<PickupPathKey<ContextKeys>>)
+  }, {} as TransformTypes<PathKeys> & Pick<ContextKeys, 'custom'>)
+  data.custom = deepClone(keysStore.value.custom || [])
+  return data
 }
 
 function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], value: any) => any) {
@@ -135,7 +182,9 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
     for (const key in oldObj) {
       if (oldObj.hasOwnProperty(key)) {
         const value = oldObj[key]
-        if (typeof value === 'object' && value !== null) {
+        if (key === 'custom') {
+          newObj[key] = cb([key], value)
+        } else if (typeof value === 'object' && value !== null) {
           newObj[key] = {}
           recursive(oldObj[key], newObj[key], [...keyPaths, key])
         } else if (keyPaths.length === 0) {
@@ -156,7 +205,7 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
 
 <template>
   <ClientOnly>
-    <UForm :validate="validate" :state="state" class="max-w-6xl mx-auto" @submit="onSubmit">
+    <div class="max-w-6xl mx-auto">
       <SettingsCard>
         <template #header>
           <div class="flex flex-wrap">
@@ -165,35 +214,48 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                      :color="currentLLM == item.key ? 'primary' : 'gray'"
                      class="m-1"
                      @click="currentLLM = item.key">{{ item.title }}</UButton>
+            <UButton v-for="item in state.custom" :key="item.name"
+                     :color="currentLLM == item.name ? 'primary' : 'gray'"
+                     class="m-1"
+                     @click="currentLLM = item.name">{{ item.name }}</UButton>
+            <UTooltip :text="t('settings.customApiService')">
+              <UButton class="m-1" icon="i-material-symbols-add" color="gray" @click="onAddCustomServer"></UButton>
+            </UTooltip>
           </div>
         </template>
         <div>
-          <template v-for="item in currentLLMFields" :key="item.value">
-            <UFormGroup v-if="item.value.endsWith('proxy') ? $config.public.modelProxyEnabled : true" :label="item.label"
-                        :name="item.value"
-                        class="mb-4">
-              <UInput v-if="item.type === 'input' || item.type === 'password'"
-                      v-model.trim="state[item.value] as string"
-                      :type="item.type"
-                      :placeholder="item.placeholder"
-                      size="lg"
-                      :rule="item.rule" />
-              <template v-else-if="item.type === 'checkbox'">
-                <label class="flex items-center">
-                  <UCheckbox v-model="state[item.value] as boolean"></UCheckbox>
-                  <span class="ml-2 text-sm text-muted">({{ item.placeholder }})</span>
-                </label>
-              </template>
-            </UFormGroup>
+          <UForm v-if="currentLLMFields.length > 0" :validate="validate" :state="state" @submit="onSubmit">
+            <template v-for="item in currentLLMFields" :key="item.value">
+              <UFormGroup v-if="item.value.endsWith('proxy') ? $config.public.modelProxyEnabled : true" :label="item.label"
+                          :name="item.value"
+                          class="mb-4">
+                <UInput v-if="item.type === 'input' || item.type === 'password'"
+                        v-model.trim="(state[item.value] as string)"
+                        :type="item.type"
+                        :placeholder="item.placeholder"
+                        size="lg"
+                        :rule="item.rule" />
+                <template v-else-if="item.type === 'checkbox'">
+                  <label class="flex items-center">
+                    <UCheckbox v-model="state[item.value] as boolean"></UCheckbox>
+                    <span class="ml-2 text-sm text-muted">({{ item.placeholder }})</span>
+                  </label>
+                </template>
+              </UFormGroup>
+            </template>
+            <div>
+              <UButton type="submit">
+                {{ t("global.save") }}
+              </UButton>
+            </div>
+          </UForm>
+          <template v-else-if="currentCustomServer">
+            <CustomServerForm :value="currentCustomServer"
+                              :key="currentLLM"
+                              @update="d => onUpdateCustomServer(d)" @remove="onRemoveCustomServer()" />
           </template>
         </div>
-
-        <div class="">
-          <UButton type="submit">
-            {{ t("global.save") }}
-          </UButton>
-        </div>
       </SettingsCard>
-    </UForm>
+    </div>
   </ClientOnly>
 </template>

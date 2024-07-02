@@ -12,3 +12,23 @@ export function pick<O extends Record<string, any>, K extends keyof O>(obj: O, k
     return acc
   }, {} as Pick<O, typeof keys[number]>)
 }
+
+export function deepClone<T>(obj: T): T {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj // primitive value or null
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => deepClone(item)) as T
+  }
+
+  const clone: { [key: string]: any } = {}
+
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      clone[key] = deepClone(obj[key])
+    }
+  }
+
+  return clone as T
+}

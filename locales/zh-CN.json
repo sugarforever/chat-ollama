@@ -115,7 +115,16 @@
     "proxyTips": "仅当设置了当前端点和代理设置时才有效",
     "chatSettings": "对话设置",
     "defaultModel": "默认模型",
-    "language": "语言"
+    "language": "语言",
+    "customApiService": "自定义 API 服务",
+    "customApiServiceName": "自定义 API 服务名",
+    "aiType": "AI 类型",
+    "modelNameTip": "请输入模型名称",
+    "customServiceNameExists": "自定义 API 服务名已存在",
+    "modelNameSetting": "自定义模型名称",
+    "modelNameExist": "模型名称已存在",
+    "removeCustomService": "删除自定义 API 服务",
+    "ensureRemoveCustomService": "确定要删除该自定义 API 服务吗？"
   },
   "auth": {
     "signIn": "登录",
@@ -148,6 +157,7 @@
     "cancel": "取消",
     "save": "保存",
     "update": "更新",
+    "add": "添加",
     "selectFiles": "选择文件",
     "selectFolder": "选择文件夹",
     "onePerLine": "每行一个",
@@ -166,6 +176,7 @@
     "confirmText": "确定",
     "cancelText": "取消",
     "selectModel": "选择模型",
-    "selectModels": "选择模型"
+    "selectModels": "选择模型",
+    "invalidUrl": "无效的URL"
   }
 }

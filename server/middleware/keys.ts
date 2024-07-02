@@ -35,13 +35,22 @@ export interface ContextKeys {
     key: string
     endpoint: string
     proxy: boolean
-  }
+  },
+  /** custom model base on OpenAI API */
+  custom: Array<{
+    name: string
+    aiType: string
+    key: string
+    endpoint: string
+    proxy: boolean
+    models: string[]
+  }>
 }
 
 export default defineEventHandler((event) => {
   const headers = getRequestHeaders(event)
   const value = headers['x-chat-ollama-keys']
-  const data = (value ? tryParseJson(value, {}) : {}) as ContextKeys
+  const data = (value ? tryParseJson(decodeURIComponent(value), {}) : {}) as ContextKeys
 
   event.context.keys = {
     ...data,
