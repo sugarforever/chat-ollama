@@ -14,7 +14,7 @@ const formData = reactive({
 
 const schema = computed(() => {
   return object({
-    name: string().required(),
+    name: string().required(t('global.required')),
   })
 })
 

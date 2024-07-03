@@ -124,7 +124,7 @@
     "modelNameExist": "Model name already exists",
     "modelNameSetting": "Custom model name",
     "modelNameTip": "Please enter model name",
-    "removeCustomService": "Delete a custom service"
+    "removeCustomService": "Delete current custom service"
   },
   "auth": {
     "signIn": "Sign In",
@@ -176,7 +176,7 @@
     "selectModel": "Select a model",
     "selectModels": "Select models",
     "confirmTitle": "Confirm action",
-    "add": "Add to",
+    "add": "Add",
     "invalidUrl": "Invalid URL"
   }
 }
