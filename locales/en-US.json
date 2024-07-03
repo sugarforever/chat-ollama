@@ -115,7 +115,16 @@
     "proxyTips": "Only works when the current Endpoint and Proxy Settings is set",
     "chatSettings": "Chat Settings",
     "defaultModel": "Default Model",
-    "language": "Language"
+    "language": "Language",
+    "customApiService": "Custom API Service",
+    "customApiServiceName": "Custom API Service Name",
+    "aiType": "AI type",
+    "customServiceNameExists": "Custom service name already exists",
+    "ensureRemoveCustomService": "Are you sure you want to delete this custom service?",
+    "modelNameExist": "Model name already exists",
+    "modelNameSetting": "Custom model name",
+    "modelNameTip": "Please enter model name",
+    "removeCustomService": "Delete current custom service"
   },
   "auth": {
     "signIn": "Sign In",
@@ -166,6 +175,8 @@
     "cancelText": "Cancel",
     "selectModel": "Select a model",
     "selectModels": "Select models",
-    "confirmTitle": "Confirm action"
+    "confirmTitle": "Confirm action",
+    "add": "Add",
+    "invalidUrl": "Invalid URL"
   }
 }

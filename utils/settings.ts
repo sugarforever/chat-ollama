@@ -43,11 +43,12 @@ export const DEFAULT_KEYS_STORE: ContextKeys = {
     endpoint: getLocalValue('keys.groq_api_host'),
     proxy: false,
   },
+  custom: []
 }
 
 export const keysStore = useStorage<ContextKeys>('keys', DEFAULT_KEYS_STORE)
 
-export const getKeysHeader = () => ({ 'x-chat-ollama-keys': JSON.stringify(keysStore.value) })
+export const getKeysHeader = () => ({ 'x-chat-ollama-keys': encodeURIComponent(JSON.stringify(keysStore.value)) })
 
 export const loadOllamaInstructions = async () => {
   try {

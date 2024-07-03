@@ -82,5 +82,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  if (Array.isArray(keys.custom)) {
+    keys.custom.forEach((item) => {
+      if (MODEL_FAMILIES.hasOwnProperty(item.aiType) && item.name && item.endpoint && item.key && Array.isArray(item.models) && item.models.length > 0) {
+        item.models.forEach(model => {
+          models.push({
+            name: model,
+            details: {
+              family: item.name
+            }
+          })
+        })
+      }
+    })
+  }
+
   return models
 })
