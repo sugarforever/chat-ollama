@@ -39,7 +39,7 @@ export interface ContextKeys {
   /** custom model base on OpenAI API */
   custom: Array<{
     name: string
-    aiType: string
+    aiType: Exclude<keyof ContextKeys, 'custom' | 'moonshot'>
     key: string
     endpoint: string
     proxy: boolean

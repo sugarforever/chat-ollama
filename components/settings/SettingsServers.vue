@@ -129,9 +129,9 @@ function onAddCustomServer() {
         toast.add({ title: t(`settings.customServiceNameExists`), color: 'red' })
         return
       }
-      const data = {
+      const data: ContextKeys['custom'][number] = {
         name,
-        aiType: '',
+        aiType: 'openai',
         endpoint: '',
         key: '',
         models: [],

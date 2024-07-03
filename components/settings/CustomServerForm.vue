@@ -15,9 +15,9 @@ const emits = defineEmits<{
 const toast = useToast()
 const confirm = useDialog('confirm')
 const { t } = useI18n()
-const aiTypes = Object.entries(MODEL_FAMILIES).map(([value, label]) => ({ value, label }))
+const aiTypes = Object.entries(MODEL_FAMILIES).filter(([key]) => key !== 'moonshot').map(([value, label]) => ({ value, label }))
 
-const defaultState: ContextKeys['custom'][number] = { name: '', aiType: '', endpoint: '', key: '', proxy: false, models: [] }
+const defaultState: ContextKeys['custom'][number] = { name: '', aiType: 'openai', endpoint: '', key: '', proxy: false, models: [] }
 const state = reactive(Object.assign({}, defaultState, props.value, { aiType: props.value.aiType || aiTypes[0].value }))
 const modelName = ref('')
 const schema = computed(() => {
