@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { object, string, array } from 'yup'
 import type { ContextKeys } from '~/server/middleware/keys'
-import { MODEL_FAMILIES } from '~/config/models'
+import * as CONFIG_MODELS from '~/config/models'
 
 const props = defineProps<{
   value: ContextKeys['custom'][number]
@@ -15,10 +15,21 @@ const emits = defineEmits<{
 const toast = useToast()
 const confirm = useDialog('confirm')
 const { t } = useI18n()
-const aiTypes = Object.entries(MODEL_FAMILIES).filter(([key]) => key !== 'moonshot').map(([value, label]) => ({ value, label }))
+const aiTypes = Object.entries(CONFIG_MODELS.MODEL_FAMILIES).filter(([key]) => key !== 'moonshot').map(([value, label]) => ({ value, label }))
+const defaultModelsMap: Record<ContextKeys['custom'][number]['aiType'], string[]> = {
+  openai: CONFIG_MODELS.OPENAI_GPT_MODELS,
+  azureOpenai: CONFIG_MODELS.AZURE_OPENAI_GPT_MODELS,
+  anthropic: CONFIG_MODELS.ANTHROPIC_MODELS,
+  gemini: CONFIG_MODELS.GEMINI_MODELS,
+  groq: CONFIG_MODELS.GROQ_MODELS,
+}
 
 const defaultState: ContextKeys['custom'][number] = { name: '', aiType: 'openai', endpoint: '', key: '', proxy: false, models: [] }
-const state = reactive(Object.assign({}, defaultState, props.value, { aiType: props.value.aiType || aiTypes[0].value }))
+const defaultAiType = props.value.aiType || aiTypes[0].value
+const state = reactive(Object.assign({}, defaultState, props.value, {
+  aiType: defaultAiType,
+  models: props.value.models.length === 0 ? defaultModelsMap[defaultAiType] : props.value.models,
+}))
 const modelName = ref('')
 const schema = computed(() => {
   return object({
@@ -27,6 +38,10 @@ const schema = computed(() => {
     key: string().required(t('global.required')),
     models: array().min(1, t('global.required')),
   })
+})
+
+watch(() => state.aiType, (type) => {
+  state.models = defaultModelsMap[type] || []
 })
 
 function onSubmit() {
