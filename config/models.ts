@@ -12,7 +12,8 @@ export const OPENAI_GPT_MODELS = [
   "gpt-4",
   "gpt-4-32k",
   "gpt-4-turbo-preview",
-  "gpt-4o"
+  "gpt-4o",
+  "gpt-4o-mini",
 ]
 
 export const AZURE_OPENAI_GPT_MODELS = [
