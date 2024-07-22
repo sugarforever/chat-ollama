@@ -51,7 +51,7 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
 }
 
 function openaiApiFillPath(endpoint: string) {
-  if (!/\/v\d$/i.test(endpoint)) {
+  if (endpoint && !/\/v\d$/i.test(endpoint)) {
     endpoint = endpoint.replace(/\/+$/, '') + '/v1'
   }
   return endpoint
