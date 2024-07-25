@@ -68,7 +68,7 @@ watch(() => props.showToggleButton, (value) => {
           </div>
           <MessageToggleCollapseButton v-if="showToggleButton" :opened="opened" @click="opened = !opened" />
         </template>
-        <pre v-else v-html="message.content" class="p-3 whitespace-break-spaces" />
+        <pre v-else v-text="message.content" class="p-3 whitespace-break-spaces" />
       </div>
       <ChatMessageActionMore :message="message"
                              :disabled="sending"
