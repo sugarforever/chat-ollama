@@ -57,9 +57,13 @@ export const GEMINI_MODELS = [
 ]
 
 export const GROQ_MODELS = [
+  "llama-3.1-405b-reasoning",
+  "llama-3.1-70b-versatile",
+  "llama-3.1-8b-instant",
   "llama3-8b-8192",
   "llama3-70b-8192",
   "llama2-70b-4096",
   "mixtral-8x7b-32768",
-  "gemma-7b-it"
+  "gemma-7b-it",
+  "gemma2-9b-it",
 ]
