@@ -28,6 +28,7 @@ export const DEFAULT_KEYS_STORE: ContextKeys = {
     key: getLocalValue('keys.anthropic_api_key'),
     endpoint: getLocalValue('keys.anthropic_api_host'),
     proxy: false,
+    useOpenai: false,
   },
   moonshot: {
     key: getLocalValue('keys.moonshot_api_key'),
@@ -37,6 +38,7 @@ export const DEFAULT_KEYS_STORE: ContextKeys = {
     key: getLocalValue('keys.gemini_api_key'),
     proxy: false,
     endpoint: '',
+    useOpenai: false,
   },
   groq: {
     key: getLocalValue('keys.groq_api_key'),

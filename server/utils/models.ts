@@ -57,7 +57,7 @@ function openaiApiFillPath(endpoint: string) {
   return endpoint
 }
 
-type InitChatParams = { key: string, endpoint: string, proxy?: boolean, deploymentName?: string }
+type InitChatParams = { key: string, endpoint: string, proxy?: boolean, deploymentName?: string, useOpenai?: boolean }
 function initChat(family: string, modelName: string, params: InitChatParams, isCustomModel = false) {
   console.log(`Chat with [${family} ${modelName}]`, params.endpoint ? `, Host: ${params.endpoint}` : '')
   let endpoint = getProxyEndpoint(params.endpoint, params?.proxy || false)
@@ -80,11 +80,19 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
   }
 
   if (family === MODEL_FAMILIES.anthropic && (isCustomModel || ANTHROPIC_MODELS.includes(modelName))) {
-    return new ChatAnthropic({
-      anthropicApiUrl: endpoint,
-      anthropicApiKey: params.key,
-      modelName: modelName,
-    })
+    if (params?.useOpenai) {
+      return new ChatOpenAI({
+        configuration: { baseURL: openaiApiFillPath(endpoint) },
+        openAIApiKey: params.key,
+        modelName: modelName,
+      })
+    } else {
+      return new ChatAnthropic({
+        anthropicApiUrl: endpoint,
+        anthropicApiKey: params.key,
+        modelName: modelName,
+      })
+    }
   }
 
   if (family === MODEL_FAMILIES.moonshot && (isCustomModel || MOONSHOT_MODELS.includes(modelName))) {
@@ -98,12 +106,19 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
   }
 
   if (family === MODEL_FAMILIES.gemini && (isCustomModel || GEMINI_MODELS.includes(modelName))) {
-    return new ChatGoogleGenerativeAI({
-      apiVersion: "v1beta",
-      apiKey: params.key,
-      modelName: modelName,
-      baseUrl: endpoint,
-    })
+    if (params?.useOpenai) {
+      return new ChatOpenAI({
+        configuration: { baseURL: openaiApiFillPath(endpoint) },
+        openAIApiKey: params.key,
+        modelName: modelName,
+      })
+    } else {
+      return new ChatGoogleGenerativeAI({
+        apiVersion: "v1beta",
+        apiKey: params.key,
+        modelName: modelName,
+      })
+    }
   }
 
   if (family === MODEL_FAMILIES.groq && (isCustomModel || GROQ_MODELS.includes(modelName))) {

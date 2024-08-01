@@ -113,6 +113,8 @@
     "linkRuleMessage": "{0} 开头必须是 http:// 或者 https://",
     "proxy": "代理",
     "proxyTips": "仅当设置了当前端点和代理设置时才有效",
+    "useOpenai": "端点请求",
+    "useOpenaiTip": "端点请求是否类似OpenAI风格",
     "chatSettings": "对话设置",
     "defaultModel": "默认模型",
     "language": "语言",

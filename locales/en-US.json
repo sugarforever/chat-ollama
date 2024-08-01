@@ -113,6 +113,8 @@
     "linkRuleMessage": "{0} must start with http:// or https://",
     "proxy": "Proxy",
     "proxyTips": "Only works when the current Endpoint and Proxy Settings is set",
+    "useOpenai": "Endpoint Request",
+    "useOpenaiTip": "Whether the endpoint request is like OpenAI style",
     "chatSettings": "Chat Settings",
     "defaultModel": "Default Model",
     "language": "Language",

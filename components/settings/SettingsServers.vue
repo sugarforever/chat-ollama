@@ -62,6 +62,7 @@ const LLMList = computed<LLMListItem[]>(() => {
         { label: t('settings.apiKey'), value: 'anthropic.key', type: 'password', placeholder: t('settings.apiKey') },
         { label: t('settings.endpoint'), value: 'anthropic.endpoint', type: 'input', placeholder: t('global.optional'), rule: 'url' },
         { label: t('settings.proxy'), value: 'anthropic.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
+        { label: t('settings.useOpenai'), value: 'anthropic.useOpenai', type: 'checkbox', placeholder: t('settings.useOpenaiTip') },
       ]
     },
     {
@@ -79,6 +80,7 @@ const LLMList = computed<LLMListItem[]>(() => {
         { label: t('settings.apiKey'), value: 'gemini.key', type: 'password', placeholder: t('settings.apiKey') },
         { label: t('settings.endpoint'), value: 'gemini.endpoint', type: 'input', placeholder: t('global.optional'), rule: 'url' },
         { label: t('settings.proxy'), value: 'gemini.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
+        { label: t('settings.useOpenai'), value: 'gemini.useOpenai', type: 'checkbox', placeholder: t('settings.useOpenaiTip') },
       ]
     },
     {

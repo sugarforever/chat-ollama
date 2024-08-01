@@ -20,7 +20,8 @@ export interface ContextKeys {
   anthropic: {
     key: string
     endpoint: string
-    proxy: boolean
+    proxy: boolean,
+    useOpenai: boolean
   },
   moonshot: {
     key: string
@@ -29,7 +30,8 @@ export interface ContextKeys {
   gemini: {
     key: string
     endpoint: string
-    proxy: boolean
+    proxy: boolean,
+    useOpenai: boolean
   },
   groq: {
     key: string
