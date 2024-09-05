@@ -124,7 +124,8 @@
     "modelNameExist": "Model name already exists",
     "modelNameSetting": "Custom model name",
     "modelNameTip": "Please enter model name",
-    "removeCustomService": "Delete current custom service"
+    "removeCustomService": "Delete current custom service",
+    "defaultPage": "Default Page"
   },
   "auth": {
     "signIn": "Sign In",
