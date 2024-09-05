@@ -2,6 +2,8 @@
 import { LanguageList, findLanguageItemByLanguageName } from '@/config/i18n'
 
 const { locale, setLocale, t } = useI18n()
+const links = useMenus()
+const defaultPage = useCookie('default-page', { path: '/', default: () => DEFAULT_PAGE_LINK })
 
 const selectLanguage = computed({
   get() {
@@ -11,6 +13,11 @@ const selectLanguage = computed({
     setLocale(val.code)
   }
 })
+
+const defaultPageName = computed(() => {
+  return links.value.find(el => el.to === defaultPage.value)?.label || ''
+})
+
 function returnData() {
   return findLanguageItemByLanguageName(locale.value)
 }
@@ -26,6 +33,13 @@ function returnData() {
           </template>
           <template #option="{ option }">
             <span>{{ option.name }}</span>
+          </template>
+        </USelectMenu>
+      </UFormGroup>
+      <UFormGroup :label="t('settings.defaultPage')">
+        <USelectMenu :options="links" valueAttribute="to" v-model="defaultPage">
+          <template #label>
+            <span>{{ defaultPageName }}</span>
           </template>
         </USelectMenu>
       </UFormGroup>
