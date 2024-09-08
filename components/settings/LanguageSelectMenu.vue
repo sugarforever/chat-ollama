@@ -3,7 +3,7 @@ import { LanguageList, findLanguageItemByLanguageName } from '@/config/i18n'
 
 const { locale, setLocale, t } = useI18n()
 const links = useMenus()
-const defaultPage = useCookie('default-page', { path: '/', default: () => DEFAULT_PAGE_LINK })
+const defaultPage = useCookie('default-page', { path: '/', expires: new Date('2030-03-03'), default: () => DEFAULT_PAGE_LINK })
 
 const selectLanguage = computed({
   get() {
