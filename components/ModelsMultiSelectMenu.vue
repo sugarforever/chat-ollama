@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { ModelInfo } from '~/composables/useModels'
+import { onMounted } from 'vue'
 
 withDefaults(defineProps<{
   autoDefault?: boolean,
@@ -15,7 +16,12 @@ const emits = defineEmits<{
 const models = defineModel<string[]>({ default: [] })
 
 const { t } = useI18n()
-const { chatModels } = useModels()
+const { chatModels, loadModels } = useModels()
+
+// Ensure models are loaded when component mounts
+onMounted(async () => {
+  await loadModels()
+})
 
 const uiMenu = {
   container: 'z-20 group w-[unset] whitespace-nowrap !w-auto',

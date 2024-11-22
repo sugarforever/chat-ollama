@@ -101,6 +101,7 @@
     "userName": "User Name",
     "password": "password",
     "apiKey": "API Key",
+    "apiKeyRequired": "API key is required to load models",
     "endpoint": "Endpoint",
     "openAi": "OpenAI",
     "azureOpenAi": "Azure OpenAI",

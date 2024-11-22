@@ -1,6 +1,10 @@
 import { useSessionStorage } from '@vueuse/core'
 import { MODEL_FAMILY_SEPARATOR } from '~/config'
 import type { ModelItem } from '~/server/api/models/index.get'
+import { useOpenAIModels } from '~/composables/useOpenAIModels'
+import { useStorage } from '@vueuse/core'
+import { DEFAULT_KEYS_STORE } from '~/utils/settings'
+import type { ContextKeys } from '~/server/middleware/keys'
 
 export interface ModelInfo {
   label: string
@@ -26,6 +30,8 @@ export function useModels(options?: Options) {
   const loading = ref(false)
   const OLLAMA_EMBEDDING_FAMILY_LIST = ['nomic-bert']
   const embeddingRegExp = /(\b|_)embed(d?ed|d?ings?)?(\b|_)/i
+  const { loadOpenAIModels } = useOpenAIModels()
+  const keysStore = useStorage<ContextKeys>('keys', DEFAULT_KEYS_STORE)
 
   const chatModels = computed(() => {
     return models.value
@@ -65,6 +71,15 @@ export function useModels(options?: Options) {
     loading.value = true
     controller = new AbortController()
     if (firstLoaded || models.value.length === 0 || opts.forceReload) {
+      // Try to load OpenAI models if API key is available
+      if (keysStore.value.openai?.key) {
+        try {
+          await loadOpenAIModels(keysStore.value.openai.key)
+        } catch (error) {
+          console.error('Failed to load OpenAI models:', error)
+        }
+      }
+
       const response = await $fetchWithAuth('/api/models/', {
         headers: getKeysHeader(),
         signal: controller.signal,

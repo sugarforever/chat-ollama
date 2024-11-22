@@ -12,7 +12,7 @@ import { AzureChatOpenAI } from "@langchain/azure-openai"
 import { type H3Event } from 'h3'
 import { type Ollama } from 'ollama'
 import { proxyTokenGenerate } from '~/server/utils/proxyToken'
-import { ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, GEMINI_EMBEDDING_MODELS, GEMINI_MODELS, GROQ_MODELS, MODEL_FAMILIES, MOONSHOT_MODELS, OPENAI_EMBEDDING_MODELS, OPENAI_GPT_MODELS } from '~/config/index'
+import { ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, GEMINI_EMBEDDING_MODELS, GEMINI_MODELS, GROQ_MODELS, MODEL_FAMILIES, MOONSHOT_MODELS, OPENAI_EMBEDDING_MODELS } from '~/config/index'
 import type { ContextKeys } from '~/server/middleware/keys'
 
 export function isApiEmbeddingModelExists(embeddingModelName: string) {
@@ -62,9 +62,10 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
   console.log(`Chat with [${family} ${modelName}]`, params.endpoint ? `, Host: ${params.endpoint}` : '')
   let endpoint = getProxyEndpoint(params.endpoint, params?.proxy || false)
 
-  if (family === MODEL_FAMILIES.openai && (isCustomModel || OPENAI_GPT_MODELS.includes(modelName))) {
+  if (family === MODEL_FAMILIES.openai || isCustomModel) {
+    const baseURL = openaiApiFillPath(endpoint)
     return new ChatOpenAI({
-      configuration: { baseURL: openaiApiFillPath(endpoint) },
+      configuration: { baseURL },
       openAIApiKey: params.key,
       modelName: modelName,
     })
