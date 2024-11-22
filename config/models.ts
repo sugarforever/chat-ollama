@@ -7,14 +7,13 @@ export const MODEL_FAMILIES = {
   groq: 'Groq'
 }
 
-export const OPENAI_GPT_MODELS = [
-  "gpt-3.5-turbo",
-  "gpt-4",
-  "gpt-4-32k",
-  "gpt-4-turbo-preview",
-  "gpt-4o",
-  "gpt-4o-mini",
-]
+// OpenAI models will be loaded dynamically
+export let OPENAI_GPT_MODELS: string[] = []
+
+// Function to update OpenAI models
+export function updateOpenAIModels(models: string[]) {
+  OPENAI_GPT_MODELS = models
+}
 
 export const AZURE_OPENAI_GPT_MODELS = [
   "gpt-3.5-turbo",

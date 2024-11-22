@@ -17,14 +17,41 @@ export default defineEventHandler(async (event) => {
   }
 
   if (keys.openai.key) {
-    OPENAI_GPT_MODELS.forEach((model) => {
-      models.push({
-        name: model,
-        details: {
-          family: MODEL_FAMILIES.openai
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${keys.openai.key}`,
         }
       })
-    })
+
+      if (response.ok) {
+        const data = await response.json()
+        const openaiModels = data.data
+          .filter((model: any) => model.id.startsWith('gpt-'))
+          .sort((a: any, b: any) => a.id.localeCompare(b.id))
+          .map((model: any) => model.id)
+
+        openaiModels.forEach((model: string) => {
+          models.push({
+            name: model,
+            details: {
+              family: MODEL_FAMILIES.openai
+            }
+          })
+        })
+      }
+    } catch (error) {
+      console.error('Failed to fetch OpenAI models:', error)
+      // Fallback to static models if API call fails
+      OPENAI_GPT_MODELS.forEach((model) => {
+        models.push({
+          name: model,
+          details: {
+            family: MODEL_FAMILIES.openai
+          }
+        })
+      })
+    }
   }
 
   if (keys.azureOpenai.key && keys.azureOpenai.endpoint && keys.azureOpenai.deploymentName) {

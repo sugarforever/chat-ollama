@@ -5,6 +5,8 @@ import type { PickupPathKey, TransformTypes } from '~/types/helper'
 import CreateCustomServer from './CreateCustomServer.vue'
 import CustomServerForm from './CustomServerForm.vue'
 import { deepClone } from '~/composables/helpers'
+import { useOpenAIModels } from '@/composables/useOpenAIModels'
+import { updateOpenAIModels } from '~/config/models'
 
 type PathKeys = PickupPathKey<Omit<ContextKeys, 'custom'>>
 
@@ -12,6 +14,7 @@ const { t } = useI18n()
 const toast = useToast()
 const modal = useModal()
 const { loadModels } = useModels({ forceReload: true })
+const { isLoadingModels, loadOpenAIModels } = useOpenAIModels()
 
 interface LLMListItem {
   key: string
@@ -168,6 +171,16 @@ const checkHost = (key: keyof typeof state, title: string) => {
   return { path: key, message: t('settings.linkRuleMessage', [title]) }
 }
 
+async function onLoadOpenAIModels() {
+  const apiKey = keysStore.value.openai?.key
+  if (!apiKey) {
+    toast.add({ title: t('settings.apiKeyRequired'), type: 'error' })
+    return
+  }
+  await loadOpenAIModels(apiKey, true, false)
+  await loadModels()
+}
+
 function getData() {
   const data = LLMList.value.reduce((acc, cur) => {
     cur.fields.forEach(el => {
@@ -247,7 +260,17 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                 </template>
               </UFormGroup>
             </template>
-            <div>
+            <template #actions>
+              <div class="flex gap-2">
+                <UButton
+                         v-if="currentLLM === 'ollamaServer'"
+                         :loading="isChecking"
+                         @click="checkHost(currentLLM, item.title)">
+                  {{ t('settings.checkConnection') }}
+                </UButton>
+              </div>
+            </template>
+            <div class="flex gap-2">
               <UButton type="submit">
                 {{ t("global.save") }}
               </UButton>
