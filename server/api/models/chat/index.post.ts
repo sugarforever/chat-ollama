@@ -282,9 +282,11 @@ export default defineEventHandler(async (event) => {
         const message = {
           message: {
             role: "user",
-            type: "tool_result",
-            tool_use_id: result.tool_call_id,
-            content: result.content
+            content: {
+              type: "tool_result",
+              tool_use_id: result.tool_call_id,
+              content: result.content
+            }
           }
         }
 
