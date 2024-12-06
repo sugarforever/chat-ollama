@@ -94,14 +94,6 @@ export default defineNuxtConfig({
     },
     modelProxyUrl: '',
     mcpServers: {
-      "sqlite": {
-        "command": "uvx",
-        "args": ["mcp-server-sqlite", "--db-path", "/Users/xyz/test.db"]
-      },
-      "fetch": {
-        "command": "uvx",
-        "args": ["mcp-server-fetch"]
-      }
     }
   },
   i18n: {
