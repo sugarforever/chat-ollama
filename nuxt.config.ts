@@ -96,7 +96,7 @@ export default defineNuxtConfig({
     mcpServers: {
       "sqlite": {
         "command": "uvx",
-        "args": ["mcp-server-sqlite", "--db-path", "/Users/wyang14/test.db"]
+        "args": ["mcp-server-sqlite", "--db-path", "/Users/xyz/test.db"]
       },
       "fetch": {
         "command": "uvx",
