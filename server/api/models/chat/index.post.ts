@@ -274,8 +274,7 @@ export default defineEventHandler(async (event) => {
         yield `${JSON.stringify(message)} \n\n`
       }
 
-      console.log("Gathered: ", gathered)
-      for (const toolCall of gathered.tool_calls) {
+      for (const toolCall of gathered?.tool_calls ?? []) {
 
         const tool = toolsMap[toolCall.name]
         const result = await tool.invoke(toolCall)
