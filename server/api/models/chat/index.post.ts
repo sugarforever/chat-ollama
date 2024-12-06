@@ -9,14 +9,15 @@ import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
 import { createChatModel, createEmbeddings } from '@/server/utils/models'
 import { createRetriever } from '@/server/retriever'
-import { AIMessage, BaseMessage, BaseMessageLike, HumanMessage } from '@langchain/core/messages'
+import { AIMessage, BaseMessage, BaseMessageLike, HumanMessage, ToolMessage } from '@langchain/core/messages'
 import { resolveCoreference } from '~/server/coref'
 import { tool } from "@langchain/core/tools"
 import { z } from "zod"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { concat } from "@langchain/core/utils/stream"
-
+import { MODEL_FAMILIES } from '~/config'
+import { DynamicStructuredTool } from "@langchain/core/tools"
 interface RequestBody {
   knowledgebaseId: number
   model: string
@@ -24,6 +25,8 @@ interface RequestBody {
   messages: {
     role: 'user' | 'assistant'
     content: string
+    toolCallId?: string
+    toolResult: boolean
   }[]
   stream: any
 }
@@ -57,7 +60,9 @@ const transformMessages = (messages: RequestBody['messages']): BaseMessageLike[]
 const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => {
   const normalizedMessages = []
   for (const message of messages) {
-    if (message.role === "user") {
+    if (message.toolResult) {
+      normalizedMessages.push(new ToolMessage(message.content, message.toolCallId!))
+    } else if (message.role === "user") {
       normalizedMessages.push(new HumanMessage(message.content))
     } else if (message.role === "assistant") {
       normalizedMessages.push(new AIMessage(message.content))
@@ -172,7 +177,7 @@ export default defineEventHandler(async (event) => {
     })())
     return sendStream(event, readableStream)
   } else {
-    const llm = createChatModel(model, family, event)
+    let llm = createChatModel(model, family, event)
 
     const transport = new StdioClientTransport({
       command: "/Users/wyang14/.local/bin/uvx",
@@ -198,11 +203,7 @@ export default defineEventHandler(async (event) => {
 
     console.log(toolResult)
 
-    // const readQuerySchema = z.object({
-    //   query: z.string().describe("SELECT SQL query to execute")
-    // })
-
-    const toolsMap = {}
+    const toolsMap: Record<string, DynamicStructuredTool<any>> = {}
     const normalizedTools = tools.tools.map((t) => {
       const _tool = tool(
         async (obj) => {
@@ -226,10 +227,12 @@ export default defineEventHandler(async (event) => {
       return _tool
     })
 
-    const llmWithTools = llm?.bindTools(normalizedTools)
+    if (family === MODEL_FAMILIES.anthropic) {
+      llm = llm.bindTools(normalizedTools)
+    }
 
     if (!stream) {
-      const response = await llmWithTools.invoke(transformMessages(messages))
+      const response = await llm.invoke(transformMessages(messages))
       console.log(response)
       return {
         message: {
@@ -239,7 +242,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    const response = await llmWithTools?.stream(messages.map((message: RequestBody['messages'][number]) => {
+    const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
       return [message.role, message.content]
     }))
 
@@ -282,11 +285,9 @@ export default defineEventHandler(async (event) => {
         const message = {
           message: {
             role: "user",
-            content: {
-              type: "tool_result",
-              tool_use_id: result.tool_call_id,
-              content: result.content
-            }
+            type: "tool_result",
+            tool_use_id: result.tool_call_id,
+            content: result.content
           }
         }
 

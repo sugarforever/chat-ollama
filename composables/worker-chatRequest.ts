@@ -4,14 +4,14 @@ import type { clientDB, ChatHistory } from '~/composables/clientDB'
 
 type RelevantDocument = Required<ChatHistory>['relevantDocs'][number]
 type ResponseRelevantDocument = { type: 'relevant_documents', relevant_documents: RelevantDocument[] }
-type ResponseMessage = { message: { role: string, content: string } }
+type ResponseMessage = { message: { role: string, content: string, type?: string, tool_use_id?: string } }
 
 interface RequestData {
   sessionId: number
   knowledgebaseId?: number
   /** format: `family::model` */
   model: string
-  messages: Array<SetRequired<Partial<ChatMessage>, 'role' | 'content'>>
+  messages: Array<SetRequired<Partial<ChatMessage>, 'role' | 'content' | 'toolResult' | 'toolCallId'>>
   stream: boolean
   timestamp: number
 }
@@ -89,6 +89,7 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
       canceled: false,
       startTime: data.timestamp,
       endTime: Date.now(),
+      toolResult: false
     })
     sendMessageToMain({ uid, type: 'error', sessionId: data.sessionId, id, message: errInfo })
     sendMessageToMain({ id, uid, sessionId: data.sessionId, type: 'complete' })
@@ -122,9 +123,14 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
         console.log(`%c${data.model}`, 'color:#818cf8', line)
         const chatMessage = JSON.parse(line) as ResponseMessage | ResponseRelevantDocument
         const isMessage = !('type' in chatMessage) && 'message' in chatMessage
+        const isToolResult = isMessage && chatMessage.message.type === 'tool_result'
 
         if (isMessage) {
-          msgContent += chatMessage.message.content
+          if (isToolResult) {
+            msgContent = "```json\n" + chatMessage.message.content + "\n```"
+          } else {
+            msgContent += chatMessage.message.content
+          }
         }
 
         const result: ChatHistory = {
@@ -136,9 +142,11 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
           canceled: false,
           startTime: data.timestamp,
           endTime: Date.now(),
+          toolResult: isToolResult,
+          toolCallId: isToolResult ? chatMessage.message.tool_use_id : undefined,
         }
 
-        if (id === -1) {
+        if (id === -1 || isToolResult) {
           id = await addToDB(result)
         }
         // save message to DB after every 1s
@@ -157,6 +165,8 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
               endTime: Date.now(),
               role: 'assistant',
               model: data.model,
+              toolResult: isToolResult,
+              toolCallId: isToolResult ? chatMessage.message.tool_use_id : undefined,
             }
           })
         } else if (chatMessage.type === 'relevant_documents') {
@@ -171,6 +181,7 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
               role: 'assistant',
               model: data.model,
               relevantDocs: chatMessage.relevant_documents,
+              toolResult: false
             },
           })
         }
