@@ -92,7 +92,17 @@ export default defineNuxtConfig({
       chatMaxAttachedMessages: 50,
       appName: APP_NAME,
     },
-    modelProxyUrl: ''
+    modelProxyUrl: '',
+    mcpServers: {
+      "sqlite": {
+        "command": "uvx",
+        "args": ["mcp-server-sqlite", "--db-path", "/Users/wyang14/test.db"]
+      },
+      "fetch": {
+        "command": "uvx",
+        "args": ["mcp-server-fetch"]
+      }
+    }
   },
   i18n: {
     //Asynchronous call, on-demand loading

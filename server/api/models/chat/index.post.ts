@@ -11,13 +11,10 @@ import { createChatModel, createEmbeddings } from '@/server/utils/models'
 import { createRetriever } from '@/server/retriever'
 import { AIMessage, BaseMessage, BaseMessageLike, HumanMessage, ToolMessage } from '@langchain/core/messages'
 import { resolveCoreference } from '~/server/coref'
-import { tool } from "@langchain/core/tools"
-import { z } from "zod"
-import { Client } from "@modelcontextprotocol/sdk/client/index.js"
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { concat } from "@langchain/core/utils/stream"
 import { MODEL_FAMILIES } from '~/config'
-import { DynamicStructuredTool } from "@langchain/core/tools"
+import { McpService } from '@/server/utils/mcp'
+
 interface RequestBody {
   knowledgebaseId: number
   model: string
@@ -179,54 +176,12 @@ export default defineEventHandler(async (event) => {
   } else {
     let llm = createChatModel(model, family, event)
 
-    const transport = new StdioClientTransport({
-      command: "/Users/wyang14/.local/bin/uvx",
-      args: ["mcp-server-sqlite", "--db-path", "/Users/wyang14/test.db"]
-    })
-
-    const client = new Client({
-      name: "example-client",
-      version: "1.0.0",
-    }, {
-      capabilities: {}
-    })
-
-    await client.connect(transport)
-
-    const tools = await client.listTools()
-    console.log(JSON.stringify(tools))
-
-    const toolResult = await client.callTool({
-      name: "read-query",
-      arguments: { "query": "SELECT * FROM products;" }
-    })
-
-    console.log(toolResult)
-
-    const toolsMap: Record<string, DynamicStructuredTool<any>> = {}
-    const normalizedTools = tools.tools.map((t) => {
-      const _tool = tool(
-        async (obj) => {
-          // Functions must return strings
-          const result = await client.callTool({
-            name: t.name,
-            arguments: obj
-          })
-
-          return result
-        },
-        {
-          name: t.name,
-          description: t.description,
-          schema: t.inputSchema,
-        }
-      )
-
-      toolsMap[t.name] = _tool
-
-      return _tool
-    })
-
+    const mcpService = new McpService()
+    const normalizedTools = await mcpService.listTools()
+    const toolsMap = normalizedTools.reduce((acc, tool) => {
+      acc[tool.name] = tool
+      return acc
+    }, {})
     if (family === MODEL_FAMILIES.anthropic) {
       llm = llm.bindTools(normalizedTools)
     }
@@ -276,21 +231,24 @@ export default defineEventHandler(async (event) => {
 
       for (const toolCall of gathered?.tool_calls ?? []) {
 
-        const tool = toolsMap[toolCall.name]
-        const result = await tool.invoke(toolCall)
+        const selectedTool = toolsMap[toolCall.name]
 
-        console.log("Tool result: ", result)
+        if (selectedTool) {
+          const result = await selectedTool.invoke(toolCall)
 
-        const message = {
-          message: {
-            role: "user",
-            type: "tool_result",
-            tool_use_id: result.tool_call_id,
-            content: result.content
+          console.log("Tool result: ", result)
+
+          const message = {
+            message: {
+              role: "user",
+              type: "tool_result",
+              tool_use_id: result.tool_call_id,
+              content: result.content
+            }
           }
-        }
 
-        yield `${JSON.stringify(message)} \n\n`
+          yield `${JSON.stringify(message)} \n\n`
+        }
       }
 
     })())
