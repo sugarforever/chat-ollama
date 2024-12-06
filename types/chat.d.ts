@@ -7,4 +7,6 @@ export interface ChatMessage {
   startTime: number
   endTime: number
   relevantDocs?: RelevantDocument[]
+  toolResult: boolean
+  toolCallId?: string
 }

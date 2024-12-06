@@ -32,7 +32,9 @@ export interface ChatHistory {
       blobType: string
       source: string
     }
-  }>
+  }>,
+  toolResult: boolean,
+  toolCallId?: string
 }
 
 export class MySubClassedDexie extends Dexie {
