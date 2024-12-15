@@ -141,3 +141,5 @@ chroma_data
 
 .DS_Store
 yarn.lock
+
+.mcp-servers.json

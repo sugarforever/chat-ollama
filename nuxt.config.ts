@@ -92,9 +92,7 @@ export default defineNuxtConfig({
       chatMaxAttachedMessages: 50,
       appName: APP_NAME,
     },
-    modelProxyUrl: '',
-    mcpServers: {
-    }
+    modelProxyUrl: ''
   },
   i18n: {
     //Asynchronous call, on-demand loading

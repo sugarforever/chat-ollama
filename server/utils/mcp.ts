@@ -2,8 +2,8 @@ import { tool } from "@langchain/core/tools"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { DynamicStructuredTool } from "@langchain/core/tools"
-import { useRuntimeConfig } from '#imports'
-
+import fs from 'fs'
+import path from 'path'
 interface McpServerConfig {
   command: string
   args: string[]
@@ -16,9 +16,14 @@ interface McpConfig {
 
 export class McpService {
   async listTools(): Promise<any[]> {
-    console.log("Using runtime config for MCP servers")
-    const runtimeConfig = useRuntimeConfig()
-    const mcpConfig = { mcpServers: runtimeConfig.mcpServers }
+    // Load the MCP servers from the .mcp-servers.json file
+    let mcpConfigPath = path.join(process.cwd(), '.mcp-servers.json')
+    if (process.env.MCP_SERVERS_CONFIG_PATH !== undefined) {
+      mcpConfigPath = process.env.MCP_SERVERS_CONFIG_PATH
+    }
+    console.log("Loading MCP servers from ", mcpConfigPath)
+
+    const mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'))
 
     const allTools: any[] = []
     for (const [serverName, serverConfig] of Object.entries(mcpConfig.mcpServers)) {
