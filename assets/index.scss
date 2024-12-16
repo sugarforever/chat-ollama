@@ -74,3 +74,13 @@ body {
     }
   }
 }
+
+@supports (-webkit-touch-callout: none) and (overflow: -webkit-paged-x) {
+
+  textarea:focus,
+  input[type="input"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus {
+    font-size: 16px !important;
+  }
+}

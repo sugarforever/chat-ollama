@@ -7,7 +7,7 @@ export interface ChatSession {
   updateTime: number
   model?: string
   modelFamily?: string
-  models: string[]
+  models?: string[]
   instructionId?: number
   knowledgeBaseId?: number
   attachedMessagesCount: number
