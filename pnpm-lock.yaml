@@ -45,8 +45,8 @@ dependencies:
     specifier: ^0.0.5
     version: 0.0.5(openai@4.33.0)
   '@langchain/openai':
-    specifier: ^0.0.15
-    version: 0.0.15
+    specifier: ^0.3.14
+    version: 0.3.14(@langchain/core@0.3.23)
   '@modelcontextprotocol/sdk':
     specifier: ^1.0.3
     version: 1.0.3
@@ -1869,7 +1869,7 @@ packages:
         optional: true
     dependencies:
       '@langchain/core': 0.1.54(openai@4.33.0)
-      '@langchain/openai': 0.0.15
+      '@langchain/openai': 0.0.26
       '@zilliz/milvus2-sdk-node': 2.3.5
       chromadb: 1.8.1(@google/generative-ai@0.21.0)(openai@4.33.0)
       flat: 5.0.2
@@ -2276,8 +2276,8 @@ packages:
       - encoding
     dev: false
 
-  /@langchain/openai@0.0.15:
-    resolution: {integrity: sha512-ILecml9YopmQxfpaquYEG+KfEz7svJqpcla671J1tVngqtPwRqg9PLUOa2eDrPsunScxKUeLd8HjAGLd/eaefQ==}
+  /@langchain/openai@0.0.26:
+    resolution: {integrity: sha512-FpqYvVRP2CkFFjTLrj2tbXeY6JTIgbq8tRoi0rvGzmhRpoi6cWHlfgclSzDm+e6P9DqKBkzDjo6SPTJgTOabNA==}
     engines: {node: '>=18'}
     dependencies:
       '@langchain/core': 0.1.54(openai@4.76.0)
@@ -2289,11 +2289,13 @@ packages:
       - encoding
     dev: false
 
-  /@langchain/openai@0.0.26:
-    resolution: {integrity: sha512-FpqYvVRP2CkFFjTLrj2tbXeY6JTIgbq8tRoi0rvGzmhRpoi6cWHlfgclSzDm+e6P9DqKBkzDjo6SPTJgTOabNA==}
+  /@langchain/openai@0.3.14(@langchain/core@0.3.23):
+    resolution: {integrity: sha512-lNWjUo1tbvsss45IF7UQtMu1NJ6oUKvhgPYWXnX9f/d6OmuLu7D99HQ3Y88vLcUo9XjjOy417olYHignMduMjA==}
     engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.2.26 <0.4.0'
     dependencies:
-      '@langchain/core': 0.1.54(openai@4.76.0)
+      '@langchain/core': 0.3.23(openai@4.33.0)
       js-tiktoken: 1.0.15
       openai: 4.76.0(zod@3.23.8)
       zod: 3.23.8

@@ -183,7 +183,7 @@ export default defineEventHandler(async (event) => {
       acc[tool.name] = tool
       return acc
     }, {})
-    if (family === MODEL_FAMILIES.anthropic) {
+    if (family === MODEL_FAMILIES.anthropic || family === MODEL_FAMILIES.openai) {
       if (family === MODEL_FAMILIES.gemini) {
         llm = llm.bindTools(normalizedTools.map((t) => {
           console.log(`Tool ${t.name}: `, t.mcpSchema)
@@ -243,7 +243,7 @@ export default defineEventHandler(async (event) => {
       }
 
       for (const toolCall of gathered?.tool_calls ?? []) {
-
+        console.log("Tool call: ", toolCall)
         const selectedTool = toolsMap[toolCall.name]
 
         if (selectedTool) {

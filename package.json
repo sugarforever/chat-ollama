@@ -46,7 +46,7 @@
     "@langchain/core": "^0.3.23",
     "@langchain/google-genai": "^0.1.5",
     "@langchain/groq": "^0.0.5",
-    "@langchain/openai": "^0.0.15",
+    "@langchain/openai": "^0.3.14",
     "@modelcontextprotocol/sdk": "^1.0.3",
     "@nuxt/ui": "^2.17.0",
     "@nuxtjs/i18n": "^8.3.0",
