@@ -33,7 +33,7 @@
     "vue-router": "^4.4.0"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.11.1",
+    "@google/generative-ai": "^0.21.0",
     "@iconify-json/heroicons": "^1.1.21",
     "@iconify-json/iconoir": "^1.1.44",
     "@iconify-json/material-symbols": "^1.1.82",
@@ -43,8 +43,8 @@
     "@langchain/azure-openai": "^0.0.4",
     "@langchain/cohere": "^0.0.6",
     "@langchain/community": "^0.0.33",
-    "@langchain/core": "^0.3.2",
-    "@langchain/google-genai": "^0.0.13",
+    "@langchain/core": "^0.3.23",
+    "@langchain/google-genai": "^0.1.5",
     "@langchain/groq": "^0.0.5",
     "@langchain/openai": "^0.0.15",
     "@modelcontextprotocol/sdk": "^1.0.3",
@@ -87,6 +87,7 @@
     "socks-proxy-agent": "^8.0.4",
     "ws": "^8.16.0",
     "yup": "^1.4.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.24.1"
   }
 }
