@@ -30,10 +30,12 @@ export const OPENAI_EMBEDDING_MODELS = [
 ]
 
 export const GEMINI_EMBEDDING_MODELS = [
-  "embedding-001"
+  "text-embedding-004"
 ]
 
 export const ANTHROPIC_MODELS = [
+  "claude-3-5-sonnet-latest",
+  "claude-3-5-haiku-latest",
   "claude-3-5-sonnet-20241022",
   "claude-3-5-haiku-20241022",
   "claude-3-haiku-20240307",
@@ -51,11 +53,11 @@ export const MOONSHOT_MODELS = [
 ]
 
 export const GEMINI_MODELS = [
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-pro",
   "gemini-1.0-pro",
-  "gemini-1.0-pro-vision-latest",
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-pro-latest",
-  "gemini-2.0-flash-exp"
 ]
 
 export const GROQ_MODELS = [
