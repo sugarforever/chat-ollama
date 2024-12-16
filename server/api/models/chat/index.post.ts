@@ -15,6 +15,7 @@ import { concat } from "@langchain/core/utils/stream"
 import { MODEL_FAMILIES } from '~/config'
 import { McpService } from '@/server/utils/mcp'
 import { zodToJsonSchema } from 'zod-to-json-schema'
+import { ChatOllama } from '@langchain/ollama'
 
 interface RequestBody {
   knowledgebaseId: number
