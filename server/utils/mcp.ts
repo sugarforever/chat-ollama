@@ -4,6 +4,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { DynamicStructuredTool } from "@langchain/core/tools"
 import fs from 'fs'
 import path from 'path'
+import zodToJsonSchema from 'zod-to-json-schema'
 interface McpServerConfig {
   command: string
   args: string[]
@@ -54,12 +55,10 @@ export class McpService {
     await client.connect(transport)
 
     const tools = await client.listTools()
-
-    console.log("Tools: ", tools)
-
     const toolsMap: Record<string, DynamicStructuredTool<any>> = {}
 
     return tools.tools.map((t) => {
+      console.log(`Tool ${t.name}: `, t.inputSchema)
       const _tool = tool(
         async (obj) => {
           const result = await client.callTool({
@@ -74,6 +73,8 @@ export class McpService {
           schema: t.inputSchema,
         }
       )
+
+      _tool.mcpSchema = t.inputSchema
 
       toolsMap[t.name] = _tool
       return _tool

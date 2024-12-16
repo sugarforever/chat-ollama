@@ -1,22 +1,52 @@
 import {
   GenerativeModel,
   GoogleGenerativeAI as GenerativeAI,
+  FunctionDeclarationsTool as GoogleGenerativeAIFunctionDeclarationsTool,
+  FunctionDeclaration as GenerativeAIFunctionDeclaration,
+  type FunctionDeclarationSchema as GenerativeAIFunctionDeclarationSchema,
+  GenerateContentRequest,
+  SafetySetting,
+  Part as GenerativeAIPart,
+  ModelParams,
+  RequestOptions,
+  type CachedContent,
 } from "@google/generative-ai"
-import type { SafetySetting } from "@google/generative-ai"
 import { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager"
-import { BaseMessage } from "@langchain/core/messages"
+import {
+  AIMessageChunk,
+  BaseMessage,
+  UsageMetadata,
+} from "@langchain/core/messages"
 import { ChatGenerationChunk, ChatResult } from "@langchain/core/outputs"
 import { getEnvironmentVariable } from "@langchain/core/utils/env"
 import {
   BaseChatModel,
+  type BaseChatModelCallOptions,
+  type LangSmithParams,
   type BaseChatModelParams,
 } from "@langchain/core/language_models/chat_models"
 import { NewTokenIndices } from "@langchain/core/callbacks/base"
 import {
+  BaseLanguageModelInput,
+  StructuredOutputMethodOptions,
+} from "@langchain/core/language_models/base"
+import {
+  Runnable,
+  RunnablePassthrough,
+  RunnableSequence,
+} from "@langchain/core/runnables"
+import type { z } from "zod"
+import { isZodSchema } from "@langchain/core/utils/types"
+import { BaseLLMOutputParser } from "@langchain/core/output_parsers"
+import { zodToGenerativeAIParameters } from "./utils/zod_to_genai_parameters.js"
+import {
   convertBaseMessagesToContent,
   convertResponseContentToChatGenerationChunk,
   mapGenerateContentResultToChatResult,
-} from "./utils"
+} from "./utils/common.js"
+import { GoogleGenerativeAIToolsOutputParser } from "./output_parsers.js"
+import { GoogleGenerativeAIToolType } from "./types.js"
+import { convertToolsToGenAI } from "./utils/tools.js"
 
 interface TokenUsage {
   completionTokens?: number
@@ -29,17 +59,31 @@ export type BaseMessageExamplePair = {
   output: BaseMessage
 }
 
+export interface GoogleGenerativeAIChatCallOptions
+  extends BaseChatModelCallOptions {
+  tools?: GoogleGenerativeAIToolType[]
+  /**
+   * Allowed functions to call when the mode is "any".
+   * If empty, any one of the provided functions are called.
+   */
+  allowedFunctionNames?: string[]
+  /**
+   * Whether or not to include usage data, like token counts
+   * in the streamed response chunks.
+   * @default true
+   */
+  streamUsage?: boolean
+}
+
 /**
  * An interface defining the input to the ChatGoogleGenerativeAI class.
  */
-export interface GoogleGenerativeAIChatInput extends BaseChatModelParams {
-  baseUrl?: string
+export interface GoogleGenerativeAIChatInput
+  extends BaseChatModelParams,
+  Pick<GoogleGenerativeAIChatCallOptions, "streamUsage"> {
   /**
-     * Version of API endpoint to call (e.g. "v1" or "v1beta"). If not specified,
-     * defaults to latest stable version.
-     */
-  apiVersion?: string
-  /**
+   * @deprecated Use "model" instead.
+   *
    * Model Name to use
    *
    * Alias for `model`
@@ -120,44 +164,376 @@ export interface GoogleGenerativeAIChatInput extends BaseChatModelParams {
    */
   apiKey?: string
 
+  /**
+   * Google API version to use
+   */
+  apiVersion?: string
+
+  /**
+   * Google API base URL to use
+   */
+  baseUrl?: string
+
   /** Whether to stream the results or not */
   streaming?: boolean
+
+  /**
+   * Whether or not to force the model to respond with JSON.
+   * Available for `gemini-1.5` models and later.
+   * @default false
+   */
+  json?: boolean
+
+  /**
+   * Whether or not model supports system instructions.
+   * The following models support system instructions:
+   * - All Gemini 1.5 Pro model versions
+   * - All Gemini 1.5 Flash model versions
+   * - Gemini 1.0 Pro version gemini-1.0-pro-002
+   */
+  convertSystemMessageToHumanContent?: boolean | undefined
 }
 
 /**
- * A class that wraps the Google Palm chat model.
- * @example
- * ```typescript
- * const model = new ChatGoogleGenerativeAI({
- *   apiKey: "<YOUR API KEY>",
- *   temperature: 0.7,
- *   modelName: "gemini-pro",
- *   topK: 40,
- *   topP: 1,
- * });
- * const questions = [
- *   new HumanMessage({
- *     content: [
- *       {
- *         type: "text",
- *         text: "You are a funny assistant that answers in pirate language.",
- *       },
- *       {
- *         type: "text",
- *         text: "What is your favorite food?",
- *       },
- *     ]
- *   })
- * ];
- * const res = await model.invoke(questions);
- * console.log({ res });
+ * Google Generative AI chat model integration.
+ *
+ * Setup:
+ * Install `@langchain/google-genai` and set an environment variable named `GOOGLE_API_KEY`.
+ *
+ * ```bash
+ * npm install @langchain/google-genai
+ * export GOOGLE_API_KEY="your-api-key"
  * ```
+ *
+ * ## [Constructor args](https://api.js.langchain.com/classes/langchain_google_genai.ChatGoogleGenerativeAI.html#constructor)
+ *
+ * ## [Runtime args](https://api.js.langchain.com/interfaces/langchain_google_genai.GoogleGenerativeAIChatCallOptions.html)
+ *
+ * Runtime args can be passed as the second argument to any of the base runnable methods `.invoke`. `.stream`, `.batch`, etc.
+ * They can also be passed via `.bind`, or the second arg in `.bindTools`, like shown in the examples below:
+ *
+ * ```typescript
+ * // When calling `.bind`, call options should be passed via the first argument
+ * const llmWithArgsBound = llm.bind({
+ *   stop: ["\n"],
+ *   tools: [...],
+ * });
+ *
+ * // When calling `.bindTools`, call options should be passed via the second argument
+ * const llmWithTools = llm.bindTools(
+ *   [...],
+ *   {
+ *     stop: ["\n"],
+ *   }
+ * );
+ * ```
+ *
+ * ## Examples
+ *
+ * <details open>
+ * <summary><strong>Instantiate</strong></summary>
+ *
+ * ```typescript
+ * import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+ *
+ * const llm = new ChatGoogleGenerativeAI({
+ *   model: "gemini-1.5-flash",
+ *   temperature: 0,
+ *   maxRetries: 2,
+ *   // apiKey: "...",
+ *   // other params...
+ * });
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Invoking</strong></summary>
+ *
+ * ```typescript
+ * const input = `Translate "I love programming" into French.`;
+ *
+ * // Models also accept a list of chat messages or a formatted prompt
+ * const result = await llm.invoke(input);
+ * console.log(result);
+ * ```
+ *
+ * ```txt
+ * AIMessage {
+ *   "content": "There are a few ways to translate \"I love programming\" into French, depending on the level of formality and nuance you want to convey:\n\n**Formal:**\n\n* **J'aime la programmation.** (This is the most literal and formal translation.)\n\n**Informal:**\n\n* **J'adore programmer.** (This is a more enthusiastic and informal translation.)\n* **J'aime beaucoup programmer.** (This is a slightly less enthusiastic but still informal translation.)\n\n**More specific:**\n\n* **J'aime beaucoup coder.** (This specifically refers to writing code.)\n* **J'aime beaucoup développer des logiciels.** (This specifically refers to developing software.)\n\nThe best translation will depend on the context and your intended audience. \n",
+ *   "response_metadata": {
+ *     "finishReason": "STOP",
+ *     "index": 0,
+ *     "safetyRatings": [
+ *       {
+ *         "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+ *         "probability": "NEGLIGIBLE"
+ *       },
+ *       {
+ *         "category": "HARM_CATEGORY_HATE_SPEECH",
+ *         "probability": "NEGLIGIBLE"
+ *       },
+ *       {
+ *         "category": "HARM_CATEGORY_HARASSMENT",
+ *         "probability": "NEGLIGIBLE"
+ *       },
+ *       {
+ *         "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+ *         "probability": "NEGLIGIBLE"
+ *       }
+ *     ]
+ *   },
+ *   "usage_metadata": {
+ *     "input_tokens": 10,
+ *     "output_tokens": 149,
+ *     "total_tokens": 159
+ *   }
+ * }
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Streaming Chunks</strong></summary>
+ *
+ * ```typescript
+ * for await (const chunk of await llm.stream(input)) {
+ *   console.log(chunk);
+ * }
+ * ```
+ *
+ * ```txt
+ * AIMessageChunk {
+ *   "content": "There",
+ *   "response_metadata": {
+ *     "index": 0
+ *   }
+ *   "usage_metadata": {
+ *     "input_tokens": 10,
+ *     "output_tokens": 1,
+ *     "total_tokens": 11
+ *   }
+ * }
+ * AIMessageChunk {
+ *   "content": " are a few ways to translate \"I love programming\" into French, depending on",
+ * }
+ * AIMessageChunk {
+ *   "content": " the level of formality and nuance you want to convey:\n\n**Formal:**\n\n",
+ * }
+ * AIMessageChunk {
+ *   "content": "* **J'aime la programmation.** (This is the most literal and formal translation.)\n\n**Informal:**\n\n* **J'adore programmer.** (This",
+ * }
+ * AIMessageChunk {
+ *   "content": " is a more enthusiastic and informal translation.)\n* **J'aime beaucoup programmer.** (This is a slightly less enthusiastic but still informal translation.)\n\n**More",
+ * }
+ * AIMessageChunk {
+ *   "content": " specific:**\n\n* **J'aime beaucoup coder.** (This specifically refers to writing code.)\n* **J'aime beaucoup développer des logiciels.** (This specifically refers to developing software.)\n\nThe best translation will depend on the context and",
+ * }
+ * AIMessageChunk {
+ *   "content": " your intended audience. \n",
+ * }
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Aggregate Streamed Chunks</strong></summary>
+ *
+ * ```typescript
+ * import { AIMessageChunk } from '@langchain/core/messages';
+ * import { concat } from '@langchain/core/utils/stream';
+ *
+ * const stream = await llm.stream(input);
+ * let full: AIMessageChunk | undefined;
+ * for await (const chunk of stream) {
+ *   full = !full ? chunk : concat(full, chunk);
+ * }
+ * console.log(full);
+ * ```
+ *
+ * ```txt
+ * AIMessageChunk {
+ *   "content": "There are a few ways to translate \"I love programming\" into French, depending on the level of formality and nuance you want to convey:\n\n**Formal:**\n\n* **J'aime la programmation.** (This is the most literal and formal translation.)\n\n**Informal:**\n\n* **J'adore programmer.** (This is a more enthusiastic and informal translation.)\n* **J'aime beaucoup programmer.** (This is a slightly less enthusiastic but still informal translation.)\n\n**More specific:**\n\n* **J'aime beaucoup coder.** (This specifically refers to writing code.)\n* **J'aime beaucoup développer des logiciels.** (This specifically refers to developing software.)\n\nThe best translation will depend on the context and your intended audience. \n",
+ *   "usage_metadata": {
+ *     "input_tokens": 10,
+ *     "output_tokens": 277,
+ *     "total_tokens": 287
+ *   }
+ * }
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Bind tools</strong></summary>
+ *
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const GetWeather = {
+ *   name: "GetWeather",
+ *   description: "Get the current weather in a given location",
+ *   schema: z.object({
+ *     location: z.string().describe("The city and state, e.g. San Francisco, CA")
+ *   }),
+ * }
+ *
+ * const GetPopulation = {
+ *   name: "GetPopulation",
+ *   description: "Get the current population in a given location",
+ *   schema: z.object({
+ *     location: z.string().describe("The city and state, e.g. San Francisco, CA")
+ *   }),
+ * }
+ *
+ * const llmWithTools = llm.bindTools([GetWeather, GetPopulation]);
+ * const aiMsg = await llmWithTools.invoke(
+ *   "Which city is hotter today and which is bigger: LA or NY?"
+ * );
+ * console.log(aiMsg.tool_calls);
+ * ```
+ *
+ * ```txt
+ * [
+ *   {
+ *     name: 'GetWeather',
+ *     args: { location: 'Los Angeles, CA' },
+ *     type: 'tool_call'
+ *   },
+ *   {
+ *     name: 'GetWeather',
+ *     args: { location: 'New York, NY' },
+ *     type: 'tool_call'
+ *   },
+ *   {
+ *     name: 'GetPopulation',
+ *     args: { location: 'Los Angeles, CA' },
+ *     type: 'tool_call'
+ *   },
+ *   {
+ *     name: 'GetPopulation',
+ *     args: { location: 'New York, NY' },
+ *     type: 'tool_call'
+ *   }
+ * ]
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Structured Output</strong></summary>
+ *
+ * ```typescript
+ * const Joke = z.object({
+ *   setup: z.string().describe("The setup of the joke"),
+ *   punchline: z.string().describe("The punchline to the joke"),
+ *   rating: z.number().optional().describe("How funny the joke is, from 1 to 10")
+ * }).describe('Joke to tell user.');
+ *
+ * const structuredLlm = llm.withStructuredOutput(Joke, { name: "Joke" });
+ * const jokeResult = await structuredLlm.invoke("Tell me a joke about cats");
+ * console.log(jokeResult);
+ * ```
+ *
+ * ```txt
+ * {
+ *   setup: "Why don\\'t cats play poker?",
+ *   punchline: "Why don\\'t cats play poker? Because they always have an ace up their sleeve!"
+ * }
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Multimodal</strong></summary>
+ *
+ * ```typescript
+ * import { HumanMessage } from '@langchain/core/messages';
+ *
+ * const imageUrl = "https://example.com/image.jpg";
+ * const imageData = await fetch(imageUrl).then(res => res.arrayBuffer());
+ * const base64Image = Buffer.from(imageData).toString('base64');
+ *
+ * const message = new HumanMessage({
+ *   content: [
+ *     { type: "text", text: "describe the weather in this image" },
+ *     {
+ *       type: "image_url",
+ *       image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+ *     },
+ *   ]
+ * });
+ *
+ * const imageDescriptionAiMsg = await llm.invoke([message]);
+ * console.log(imageDescriptionAiMsg.content);
+ * ```
+ *
+ * ```txt
+ * The weather in the image appears to be clear and sunny. The sky is mostly blue with a few scattered white clouds, indicating fair weather. The bright sunlight is casting shadows on the green, grassy hill, suggesting it is a pleasant day with good visibility. There are no signs of rain or stormy conditions.
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Usage Metadata</strong></summary>
+ *
+ * ```typescript
+ * const aiMsgForMetadata = await llm.invoke(input);
+ * console.log(aiMsgForMetadata.usage_metadata);
+ * ```
+ *
+ * ```txt
+ * { input_tokens: 10, output_tokens: 149, total_tokens: 159 }
+ * ```
+ * </details>
+ *
+ * <br />
+ *
+ * <details>
+ * <summary><strong>Response Metadata</strong></summary>
+ *
+ * ```typescript
+ * const aiMsgForResponseMetadata = await llm.invoke(input);
+ * console.log(aiMsgForResponseMetadata.response_metadata);
+ * ```
+ *
+ * ```txt
+ * {
+ *   finishReason: 'STOP',
+ *   index: 0,
+ *   safetyRatings: [
+ *     {
+ *       category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+ *       probability: 'NEGLIGIBLE'
+ *     },
+ *     {
+ *       category: 'HARM_CATEGORY_HATE_SPEECH',
+ *       probability: 'NEGLIGIBLE'
+ *     },
+ *     { category: 'HARM_CATEGORY_HARASSMENT', probability: 'NEGLIGIBLE' },
+ *     {
+ *       category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+ *       probability: 'NEGLIGIBLE'
+ *     }
+ *   ]
+ * }
+ * ```
+ * </details>
+ *
+ * <br />
  */
 export class ChatGoogleGenerativeAI
-  extends BaseChatModel
+  extends BaseChatModel<GoogleGenerativeAIChatCallOptions, AIMessageChunk>
   implements GoogleGenerativeAIChatInput {
   static lc_name() {
-    return "googlegenerativeai"
+    return "ChatGoogleGenerativeAI"
   }
 
   lc_serializable = true;
@@ -165,6 +541,14 @@ export class ChatGoogleGenerativeAI
   get lc_secrets(): { [key: string]: string } | undefined {
     return {
       apiKey: "GOOGLE_API_KEY",
+    }
+  }
+
+  lc_namespace = ["langchain", "chat_models", "google_genai"];
+
+  get lc_aliases() {
+    return {
+      apiKey: "google_api_key",
     }
   }
 
@@ -186,9 +570,11 @@ export class ChatGoogleGenerativeAI
 
   apiKey?: string
 
-  apiVersion: string = "v1"
-
   streaming = false;
+
+  streamUsage = true;
+
+  convertSystemMessageToHumanContent: boolean | undefined
 
   private client: GenerativeModel
 
@@ -242,8 +628,6 @@ export class ChatGoogleGenerativeAI
       )
     }
 
-    this.apiVersion = fields?.apiVersion ?? this.apiVersion
-
     this.safetySettings = fields?.safetySettings ?? this.safetySettings
     if (this.safetySettings && this.safetySettings.length > 0) {
       const safetySettingsSet = new Set(
@@ -258,18 +642,75 @@ export class ChatGoogleGenerativeAI
 
     this.streaming = fields?.streaming ?? this.streaming
 
-    this.client = new GenerativeAI(this.apiKey).getGenerativeModel({
-      model: this.model,
-      safetySettings: this.safetySettings as SafetySetting[],
-      generationConfig: {
-        candidateCount: 1,
-        stopSequences: this.stopSequences,
-        maxOutputTokens: this.maxOutputTokens,
-        temperature: this.temperature,
-        topP: this.topP,
-        topK: this.topK,
+    this.client = new GenerativeAI(this.apiKey).getGenerativeModel(
+      {
+        model: this.model,
+        safetySettings: this.safetySettings as SafetySetting[],
+        generationConfig: {
+          candidateCount: 1,
+          stopSequences: this.stopSequences,
+          maxOutputTokens: this.maxOutputTokens,
+          temperature: this.temperature,
+          topP: this.topP,
+          topK: this.topK,
+          ...(fields?.json ? { responseMimeType: "application/json" } : {}),
+        },
       },
-    }, { apiVersion: this.apiVersion, baseUrl: fields?.baseUrl })
+      {
+        apiVersion: fields?.apiVersion,
+        baseUrl: fields?.baseUrl,
+      }
+    )
+    this.streamUsage = fields?.streamUsage ?? this.streamUsage
+  }
+
+  useCachedContent(
+    cachedContent: CachedContent,
+    modelParams?: ModelParams,
+    requestOptions?: RequestOptions
+  ): void {
+    if (!this.apiKey) return
+    this.client = new GenerativeAI(
+      this.apiKey
+    ).getGenerativeModelFromCachedContent(
+      cachedContent,
+      modelParams,
+      requestOptions
+    )
+  }
+
+  get useSystemInstruction(): boolean {
+    return typeof this.convertSystemMessageToHumanContent === "boolean"
+      ? !this.convertSystemMessageToHumanContent
+      : this.computeUseSystemInstruction
+  }
+
+  get computeUseSystemInstruction(): boolean {
+    // This works on models from April 2024 and later
+    //   Vertex AI: gemini-1.5-pro and gemini-1.0-002 and later
+    //   AI Studio: gemini-1.5-pro-latest
+    if (this.modelName === "gemini-1.0-pro-001") {
+      return false
+    } else if (this.modelName.startsWith("gemini-pro-vision")) {
+      return false
+    } else if (this.modelName.startsWith("gemini-1.0-pro-vision")) {
+      return false
+    } else if (this.modelName === "gemini-pro") {
+      // on AI Studio gemini-pro is still pointing at gemini-1.0-pro-001
+      return false
+    }
+    return true
+  }
+
+  getLsParams(options: this["ParsedCallOptions"]): LangSmithParams {
+    return {
+      ls_provider: "google_genai",
+      ls_model_name: this.model,
+      ls_model_type: "chat",
+      ls_temperature: this.client.generationConfig.temperature,
+      ls_max_tokens: this.client.generationConfig.maxOutputTokens,
+      ls_stop: options.stop,
+    }
   }
 
   _combineLLMOutput() {
@@ -280,6 +721,41 @@ export class ChatGoogleGenerativeAI
     return "googlegenerativeai"
   }
 
+  override bindTools(
+    tools: GoogleGenerativeAIToolType[],
+    kwargs?: Partial<GoogleGenerativeAIChatCallOptions>
+  ): Runnable<
+    BaseLanguageModelInput,
+    AIMessageChunk,
+    GoogleGenerativeAIChatCallOptions
+  > {
+    const genaiTools = convertToolsToGenAI(tools)?.tools
+    console.log('GenAI Tools', JSON.stringify(genaiTools))
+    return this.bind({
+      tools: {
+        "function_declarations": genaiTools
+      }, ...kwargs
+    })
+  }
+
+  invocationParams(
+    options?: this["ParsedCallOptions"]
+  ): Omit<GenerateContentRequest, "contents"> {
+    const toolsAndConfig = options?.tools?.length
+      ? convertToolsToGenAI(options.tools, {
+        toolChoice: options.tool_choice,
+        allowedFunctionNames: options.allowedFunctionNames,
+      })
+      : undefined
+
+    return {
+      ...(toolsAndConfig?.tools ? { tools: toolsAndConfig.tools } : {}),
+      ...(toolsAndConfig?.toolConfig
+        ? { toolConfig: toolsAndConfig.toolConfig }
+        : {}),
+    }
+  }
+
   async _generate(
     messages: BaseMessage[],
     options: this["ParsedCallOptions"],
@@ -287,14 +763,23 @@ export class ChatGoogleGenerativeAI
   ): Promise<ChatResult> {
     const prompt = convertBaseMessagesToContent(
       messages,
-      this._isMultimodalModel
+      this._isMultimodalModel,
+      this.useSystemInstruction
     )
+    let actualPrompt = prompt
+    if (prompt[0].role === "system") {
+      const [systemInstruction] = prompt
+      this.client.systemInstruction = systemInstruction
+      actualPrompt = prompt.slice(1)
+    }
+    const parameters = this.invocationParams(options)
 
     // Handle streaming
     if (this.streaming) {
       const tokenUsage: TokenUsage = {}
       const stream = this._streamResponseChunks(messages, options, runManager)
       const finalChunks: Record<number, ChatGenerationChunk> = {}
+
       for await (const chunk of stream) {
         const index =
           (chunk.generationInfo as NewTokenIndices)?.completion ?? 0
@@ -311,26 +796,31 @@ export class ChatGoogleGenerativeAI
       return { generations, llmOutput: { estimatedTokenUsage: tokenUsage } }
     }
 
-    const res = await this.caller.callWithOptions(
-      { signal: options?.signal },
-      async () => {
-        let output
-        try {
-          output = await this.client.generateContent({
-            contents: prompt,
-          })
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) {
-          // TODO: Improve error handling
-          if (e.message?.includes("400 Bad Request")) {
-            e.status = 400
-          }
-          throw e
-        }
-        return output
+    const res = await this.completionWithRetry({
+      ...parameters,
+      contents: actualPrompt,
+    })
+
+    let usageMetadata: UsageMetadata | undefined
+    if ("usageMetadata" in res.response) {
+      const genAIUsageMetadata = res.response.usageMetadata as {
+        promptTokenCount: number | undefined
+        candidatesTokenCount: number | undefined
+        totalTokenCount: number | undefined
+      }
+      usageMetadata = {
+        input_tokens: genAIUsageMetadata.promptTokenCount ?? 0,
+        output_tokens: genAIUsageMetadata.candidatesTokenCount ?? 0,
+        total_tokens: genAIUsageMetadata.totalTokenCount ?? 0,
+      }
+    }
+
+    const generationResult = mapGenerateContentResultToChatResult(
+      res.response,
+      {
+        usageMetadata,
       }
     )
-    const generationResult = mapGenerateContentResultToChatResult(res.response)
     await runManager?.handleLLMNewToken(
       generationResult.generations[0].text ?? ""
     )
@@ -344,20 +834,66 @@ export class ChatGoogleGenerativeAI
   ): AsyncGenerator<ChatGenerationChunk> {
     const prompt = convertBaseMessagesToContent(
       messages,
-      this._isMultimodalModel
+      this._isMultimodalModel,
+      this.useSystemInstruction
     )
+    let actualPrompt = prompt
+    if (prompt[0].role === "system") {
+      const [systemInstruction] = prompt
+      this.client.systemInstruction = systemInstruction
+      actualPrompt = prompt.slice(1)
+    }
+    const parameters = this.invocationParams(options)
+    const request = {
+      ...parameters,
+      contents: actualPrompt,
+    }
     const stream = await this.caller.callWithOptions(
       { signal: options?.signal },
       async () => {
-        const { stream } = await this.client.generateContentStream({
-          contents: prompt,
-        })
+        const { stream } = await this.client.generateContentStream(request)
         return stream
       }
     )
 
+    let usageMetadata: UsageMetadata | undefined
+    let index = 0
     for await (const response of stream) {
-      const chunk = convertResponseContentToChatGenerationChunk(response)
+      if (
+        "usageMetadata" in response &&
+        this.streamUsage !== false &&
+        options.streamUsage !== false
+      ) {
+        const genAIUsageMetadata = response.usageMetadata as {
+          promptTokenCount: number
+          candidatesTokenCount: number
+          totalTokenCount: number
+        }
+        if (!usageMetadata) {
+          usageMetadata = {
+            input_tokens: genAIUsageMetadata.promptTokenCount,
+            output_tokens: genAIUsageMetadata.candidatesTokenCount,
+            total_tokens: genAIUsageMetadata.totalTokenCount,
+          }
+        } else {
+          // Under the hood, LangChain combines the prompt tokens. Google returns the updated
+          // total each time, so we need to find the difference between the tokens.
+          const outputTokenDiff =
+            genAIUsageMetadata.candidatesTokenCount -
+            usageMetadata.output_tokens
+          usageMetadata = {
+            input_tokens: 0,
+            output_tokens: outputTokenDiff,
+            total_tokens: outputTokenDiff,
+          }
+        }
+      }
+
+      const chunk = convertResponseContentToChatGenerationChunk(response, {
+        usageMetadata,
+        index,
+      })
+      index += 1
       if (!chunk) {
         continue
       }
@@ -365,5 +901,158 @@ export class ChatGoogleGenerativeAI
       yield chunk
       await runManager?.handleLLMNewToken(chunk.text ?? "")
     }
+  }
+
+  async completionWithRetry(
+    request: string | GenerateContentRequest | (string | GenerativeAIPart)[],
+    options?: this["ParsedCallOptions"]
+  ) {
+    return this.caller.callWithOptions(
+      { signal: options?.signal },
+      async () => {
+        try {
+          return await this.client.generateContent(request)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+          // TODO: Improve error handling
+          if (e.message?.includes("400 Bad Request")) {
+            e.status = 400
+          }
+          throw e
+        }
+      }
+    )
+  }
+
+  withStructuredOutput<
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    RunOutput extends Record<string, any> = Record<string, any>
+  >(
+    outputSchema:
+      | z.ZodType<RunOutput>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      | Record<string, any>,
+    config?: StructuredOutputMethodOptions<false>
+  ): Runnable<BaseLanguageModelInput, RunOutput>
+
+  withStructuredOutput<
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    RunOutput extends Record<string, any> = Record<string, any>
+  >(
+    outputSchema:
+      | z.ZodType<RunOutput>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      | Record<string, any>,
+    config?: StructuredOutputMethodOptions<true>
+  ): Runnable<BaseLanguageModelInput, { raw: BaseMessage; parsed: RunOutput }>
+
+  withStructuredOutput<
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    RunOutput extends Record<string, any> = Record<string, any>
+  >(
+    outputSchema:
+      | z.ZodType<RunOutput>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      | Record<string, any>,
+    config?: StructuredOutputMethodOptions<boolean>
+  ):
+    | Runnable<BaseLanguageModelInput, RunOutput>
+    | Runnable<
+      BaseLanguageModelInput,
+      { raw: BaseMessage; parsed: RunOutput }
+    > {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const schema: z.ZodType<RunOutput> | Record<string, any> = outputSchema
+    const name = config?.name
+    const method = config?.method
+    const includeRaw = config?.includeRaw
+    if (method === "jsonMode") {
+      throw new Error(
+        `ChatGoogleGenerativeAI only supports "functionCalling" as a method.`
+      )
+    }
+
+    let functionName = name ?? "extract"
+    let outputParser: BaseLLMOutputParser<RunOutput>
+    let tools: GoogleGenerativeAIFunctionDeclarationsTool[]
+    if (isZodSchema(schema)) {
+      const jsonSchema = zodToGenerativeAIParameters(schema)
+      tools = [
+        {
+          functionDeclarations: [
+            {
+              name: functionName,
+              description:
+                jsonSchema.description ?? "A function available to call.",
+              parameters: jsonSchema as GenerativeAIFunctionDeclarationSchema,
+            },
+          ],
+        },
+      ]
+      outputParser = new GoogleGenerativeAIToolsOutputParser<
+        z.infer<typeof schema>
+      >({
+        returnSingle: true,
+        keyName: functionName,
+        zodSchema: schema,
+      })
+    } else {
+      let geminiFunctionDefinition: GenerativeAIFunctionDeclaration
+      if (
+        typeof schema.name === "string" &&
+        typeof schema.parameters === "object" &&
+        schema.parameters != null
+      ) {
+        geminiFunctionDefinition = schema as GenerativeAIFunctionDeclaration
+        functionName = schema.name
+      } else {
+        geminiFunctionDefinition = {
+          name: functionName,
+          description: schema.description ?? "",
+          parameters: schema as GenerativeAIFunctionDeclarationSchema,
+        }
+      }
+      tools = [
+        {
+          functionDeclarations: [geminiFunctionDefinition],
+        },
+      ]
+      outputParser = new GoogleGenerativeAIToolsOutputParser<RunOutput>({
+        returnSingle: true,
+        keyName: functionName,
+      })
+    }
+    const llm = this.bind({
+      tools,
+      tool_choice: functionName,
+    })
+
+    if (!includeRaw) {
+      return llm.pipe(outputParser).withConfig({
+        runName: "ChatGoogleGenerativeAIStructuredOutput",
+      }) as Runnable<BaseLanguageModelInput, RunOutput>
+    }
+
+    const parserAssign = RunnablePassthrough.assign({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      parsed: (input: any, config) => outputParser.invoke(input.raw, config),
+    })
+    const parserNone = RunnablePassthrough.assign({
+      parsed: () => null,
+    })
+    const parsedWithFallback = parserAssign.withFallbacks({
+      fallbacks: [parserNone],
+    })
+    return RunnableSequence.from<
+      BaseLanguageModelInput,
+      { raw: BaseMessage; parsed: RunOutput }
+    >([
+      {
+        raw: llm,
+      },
+      parsedWithFallback,
+    ]).withConfig({
+      runName: "StructuredOutputRunnable",
+    })
   }
 }

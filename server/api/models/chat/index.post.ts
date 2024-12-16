@@ -14,6 +14,7 @@ import { resolveCoreference } from '~/server/coref'
 import { concat } from "@langchain/core/utils/stream"
 import { MODEL_FAMILIES } from '~/config'
 import { McpService } from '@/server/utils/mcp'
+import { zodToJsonSchema } from 'zod-to-json-schema'
 
 interface RequestBody {
   knowledgebaseId: number
@@ -183,7 +184,18 @@ export default defineEventHandler(async (event) => {
       return acc
     }, {})
     if (family === MODEL_FAMILIES.anthropic) {
-      llm = llm.bindTools(normalizedTools)
+      if (family === MODEL_FAMILIES.gemini) {
+        llm = llm.bindTools(normalizedTools.map((t) => {
+          console.log(`Tool ${t.name}: `, t.mcpSchema)
+          return {
+            name: t.name,
+            description: t.description,
+            parameters: t.mcpSchema
+          }
+        }))
+      } else {
+        llm = llm.bindTools(normalizedTools)
+      }
     }
 
     if (!stream) {
@@ -197,6 +209,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    console.log("Streaming response")
     const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
       return [message.role, message.content]
     }))
