@@ -272,48 +272,68 @@ async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
     ? await clientDB.chatHistories.add({ ...data, sessionId: props.sessionId })
     : Math.random()
 }
+
+// Add new state for preview
+const showPreview = ref(false)
+const previewContent = ref('')
+
+// Add method to handle preview requests from messages
+const onPreviewRequest = (content: string) => {
+  previewContent.value = content
+  showPreview.value = true
+}
 </script>
 
 <template>
-  <div class="flex flex-col box-border dark:text-gray-300 md:-mx-4">
-    <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
-      <slot name="left-menu-btn"></slot>
-      <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
-                      :title="instructionInfo.name"
-                      :description="instructionInfo.instruction"
-                      class="hidden md:block" />
-      <ChatConfigInfo v-if="knowledgeBaseInfo" icon="i-heroicons-book-open"
-                      :title="knowledgeBaseInfo.name"
-                      class="mx-2 hidden md:block" />
-      <div class="mx-auto px-4 text-center">
-        <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
-        <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
-      </div>
-      <UTooltip v-if="sessionId" :text="t('chat.modifyTips')">
-        <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
-      </UTooltip>
-    </div>
-    <div ref="messageListEl" class="relative flex-1 overflow-x-hidden overflow-y-auto px-4">
-      <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
-                       :message :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
-                       class="my-2" @resend="onResend" @remove="onRemove" />
-    </div>
-    <div class="shrink-0 pt-4 px-4 border-t border-gray-200 dark:border-gray-800">
-      <ChatInputBox ref="chatInputBoxRef"
-                    :disabled="models.length === 0" :loading="sendingCount > 0"
-                    @submit="onSend" @stop="onAbortChat">
-        <div class="text-muted flex">
-          <div class="mr-4">
-            <ModelsMultiSelectMenu v-model="models" @change="onModelsChange" />
-          </div>
-          <UTooltip :text="t('chat.attachedMessagesCount')" :popper="{ placement: 'top-start' }">
-            <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
-              <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
-              <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>
-            </div>
-          </UTooltip>
+  <div class="flex box-border dark:text-gray-300 md:-mx-4 h-[calc(100vh-64px)]">
+    <!-- Main chat area -->
+    <div class="flex flex-col flex-1 min-w-0">
+      <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
+        <slot name="left-menu-btn"></slot>
+        <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
+                        :title="instructionInfo.name"
+                        :description="instructionInfo.instruction"
+                        class="hidden md:block" />
+        <ChatConfigInfo v-if="knowledgeBaseInfo" icon="i-heroicons-book-open"
+                        :title="knowledgeBaseInfo.name"
+                        class="mx-2 hidden md:block" />
+        <div class="mx-auto px-4 text-center">
+          <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
+          <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
         </div>
-      </ChatInputBox>
+        <UTooltip v-if="sessionId" :text="t('chat.modifyTips')">
+          <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
+        </UTooltip>
+      </div>
+      <div ref="messageListEl" class="relative flex-1 overflow-x-hidden overflow-y-auto px-4">
+        <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
+                         :message :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
+                         :is-previewing="showPreview && message.content === previewContent"
+                         class="my-2" @resend="onResend" @remove="onRemove" @preview="onPreviewRequest" />
+      </div>
+      <div class="shrink-0 pt-4 px-4 border-t border-gray-200 dark:border-gray-800">
+        <ChatInputBox ref="chatInputBoxRef"
+                      :disabled="models.length === 0" :loading="sendingCount > 0"
+                      @submit="onSend" @stop="onAbortChat">
+          <div class="text-muted flex">
+            <div class="mr-4">
+              <ModelsMultiSelectMenu v-model="models" @change="onModelsChange" />
+            </div>
+            <UTooltip :text="t('chat.attachedMessagesCount')" :popper="{ placement: 'top-start' }">
+              <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
+                <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
+                <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>
+              </div>
+            </UTooltip>
+          </div>
+        </ChatInputBox>
+      </div>
     </div>
+
+    <!-- Preview panel -->
+    <MarkdownPreview
+                     :content="previewContent"
+                     :show="showPreview"
+                     @close="showPreview = false" />
   </div>
 </template>
