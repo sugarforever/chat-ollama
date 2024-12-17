@@ -331,9 +331,9 @@ const onPreviewRequest = (content: string) => {
     </div>
 
     <!-- Preview panel -->
-    <MarkdownPreview
-                     :content="previewContent"
-                     :show="showPreview"
-                     @close="showPreview = false" />
+    <ComponentPreview
+                      :content="previewContent"
+                      :show="showPreview"
+                      @close="showPreview = false" />
   </div>
 </template>

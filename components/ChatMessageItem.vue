@@ -49,28 +49,9 @@ const isVueComponent = ref(false)
 const togglePreview = () => {
   if (!props.message.content) return
 
-  if (props.message.content.includes('<template>')) {
-    try {
-      const componentCode = props.message.content
-      isVueComponent.value = true
-
-      previewComponent.value = defineAsyncComponent(async () => {
-        const comp = {
-          template: extractTemplate(componentCode),
-          script: extractScript(componentCode),
-          styles: extractStyles(componentCode)
-        }
-        return comp
-      })
-
-      emits('preview', props.message.content)
-    } catch (err) {
-      console.error('Failed to create preview component:', err)
-      isVueComponent.value = false
-    }
-  } else {
-    isVueComponent.value = false
-    emits('preview', props.message.content)
+  const vueMatch = props.message.content.match(/```vue\n([\s\S]*?)```/)
+  if (vueMatch) {
+    emits('preview', vueMatch[1])
   }
 }
 

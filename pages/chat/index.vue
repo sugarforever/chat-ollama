@@ -3,6 +3,7 @@ import type { ComponentInstance } from 'vue'
 import ChatSessionList from '~/components/ChatSessionList.vue'
 import Chat from '~/components/Chat.vue'
 import type { ChatMessage } from '@/types/chat'
+import ComponentPreview from '~/components/ComponentPreview.vue'
 
 export interface ChatSessionSettings extends Partial<Omit<ChatSession, 'id' | 'createTime'>> { }
 
