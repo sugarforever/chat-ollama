@@ -16,6 +16,7 @@ import { MODEL_FAMILIES } from '~/config'
 import { McpService } from '@/server/utils/mcp'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { ChatOllama } from '@langchain/ollama'
+import { tool } from '@langchain/core/tools'
 
 interface RequestBody {
   knowledgebaseId: number
@@ -197,6 +198,9 @@ export default defineEventHandler(async (event) => {
       } else {
         llm = llm.bindTools(normalizedTools)
       }
+    } else if (llm instanceof ChatOllama) {
+      console.log("Binding tools to ChatOllama")
+      llm = llm.bindTools(normalizedTools)
     }
 
     if (!stream) {
@@ -244,7 +248,7 @@ export default defineEventHandler(async (event) => {
       }
 
       for (const toolCall of gathered?.tool_calls ?? []) {
-
+        console.log("Tool call: ", toolCall)
         const selectedTool = toolsMap[toolCall.name]
 
         if (selectedTool) {
