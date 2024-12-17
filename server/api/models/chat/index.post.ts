@@ -186,6 +186,7 @@ export default defineEventHandler(async (event) => {
       return acc
     }, {})
     if (family === MODEL_FAMILIES.anthropic) {
+      /*
       if (family === MODEL_FAMILIES.gemini) {
         llm = llm.bindTools(normalizedTools.map((t) => {
           console.log(`Tool ${t.name}: `, t.mcpSchema)
@@ -198,9 +199,13 @@ export default defineEventHandler(async (event) => {
       } else {
         llm = llm.bindTools(normalizedTools)
       }
+      */
+      llm = llm.bindTools(normalizedTools)
     } else if (llm instanceof ChatOllama) {
+      /*
       console.log("Binding tools to ChatOllama")
       llm = llm.bindTools(normalizedTools)
+      */
     }
 
     if (!stream) {
