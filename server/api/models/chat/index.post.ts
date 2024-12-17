@@ -17,6 +17,7 @@ import { McpService } from '@/server/utils/mcp'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { ChatOllama } from '@langchain/ollama'
 import { tool } from '@langchain/core/tools'
+import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 
 interface RequestBody {
   knowledgebaseId: number
@@ -185,7 +186,7 @@ export default defineEventHandler(async (event) => {
       acc[tool.name] = tool
       return acc
     }, {})
-    if (family === MODEL_FAMILIES.anthropic) {
+    if (family === MODEL_FAMILIES.anthropic && normalizedTools?.length) {
       /*
       if (family === MODEL_FAMILIES.gemini) {
         llm = llm.bindTools(normalizedTools.map((t) => {
@@ -200,7 +201,9 @@ export default defineEventHandler(async (event) => {
         llm = llm.bindTools(normalizedTools)
       }
       */
-      llm = llm.bindTools(normalizedTools)
+      if (llm?.bindTools) {
+        llm = llm.bindTools(normalizedTools) as BaseChatModel
+      }
     } else if (llm instanceof ChatOllama) {
       /*
       console.log("Binding tools to ChatOllama")
