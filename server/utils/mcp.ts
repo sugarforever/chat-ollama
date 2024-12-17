@@ -4,7 +4,6 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { DynamicStructuredTool } from "@langchain/core/tools"
 import fs from 'fs'
 import path from 'path'
-import zodToJsonSchema from 'zod-to-json-schema'
 interface McpServerConfig {
   command: string
   args: string[]
@@ -24,24 +23,38 @@ export class McpService {
     }
     console.log("Loading MCP servers from ", mcpConfigPath)
 
-    const mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8'))
-
-    const allTools: any[] = []
-    for (const [serverName, serverConfig] of Object.entries(mcpConfig.mcpServers)) {
-      console.log("Server name: ", serverName)
-      console.log("Server config: ", serverConfig)
-
-      const transport = new StdioClientTransport({
-        command: serverConfig.command,
-        args: serverConfig.args,
-        env: serverConfig.env
-      })
-
-      const serverTools = await this.getToolsFromTransport(transport)
-      allTools.push(...serverTools)
+    if (!fs.existsSync(mcpConfigPath)) {
+      return []
     }
 
-    return allTools
+    try {
+      const mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf8')) as McpConfig
+
+      const allTools: any[] = []
+      for (const [serverName, serverConfig] of Object.entries(mcpConfig.mcpServers)) {
+        try {
+          console.log("Server name: ", serverName)
+          console.log("Server config: ", serverConfig)
+
+          const transport = new StdioClientTransport({
+            command: serverConfig.command,
+            args: serverConfig.args,
+            env: serverConfig.env
+          })
+
+          const serverTools = await this.getToolsFromTransport(transport)
+          allTools.push(...serverTools)
+        } catch (error) {
+          console.error(`Failed to load tools from server ${serverName}:`, error)
+          // Continue with next server
+        }
+      }
+
+      return allTools
+    } catch (error) {
+      console.error("Failed to parse MCP config file:", error)
+      return []
+    }
   }
 
   private async getToolsFromTransport(transport: StdioClientTransport): Promise<any[]> {
