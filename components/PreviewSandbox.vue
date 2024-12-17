@@ -11,51 +11,72 @@ const styleElement = ref<HTMLStyleElement | null>(null)
 
 const extractSections = (code: string) => {
   const templateMatch = code.match(/<template>([\s\S]*)<\/template>/)
-  const scriptMatch = code.match(/<script>([\s\S]*)<\/script>/)
+  const scriptMatch = code.match(/<script.*?>([\s\S]*)<\/script>/)
   const styleMatch = code.match(/<style[^>]*>([\s\S]*)<\/style>/)
+
+  const isSetupScript = scriptMatch?.[0].includes('setup')
 
   return {
     template: templateMatch ? templateMatch[1].trim() : '',
     script: scriptMatch ? scriptMatch[1].trim() : '',
-    style: styleMatch ? styleMatch[1].trim() : ''
+    isSetupScript,
+    style: styleMatch ? styleMatch[1].trim() : '',
+    hasScoped: styleMatch?.[0].includes('scoped') ?? false
   }
 }
 
-const injectStyles = (styles: string) => {
+const injectStyles = (styles: string, isScoped: boolean) => {
   if (styleElement.value) {
     document.head.removeChild(styleElement.value)
   }
 
-  // Create a new style element
   const style = document.createElement('style')
-  // Scope styles to our sandbox container
-  const scopedStyles = styles.replace(/([^{}]*){/g, `#${sandboxId.value} $1 {`)
-  style.textContent = scopedStyles
+  let processedStyles = styles
+
+  if (isScoped) {
+    // Add a data attribute for scoping
+    const scopeId = `data-v-${sandboxId.value}`
+    processedStyles = styles.replace(/([^{}]*){/g, `[${scopeId}] $1 {`)
+    // Add scope ID to the container
+    const container = document.getElementById(sandboxId.value)
+    if (container) {
+      container.setAttribute(scopeId, '')
+    }
+  } else {
+    // Just scope to container ID if not using Vue's scoped styles
+    processedStyles = styles.replace(/([^{}]*){/g, `#${sandboxId.value} $1 {`)
+  }
+
+  style.textContent = processedStyles
   document.head.appendChild(style)
   styleElement.value = style
 }
 
 const compiledComponent = computed(() => {
   try {
-    const { template, script, style } = extractSections(props.code)
+    const { template, script, style, isSetupScript, hasScoped } = extractSections(props.code)
 
-    // Handle styles
     if (style) {
-      injectStyles(style)
+      injectStyles(style, hasScoped)
     }
 
-    // Evaluate script section to get component options
+    // Show warning for setup script
+    if (isSetupScript) {
+      console.warn('Preview: <script setup> syntax is not fully supported in the preview.')
+    }
+
     let componentOptions = {}
-    if (script) {
-      // Remove 'export default' and evaluate as object
-      const cleanScript = script.replace('export default', 'return')
-      componentOptions = new Function(cleanScript)()
+    if (script && !isSetupScript) {
+      try {
+        const cleanScript = script.replace('export default', 'return')
+        componentOptions = new Function(cleanScript)()
+      } catch (scriptError) {
+        console.error('Failed to evaluate component script:', scriptError)
+      }
     }
 
-    // Compile template
     const render = template ? compile(template) : null
 
-    // Create component with both template and data/methods
     return defineComponent({
       ...componentOptions,
       render: render
@@ -66,7 +87,6 @@ const compiledComponent = computed(() => {
   }
 })
 
-// Clean up styles when component is unmounted
 onUnmounted(() => {
   if (styleElement.value) {
     document.head.removeChild(styleElement.value)
@@ -77,7 +97,9 @@ onUnmounted(() => {
 <template>
   <div class="preview-sandbox" :id="sandboxId">
     <component v-if="compiledComponent" :is="compiledComponent" />
-    <div v-else class="text-red-500">Failed to compile component</div>
+    <div v-else class="text-red-500">
+      Failed to compile component. Check console for details.
+    </div>
   </div>
 </template>
 
