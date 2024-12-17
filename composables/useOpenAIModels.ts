@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 import { updateOpenAIModels } from '~/config/models'
-import { useI18n } from 'vue-i18n'
 
 const isLoadingModels = ref(false)
 const lastLoadTime = ref(0)
