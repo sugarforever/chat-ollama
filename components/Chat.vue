@@ -311,7 +311,7 @@ const onPreviewRequest = (content: string) => {
                          :is-previewing="showPreview && message.content === previewContent"
                          class="my-2" @resend="onResend" @remove="onRemove" @preview="onPreviewRequest" />
       </div>
-      <div class="shrink-0 pt-4 px-4 border-t border-gray-200 dark:border-gray-800">
+      <div class="shrink-0 p-4 border-t border-gray-200 dark:border-gray-800">
         <ChatInputBox ref="chatInputBoxRef"
                       :disabled="models.length === 0" :loading="sendingCount > 0"
                       @submit="onSend" @stop="onAbortChat">
