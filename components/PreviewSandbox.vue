@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, compile, defineComponent, onMounted, onUnmounted } from 'vue'
+import { h, compile, defineComponent, onMounted, onUnmounted, watch } from 'vue'
 import { computed, ref } from 'vue'
 
 const props = defineProps<{
@@ -34,16 +34,13 @@ const injectStyles = (styles: string, isScoped: boolean) => {
   let processedStyles = styles
 
   if (isScoped) {
-    // Add a data attribute for scoping
     const scopeId = `data-v-${sandboxId.value}`
     processedStyles = styles.replace(/([^{}]*){/g, `[${scopeId}] $1 {`)
-    // Add scope ID to the container
     const container = document.getElementById(sandboxId.value)
     if (container) {
       container.setAttribute(scopeId, '')
     }
   } else {
-    // Just scope to container ID if not using Vue's scoped styles
     processedStyles = styles.replace(/([^{}]*){/g, `#${sandboxId.value} $1 {`)
   }
 
@@ -52,15 +49,12 @@ const injectStyles = (styles: string, isScoped: boolean) => {
   styleElement.value = style
 }
 
+const parsedSections = computed(() => extractSections(props.code))
+
 const compiledComponent = computed(() => {
   try {
-    const { template, script, style, isSetupScript, hasScoped } = extractSections(props.code)
+    const { template, script, isSetupScript } = parsedSections.value
 
-    if (style) {
-      injectStyles(style, hasScoped)
-    }
-
-    // Show warning for setup script
     if (isSetupScript) {
       console.warn('Preview: <script setup> syntax is not fully supported in the preview.')
     }
@@ -86,6 +80,17 @@ const compiledComponent = computed(() => {
     return null
   }
 })
+
+// Handle styles separately using a watcher
+watch(
+  () => parsedSections.value,
+  (sections) => {
+    if (sections.style) {
+      injectStyles(sections.style, sections.hasScoped)
+    }
+  },
+  { immediate: true }
+)
 
 onUnmounted(() => {
   if (styleElement.value) {
