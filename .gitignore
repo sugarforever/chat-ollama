@@ -143,3 +143,4 @@ chroma_data
 yarn.lock
 
 .mcp-servers.json
+venv
