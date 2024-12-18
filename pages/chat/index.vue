@@ -14,7 +14,6 @@ const { isMobile } = useMediaBreakpoints()
 
 const sessionId = ref(0)
 const latestMessageId = ref(0)
-const isSessionListVisible = ref(true)
 
 watch(isMobile, val => {
   if (!val) {
@@ -60,12 +59,6 @@ function onOpenSideMenu() {
     preventClose: true,
   })
 }
-
-function toggleSidebar() {
-  isSessionListVisible.value = !isSessionListVisible.value
-}
-
-provide('isSessionListVisible', isSessionListVisible)
 </script>
 
 <template>
@@ -73,19 +66,16 @@ provide('isSessionListVisible', isSessionListVisible)
        style="--chat-side-width:240px">
     <ClientOnly>
       <ChatSessionList ref="chatSessionListRef"
-                       class="shrink-0 w-[var(--chat-side-width)] hidden md:block transition-all duration-300"
-                       :class="{ 'md:!hidden': !isSessionListVisible }"
+                       class="shrink-0 w-[var(--chat-side-width)] hidden md:block"
                        @select="onChangeChatSession" />
     </ClientOnly>
     <Chat ref="chatRef" v-if="sessionId > 0"
-          class="flex-1 md:px-4 pb-4 box-border w-full transition-all duration-300"
-          :class="{ 'md:w-full': !isSessionListVisible, 'md:w-[calc(100%-var(--chat-side-width))]': isSessionListVisible }"
+          class="flex-1 md:px-4 pb-4 box-border w-full md:w-[calc(100%-var(--chat-side-width))]"
           :session-id="sessionId"
           @change-settings="onChangeSettings"
-          @message="onMessage"
-          @toggle-sidebar="toggleSidebar">
+          @message="onMessage">
       <template #left-menu-btn>
-        <UButton :icon="isSessionListVisible ? 'i-material-symbols-lists-rounded' : 'i-heroicons-chevron-double-right'" color="gray" class="mr-4 md:hidden" :class="{ 'rotate-180': isSessionListVisible }" @click="onOpenSideMenu"></UButton>
+        <UButton icon="i-material-symbols-lists-rounded" color="gray" class="mr-4 md:hidden rotate-180" @click="onOpenSideMenu"></UButton>
       </template>
     </Chat>
     <div v-else class="grow h-full flex justify-center items-center">

@@ -17,7 +17,6 @@ const emits = defineEmits<{
   // it means remove a message if `data` is null
   message: [data: ChatMessage | null]
   changeSettings: [data: ChatSessionSettings]
-  'toggle-sidebar': []
 }>()
 
 const { t } = useI18n()
@@ -283,9 +282,6 @@ const onPreviewRequest = (content: string) => {
   previewContent.value = content
   showPreview.value = true
 }
-
-// Add near the top of the script section
-const isSessionListVisible = inject('isSessionListVisible', ref(true))
 </script>
 
 <template>
@@ -294,10 +290,6 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
     <div class="flex flex-col flex-1 min-w-0">
       <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
         <slot name="left-menu-btn"></slot>
-        <UIcon
-               :name="isSessionListVisible ? 'i-heroicons-chevron-double-left' : 'i-heroicons-chevron-double-right'"
-               class="mr-2 text-lg text-gray-500 hidden md:block cursor-pointer hover:text-primary-500"
-               @click="$emit('toggle-sidebar')" />
         <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
                         :title="instructionInfo.name"
                         :description="instructionInfo.instruction"
@@ -339,9 +331,9 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
     </div>
 
     <!-- Preview panel -->
-    <ComponentPreview
-                      :content="previewContent"
-                      :show="showPreview"
-                      @close="showPreview = false" />
+    <MarkdownPreview
+                     :content="previewContent"
+                     :show="showPreview"
+                     @close="showPreview = false" />
   </div>
 </template>
