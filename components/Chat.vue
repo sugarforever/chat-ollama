@@ -17,6 +17,7 @@ const emits = defineEmits<{
   // it means remove a message if `data` is null
   message: [data: ChatMessage | null]
   changeSettings: [data: ChatSessionSettings]
+  'toggle-sidebar': []
 }>()
 
 const { t } = useI18n()

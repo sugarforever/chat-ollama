@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch, nextTick, ref } from 'vue'
 
 const props = defineProps<{
   content: string
@@ -10,6 +10,25 @@ const emits = defineEmits<{
   close: []
 }>()
 
+const isLoading = ref(false)
+
+const loadPreview = async () => {
+  isLoading.value = true
+  try {
+    await nextTick()
+    // Additional loading logic if needed
+  } finally {
+    isLoading.value = false
+  }
+}
+
+watch(
+  () => props.content,
+  async () => {
+    await loadPreview()
+  }
+)
+
 const extractedComponent = computed(() => {
   try {
     return props.content
@@ -18,6 +37,22 @@ const extractedComponent = computed(() => {
     return ''
   }
 })
+
+watch(
+  () => props.show,
+  async (newVal) => {
+    if (newVal) {
+      await nextTick()
+      // Force style refresh when preview is shown
+      const sandbox = document.querySelector('.preview-sandbox')
+      if (sandbox) {
+        sandbox.classList.add('style-refresh')
+        await nextTick()
+        sandbox.classList.remove('style-refresh')
+      }
+    }
+  }
+)
 </script>
 
 <template>

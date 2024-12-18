@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { h, compile, defineComponent, onMounted, onUnmounted, watch } from 'vue'
-import { computed, ref } from 'vue'
+import { h, compile, defineComponent, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps<{
   code: string
@@ -25,13 +25,17 @@ const extractSections = (code: string) => {
   }
 }
 
-const injectStyles = (styles: string, isScoped: boolean) => {
+const injectStyles = async (styles: string, isScoped: boolean) => {
+  await nextTick()
+
   if (styleElement.value) {
     document.head.removeChild(styleElement.value)
   }
 
   const style = document.createElement('style')
   let processedStyles = styles
+
+  const uniquePrefix = `preview-${sandboxId.value}`
 
   if (isScoped) {
     const scopeId = `data-v-${sandboxId.value}`
@@ -44,9 +48,17 @@ const injectStyles = (styles: string, isScoped: boolean) => {
     processedStyles = styles.replace(/([^{}]*){/g, `#${sandboxId.value} $1 {`)
   }
 
+  style.setAttribute('data-preview-styles', uniquePrefix)
   style.textContent = processedStyles
   document.head.appendChild(style)
   styleElement.value = style
+}
+
+const setupComponent = async () => {
+  await nextTick()
+  if (parsedSections.value.style) {
+    await injectStyles(parsedSections.value.style, parsedSections.value.hasScoped)
+  }
 }
 
 const parsedSections = computed(() => extractSections(props.code))
@@ -55,8 +67,9 @@ const compiledComponent = computed(() => {
   try {
     const { template, script, isSetupScript } = parsedSections.value
 
-    if (isSetupScript) {
-      console.warn('Preview: <script setup> syntax is not fully supported in the preview.')
+    if (!template && !script) {
+      console.warn('Preview: No template or script found')
+      return null
     }
 
     let componentOptions = {}
@@ -66,14 +79,24 @@ const compiledComponent = computed(() => {
         componentOptions = new Function(cleanScript)()
       } catch (scriptError) {
         console.error('Failed to evaluate component script:', scriptError)
+        throw new Error('Script evaluation failed')
       }
     }
 
-    const render = template ? compile(template) : null
+    const render = template ? compile(template, {
+      onError: (err) => {
+        console.error('Template compilation error:', err)
+      },
+      comments: true
+    }) : null
+
+    if (!render) {
+      throw new Error('Failed to compile template')
+    }
 
     return defineComponent({
       ...componentOptions,
-      render: render
+      render
     })
   } catch (e) {
     console.error('Failed to compile component:', e)
@@ -81,13 +104,10 @@ const compiledComponent = computed(() => {
   }
 })
 
-// Handle styles separately using a watcher
 watch(
-  () => parsedSections.value,
-  (sections) => {
-    if (sections.style) {
-      injectStyles(sections.style, sections.hasScoped)
-    }
+  () => props.code,
+  async () => {
+    await setupComponent()
   },
   { immediate: true }
 )
@@ -96,6 +116,9 @@ onUnmounted(() => {
   if (styleElement.value) {
     document.head.removeChild(styleElement.value)
   }
+  document.querySelectorAll(`style[data-preview-styles^="preview-"]`).forEach(el => {
+    el.remove()
+  })
 })
 </script>
 
