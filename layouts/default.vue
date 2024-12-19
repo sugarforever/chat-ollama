@@ -45,5 +45,6 @@ watch(() => route.path, () => {
   <div id="main" class="p-2 md:p-4 box-border overflow-auto" style="height: calc(100% - var(--top-height) - 1px)">
     <slot />
   </div>
+  <Charlie />
   <UNotifications />
 </template>
