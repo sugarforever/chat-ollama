@@ -5,7 +5,8 @@
     "instructions": "指令",
     "knowledgeBases": "知识库",
     "chat": "对话",
-    "settings": "设置"
+    "settings": "设置",
+    "realtime": "实时语音"
   },
   "colorMode": {
     "system": "自动",
