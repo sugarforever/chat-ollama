@@ -2,10 +2,12 @@
 import type { Instruction } from '@prisma/client'
 import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
+import { useTools } from '~/composables/useTools'
 
 const { t } = useI18n()
 const modal = useModal()
 const confirm = useDialog('confirm')
+const { registerTool, unregisterTool } = useTools()
 
 const loading = ref(true)
 const instructions = ref<Instruction[]>([])
@@ -29,6 +31,52 @@ onMounted(() => {
     .finally(() => {
       loading.value = false
     })
+
+  registerTool({
+    type: 'function',
+    name: 'listInstructions',
+    description: 'Lists all available instructions',
+    handler: async () => {
+      return {
+        success: true,
+        instructions: instructions.value.map(i => ({
+          id: i.id,
+          name: i.name,
+          instruction: i.instruction
+        }))
+      }
+    }
+  })
+
+  registerTool({
+    type: 'function',
+    name: 'createInstruction',
+    description: 'Creates a new instruction',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name of the instruction' },
+        instruction: { type: 'string', description: 'The instruction content' }
+      }
+    },
+    handler: async (args) => {
+      try {
+        await $fetchWithAuth('/api/instruction', {
+          method: 'POST',
+          body: args
+        })
+        await loadInstructions()
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+  })
+})
+
+onUnmounted(() => {
+  unregisterTool('listInstructions')
+  unregisterTool('createInstruction')
 })
 
 const ui = {
@@ -80,6 +128,8 @@ async function onDelete(data: Instruction) {
       }
     }).catch(noop)
 }
+
+
 </script>
 
 <template>
