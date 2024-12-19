@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, compile, defineComponent, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { compile, defineComponent, onUnmounted, watch, nextTick } from 'vue$'
 import { computed } from 'vue'
 
 const props = defineProps<{

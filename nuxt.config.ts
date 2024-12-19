@@ -111,12 +111,19 @@ export default defineNuxtConfig({
     },
   },
   vite: {
+    vue: {
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag) => false
+        }
+      }
+    },
     worker: {
       format: 'es'
     },
     resolve: {
       alias: {
-        vue: 'vue/dist/vue.esm-bundler.js'
+        'vue$': 'vue/dist/vue.esm-bundler.js'
       }
     }
   }
