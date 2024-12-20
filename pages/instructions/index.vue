@@ -2,10 +2,12 @@
 import type { Instruction } from '@prisma/client'
 import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
+import { useTools } from '~/composables/useTools'
 
 const { t } = useI18n()
 const modal = useModal()
 const confirm = useDialog('confirm')
+const { registerTool, unregisterTool } = useTools()
 
 const loading = ref(true)
 const instructions = ref<Instruction[]>([])
@@ -16,12 +18,17 @@ const tableRows = computed(() => {
       id: instruction.id,
       name: instruction.name,
       instruction: instruction.instruction,
+      class: instruction.isNew ? 'highlight-new' : ''
     }
   })
 })
 
-const loadInstructions = async () => {
+const loadInstructions = async (latestAsNew: boolean = false) => {
   instructions.value = await loadOllamaInstructions()
+  if (latestAsNew) {
+    const latestInstruction = instructions.value.reduce((max, current) => current.id > max.id ? current : max, { id: 0 })
+    latestInstruction.isNew = true
+  }
 }
 
 onMounted(() => {
@@ -29,6 +36,81 @@ onMounted(() => {
     .finally(() => {
       loading.value = false
     })
+
+  registerTool({
+    type: 'function',
+    name: 'listInstructions',
+    description: 'Lists all available instructions',
+    handler: async () => {
+      return {
+        success: true,
+        instructions: instructions.value.map(i => ({
+          id: i.id,
+          name: i.name,
+          instruction: i.instruction
+        }))
+      }
+    }
+  })
+
+  registerTool({
+    type: 'function',
+    name: 'createInstruction',
+    description: 'Creates a new instruction',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name of the instruction' },
+        instruction: { type: 'string', description: 'The instruction content' }
+      }
+    },
+    handler: async (args) => {
+      try {
+        await $fetchWithAuth('/api/instruction', {
+          method: 'POST',
+          body: args
+        })
+        await loadInstructions(true)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+  })
+
+  registerTool({
+    type: 'function',
+    name: 'deleteInstruction',
+    description: 'Deletes an instruction by name',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name of the instruction' }
+      }
+    },
+    handler: async (args) => {
+      try {
+        const instruction = instructions.value.find(i => i.name === args.name)
+        if (!instruction) {
+          return { success: false, error: 'Instruction not found' }
+        }
+
+        await $fetchWithAuth(`/api/instruction/${instruction.id}`, {
+          method: "DELETE",
+        })
+        await loadInstructions()
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+  })
+})
+
+onUnmounted(() => {
+  unregisterTool('listInstructions')
+  unregisterTool('createInstruction')
+  unregisterTool('deleteInstruction')
 })
 
 const ui = {
@@ -50,7 +132,7 @@ function onCreate() {
     title: t('instructions.createInstruction'),
     type: 'create',
     onClose: () => modal.close(),
-    onSuccess: () => loadInstructions(),
+    onSuccess: () => loadInstructions(true),
   })
 }
 
@@ -80,6 +162,16 @@ async function onDelete(data: Instruction) {
       }
     }).catch(noop)
 }
+
+const addInstruction = (instruction) => {
+  instruction.isNew = true
+  instructions.value.push(instruction)
+
+  setTimeout(() => {
+    instruction.isNew = false
+  }, 2000)
+}
+
 </script>
 
 <template>
@@ -90,7 +182,14 @@ async function onDelete(data: Instruction) {
         {{ t("global.create") }}
       </UButton>
     </div>
-    <UTable :rows="tableRows" :columns :ui :loading class="w-full table-list" :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }">
+    <UTable
+            :rows="tableRows"
+            :columns="columns"
+            :ui="ui"
+            :loading="loading"
+            class="w-full table-list"
+            :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }"
+            :row-class="(row) => row.class">
       <template #actions-data="{ row }">
         <div class="action-btn">
           <UTooltip :text="t('global.update')">
@@ -105,3 +204,19 @@ async function onDelete(data: Instruction) {
     </UTable>
   </div>
 </template>
+
+<style scoped>
+@keyframes highlightNew {
+  0% {
+    background-color: rgb(var(--color-primary-100));
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+:deep(.highlight-new) {
+  animation: highlightNew 2s ease-out forwards;
+}
+</style>
