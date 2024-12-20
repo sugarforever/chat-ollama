@@ -248,7 +248,7 @@ function configureData() {
   }
 }
 
-.animate-wave {
+:deep(.animate-wave) {
   animation: wave 1s ease-in-out infinite;
 }
 </style>

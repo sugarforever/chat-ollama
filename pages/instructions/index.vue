@@ -70,6 +70,34 @@ onMounted(() => {
           method: 'POST',
           body: args
         })
+        await loadInstructions(true)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+  })
+
+  registerTool({
+    type: 'function',
+    name: 'deleteInstruction',
+    description: 'Deletes an instruction by name',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name of the instruction' }
+      }
+    },
+    handler: async (args) => {
+      try {
+        const instruction = instructions.value.find(i => i.name === args.name)
+        if (!instruction) {
+          return { success: false, error: 'Instruction not found' }
+        }
+
+        await $fetchWithAuth(`/api/instruction/${instruction.id}`, {
+          method: "DELETE",
+        })
         await loadInstructions()
         return { success: true }
       } catch (error) {
@@ -82,6 +110,7 @@ onMounted(() => {
 onUnmounted(() => {
   unregisterTool('listInstructions')
   unregisterTool('createInstruction')
+  unregisterTool('deleteInstruction')
 })
 
 const ui = {
