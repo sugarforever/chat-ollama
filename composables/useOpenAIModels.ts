@@ -33,8 +33,6 @@ export function useOpenAIModels() {
 
       const data = await response.json()
       const models = data.data
-        .filter((model: any) => model.id.startsWith('gpt-'))
-        // Sort models by name for better organization
         .sort((a: any, b: any) => a.id.localeCompare(b.id))
         .map((model: any) => model.id)
 
