@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
       if (response.ok) {
         const data = await response.json()
         const openaiModels = data.data
-          .filter((model: any) => model.id.startsWith('gpt-'))
+          .filter((model: any) => !model.id.includes('embedding'))
           .sort((a: any, b: any) => a.id.localeCompare(b.id))
           .map((model: any) => model.id)
 
