@@ -103,6 +103,7 @@
     "password": "密码",
     "apiKey": "API 密钥",
     "apiKeyRequired": "需要 API 密钥才能加载模型",
+    "baseURL": "基础 URL",
     "endpoint": "端点",
     "openAi": "OpenAI",
     "azureOpenAi": "Azure OpenAI",
