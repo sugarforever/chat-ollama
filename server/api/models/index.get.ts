@@ -6,6 +6,17 @@ export interface ModelItem extends Partial<Omit<ModelResponse, 'details'>> {
   details: Partial<ModelDetails> & { family: string }
 }
 
+// Add interface for the API response
+interface ModelApiResponse {
+  data: Array<{
+    id: string
+    name: string
+    created?: number
+    description?: string
+    // ... other optional fields
+  }>
+}
+
 export default defineEventHandler(async (event) => {
   const keys = event.context.keys
   const models: ModelItem[] = []
@@ -110,18 +121,51 @@ export default defineEventHandler(async (event) => {
   }
 
   if (Array.isArray(keys.custom)) {
-    keys.custom.forEach((item) => {
-      if (MODEL_FAMILIES.hasOwnProperty(item.aiType) && item.name && item.endpoint && item.key && Array.isArray(item.models) && item.models.length > 0) {
-        item.models.forEach(model => {
-          models.push({
-            name: model,
-            details: {
-              family: item.name
+    await Promise.all(keys.custom.map(async (item) => {
+      if (MODEL_FAMILIES.hasOwnProperty(item.aiType) && item.name && item.endpoint && item.key) {
+        try {
+          // Only attempt API call if modelsEndpoint is provided
+          if (item.modelsEndpoint) {
+            const endpointWithSlash = item.endpoint.endsWith('/') ? item.endpoint : item.endpoint + '/'
+            const modelsUrl = new URL(item.modelsEndpoint, endpointWithSlash).toString()
+            console.log(`Fetching models from ${modelsUrl}`)
+            const response = await fetch(modelsUrl, {
+              headers: {
+                'Authorization': `Bearer ${item.key}`,
+              }
+            })
+
+            if (response.ok) {
+              const data: ModelApiResponse = await response.json()
+              console.log(`${item.name} models:`, data)
+              data.data.forEach(model => {
+                models.push({
+                  name: model.id || model.name,
+                  details: {
+                    family: item.name
+                  }
+                })
+              })
+              return // Skip the fallback if API call succeeds
             }
+          }
+        } catch (error) {
+          console.error(`Failed to fetch models for custom endpoint ${item.name}:`, error)
+        }
+
+        // Fallback to predefined models list if API call fails or modelsEndpoint not provided
+        if (Array.isArray(item.models) && item.models.length > 0) {
+          item.models.forEach(model => {
+            models.push({
+              name: model,
+              details: {
+                family: item.name
+              }
+            })
           })
-        })
+        }
       }
-    })
+    }))
   }
 
   return models

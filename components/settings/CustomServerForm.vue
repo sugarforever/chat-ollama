@@ -37,6 +37,7 @@ const schema = computed(() => {
     endpoint: string().url(t('global.invalidUrl')).required(t('global.required')),
     key: string().required(t('global.required')),
     models: array().min(1, t('global.required')),
+    modelsEndpoint: string(),
   })
 })
 
@@ -73,24 +74,14 @@ function onRemove() {
                    value-attribute="value"
                    option-attribute="label" />
     </UFormGroup>
-    <UFormGroup :label="t('settings.endpoint')" class="mb-4" name="endpoint">
+    <UFormGroup :label="t('settings.baseURL')" class="mb-4" name="endpoint">
       <UInput v-model.trim="state.endpoint" size="lg" :placeholder="t('global.required')" />
+    </UFormGroup>
+    <UFormGroup :label="t('settings.modelsEndpoint')" class="mb-4" name="modelsEndpoint">
+      <UInput v-model.trim="state.modelsEndpoint" size="lg" :placeholder="t('global.optional') + ' (/models)'" />
     </UFormGroup>
     <UFormGroup :label="t('settings.apiKey')" class="mb-4" name="key">
       <UInput v-model.trim="state.key" size="lg" type="password" :placeholder="t('global.required')" />
-    </UFormGroup>
-    <UFormGroup :label="t('settings.modelNameSetting')" name="models">
-      <div class="border border-gray-300 dark:border-gray-700 mt-2 rounded max-w-[400px]">
-        <div class="flex items-center px-4 py-2">
-          <UInput v-model.trim="modelName" autocomplete="off" class="flex-1" @keydown.enter.prevent="onAddModel" :placeholder="t('settings.modelNameTip')" />
-          <UButton :disabled="!modelName.trim()" class="ml-2" @click="onAddModel">{{ t('global.add') }}</UButton>
-        </div>
-        <div v-for="item, i in state.models" :key="item"
-             class="model-name-item box-border px-4 py-2 flex items-center justify-between border-t border-t-gray-400/40 hover:bg-primary-50 hover:dark:bg-primary-800/50">
-          <span class="opacity-70 text-sm">{{ item }}</span>
-          <UButton icon="i-heroicons-trash-20-solid" color="red" variant="ghost" size="xs" class="!p-0 hidden" @click="() => state.models.splice(i, 1)"></UButton>
-        </div>
-      </div>
     </UFormGroup>
     <div class="my-4">
       <label>
