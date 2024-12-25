@@ -45,6 +45,30 @@ watch(() => route.path, () => {
   <div id="main" class="p-2 md:p-4 box-border overflow-auto" style="height: calc(100% - var(--top-height) - 1px)">
     <slot />
   </div>
-  <Charlie />
+  <div class="charlie-container">
+    <Charlie />
+  </div>
   <UNotifications />
 </template>
+
+<style scoped>
+.charlie-container {
+  position: fixed;
+  /* Center vertically on the right edge */
+  top: 50%;
+  transform: translateY(-50%);
+  right: 0px;
+  z-index: 40;
+
+  /* Mobile-specific adjustments */
+  @media (max-width: 768px) {
+    right: 0px;
+    transform: translateY(-50%) scale(0.9);
+  }
+
+  /* When keyboard is likely open on mobile */
+  @media (max-height: 400px) {
+    display: none;
+  }
+}
+</style>
