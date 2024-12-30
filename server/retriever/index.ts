@@ -20,11 +20,11 @@ export const createRetriever = async (embeddings: Embeddings, collectionName: st
       docstore: new RedisDocstore(collectionName),
       parentSplitter: new RecursiveCharacterTextSplitter({
         chunkOverlap: 200,
-        chunkSize: 1000,
+        chunkSize: 3000,
       }),
       childSplitter: new RecursiveCharacterTextSplitter({
         chunkOverlap: 50,
-        chunkSize: 200,
+        chunkSize: 1000,
       }),
       childK: 20,
       parentK: 10,
@@ -41,7 +41,7 @@ export const createRetriever = async (embeddings: Embeddings, collectionName: st
     if (documents !== null) {
       const splitter = new RecursiveCharacterTextSplitter({
         chunkOverlap: 200,
-        chunkSize: 1000,
+        chunkSize: 3000,
       })
       const splits = await splitter.splitDocuments(documents)
       await vectorStore.addDocuments(splits)
