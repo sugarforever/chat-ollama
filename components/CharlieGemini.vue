@@ -3,17 +3,20 @@
     <!-- Collapsed state - just show button -->
     <div v-if="!isExpanded"
          @click="isExpanded = true"
-         class="cursor-pointer bg-white dark:bg-gray-800 rounded-full shadow-lg p-4 hover:shadow-xl transition-all">
+         class="cursor-pointer bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 p-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all shadow-sm hover:shadow">
       <Gemini class="w-10 h-10" />
     </div>
 
     <!-- Expanded state - show full interface -->
-    <div v-else class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[380px] border border-gray-200 dark:border-gray-700">
+    <div v-else class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-[450px] overflow-hidden shadow-md">
       <!-- Header -->
       <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-t-lg">
         <div class="flex items-center">
           <Gemini class="w-8 h-8 mr-2" />
-          <span class="font-semibold text-gray-900 dark:text-gray-100">Charlie Gemini</span>
+          <div class="flex flex-col">
+            <span class="font-semibold text-gray-900 dark:text-gray-100">Charlie Gemini</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Powered by <span class="font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-primary-600 dark:text-primary-400">gemini-2.0-flash-exp</span></span>
+          </div>
         </div>
         <button @click="isExpanded = false"
                 class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
