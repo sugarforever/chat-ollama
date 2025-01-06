@@ -129,7 +129,9 @@
     "modelNameTip": "Please enter model name",
     "removeCustomService": "Delete current custom service",
     "defaultPage": "Default Page",
-    "modelsEndpoint": "Models Endpoint"
+    "modelsEndpoint": "Models Endpoint",
+    "realtimeChat": "Realtime Chat",
+    "realtimeChatEnabled": "Enable Realtime Chat"
   },
   "auth": {
     "signIn": "Sign In",

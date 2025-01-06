@@ -128,7 +128,9 @@
     "modelNameExist": "模型名称已存在",
     "removeCustomService": "删除自定义 API 服务",
     "ensureRemoveCustomService": "确定要删除该自定义 API 服务吗？",
-    "defaultPage": "默认页面"
+    "defaultPage": "默认页面",
+    "realtimeChat": "实时对话",
+    "realtimeChatEnabled": "启用实时对话"
   },
   "auth": {
     "signIn": "登录",

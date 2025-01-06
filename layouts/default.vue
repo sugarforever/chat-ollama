@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { useStorage } from '@vueuse/core'
 const route = useRoute()
 const links = useMenus()
 
@@ -6,6 +7,9 @@ const open = ref(false)
 const isMenuOpen = ref(false)
 const isChatExpanded = ref(false)
 const selectedChat = ref<'charlie' | 'gemini' | null>(null)
+
+// Add realtime chat setting
+const realtimeChatEnabled = useStorage('realtimeChatEnabled', false)
 
 watch(() => route.path, () => {
   open.value = false
@@ -62,7 +66,7 @@ const handleChatCollapsed = () => {
   <div id="main" class="p-2 md:p-4 box-border overflow-auto" style="height: calc(100% - var(--top-height) - 1px)">
     <slot />
   </div>
-  <div class="fixed top-1/2 right-0 -translate-y-1/2 z-40">
+  <div v-if="realtimeChatEnabled" class="fixed top-1/2 right-0 -translate-y-1/2 z-40">
     <!-- Mic button and compact menu -->
     <div v-if="!isChatExpanded" class="relative">
       <button @click="isMenuOpen = !isMenuOpen"
