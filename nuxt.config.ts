@@ -91,6 +91,7 @@ export default defineNuxtConfig({
       modelProxyEnabled: false,
       chatMaxAttachedMessages: 50,
       appName: APP_NAME,
+      tavilyApiKey: ''
     },
     modelProxyUrl: ''
   },

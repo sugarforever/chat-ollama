@@ -11,6 +11,9 @@
       <SettingsChatSettings />
     </div>
     <div class="mb-4">
+      <SettingsRealtimeChat />
+    </div>
+    <div class="mb-4">
       <SettingsLanguageSelectMenu />
     </div>
   </div>
