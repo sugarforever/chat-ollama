@@ -8,12 +8,12 @@
     </div>
 
     <!-- Expanded state - show full interface -->
-    <div v-else class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[380px]">
+    <div v-else class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[380px] border border-gray-200 dark:border-gray-700">
       <!-- Header -->
-      <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+      <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-t-lg">
         <div class="flex items-center">
           <Gemini class="w-8 h-8 mr-2" />
-          <span class="font-semibold dark:text-gray-100">Charlie Gemini</span>
+          <span class="font-semibold text-gray-900 dark:text-gray-100">Charlie Gemini</span>
         </div>
         <button @click="isExpanded = false"
                 class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
@@ -22,7 +22,7 @@
       </div>
 
       <!-- Main content -->
-      <div class="p-6">
+      <div class="p-6 bg-white dark:bg-gray-800">
         <div class="space-y-6">
           <!-- Connection status and button combined -->
           <div class="flex flex-col items-center">
@@ -52,6 +52,12 @@
             </div>
           </div>
 
+          <!-- Altair visualization -->
+          <div v-if="jsonString" class="mt-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+            <!-- Add your visualization component here using jsonString -->
+            <pre class="text-xs overflow-auto max-h-40">{{ jsonString }}</pre>
+          </div>
+
           <!-- Error message -->
           <div v-if="error" class="text-red-500 dark:text-red-400 text-center text-sm">
             {{ error }}
@@ -64,11 +70,9 @@
 
 <script setup>
 import { useStorage } from '@vueuse/core'
-import { defineComponent } from 'vue'
-import { getKeysHeader } from '~/utils/settings'
 import { useTools } from '~/composables/useTools'
 import { MultimodalLiveClient } from '~/utils/MultimodalLiveClient'
-import { arrayBufferToBase64 } from '~/utils/multimodal-live'
+import { SchemaType } from "@google/generative-ai";
 import IconMicrophone from '~/components/IconMicrophone.vue'
 import IconSpinner from '~/components/IconSpinner.vue'
 import IconStop from '~/components/IconStop.vue'
@@ -89,14 +93,113 @@ const connectionStatus = ref('disconnected')
 const error = ref('')
 const wsClient = ref(null)
 const audioRecorder = ref(new AudioRecorder())
-const mediaStream = ref(null)
 const audioContext = ref(null)
 const audioStreamer = ref(null)
+const jsonString = ref('')
 const { getTools, executeToolHandler } = useTools()
 
 watch(() => isExpanded.value, (newValue) => {
   emit('update:expanded', newValue)
 })
+
+const declaration = {
+  name: "tavily_search",
+  description: "Search the web using Tavily API to get relevant information.",
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      query: {
+        type: SchemaType.STRING,
+        description: "The search query to look up",
+      },
+    },
+    required: ["query"],
+  },
+}
+
+// Handle tool calls
+async function handleToolCall(toolCall) {
+  console.log('Got toolcall:', toolCall)
+  const functionCall = toolCall.functionCalls.find(fc => fc.name === declaration.name)
+
+  if (functionCall) {
+    try {
+      const config = useRuntimeConfig()
+      const tavilyApiKey = config.public.tavilyApiKey
+
+      if (!tavilyApiKey) {
+        throw new Error('Tavily API key not found')
+      }
+
+      const response = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: tavilyApiKey,
+          query: functionCall.args.query,
+          search_depth: "basic",
+          include_answer: false,
+          include_images: true,
+          include_image_descriptions: true,
+          include_raw_content: false,
+          max_results: 5,
+          include_domains: [],
+          exclude_domains: []
+        })
+      })
+
+      const data = await response.json()
+      console.log('Tavily search result:', data)
+      // Format the search results
+      let formattedResults = 'Search Results:\n\n'
+
+      // Add text results
+      data.results.forEach((result, index) => {
+        formattedResults += `${index + 1}. ${result.title}\n`
+        formattedResults += `URL: ${result.url}\n`
+        formattedResults += `Content: ${result.content}\n\n`
+      })
+
+      // Add image results if available
+      if (data.images && data.images.length > 0) {
+        formattedResults += '\nRelevant Images:\n'
+        data.images.forEach((image, index) => {
+          formattedResults += `${index + 1}. ${image.description}\n`
+          formattedResults += `URL: ${image.url}\n\n`
+        })
+      }
+
+      // Send the response back
+      wsClient.value.sendToolResponse({
+        functionResponses: [{
+          response: { output: formattedResults },
+          id: functionCall.id
+        }]
+      })
+
+    } catch (error) {
+      console.error('Tavily search error:', error)
+      wsClient.value.sendToolResponse({
+        functionResponses: [{
+          response: { output: `Error performing search: ${error.message}` },
+          id: functionCall.id
+        }]
+      })
+    }
+  }
+}
+
+// Setup and cleanup tool call handler
+watch(() => wsClient.value, (newClient, oldClient) => {
+  if (oldClient) {
+    oldClient.off('toolcall', handleToolCall)
+  }
+  if (newClient) {
+    newClient.on('toolcall', handleToolCall)
+  }
+}, { immediate: true })
 
 // Computed properties for UI
 const buttonStyles = computed(() => ({
@@ -147,7 +250,7 @@ async function initConnection() {
     connectionStatus.value = 'connecting'
     error.value = ''
 
-    // Get API key from settings
+    // Get API keys from settings
     const keys = await useStorage('keys', {}).value
     const GEMINI_API_KEY = keys.gemini?.key
 
@@ -201,6 +304,15 @@ async function initConnection() {
       }
     })
 
+    // Get runtime config for Tavily
+    const config = useRuntimeConfig()
+    const tools = []
+
+    // Only add Tavily search if API key is present
+    if (config.public.tavilyApiKey) {
+      tools.push({ functionDeclarations: [declaration] })
+    }
+
     await wsClient.value.connect({
       model: 'models/gemini-2.0-flash-exp',
       generationConfig: {
@@ -211,7 +323,8 @@ async function initConnection() {
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } },
         },
-      }
+      },
+      tools,
     })
 
     // Send initial greeting
@@ -233,6 +346,9 @@ async function initConnection() {
 
 // Clean up on component unmount
 onUnmounted(() => {
+  if (wsClient.value) {
+    wsClient.value.off('toolcall', handleToolCall)
+  }
   stopConnection()
 })
 </script>

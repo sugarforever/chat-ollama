@@ -82,7 +82,6 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
     const ws = new WebSocket(this.url)
 
     ws.addEventListener("message", async (evt: MessageEvent) => {
-      console.warn('Received message:', evt)
       if (evt.data instanceof Blob) {
         this.receive(evt.data)
       } else {
