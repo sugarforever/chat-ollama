@@ -4,7 +4,7 @@
     <div v-if="!isExpanded"
          @click="isExpanded = true"
          class="cursor-pointer bg-white dark:bg-gray-800 rounded-full shadow-lg p-4 hover:shadow-xl transition-all">
-      <TheLogo class="w-10 h-10" />
+      <Gemini class="w-10 h-10" />
     </div>
 
     <!-- Expanded state - show full interface -->
@@ -12,8 +12,8 @@
       <!-- Header -->
       <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
         <div class="flex items-center">
-          <TheLogo class="w-8 h-8 mr-2" />
-          <span class="font-semibold dark:text-gray-100">Charlie</span>
+          <Gemini class="w-8 h-8 mr-2" />
+          <span class="font-semibold dark:text-gray-100">Charlie Gemini</span>
         </div>
         <button @click="isExpanded = false"
                 class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
@@ -63,8 +63,18 @@
 </template>
 
 <script setup>
+import { useStorage } from '@vueuse/core'
+import { defineComponent } from 'vue'
 import { getKeysHeader } from '~/utils/settings'
 import { useTools } from '~/composables/useTools'
+import { MultimodalLiveClient } from '~/utils/MultimodalLiveClient'
+import { arrayBufferToBase64 } from '~/utils/multimodal-live'
+import IconMicrophone from '~/components/IconMicrophone.vue'
+import IconSpinner from '~/components/IconSpinner.vue'
+import IconStop from '~/components/IconStop.vue'
+import Gemini from '~/components/Gemini.vue'
+import { AudioStreamer } from '~/utils/audio-streamer'
+import { AudioRecorder } from '~/utils/audio-recorder'
 
 const props = defineProps({
   defaultExpanded: {
@@ -74,12 +84,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:expanded'])
-
 const isExpanded = ref(props.defaultExpanded)
 const connectionStatus = ref('disconnected')
 const error = ref('')
-const peerConnection = ref(null)
-const dataChannel = ref(null)
+const wsClient = ref(null)
+const audioRecorder = ref(new AudioRecorder())
+const mediaStream = ref(null)
+const audioContext = ref(null)
+const audioStreamer = ref(null)
 const { getTools, executeToolHandler } = useTools()
 
 watch(() => isExpanded.value, (newValue) => {
@@ -118,13 +130,14 @@ async function handleConnectionToggle() {
 
 // Stop connection
 async function stopConnection() {
-  if (peerConnection.value) {
-    peerConnection.value.close()
-    peerConnection.value = null
+  if (wsClient.value) {
+    wsClient.value.disconnect()
+    wsClient.value = null
   }
-  if (dataChannel.value) {
-    dataChannel.value.close()
-    dataChannel.value = null
+  audioRecorder.value.stop()
+  if (audioStreamer.value) {
+    audioStreamer.value.stop()
+    audioStreamer.value = null
   }
   connectionStatus.value = 'disconnected'
 }
@@ -134,118 +147,94 @@ async function initConnection() {
     connectionStatus.value = 'connecting'
     error.value = ''
 
-    // Get ephemeral token from server with proper headers
-    const tokenResponse = await fetch('/api/audio/session', {
-      method: 'POST',
-      headers: getKeysHeader()
-    })
-    const data = await tokenResponse.json()
-    const EPHEMERAL_KEY = data.client_secret.value
+    // Get API key from settings
+    const keys = await useStorage('keys', {}).value
+    const GEMINI_API_KEY = keys.gemini?.key
 
-    // Create peer connection
-    peerConnection.value = new RTCPeerConnection()
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not found')
+    }
 
-    // Set up audio element for remote audio
-    const audioEl = document.createElement('audio')
-    audioEl.autoplay = true
-    peerConnection.value.ontrack = e => audioEl.srcObject = e.streams[0]
+    // Initialize audio streamer for output
+    audioContext.value = new AudioContext()
+    audioStreamer.value = new AudioStreamer(audioContext.value)
+    await audioStreamer.value.resume()
 
-    // Request microphone access and add local track
-    const mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: true
-    })
-    peerConnection.value.addTrack(mediaStream.getTracks()[0])
-
-    // Setup data channel
-    dataChannel.value = peerConnection.value.createDataChannel('oai-events')
-
-    // Add onopen handler to configure tools
-    dataChannel.value.addEventListener('open', () => {
-      console.log('Data channel opened, configuring tools')
-      configureData()
+    // Initialize WebSocket client
+    wsClient.value = new MultimodalLiveClient({
+      apiKey: GEMINI_API_KEY
     })
 
-    // Existing message handler
-    dataChannel.value.addEventListener('message', async (ev) => {
-      const msg = JSON.parse(ev.data)
-      if (msg.type === 'response.function_call_arguments.done') {
-        try {
-          console.log(`Calling tool function ${msg.name} with ${msg.arguments}`)
-          const args = JSON.parse(msg.arguments)
-          const result = await executeToolHandler(msg.name, args)
-          console.log('Tool execution result:', result)
+    // Set up event handlers
+    wsClient.value.on('log', (log) => {
+      console.log('Gemini Log Event:', log)
+    })
 
-          const event = {
-            type: 'conversation.item.create',
-            item: {
-              type: 'function_call_output',
-              call_id: msg.call_id,
-              output: JSON.stringify(result),
-            },
-          }
-          dataChannel.value.send(JSON.stringify(event))
-        } catch (error) {
-          console.error('Error executing tool:', error)
+    wsClient.value.on('open', () => {
+      connectionStatus.value = 'connected'
+      // Start audio recording when connected
+      audioRecorder.value.on('data', (base64Audio) => {
+        if (connectionStatus.value === 'connected') {
+          wsClient.value.sendRealtimeInput([{
+            data: base64Audio,
+            mimeType: "audio/pcm;rate=16000"
+          }])
         }
+      })
+      audioRecorder.value.start()
+    })
+
+    wsClient.value.on('close', (event) => {
+      console.log('Gemini Event: WebSocket connection closed', event)
+      stopConnection()
+    })
+
+    wsClient.value.on('error', (err) => {
+      console.error('Gemini Event: WebSocket error:', err)
+      error.value = `Connection error: ${err.message}`
+      stopConnection()
+    })
+
+    wsClient.value.on('audio', async (audioData) => {
+      if (audioStreamer.value) {
+        audioStreamer.value.addPCM16(new Uint8Array(audioData))
       }
     })
 
-    // Create and set local description
-    const offer = await peerConnection.value.createOffer()
-    await peerConnection.value.setLocalDescription(offer)
-
-    // Connect to OpenAI realtime API
-    const baseUrl = 'https://api.openai.com/v1/realtime'
-    const model = 'gpt-4o-realtime-preview-2024-12-17'
-    const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
-      method: 'POST',
-      body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${EPHEMERAL_KEY}`,
-        'Content-Type': 'application/sdp'
-      },
+    await wsClient.value.connect({
+      model: 'models/gemini-2.0-flash-exp',
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.8,
+        topK: 40,
+        responseModalities: ["audio"],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } },
+        },
+      }
     })
 
-    const answer = {
-      type: 'answer',
-      sdp: await sdpResponse.text(),
-    }
-    await peerConnection.value.setRemoteDescription(answer)
-
-    // Update connection status
-    connectionStatus.value = 'connected'
-
-    // Handle connection state changes
-    peerConnection.value.onconnectionstatechange = () => {
-      if (peerConnection.value.connectionState === 'disconnected') {
-        connectionStatus.value = 'disconnected'
-      }
-    }
+    // Send initial greeting
+    wsClient.value.send({
+      text: "Hello!"
+    })
 
   } catch (err) {
     console.error('Connection error:', err)
     error.value = `Failed to connect: ${err.message}`
     connectionStatus.value = 'disconnected'
+    audioRecorder.value.stop()
+    if (audioStreamer.value) {
+      audioStreamer.value.stop()
+      audioStreamer.value = null
+    }
   }
 }
 
-function configureData() {
-  console.log('Configuring data channel')
-  const tools = getTools()
-  const event = {
-    type: 'session.update',
-    session: {
-      modalities: ['text', 'audio'],
-      tools: tools.map(({ type, name, description, parameters }) => ({
-        type,
-        name,
-        description,
-        parameters
-      }))
-    }
-  }
-  dataChannel.value.send(JSON.stringify(event))
-}
+// Clean up on component unmount
+onUnmounted(() => {
+  stopConnection()
+})
 </script>
 
 <style scoped>
