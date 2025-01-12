@@ -2,6 +2,7 @@ import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts
 import { BaseMessage } from '@langchain/core/messages'
 import { ChatOpenAI } from '@langchain/openai'
 import { JsonOutputParser } from "@langchain/core/output_parsers"
+import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 
 const PROMPT = `
 Given a chat history and the latest user question which might reference context in the chat history, formulate a standalone question which can be understood without the chat history.
@@ -28,19 +29,14 @@ export type CorefResult = {
 export const resolveCoreference = async (
   userInput: string,
   chatHistory: BaseMessage[],
-  openAIApiKey: string | undefined,
+  chatModel: BaseChatModel
 ): Promise<CorefResult> => {
-  if (openAIApiKey?.length ?? 0 > 0) {
+  if (chatModel !== undefined) {
     const prompt = await CoreferenceResolutionPrompt.format({
       chat_history: chatHistory,
       input: userInput
     })
-    const llm = new ChatOpenAI({
-      openAIApiKey,
-      modelName: "gpt-4o"
-    })
-    const chain = llm.pipe(new JsonOutputParser<CorefResult>())
-    return await chain.invoke(prompt)
+    return await chatModel.pipe(new JsonOutputParser<CorefResult>()).invoke(prompt)
   } else {
     return {
       input: userInput,
