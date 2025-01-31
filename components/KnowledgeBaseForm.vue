@@ -9,7 +9,15 @@ const props = defineProps<{
   title: string
   type: OperateType
   data?: KnowledgeBase
-  embeddings: string[]
+  embeddings: string[],
+  chunking: {
+    parentChunkSize: number,
+    parentChunkOverlap: number,
+    childChunkSize: number,
+    childChunkOverlap: number,
+    parentK: number,
+    childK: number,
+  }
   onSuccess: () => void
   onClose: () => void
 }>()
@@ -28,6 +36,14 @@ const state = reactive({
   pageParser: 'default' as PageParser,
   maxDepth: 0,
   excludeGlobs: '',
+  chunking: {
+    parentChunkSize: props.chunking.parentChunkSize,
+    parentChunkOverlap: props.chunking.parentChunkOverlap,
+    childChunkSize: props.chunking.childChunkSize,
+    childChunkOverlap: props.chunking.childChunkOverlap,
+    parentK: props.chunking.parentK,
+    childK: props.chunking.childK,
+  }
 })
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
@@ -81,6 +97,7 @@ async function onSubmit() {
   formData.append("pageParser", state.pageParser)
   formData.append("maxDepth", String(state.maxDepth))
   formData.append("excludeGlobs", state.excludeGlobs)
+  formData.append("chunking", JSON.stringify(state.chunking))
 
   if (isModify.value) {
     formData.append('knowledgeBaseId', String(props.data!.id))
@@ -166,6 +183,29 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
 
         <UFormGroup :label="t('knowledgeBases.description')" name="description" class="mb-4">
           <UTextarea autoresize :maxrows="4" v-model="state.description" />
+        </UFormGroup>
+
+        <UFormGroup :label="t('knowledgeBases.chunking')" name="chunking" class="mb-4">
+          <div class="grid grid-cols-2 gap-4">
+            <UFormGroup label="Parent Chunk Size" name="parentChunkSize">
+              <UInput v-model="state.chunking.parentChunkSize" type="number" :min="1000" :max="10000" :step="1000" />
+            </UFormGroup>
+            <UFormGroup label="Parent Chunk Overlap" name="parentChunkOverlap">
+              <UInput v-model="state.chunking.parentChunkOverlap" type="number" :min="100" :max="1000" :step="100" />
+            </UFormGroup>
+            <UFormGroup label="Child Chunk Size" name="childChunkSize">
+              <UInput v-model="state.chunking.childChunkSize" type="number" :min="100" :max="1000" :step="100" />
+            </UFormGroup>
+            <UFormGroup label="Child Chunk Overlap" name="childChunkOverlap">
+              <UInput v-model="state.chunking.childChunkOverlap" type="number" :min="10" :max="100" :step="10" />
+            </UFormGroup>
+            <UFormGroup label="Parent K" name="parentK">
+              <UInput v-model="state.chunking.parentK" type="number" :min="1" :max="10" :step="1" />
+            </UFormGroup>
+            <UFormGroup label="Child K" name="childK">
+              <UInput v-model="state.chunking.childK" type="number" :min="1" :max="10" :step="1" />
+            </UFormGroup>
+          </div>
         </UFormGroup>
 
         <UFormGroup :label="t('knowledgeBases.publicAccessible')" name="public" class="mb-4">

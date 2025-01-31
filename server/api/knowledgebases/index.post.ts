@@ -6,8 +6,10 @@ import { parseKnowledgeBaseFormRequest } from '@/server/utils/http'
 
 export default defineEventHandler(async (event) => {
 
-  const { name, description, embedding, isPublic, uploadedFiles, urls } =
+  const { name, description, embedding, isPublic, uploadedFiles, urls, chunking } =
     await parseKnowledgeBaseFormRequest(event)
+
+  console.log("Chunking: ", chunking)
 
   if (uploadedFiles.length === 0 && urls.length === 0) {
     setResponseStatus(event, 400)
@@ -48,12 +50,29 @@ export default defineEventHandler(async (event) => {
       is_public: isPublic,
       user_id: currentUser?.id,
       created: new Date(),
+      parentChunkSize: chunking.parentChunkSize,
+      parentChunkOverlap: chunking.parentChunkOverlap,
+      childChunkSize: chunking.childChunkSize,
+      childChunkOverlap: chunking.childChunkOverlap,
+      parentK: chunking.parentK,
+      childK: chunking.childK,
     }
   })
   console.log(`Created knowledge base ${name}: ${affected.id} by ${currentUser ? currentUser.name : 'anonymous'}`)
 
   try {
-    await ingestDocument(uploadedFiles, `collection_${affected.id}`, affected.embedding!, event)
+    await ingestDocument(
+      uploadedFiles,
+      `collection_${affected.id}`,
+      affected.embedding!,
+      chunking.parentChunkSize,
+      chunking.parentChunkOverlap,
+      chunking.childChunkSize,
+      chunking.childChunkOverlap,
+      chunking.parentK,
+      chunking.childK,
+      event
+    )
     for (const uploadedFile of uploadedFiles) {
       const createdKnowledgeBaseFile = await prisma.knowledgeBaseFile.create({
         data: {

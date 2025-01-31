@@ -70,6 +70,12 @@ export const ingestDocument = async (
   files: MultiPartData[],
   collectionName: string,
   embedding: string,
+  parentChunkSize: number,
+  parentChunkOverlap: number,
+  childChunkSize: number,
+  childChunkOverlap: number,
+  parentK: number,
+  childK: number,
   event: H3Event
 ) => {
   const docs = []
@@ -81,7 +87,7 @@ export const ingestDocument = async (
   }
 
   const embeddings = createEmbeddings(embedding, event)
-  await createRetriever(embeddings, collectionName, docs)
+  await createRetriever(embeddings, collectionName, docs, parentChunkSize, parentChunkOverlap, childChunkSize, childChunkOverlap, parentK, childK)
 
   console.log(`${docs.length} documents added to collection ${collectionName}.`)
 }

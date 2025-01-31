@@ -61,6 +61,10 @@ export const parseKnowledgeBaseFormRequest = async (event: H3Event): Promise<Kno
       case 'excludeGlobs':
         formData.excludeGlobs = decodedData.split(/[\n]+/g).filter(Boolean).map((glob) => glob.trim())
         break
+
+      case 'chunking':
+        formData.chunking = JSON.parse(decodedData)
+        break
     }
   })
 
