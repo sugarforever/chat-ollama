@@ -127,8 +127,8 @@ export default defineEventHandler(async (event) => {
           // Only attempt API call if modelsEndpoint is provided
           if (item.modelsEndpoint) {
             const endpointWithSlash = item.endpoint.endsWith('/') ? item.endpoint : item.endpoint + '/'
-            const modelsUrl = new URL(item.modelsEndpoint, endpointWithSlash).toString()
-            console.log(`Fetching models from ${modelsUrl}`)
+            const modelsEndpoint = item.modelsEndpoint.endsWith('/') ? item.modelsEndpoint.substring(1) : item.modelsEndpoint
+            const modelsUrl = new URL(modelsEndpoint, endpointWithSlash).toString()
             const response = await fetch(modelsUrl, {
               headers: {
                 'Authorization': `Bearer ${item.key}`,
@@ -137,7 +137,7 @@ export default defineEventHandler(async (event) => {
 
             if (response.ok) {
               const data: ModelApiResponse = await response.json()
-              console.log(`${item.name} models:`, data)
+              console.log(`${item.name} models:`, data.data.map(d => d.id || d.name))
               data.data.forEach(model => {
                 models.push({
                   name: model.id || model.name,
@@ -147,6 +147,8 @@ export default defineEventHandler(async (event) => {
                 })
               })
               return // Skip the fallback if API call succeeds
+            } else {
+              console.error(`Failed to fetch models for custom endpoint ${item.name}:`, response)
             }
           }
         } catch (error) {

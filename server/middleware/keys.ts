@@ -42,6 +42,7 @@ export interface ContextKeys {
     aiType: Exclude<keyof ContextKeys, 'custom' | 'moonshot' | 'ollama'>
     key: string
     endpoint: string
+    modelsEndpoint: string | undefined
     proxy: boolean
     models: string[]
   }>
