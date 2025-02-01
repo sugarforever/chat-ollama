@@ -188,22 +188,22 @@ function generateEmbeddingData(groupName: string, list: string[], slotName: stri
         <UFormGroup :label="t('knowledgeBases.chunking')" name="chunking" class="mb-4">
           <div class="grid grid-cols-2 gap-4">
             <UFormGroup label="Parent Chunk Size" name="parentChunkSize">
-              <UInput v-model="state.chunking.parentChunkSize" type="number" :min="1000" :max="10000" :step="1000" />
+              <UInput v-model="state.chunking.parentChunkSize" type="number" />
             </UFormGroup>
             <UFormGroup label="Parent Chunk Overlap" name="parentChunkOverlap">
-              <UInput v-model="state.chunking.parentChunkOverlap" type="number" :min="100" :max="1000" :step="100" />
+              <UInput v-model="state.chunking.parentChunkOverlap" type="number" />
             </UFormGroup>
             <UFormGroup label="Child Chunk Size" name="childChunkSize">
-              <UInput v-model="state.chunking.childChunkSize" type="number" :min="100" :max="1000" :step="100" />
+              <UInput v-model="state.chunking.childChunkSize" type="number" />
             </UFormGroup>
             <UFormGroup label="Child Chunk Overlap" name="childChunkOverlap">
-              <UInput v-model="state.chunking.childChunkOverlap" type="number" :min="10" :max="100" :step="10" />
+              <UInput v-model="state.chunking.childChunkOverlap" type="number" />
             </UFormGroup>
             <UFormGroup label="Parent K" name="parentK">
-              <UInput v-model="state.chunking.parentK" type="number" :min="1" :max="10" :step="1" />
+              <UInput v-model="state.chunking.parentK" type="number" />
             </UFormGroup>
             <UFormGroup label="Child K" name="childK">
-              <UInput v-model="state.chunking.childK" type="number" :min="1" :max="10" :step="1" />
+              <UInput v-model="state.chunking.childK" type="number" />
             </UFormGroup>
           </div>
         </UFormGroup>
