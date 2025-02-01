@@ -127,8 +127,9 @@ export default defineEventHandler(async (event) => {
           // Only attempt API call if modelsEndpoint is provided
           if (item.modelsEndpoint) {
             const endpointWithSlash = item.endpoint.endsWith('/') ? item.endpoint : item.endpoint + '/'
-            const modelsEndpoint = item.modelsEndpoint.endsWith('/') ? item.modelsEndpoint.substring(1) : item.modelsEndpoint
+            const modelsEndpoint = item.modelsEndpoint.startsWith('/') ? item.modelsEndpoint.substring(1) : item.modelsEndpoint
             const modelsUrl = new URL(modelsEndpoint, endpointWithSlash).toString()
+            console.log(`Fetching models from ${modelsUrl}`)
             const response = await fetch(modelsUrl, {
               headers: {
                 'Authorization': `Bearer ${item.key}`,
