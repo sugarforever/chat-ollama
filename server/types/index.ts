@@ -12,5 +12,22 @@ export type KnowledgeBaseFormData = {
   urls: string[]
   pageParser: PageParser
   maxDepth: number
-  excludeGlobs: string[]
+  excludeGlobs: string[],
+  chunking: {
+    parentChunkSize: number,
+    parentChunkOverlap: number,
+    childChunkSize: number,
+    childChunkOverlap: number,
+    parentK: number,
+    childK: number,
+  }
+}
+
+export type ChunkSettings = {
+  parentChunkSize: number
+  parentChunkOverlap: number
+  childChunkSize: number
+  childChunkOverlap: number
+  parentK: number
+  childK: number
 }

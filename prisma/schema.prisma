@@ -4,40 +4,46 @@ datasource sqlite {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["linux-arm64-openssl-3.0.x", "darwin-arm64", "debian-openssl-3.0.x", "windows", "native"]
 }
 
 model User {
-  id             Int              @id @default(autoincrement())
-  name           String           @unique
+  id             Int       @id @default(autoincrement())
+  name           String    @unique
   email          String?
   password       String
   first_name     String?
   last_name      String?
-  role           Int              @default(0)
-  email_verified Boolean          @default(false)
-  is_active      Boolean          @default(true)
+  role           Int       @default(0)
+  email_verified Boolean   @default(false)
+  is_active      Boolean   @default(true)
   last_login     DateTime?
-  created_at     DateTime         @default(now())
+  created_at     DateTime  @default(now())
   deleted_at     DateTime?
   access_token   String?
-  updated_at     DateTime?        @updatedAt
+  updated_at     DateTime? @updatedAt
 
   knowledgeBases KnowledgeBase[]
 }
 
 model KnowledgeBase {
-  id          Int                 @id @default(autoincrement())
-  name        String              @unique
-  embedding   String?
-  description String?
-  created     DateTime?
-  updated     DateTime?
-  is_public   Boolean             @default(true)
-  user        User?               @relation(fields: [user_id], references: [id])
-  user_id     Int?
-  files       KnowledgeBaseFile[] @relation("Files")
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  embedding          String?
+  description        String?
+  created            DateTime?
+  updated            DateTime?
+  parentChunkSize    Int?
+  parentChunkOverlap Int?
+  childChunkSize     Int?
+  childChunkOverlap  Int?
+  parentK            Int?
+  childK             Int?
+  is_public          Boolean             @default(true)
+  user               User?               @relation(fields: [user_id], references: [id])
+  user_id            Int?
+  files              KnowledgeBaseFile[] @relation("Files")
 }
 
 model KnowledgeBaseFile {

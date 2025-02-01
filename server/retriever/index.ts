@@ -4,11 +4,22 @@ import { Document } from "@langchain/core/documents"
 import { ParentDocumentRetriever } from "langchain/retrievers/parent_document"
 import { RedisDocstore } from '@/server/docstore/redis'
 import { createVectorStore } from '@/server/utils/vectorstores'
+import { Chroma } from '@langchain/community/vectorstores/chroma'
 
-export const createRetriever = async (embeddings: Embeddings, collectionName: string, documents: Document[] | null = null) => {
+export const createRetriever = async (
+  embeddings: Embeddings,
+  collectionName: string,
+  documents: Document[] | null = null,
+  parentChunkSize: number = 3000,
+  parentChunkOverlap: number = 200,
+  childChunkSize: number = 1000,
+  childChunkOverlap: number = 50,
+  parentK: number = 10,
+  childK: number = 20
+) => {
   const vectorStore = createVectorStore(embeddings, collectionName)
   if (process.env.VECTOR_STORE === 'chroma') {
-    await vectorStore.ensureCollection()
+    await (vectorStore as Chroma).ensureCollection()
   }
 
   let retriever = null
@@ -19,15 +30,15 @@ export const createRetriever = async (embeddings: Embeddings, collectionName: st
       vectorstore: vectorStore,
       docstore: new RedisDocstore(collectionName),
       parentSplitter: new RecursiveCharacterTextSplitter({
-        chunkOverlap: 200,
-        chunkSize: 3000,
+        chunkOverlap: parentChunkOverlap,
+        chunkSize: parentChunkSize,
       }),
       childSplitter: new RecursiveCharacterTextSplitter({
-        chunkOverlap: 50,
-        chunkSize: 1000,
+        chunkOverlap: childChunkOverlap,
+        chunkSize: childChunkSize,
       }),
-      childK: 20,
-      parentK: 10,
+      childK: childK,
+      parentK: parentK,
     })
 
     if (documents !== null) {
@@ -40,8 +51,8 @@ export const createRetriever = async (embeddings: Embeddings, collectionName: st
 
     if (documents !== null) {
       const splitter = new RecursiveCharacterTextSplitter({
-        chunkOverlap: 200,
-        chunkSize: 3000,
+        chunkOverlap: childChunkOverlap,
+        chunkSize: childChunkSize,
       })
       const splits = await splitter.splitDocuments(documents)
       await vectorStore.addDocuments(splits)

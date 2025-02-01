@@ -96,8 +96,8 @@ export default defineEventHandler(async (event) => {
     const query = messages[messages.length - 1].content
     console.log("User query: ", query)
 
-    const reformulatedResult = await resolveCoreference(query, normalizeMessages(messages), chat)
-    const reformulatedQuery = reformulatedResult?.output || query
+    // const reformulatedResult = await resolveCoreference(query, normalizeMessages(messages), chat)
+    const reformulatedQuery = query
     console.log("Reformulated query: ", reformulatedQuery)
 
     const relevant_docs = await retriever.invoke(reformulatedQuery)

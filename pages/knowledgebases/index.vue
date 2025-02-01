@@ -63,6 +63,14 @@ function onShowCreate() {
     type: 'create',
     title: t('knowledgeBases.createTitle'),
     embeddings: embeddings.value,
+    chunking: {
+      parentChunkSize: 3000,
+      parentChunkOverlap: 200,
+      childChunkSize: 1000,
+      childChunkOverlap: 50,
+      parentK: 5,
+      childK: 10,
+    },
     onClose: () => modal.close(),
     onSuccess: () => refresh()
   })
@@ -74,6 +82,14 @@ function onShowUpdate(data: KnowledgeBase) {
     title: t('knowledgeBases.updateTitle'),
     data,
     embeddings: embeddings.value,
+    chunking: {
+      parentChunkSize: data.parentChunkSize || 3000,
+      parentChunkOverlap: data.parentChunkOverlap || 200,
+      childChunkSize: data.childChunkSize || 1000,
+      childChunkOverlap: data.childChunkOverlap || 50,
+      parentK: data.parentK || 5,
+      childK: data.childK || 10,
+    },
     onClose: () => modal.close(),
     onSuccess: () => refresh()
   })
