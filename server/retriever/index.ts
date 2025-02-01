@@ -4,6 +4,7 @@ import { Document } from "@langchain/core/documents"
 import { ParentDocumentRetriever } from "langchain/retrievers/parent_document"
 import { RedisDocstore } from '@/server/docstore/redis'
 import { createVectorStore } from '@/server/utils/vectorstores'
+import { Chroma } from '@langchain/community/vectorstores/chroma'
 
 export const createRetriever = async (
   embeddings: Embeddings,
@@ -18,7 +19,7 @@ export const createRetriever = async (
 ) => {
   const vectorStore = createVectorStore(embeddings, collectionName)
   if (process.env.VECTOR_STORE === 'chroma') {
-    await vectorStore.ensureCollection()
+    await (vectorStore as Chroma).ensureCollection()
   }
 
   let retriever = null
@@ -50,8 +51,8 @@ export const createRetriever = async (
 
     if (documents !== null) {
       const splitter = new RecursiveCharacterTextSplitter({
-        chunkOverlap: 200,
-        chunkSize: 3000,
+        chunkOverlap: childChunkOverlap,
+        chunkSize: childChunkSize,
       })
       const splits = await splitter.splitDocuments(documents)
       await vectorStore.addDocuments(splits)

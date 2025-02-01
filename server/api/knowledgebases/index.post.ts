@@ -65,12 +65,7 @@ export default defineEventHandler(async (event) => {
       uploadedFiles,
       `collection_${affected.id}`,
       affected.embedding!,
-      chunking.parentChunkSize,
-      chunking.parentChunkOverlap,
-      chunking.childChunkSize,
-      chunking.childChunkOverlap,
-      chunking.parentK,
-      chunking.childK,
+      chunking,
       event
     )
     for (const uploadedFile of uploadedFiles) {

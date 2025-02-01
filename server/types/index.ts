@@ -22,3 +22,12 @@ export type KnowledgeBaseFormData = {
     childK: number,
   }
 }
+
+export type ChunkSettings = {
+  parentChunkSize: number
+  parentChunkOverlap: number
+  childChunkSize: number
+  childChunkOverlap: number
+  parentK: number
+  childK: number
+}

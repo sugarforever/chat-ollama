@@ -9,6 +9,7 @@ import { MultiPartData, H3Event } from 'h3'
 import { createRetriever } from '@/server/retriever'
 import type { PageParser } from '@/server/types'
 import { RecursiveUrlLoader, type RecursiveUrlLoaderOptions } from '@/server/utils/recursiveUrlLoader'
+import type { ChunkSettings } from '~/server/types'
 
 export const loadDocuments = async (file: MultiPartData) => {
   const Loaders = {
@@ -70,12 +71,7 @@ export const ingestDocument = async (
   files: MultiPartData[],
   collectionName: string,
   embedding: string,
-  parentChunkSize: number,
-  parentChunkOverlap: number,
-  childChunkSize: number,
-  childChunkOverlap: number,
-  parentK: number,
-  childK: number,
+  chunkSettings: ChunkSettings,
   event: H3Event
 ) => {
   const docs = []
@@ -87,7 +83,7 @@ export const ingestDocument = async (
   }
 
   const embeddings = createEmbeddings(embedding, event)
-  await createRetriever(embeddings, collectionName, docs, parentChunkSize, parentChunkOverlap, childChunkSize, childChunkOverlap, parentK, childK)
+  await createRetriever(embeddings, collectionName, docs, chunkSettings.parentChunkSize, chunkSettings.parentChunkOverlap, chunkSettings.childChunkSize, chunkSettings.childChunkOverlap, chunkSettings.parentK, chunkSettings.childK)
 
   console.log(`${docs.length} documents added to collection ${collectionName}.`)
 }

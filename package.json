@@ -43,7 +43,7 @@
     "@langchain/azure-openai": "^0.0.4",
     "@langchain/cohere": "^0.0.6",
     "@langchain/community": "^0.3.19",
-    "@langchain/core": "^0.3.23",
+    "@langchain/core": "^0.3.37",
     "@langchain/google-genai": "^0.1.5",
     "@langchain/groq": "^0.0.5",
     "@langchain/ollama": "^0.1.3",
