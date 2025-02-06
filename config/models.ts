@@ -53,6 +53,10 @@ export const MOONSHOT_MODELS = [
 ]
 
 export const GEMINI_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite-preview-02-05",
+  "gemini-2.0-pro-exp",
+  "gemini-2.0-flash-thinking-exp-01-21",
   "gemini-2.0-flash-thinking-exp-1219",
   "gemini-2.0-flash-exp",
   "gemini-1.5-flash",
