@@ -27,22 +27,24 @@ const defaultModelsMap: Record<ContextKeys['custom'][number]['aiType'], string[]
 const defaultState: ContextKeys['custom'][number] = { name: '', aiType: 'openai', endpoint: '', key: '', proxy: false, models: [] }
 const defaultAiType = props.value.aiType || aiTypes[0].value
 const state = reactive(Object.assign({}, defaultState, props.value, {
-  aiType: defaultAiType,
-  models: props.value.models.length === 0 ? defaultModelsMap[defaultAiType] : props.value.models,
+  aiType: defaultAiType
 }))
 const modelName = ref('')
 const schema = computed(() => {
   return object({
+    name: string().required(t('global.required')),
     aiType: string().required(t('global.required')),
     endpoint: string().url(t('global.invalidUrl')).required(t('global.required')),
     key: string().required(t('global.required')),
-    models: array().min(1, t('global.required')),
     modelsEndpoint: string(),
+    proxy: string().optional(),
   })
 })
 
 watch(() => state.aiType, (type) => {
-  state.models = defaultModelsMap[type] || []
+  if (type !== 'openai') {
+    state.models = defaultModelsMap[type] || []
+  }
 })
 
 function onSubmit() {

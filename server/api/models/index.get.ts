@@ -125,32 +125,32 @@ export default defineEventHandler(async (event) => {
       if (MODEL_FAMILIES.hasOwnProperty(item.aiType) && item.name && item.endpoint && item.key) {
         try {
           // Only attempt API call if modelsEndpoint is provided
-          if (item.modelsEndpoint) {
-            const endpointWithSlash = item.endpoint.endsWith('/') ? item.endpoint : item.endpoint + '/'
-            const modelsEndpoint = item.modelsEndpoint.startsWith('/') ? item.modelsEndpoint.substring(1) : item.modelsEndpoint
-            const modelsUrl = new URL(modelsEndpoint, endpointWithSlash).toString()
-            console.log(`Fetching models from ${modelsUrl}`)
-            const response = await fetch(modelsUrl, {
-              headers: {
-                'Authorization': `Bearer ${item.key}`,
-              }
-            })
+          const modelsEndpoint = item.modelsEndpoint || "/models"
+          const endpointWithSlash = item.endpoint.endsWith('/') ? item.endpoint : item.endpoint + '/'
 
-            if (response.ok) {
-              const data: ModelApiResponse = await response.json()
-              console.log(`${item.name} models:`, data.data.map(d => d.id || d.name))
-              data.data.forEach(model => {
-                models.push({
-                  name: model.id || model.name,
-                  details: {
-                    family: item.name
-                  }
-                })
-              })
-              return // Skip the fallback if API call succeeds
-            } else {
-              console.error(`Failed to fetch models for custom endpoint ${item.name}:`, response)
+          const normalizedModelsEndpoint = modelsEndpoint.startsWith('/') ? modelsEndpoint.substring(1) : modelsEndpoint
+          const modelsUrl = new URL(normalizedModelsEndpoint, endpointWithSlash).toString()
+          console.log(`Fetching models from ${modelsUrl}`)
+          const response = await fetch(modelsUrl, {
+            headers: {
+              'Authorization': `Bearer ${item.key}`,
             }
+          })
+
+          if (response.ok) {
+            const data: ModelApiResponse = await response.json()
+            console.log(`${item.name} models:`, data.data.map(d => d.id || d.name))
+            data.data.forEach(model => {
+              models.push({
+                name: model.id || model.name,
+                details: {
+                  family: item.name
+                }
+              })
+            })
+            return // Skip the fallback if API call succeeds
+          } else {
+            console.error(`Failed to fetch models for custom endpoint ${item.name}:`, response)
           }
         } catch (error) {
           console.error(`Failed to fetch models for custom endpoint ${item.name}:`, error)
