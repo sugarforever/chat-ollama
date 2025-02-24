@@ -11,6 +11,7 @@ English | [简体中文](README.zh-Hans.md)
 - Moonshot
 - Gemini
 - Groq
+- OpenAI Compatible APIs
 
 `ChatOllama` supports multiple types of chat:
 
