@@ -15,13 +15,13 @@ English | [简体中文](README.zh-Hans.md)
 
 `ChatOllama` supports multiple types of chat:
 
-- Free chat with LLMs
+- Free chat with LLMs (text and image input)
 - Chat with LLMs based on knowledge base
 
 `ChatOllama` feature list:
 - Ollama models management
 - Knowledge bases management
-- Chat
+- Rich chat interface with text and image support
 - Commercial LLMs API keys management
 
 ## Join Our Community
