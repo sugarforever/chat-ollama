@@ -1,0 +1,70 @@
+/* KaTeX styles */
+@import 'katex/dist/katex.min.css';
+
+/* Custom KaTeX styling */
+.katex-block {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 1rem 0;
+}
+
+/* Custom styling for LaTeX code blocks */
+.md-body {
+  .katex-block {
+    background-color: var(--color-canvas-subtle);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+  }
+
+  .katex-block-ssr {
+    background-color: var(--color-canvas-subtle);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+    min-height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &::before {
+      content: "Loading LaTeX...";
+      color: var(--color-gray-500);
+      font-style: italic;
+    }
+  }
+
+  .katex-error {
+    color: #cc0000;
+    background-color: #ffeeee;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+}
+
+/* Dark mode styling */
+.dark {
+  .katex {
+    .katex-html {
+      color: var(--color-gray-200);
+    }
+  }
+
+  .md-body {
+
+    .katex-block,
+    .katex-block-ssr {
+      background-color: var(--color-gray-800);
+    }
+
+    .katex-error {
+      background-color: rgba(204, 0, 0, 0.2);
+      color: #ff6666;
+    }
+  }
+}
