@@ -55,6 +55,12 @@ export default defineNuxtConfig({
   nitro: {
     experimental: {
       openAPI: true
+    },
+    externals: {
+      inline: [
+        '@prisma/client',
+        '.prisma'
+      ]
     }
   },
   ui: {

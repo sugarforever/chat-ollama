@@ -15,8 +15,15 @@ RUN pnpm i
 
 COPY . .
 
+# Generate Prisma client before building the application
 RUN pnpm run prisma-generate
+
+# Build the application
 RUN pnpm run build
+
+# This is important: Copy the generated Prisma files to the output directory
+RUN mkdir -p .output/server/node_modules/.prisma
+RUN cp -R node_modules/.prisma/client .output/server/node_modules/.prisma/
 
 EXPOSE 3000
 
