@@ -57,7 +57,7 @@
     "@vueuse/nuxt": "^10.11.0",
     "@zilliz/milvus2-sdk-node": "^2.3.5",
     "ai": "^2.2.37",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "cheerio": "1.0.0-rc.12",
     "chromadb": "^1.8.1",
     "d3-dsv": "^2.0.0",

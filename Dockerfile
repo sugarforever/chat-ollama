@@ -19,9 +19,6 @@ RUN pnpm run prisma-generate
 
 RUN pnpm run build
 
-# Rebuild bcrypt for the current environment in the output directory
-RUN cd /app/.output/server/node_modules/bcrypt && pnpm rebuild
-
 EXPOSE 3000
 
 CMD ["sh", "/app/scripts/startup.sh"]

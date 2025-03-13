@@ -1,7 +1,7 @@
 import { createError, eventHandler, readBody } from 'h3'
 import prisma from "@/server/utils/prisma"
 import jwt from "jsonwebtoken"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 import { Role } from './signup.post'
 
 const refreshTokens: Record<number, Record<string, any>> = {}
