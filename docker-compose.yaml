@@ -15,8 +15,10 @@ services:
       - COHERE_API_KEY=xxxxx
       - COHERE_MODEL=ms-marco-MiniLM-L-6-v2
       - COHERE_BASE_URL=http://peanutshell:8000/v1
-    image: 0001coder/chatollama:latest
-    pull_policy: always
+    image: chat-ollama:dev
+    # Using locally built image instead of pulling from Docker Hub
+    # image: 0001coder/chatollama:latest
+    # pull_policy: always
     #extra_hosts:
     #  - "host.docker.internal:host-gateway"
     ports:
