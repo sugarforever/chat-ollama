@@ -12,6 +12,16 @@
 - Gemini
 - Groq
 
+- OpenAI / Azure OpenAI
+- Anthropic
+- Gemini
+- Groq
+- [火山引擎](https://github.com/volcengine)
+- 月之暗面
+- 硅基流动
+- 通义千问
+- Ollama
+
 `ChatOllama` 支持多种聊天类型：
 
 - 与 LLMs 免费聊天

@@ -4,13 +4,15 @@ English | [简体中文](README.zh-Hans.md)
 
 `ChatOllama` is an open source chatbot based on LLMs. It supports a wide range of language models including:
 
-- Ollama served models
-- OpenAI
-- Azure OpenAI
+- OpenAI / Azure OpenAI
 - Anthropic
-- Moonshot
 - Gemini
 - Groq
+- [Volcano Engine](https://github.com/volcengine)
+- Moonshot
+- SiliconFlow
+- Tongyi
+- Ollama served models
 
 `ChatOllama` supports multiple types of chat:
 
