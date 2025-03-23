@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { ChatMessage } from '~/types/chat'
 import { defineAsyncComponent } from 'vue'
+import { useKatexClient } from '~/composables/useKatexClient'
 
 const props = defineProps<{
   message: ChatMessage
@@ -16,6 +17,8 @@ const emits = defineEmits<{
 }>()
 
 const markdown = useMarkdown()
+// Initialize client-side KaTeX rendering
+useKatexClient()
 
 const opened = ref(props.showToggleButton === true ? false : true)
 const isModelMessage = computed(() => props.message.role === 'assistant')

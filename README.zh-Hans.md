@@ -4,13 +4,15 @@
 
 `ChatOllama` 是一个基于 LLMs（大语言模型）的开源聊天机器人平台，支持多种语言模型，包括：
 
-- Ollama 服务模型
-- OpenAI
-- Azure OpenAI
+- OpenAI / Azure OpenAI
 - Anthropic
-- Moonshot
 - Gemini
 - Groq
+- [火山引擎](https://github.com/volcengine)
+- 月之暗面
+- 硅基流动
+- 通义千问
+- Ollama
 
 `ChatOllama` 支持多种聊天类型：
 

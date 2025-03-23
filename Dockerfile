@@ -2,7 +2,7 @@ ARG NODE_VERSION=20.13.1
 
 FROM node:${NODE_VERSION}-slim
 
-RUN apt-get update && apt-get install -y openssl iputils-ping net-tools
+RUN apt-get update && apt-get install -y openssl iputils-ping net-tools python3 make g++
 
 WORKDIR /app
 
@@ -16,6 +16,7 @@ RUN pnpm i
 COPY . .
 
 RUN pnpm run prisma-generate
+
 RUN pnpm run build
 
 EXPOSE 3000

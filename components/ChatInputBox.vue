@@ -3,7 +3,7 @@ import { useStorage } from '@vueuse/core'
 import { type SubmitMode } from './TheTextarea.vue'
 
 export interface ChatBoxFormData {
-  content: string
+  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>
   images?: File[]
 }
 
@@ -38,7 +38,10 @@ const sendModeList = computed(() => {
   ]
 })
 const disabledBtn = computed(() => {
-  return props.disabled || (!props.loading && !state.content.trim() && (!state.images || state.images.length === 0))
+  if (typeof state.content === 'string') {
+    return props.disabled || (!props.loading && !state.content.trim() && (!state.images || state.images.length === 0))
+  }
+  return props.disabled || (!props.loading && (!state.images || state.images.length === 0))
 })
 const btnTip = computed(() => props.loading ? t('chat.stop') : (isMobile.value ? '' : tip.value))
 const imagePreviewUrls = ref<string[]>([])
@@ -52,10 +55,50 @@ function onChangeMode(this: typeof sendModeList.value[number][number]) {
   submitMode.value = this.value
 }
 
-function onSubmit() {
+// Add new function to convert File to base64
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => {
+      const base64String = reader.result as string
+      // Remove the data:image/xxx;base64, prefix
+      const base64 = base64String.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = error => reject(error)
+  })
+}
+
+// Modify the onSubmit function
+async function onSubmit() {
   if (props.disabled) return
 
-  emits('submit', { ...state })
+  // If there are images, convert them to base64 and create content array
+  if (state.images && state.images.length > 0) {
+    const content = []
+
+    // Add text content if any
+    if (typeof state.content === 'string' && state.content.trim()) {
+      content.push({ type: "text", text: state.content.trim() })
+    }
+
+    // Add each image as base64
+    for (const image of state.images) {
+      const base64Image = await fileToBase64(image)
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${image.type};base64,${base64Image}`,
+        },
+      })
+    }
+
+    emits('submit', { content })
+  } else {
+    // If no images, just send text content as before
+    emits('submit', { content: state.content })
+  }
 }
 
 function onStop(e: Event) {
@@ -68,13 +111,13 @@ function onStop(e: Event) {
 function onReset() {
   state.content = ''
   state.images = []
-  
+
   // Clear existing preview URLs and revoke object URLs to prevent memory leaks
   imagePreviewUrls.value.forEach(url => {
     URL.revokeObjectURL(url)
   })
   imagePreviewUrls.value = []
-  
+
   // Also reset the file input if it exists
   if (fileInput.value) {
     fileInput.value.value = ''
@@ -86,12 +129,12 @@ function handleFileInputChange(event: Event) {
   if (!input.files || input.files.length === 0) return
 
   console.log('Files selected:', input.files)
-  
+
   // Convert FileList to array and filter for image files
   const fileArray = Array.from(input.files)
   state.images = fileArray.filter(file => file.type.startsWith('image/'))
   console.log('Image files:', state.images)
-  
+
   // Generate preview URLs for the images
   imagePreviewUrls.value = []
   if (state.images && state.images.length > 0) {
@@ -108,7 +151,7 @@ function removeImage(index: number) {
   if (state.images) {
     // Revoke the URL to prevent memory leaks
     URL.revokeObjectURL(imagePreviewUrls.value[index])
-    
+
     // Remove the image from the arrays
     state.images = state.images.filter((_, i) => i !== index)
     imagePreviewUrls.value = imagePreviewUrls.value.filter((_, i) => i !== index)
@@ -121,39 +164,36 @@ function removeImage(index: number) {
   <div
        class="chat-box border rounded-lg p-2 transition-all transition-300 dark:bg-gray dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
        :class="[isFocus ? 'shadow-lg shadow-primary-400/30 dark:shadow-primary-700/20' : '', { 'border-primary-400 dark:border-primary-700': isFocus }]">
-    
+
     <!-- Image preview panel -->
     <div v-if="imagePreviewUrls.length > 0" class="image-preview-panel mb-2 flex flex-wrap gap-2">
       <div v-for="(url, index) in imagePreviewUrls" :key="index" class="image-preview-container relative">
         <img :src="url" class="image-preview rounded-md h-20 object-cover" />
-        <button 
-          @click="removeImage(index)" 
-          class="remove-image-btn absolute top-1 right-1 rounded-full bg-gray-800/70 text-white p-1" 
-          type="button"
-        >
+        <button
+                @click="removeImage(index)"
+                class="remove-image-btn absolute top-1 right-1 rounded-full bg-gray-800/70 text-white p-1"
+                type="button">
           <span class="i-heroicons-x-mark-20-solid w-3 h-3"></span>
         </button>
       </div>
     </div>
-    
+
     <UForm :state="state" @submit="onSubmit">
       <TheTextarea v-model="state.content" :max-rows="15" :min-rows="2" :submit-mode="submitMode"
                    :placeholder="t('chat.saySomething')" @focus="isFocus = true" @blur="isFocus = false" />
       <div class="flex items-center">
         <div class="flex items-center">
-          <input 
-            type="file" 
-            accept="image/*" 
-            multiple 
-            class="hidden" 
-            ref="fileInput" 
-            @change="handleFileInputChange"
-          />
-          <UButton 
-            variant="ghost" 
-            color="gray" 
-            @click="$refs.fileInput.click()"
-          >
+          <input
+                 type="file"
+                 accept="image/*"
+                 multiple
+                 class="hidden"
+                 ref="fileInput"
+                 @change="handleFileInputChange" />
+          <UButton
+                   variant="ghost"
+                   color="gray"
+                   @click="$refs.fileInput.click()">
             <span class="i-heroicons-photo-20-solid w-5 h-5"></span>
           </UButton>
         </div>
