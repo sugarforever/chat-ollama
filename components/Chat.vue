@@ -98,67 +98,148 @@ async function loadChatHistory(sessionId?: number) {
   return []
 }
 
+// Helper function to create a chat message with required fields
+function createChatMessage(params: Partial<ChatMessage> & Pick<ChatMessage, 'role' | 'content'>): ChatMessage {
+  return {
+    model: '',
+    startTime: Date.now(),
+    endTime: Date.now(),
+    toolResult: false,
+    toolCallId: '',
+    type: undefined,
+    ...params
+  }
+}
+
+interface SaveMessageResponse {
+  id: number
+}
+
+async function saveMessage(params: {
+  message: string | Array<{ type: string; text?: string; image_url?: { url: string } }>
+  model: string
+  role: 'user' | 'assistant'
+  type?: 'loading' | 'canceled' | 'error'
+  startTime: number
+  endTime: number
+}) {
+  const { data } = await useFetch<SaveMessageResponse>('/api/messages', {
+    method: 'POST',
+    body: {
+      ...params,
+      sessionId: sessionInfo.value!.id!,
+    },
+  })
+  return data.value?.id
+}
+
 const onSend = async (data: ChatBoxFormData) => {
-  const input = data.content.trim()
-  if (sendingCount.value > 0 || !input || !models.value) {
+  // Check if we're already sending or if models are not available
+  if (sendingCount.value > 0 || !models.value) {
+    return
+  }
+
+  // Validate content based on its type
+  const hasValidContent = Array.isArray(data.content)
+    ? data.content.some(item =>
+      (item.type === 'text' && item.text?.trim()) ||
+      (item.type === 'image_url' && item.image_url?.url)
+    )
+    : data.content.trim()
+
+  if (!hasValidContent) {
     return
   }
 
   const timestamp = Date.now()
-  sendingCount.value = models.value.length
-  chatInputBoxRef.value?.reset()
-
-  const instructionMessage: Array<Pick<ChatMessage, 'role' | 'content'>> = instructionInfo.value
-    ? [{ role: "system", content: instructionInfo.value.instruction }]
-    : []
+  sendingCount.value++
 
   const id = await saveMessage({
-    message: input,
+    message: data.content,
     model: models.value.join(','),
     role: 'user',
+    type: undefined,
     startTime: timestamp,
     endTime: timestamp,
-    canceled: false,
-    failed: false,
-    instructionId: instructionInfo.value?.id,
-    knowledgeBaseId: knowledgeBaseInfo.value?.id
   })
 
-  const userMessage = { role: "user", id, content: input, startTime: timestamp, endTime: timestamp, model: models.value.join(',') || '' } as const
+  const userMessage = createChatMessage({
+    role: "user",
+    id,
+    content: data.content,
+    startTime: timestamp,
+    endTime: timestamp,
+    model: models.value.join(',') || '',
+    toolResult: false,
+    toolCallId: ''
+  })
+
   emits('message', userMessage)
   messages.value.push(userMessage)
 
-  nextTick(() => scrollToBottom('smooth'))
-
-  models.value.forEach(m => {
-    const model = chatModels.value.find(e => e.value === m)
-    if (model) {
-      const id = Math.random()
-      const chatMessages = [
-        instructionMessage,
-        messages.value.filter(m => {
-          if (m.type === 'error' || m.type === 'canceled')
-            return false
-          return m.role === 'user' || (m.role === 'assistant' && (m.model === model.value || (model.value === `${(m as any).family}/${m.model}` /* incompatible old data */)))
-        }).slice(-(sessionInfo.value?.attachedMessagesCount || 1)),
-      ].flat()
-      messages.value.push({ id, role: "assistant", content: "", type: 'loading', startTime: timestamp, endTime: timestamp, model: model.value })
-
-      sendMessage({
-        type: 'request',
-        uid: id,
-        headers: getKeysHeader(),
-        data: {
-          knowledgebaseId: knowledgeBaseInfo.value?.id,
-          model: model.value,
-          messages: chatMessages,
-          stream: true,
-          sessionId: sessionInfo.value!.id!,
-          timestamp,
-        },
-      })
-    }
+  // Create loading message
+  const loadingMessage = createChatMessage({
+    id: Math.random(),
+    role: 'assistant',
+    content: '',
+    type: 'loading',
+    startTime: Date.now(),
+    endTime: Date.now(),
+    model: models.value.join(','),
+    toolResult: false,
+    toolCallId: ''
   })
+
+  emits('message', loadingMessage)
+  messages.value.push(loadingMessage)
+
+  // Reset input
+  chatInputBoxRef.value?.reset()
+
+  try {
+    const chatMessages = messages.value
+      .filter(m => {
+        if (m.type === 'error' || m.type === 'canceled' || m.type === 'loading')
+          return false
+        return true
+      })
+      .map(m => ({
+        ...m,
+        toolResult: false,
+        toolCallId: ''
+      }))
+
+    if (instructionInfo.value) {
+      chatMessages.unshift(createChatMessage({
+        role: 'system',
+        content: instructionInfo.value.instruction,
+        toolResult: false,
+        toolCallId: ''
+      }))
+    }
+
+    // Send message to each model
+    for (const m of models.value) {
+      const model = chatModels.value.find(e => e.value === m)
+      if (model) {
+        sendMessage({
+          type: 'request',
+          uid: loadingMessage.id!,
+          headers: getKeysHeader(),
+          data: {
+            knowledgebaseId: knowledgeBaseInfo.value?.id,
+            model: model.value,
+            messages: chatMessages,
+            stream: true,
+            sessionId: sessionInfo.value!.id!,
+            timestamp,
+          },
+        })
+      }
+    }
+  } catch (error) {
+    console.error('Error sending message:', error)
+  }
 }
 
 onReceivedMessage(data => {
@@ -266,12 +347,6 @@ async function initData(sessionId?: number) {
     scrollToBottom('auto')
     isFirstLoad.value = false
   })
-}
-
-async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
-  return props.sessionId
-    ? await clientDB.chatHistories.add({ ...data, sessionId: props.sessionId })
-    : Math.random()
 }
 
 // Add new state for preview
