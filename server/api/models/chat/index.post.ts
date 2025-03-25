@@ -19,17 +19,23 @@ import { ChatOllama } from '@langchain/ollama'
 import { tool } from '@langchain/core/tools'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 
+interface MessageContent {
+    type: string
+    text?: string
+    image_url?: { url: string }
+}
+
 interface RequestBody {
-  knowledgebaseId: number
-  model: string
-  family: string
-  messages: {
-    role: 'user' | 'assistant'
-    content: string
-    toolCallId?: string
-    toolResult: boolean
-  }[]
-  stream: any
+    knowledgebaseId: number
+    model: string
+    family: string
+    messages: {
+        role: 'user' | 'assistant'
+        content: string | MessageContent[]
+        toolCallId?: string
+        toolResult: boolean
+    }[]
+    stream: any
 }
 
 const SYSTEM_TEMPLATE = `Answer the user's question based on the context below.
@@ -53,228 +59,262 @@ Answer:
 `
 
 const serializeMessages = (messages: RequestBody['messages']): string =>
-  messages.map((message) => `${message.role}: ${message.content}`).join("\n")
+    messages.map((message) => {
+        if (Array.isArray(message.content)) {
+            // For image messages, only include text parts
+            const textParts = message.content
+                .filter((part): part is MessageContent & { text: string } =>
+                    part.type === 'text' && typeof part.text === 'string'
+                )
+                .map(part => part.text)
+                .join(' ')
+            return `${message.role}: ${textParts}`
+        }
+        return `${message.role}: ${message.content}`
+    }).join("\n")
 
 const transformMessages = (messages: RequestBody['messages']): BaseMessageLike[] =>
-  messages.map((message) => [message.role, message.content])
+    messages.map((message) => {
+        if (Array.isArray(message.content)) {
+            // Handle array content format (text + images)
+            return [message.role, message.content]
+        }
+        // Handle string content format
+        return [message.role, message.content]
+    })
 
 const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => {
-  const normalizedMessages = []
-  for (const message of messages) {
-    if (message.toolResult) {
-      normalizedMessages.push(new ToolMessage(message.content, message.toolCallId!))
-    } else if (message.role === "user") {
-      normalizedMessages.push(new HumanMessage(message.content))
-    } else if (message.role === "assistant") {
-      normalizedMessages.push(new AIMessage(message.content))
+    const normalizedMessages = []
+    for (const message of messages) {
+        if (message.toolResult) {
+            normalizedMessages.push(new ToolMessage(message.content as string, message.toolCallId!))
+        } else if (message.role === "user") {
+            if (Array.isArray(message.content)) {
+                normalizedMessages.push(new HumanMessage({ content: message.content }))
+            } else {
+                normalizedMessages.push(new HumanMessage(message.content))
+            }
+        } else if (message.role === "assistant") {
+            normalizedMessages.push(new AIMessage(message.content as string))
+        }
     }
-  }
 
-  return normalizedMessages
+    return normalizedMessages
 }
 
 export default defineEventHandler(async (event) => {
-  const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
+    const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
 
-  if (knowledgebaseId) {
-    console.log("Chat with knowledge base with id: ", knowledgebaseId)
-    const knowledgebase = await prisma.knowledgeBase.findUnique({
-      where: {
-        id: knowledgebaseId,
-      },
-    })
-    console.log(`Knowledge base ${knowledgebase?.name} with embedding "${knowledgebase?.embedding}"`)
-    if (!knowledgebase) {
-      setResponseStatus(event, 404, `Knowledge base with id ${knowledgebaseId} not found`)
-      return
-    }
-
-    const embeddings = createEmbeddings(knowledgebase.embedding!, event)
-    const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`)
-
-    const chat = createChatModel(model, family, event)
-    const query = messages[messages.length - 1].content
-    console.log("User query: ", query)
-
-    // const reformulatedResult = await resolveCoreference(query, normalizeMessages(messages), chat)
-    const reformulatedQuery = query
-    console.log("Reformulated query: ", reformulatedQuery)
-
-    const relevant_docs = await retriever.invoke(reformulatedQuery)
-    console.log("Relevant documents: ", relevant_docs)
-
-    let rerankedDocuments = relevant_docs
-
-    if ((process.env.COHERE_API_KEY || process.env.COHERE_BASE_URL) && process.env.COHERE_MODEL) {
-      const options = {
-        apiKey: process.env.COHERE_API_KEY,
-        baseUrl: process.env.COHERE_BASE_URL,
-        model: process.env.COHERE_MODEL,
-        topN: 4
-      }
-      console.log("Cohere Rerank Options: ", options)
-      const cohereRerank = new CohereRerank(options)
-      rerankedDocuments = await cohereRerank.compressDocuments(relevant_docs, reformulatedQuery)
-      console.log("Cohere reranked documents: ", rerankedDocuments)
-    }
-
-    const chain = RunnableSequence.from([
-      {
-        question: (input: { question: string; chatHistory?: string }) =>
-          input.question,
-        chatHistory: (input: { question: string; chatHistory?: string }) =>
-          input.chatHistory ?? "",
-        context: async () => {
-          return formatDocumentsAsString(rerankedDocuments)
-        },
-      },
-      PromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
-      chat
-    ])
-
-    if (!stream) {
-      const response = await chain.invoke({
-        question: query,
-        chatHistory: serializeMessages(messages),
-      })
-
-      return {
-        message: {
-          role: 'assistant',
-          content: response?.content,
-          relevant_docs
+    if (knowledgebaseId) {
+        console.log("Chat with knowledge base with id: ", knowledgebaseId)
+        const knowledgebase = await prisma.knowledgeBase.findUnique({
+            where: {
+                id: knowledgebaseId,
+            },
+        })
+        console.log(`Knowledge base ${knowledgebase?.name} with embedding "${knowledgebase?.embedding}"`)
+        if (!knowledgebase) {
+            setResponseStatus(event, 404, `Knowledge base with id ${knowledgebaseId} not found`)
+            return
         }
-      }
-    }
 
-    setEventStreamResponse(event)
-    const response = await chain.stream({
-      question: query,
-      chatHistory: serializeMessages(messages),
-    })
+        const embeddings = createEmbeddings(knowledgebase.embedding!, event)
+        const retriever: BaseRetriever = await createRetriever(embeddings, `collection_${knowledgebase.id}`)
 
-    const readableStream = Readable.from((async function* () {
-      for await (const chunk of response) {
-        if (chunk?.content !== undefined) {
-          const message = {
-            message: {
-              role: 'assistant',
-              content: chunk?.content
+        const chat = createChatModel(model, family, event)
+        const query = (() => {
+            const lastMessage = messages[messages.length - 1].content
+            if (Array.isArray(lastMessage)) {
+                return lastMessage
+                    .filter((part): part is MessageContent & { text: string } =>
+                        part.type === 'text' && typeof part.text === 'string'
+                    )
+                    .map(part => part.text)
+                    .join(' ')
             }
-          }
-          yield `${JSON.stringify(message)} \n\n`
+            return lastMessage
+        })()
+        console.log("User query: ", query)
+
+        // const reformulatedResult = await resolveCoreference(query, normalizeMessages(messages), chat)
+        const reformulatedQuery = query
+        console.log("Reformulated query: ", reformulatedQuery)
+
+        const relevant_docs = await retriever.invoke(reformulatedQuery)
+        console.log("Relevant documents: ", relevant_docs)
+
+        let rerankedDocuments = relevant_docs
+
+        if ((process.env.COHERE_API_KEY || process.env.COHERE_BASE_URL) && process.env.COHERE_MODEL) {
+            const options = {
+                apiKey: process.env.COHERE_API_KEY,
+                baseUrl: process.env.COHERE_BASE_URL,
+                model: process.env.COHERE_MODEL,
+                topN: 4
+            }
+            console.log("Cohere Rerank Options: ", options)
+            const cohereRerank = new CohereRerank(options)
+            rerankedDocuments = await cohereRerank.compressDocuments(relevant_docs, reformulatedQuery)
+            console.log("Cohere reranked documents: ", rerankedDocuments)
         }
-      }
 
-      const docsChunk = {
-        type: "relevant_documents",
-        relevant_documents: rerankedDocuments
-      }
-      yield `${JSON.stringify(docsChunk)} \n\n`
-    })())
-    return sendStream(event, readableStream)
-  } else {
-    let llm = createChatModel(model, family, event)
+        const chain = RunnableSequence.from([
+            {
+                question: (input: { question: string; chatHistory?: string }) =>
+                    input.question,
+                chatHistory: (input: { question: string; chatHistory?: string }) =>
+                    input.chatHistory ?? "",
+                context: async () => {
+                    return formatDocumentsAsString(rerankedDocuments)
+                },
+            },
+            PromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
+            chat
+        ])
 
-    const mcpService = new McpService()
-    const normalizedTools = await mcpService.listTools()
-    const toolsMap = normalizedTools.reduce((acc, tool) => {
-      acc[tool.name] = tool
-      return acc
-    }, {})
-    if (family === MODEL_FAMILIES.anthropic && normalizedTools?.length) {
-      /*
-      if (family === MODEL_FAMILIES.gemini) {
-        llm = llm.bindTools(normalizedTools.map((t) => {
-          console.log(`Tool ${t.name}: `, t.mcpSchema)
-          return {
-            name: t.name,
-            description: t.description,
-            parameters: t.mcpSchema
-          }
+        if (!stream) {
+            const response = await chain.invoke({
+                question: query,
+                chatHistory: serializeMessages(messages),
+            })
+
+            return {
+                message: {
+                    role: 'assistant',
+                    content: typeof response?.content === 'string' ? response.content : response?.content.toString(),
+                    relevant_docs
+                }
+            }
+        }
+
+        setEventStreamResponse(event)
+        const response = await chain.stream({
+            question: query,
+            chatHistory: serializeMessages(messages),
+        })
+
+        const readableStream = Readable.from((async function* () {
+            for await (const chunk of response) {
+                if (chunk?.content !== undefined) {
+                    const message = {
+                        message: {
+                            role: 'assistant',
+                            content: chunk?.content
+                        }
+                    }
+                    yield `${JSON.stringify(message)} \n\n`
+                }
+            }
+
+            const docsChunk = {
+                type: "relevant_documents",
+                relevant_documents: rerankedDocuments
+            }
+            yield `${JSON.stringify(docsChunk)} \n\n`
+        })())
+        return sendStream(event, readableStream)
+    } else {
+        let llm = createChatModel(model, family, event)
+
+        const mcpService = new McpService()
+        const normalizedTools = await mcpService.listTools()
+        const toolsMap = normalizedTools.reduce((acc, tool) => {
+            acc[tool.name] = tool
+            return acc
+        }, {})
+        if (family === MODEL_FAMILIES.anthropic && normalizedTools?.length) {
+            /*
+            if (family === MODEL_FAMILIES.gemini) {
+              llm = llm.bindTools(normalizedTools.map((t) => {
+                console.log(`Tool ${t.name}: `, t.mcpSchema)
+                return {
+                  name: t.name,
+                  description: t.description,
+                  parameters: t.mcpSchema
+                }
+              }))
+            } else {
+              llm = llm.bindTools(normalizedTools)
+            }
+            */
+            if (llm?.bindTools) {
+                llm = llm.bindTools(normalizedTools) as BaseChatModel
+            }
+        } else if (llm instanceof ChatOllama) {
+            /*
+            console.log("Binding tools to ChatOllama")
+            llm = llm.bindTools(normalizedTools)
+            */
+        }
+
+        if (!stream) {
+            const response = await llm.invoke(transformMessages(messages))
+            console.log(response)
+            return {
+                message: {
+                    role: 'assistant',
+                    content: typeof response?.content === 'string' ? response.content : response?.content.toString()
+                }
+            }
+        }
+
+        console.log("Streaming response")
+        const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
+            return [message.role, message.content]
         }))
-      } else {
-        llm = llm.bindTools(normalizedTools)
-      }
-      */
-      if (llm?.bindTools) {
-        llm = llm.bindTools(normalizedTools) as BaseChatModel
-      }
-    } else if (llm instanceof ChatOllama) {
-      /*
-      console.log("Binding tools to ChatOllama")
-      llm = llm.bindTools(normalizedTools)
-      */
-    }
 
-    if (!stream) {
-      const response = await llm.invoke(transformMessages(messages))
-      console.log(response)
-      return {
-        message: {
-          role: 'assistant',
-          content: response?.content
-        }
-      }
-    }
+        console.log(response)
 
-    console.log("Streaming response")
-    const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
-      return [message.role, message.content]
-    }))
+        const readableStream = Readable.from((async function* () {
 
-    console.log(response)
+            let gathered = undefined
 
-    const readableStream = Readable.from((async function* () {
+            for await (const chunk of response) {
+                gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
 
-      let gathered = undefined
+                let content = chunk?.content
 
-      for await (const chunk of response) {
-        gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
+                // Handle array of text_delta objects
+                if (Array.isArray(content)) {
+                    content = content
+                        .filter(item => item.type === 'text_delta')
+                        .map(item => item.text)
+                        .join('')
+                }
 
-        let content = chunk?.content
-
-        // Handle array of text_delta objects
-        if (Array.isArray(content)) {
-          content = content
-            .filter(item => item.type === 'text_delta')
-            .map(item => item.text)
-            .join('')
-        }
-
-        const message = {
-          message: {
-            role: 'assistant',
-            content: content
-          }
-        }
-        yield `${JSON.stringify(message)} \n\n`
-      }
-
-      for (const toolCall of gathered?.tool_calls ?? []) {
-        console.log("Tool call: ", toolCall)
-        const selectedTool = toolsMap[toolCall.name]
-
-        if (selectedTool) {
-          const result = await selectedTool.invoke(toolCall)
-
-          console.log("Tool result: ", result)
-
-          const message = {
-            message: {
-              role: "user",
-              type: "tool_result",
-              tool_use_id: result.tool_call_id,
-              content: result.content
+                const message = {
+                    message: {
+                        role: 'assistant',
+                        content: content
+                    }
+                }
+                yield `${JSON.stringify(message)} \n\n`
             }
-          }
 
-          yield `${JSON.stringify(message)} \n\n`
-        }
-      }
+            for (const toolCall of gathered?.tool_calls ?? []) {
+                console.log("Tool call: ", toolCall)
+                const selectedTool = toolsMap[toolCall.name]
 
-    })())
+                if (selectedTool) {
+                    const result = await selectedTool.invoke(toolCall)
 
-    return sendStream(event, readableStream)
-  }
+                    console.log("Tool result: ", result)
+
+                    const message = {
+                        message: {
+                            role: "user",
+                            type: "tool_result",
+                            tool_use_id: result.tool_call_id,
+                            content: result.content
+                        }
+                    }
+
+                    yield `${JSON.stringify(message)} \n\n`
+                }
+            }
+
+        })())
+
+        return sendStream(event, readableStream)
+    }
 })

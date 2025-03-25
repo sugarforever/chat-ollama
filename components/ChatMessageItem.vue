@@ -49,10 +49,34 @@ const showPreview = ref(false)
 const previewComponent = ref<any>(null)
 const isVueComponent = ref(false)
 
-const togglePreview = () => {
-  if (!props.message.content) return
+const messageContent = computed(() => {
+  const content = props.message.content
+  if (!content) return ''
 
-  const vueMatch = props.message.content.match(/```vue\n([\s\S]*?)```/)
+  if (Array.isArray(content)) {
+    // Extract text content for markdown rendering
+    return content
+      .filter(item => item.type === 'text')
+      .map(item => item.text)
+      .filter(Boolean)
+      .join('\n')
+  }
+  return content
+})
+
+const messageImages = computed(() => {
+  const content = props.message.content
+  if (!content || !Array.isArray(content)) return []
+
+  return content
+    .filter(item => item.type === 'image_url' && item.image_url?.url)
+    .map(item => item.image_url!.url)
+})
+
+const togglePreview = () => {
+  if (!messageContent.value) return
+
+  const vueMatch = messageContent.value.match(/```vue\n([\s\S]*?)```/)
   if (vueMatch) {
     emits('preview', vueMatch[1])
   }
@@ -114,12 +138,21 @@ const contentDisplay = computed(() => {
         </div>
         <template v-else-if="isModelMessage">
           <div class="p-3 overflow-hidden">
-            <div v-html="markdown.render(message.content || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
+            <!-- Image Gallery -->
+            <div v-if="messageImages.length > 0" class="image-gallery mb-3 grid gap-2">
+              <img v-for="(url, index) in messageImages"
+                   :key="index"
+                   :src="url"
+                   class="rounded-lg max-h-64 object-contain"
+                   :alt="`Image ${index + 1}`" />
+            </div>
+            <!-- Text Content -->
+            <div v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
             <Sources v-show="opened" :relevant_documents="message?.relevantDocs || []" />
           </div>
           <div class="flex flex-col">
             <MessageToggleCollapseButton v-if="showToggleButton" :opened="opened" @click="opened = !opened" />
-            <UButton v-if="message.content"
+            <UButton v-if="messageContent"
                      icon="i-heroicons-eye-20-solid"
                      color="gray"
                      variant="ghost"
@@ -129,7 +162,19 @@ const contentDisplay = computed(() => {
                      @click="togglePreview" />
           </div>
         </template>
-        <pre v-else v-text="message.content" class="p-3 whitespace-break-spaces" />
+        <template v-else>
+          <!-- User message with images -->
+          <div class="p-3">
+            <div v-if="messageImages.length > 0" class="image-gallery mb-3 grid gap-2">
+              <img v-for="(url, index) in messageImages"
+                   :key="index"
+                   :src="url"
+                   class="rounded-lg max-h-64 object-contain"
+                   :alt="`Image ${index + 1}`" />
+            </div>
+            <pre v-if="messageContent" v-text="messageContent" class="whitespace-break-spaces" />
+          </div>
+        </template>
       </div>
       <ChatMessageActionMore :message="message"
                              :disabled="sending"
@@ -190,6 +235,27 @@ const contentDisplay = computed(() => {
 .dark {
   .preview-container {
     border-color: var(--color-gray-700);
+    background: var(--color-gray-800);
+  }
+}
+
+.image-gallery {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+
+  img {
+    width: 100%;
+    height: auto;
+    background: var(--color-gray-100);
+
+    &:hover {
+      cursor: pointer;
+      opacity: 0.9;
+    }
+  }
+}
+
+.dark {
+  .image-gallery img {
     background: var(--color-gray-800);
   }
 }
