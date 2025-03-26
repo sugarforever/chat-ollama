@@ -99,7 +99,7 @@ async function loadChatHistory(sessionId?: number) {
 }
 
 // Helper function to create a chat message with required fields
-function createChatMessage(params: Partial<ChatMessage> & Pick<ChatMessage, 'role' | 'content'>): ChatMessage {
+function createChatMessage(params: Partial<ChatMessage> & Pick<ChatMessage, 'role' | 'content' | 'contentType'>): ChatMessage {
   return {
     model: '',
     startTime: Date.now(),
@@ -111,26 +111,10 @@ function createChatMessage(params: Partial<ChatMessage> & Pick<ChatMessage, 'rol
   }
 }
 
-interface SaveMessageResponse {
-  id: number
-}
-
-async function saveMessage(params: {
-  message: string | Array<{ type: string; text?: string; image_url?: { url: string } }>
-  model: string
-  role: 'user' | 'assistant'
-  type?: 'loading' | 'canceled' | 'error'
-  startTime: number
-  endTime: number
-}) {
-  const { data } = await useFetch<SaveMessageResponse>('/api/messages', {
-    method: 'POST',
-    body: {
-      ...params,
-      sessionId: sessionInfo.value!.id!,
-    },
-  })
-  return data.value?.id
+async function saveMessage(data: Omit<ChatHistory, 'sessionId'>) {
+  return props.sessionId
+    ? await clientDB.chatHistories.add({ ...data, sessionId: props.sessionId })
+    : Math.random()
 }
 
 const onSend = async (data: ChatBoxFormData) => {
@@ -166,6 +150,7 @@ const onSend = async (data: ChatBoxFormData) => {
   const userMessage = createChatMessage({
     role: "user",
     id,
+    contentType: Array.isArray(data.content) ? 'array' : 'string',
     content: data.content,
     startTime: timestamp,
     endTime: timestamp,
@@ -181,6 +166,7 @@ const onSend = async (data: ChatBoxFormData) => {
   const loadingMessage = createChatMessage({
     id: Math.random(),
     role: 'assistant',
+    contentType: 'string',
     content: '',
     type: 'loading',
     startTime: Date.now(),
@@ -212,6 +198,7 @@ const onSend = async (data: ChatBoxFormData) => {
     if (instructionInfo.value) {
       chatMessages.unshift(createChatMessage({
         role: 'system',
+        contentType: 'string',
         content: instructionInfo.value.instruction,
         toolResult: false,
         toolCallId: ''
