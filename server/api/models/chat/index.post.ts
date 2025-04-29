@@ -9,7 +9,7 @@ import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
 import { createChatModel, createEmbeddings } from '@/server/utils/models'
 import { createRetriever } from '@/server/retriever'
-import { AIMessage, BaseMessage, BaseMessageLike, HumanMessage, ToolMessage } from '@langchain/core/messages'
+import { AIMessage, AIMessageChunk, AIMessageFields, BaseMessage, BaseMessageChunk, BaseMessageLike, HumanMessage, ToolMessage } from '@langchain/core/messages'
 import { resolveCoreference } from '~/server/coref'
 import { concat } from "@langchain/core/utils/stream"
 import { MODEL_FAMILIES } from '~/config'
@@ -222,29 +222,10 @@ export default defineEventHandler(async (event) => {
       acc[tool.name] = tool
       return acc
     }, {})
-    if (family === MODEL_FAMILIES.anthropic && normalizedTools?.length) {
-      /*
-      if (family === MODEL_FAMILIES.gemini) {
-        llm = llm.bindTools(normalizedTools.map((t) => {
-          console.log(`Tool ${t.name}: `, t.mcpSchema)
-          return {
-            name: t.name,
-            description: t.description,
-            parameters: t.mcpSchema
-          }
-        }))
-      } else {
-        llm = llm.bindTools(normalizedTools)
-      }
-      */
-      if (llm?.bindTools) {
-        llm = llm.bindTools(normalizedTools) as BaseChatModel
-      }
-    } else if (llm instanceof ChatOllama) {
-      /*
-      console.log("Binding tools to ChatOllama")
-      llm = llm.bindTools(normalizedTools)
-      */
+
+    if (llm?.bindTools) {
+      console.log("Binding tools to LLM")
+      llm = llm.bindTools(normalizedTools) as BaseChatModel
     }
 
     if (!stream) {
@@ -259,9 +240,10 @@ export default defineEventHandler(async (event) => {
     }
 
     console.log("Streaming response")
-    const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
+    const transformedMessages = messages.map((message: RequestBody['messages'][number]) => {
       return [message.role, message.content]
-    }))
+    }) as BaseMessageLike[]
+    const response = await llm?.stream(transformedMessages)
 
     console.log(response)
 
@@ -291,6 +273,8 @@ export default defineEventHandler(async (event) => {
         yield `${JSON.stringify(message)} \n\n`
       }
 
+      const toolMessages = [] as ToolMessage[]
+      console.log("Gathered response: ", gathered)
       for (const toolCall of gathered?.tool_calls ?? []) {
         console.log("Tool call: ", toolCall)
         const selectedTool = toolsMap[toolCall.name]
@@ -309,10 +293,37 @@ export default defineEventHandler(async (event) => {
             }
           }
 
+          toolMessages.push(new ToolMessage(result.content, result.tool_call_id))
           yield `${JSON.stringify(message)} \n\n`
         }
       }
 
+      if (toolMessages.length) {
+        transformedMessages.push(new AIMessage(gathered as AIMessageFields))
+        transformedMessages.push(...toolMessages)
+        const finalResponse = await llm.stream(transformedMessages as BaseMessageLike[])
+
+        for await (const chunk of finalResponse) {
+          let content = chunk?.content
+
+          // Handle array of text_delta objects
+          if (Array.isArray(content)) {
+            content = content
+              .filter((item): item is MessageContent & { type: 'text_delta'; text: string } =>
+                item.type === 'text_delta' && 'text' in item)
+              .map(item => item.text)
+              .join('')
+          }
+
+          const message = {
+            message: {
+              role: 'assistant',
+              content: content
+            }
+          }
+          yield `${JSON.stringify(message)} \n\n`
+        }
+      }
     })())
 
     return sendStream(event, readableStream)
