@@ -1,10 +1,9 @@
-import { OllamaEmbeddings } from "@langchain/ollama"
 import { Embeddings } from "@langchain/core/embeddings"
 import { OpenAIEmbeddings } from "@langchain/openai"
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai"
 import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { ChatAnthropic } from "@langchain/anthropic"
-import { ChatOllama } from "@langchain/ollama"
+import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama"
 import { ChatOpenAI } from '@langchain/openai'
 import { ChatGoogleGenerativeAI } from "~/server/models/genai/generative-ai"
 import { ChatGroq } from "@langchain/groq"
