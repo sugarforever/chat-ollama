@@ -15,6 +15,9 @@ interface McpConfig {
 }
 
 export class McpService {
+
+  private mcpClient: MultiServerMCPClient | null = null
+
   async listTools(): Promise<StructuredToolInterface[]> {
     // Load the MCP servers from the .mcp-servers.json file
     let mcpConfigPath = path.join(process.cwd(), '.mcp-servers.json')
@@ -28,12 +31,18 @@ export class McpService {
     }
 
     try {
-      const mcpClient = MultiServerMCPClient.fromConfigFile(mcpConfigPath)
-      await mcpClient.initializeConnections()
-      return await mcpClient.getTools()
+      this.mcpClient = MultiServerMCPClient.fromConfigFile(mcpConfigPath)
+      await this.mcpClient.initializeConnections()
+      return await this.mcpClient.getTools()
     } catch (error) {
       console.error("Failed to parse MCP config file:", error)
       return []
+    }
+  }
+
+  async close() {
+    if (this.mcpClient) {
+      await this.mcpClient.close()
     }
   }
 

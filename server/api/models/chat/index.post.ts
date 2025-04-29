@@ -255,11 +255,10 @@ export default defineEventHandler(async (event) => {
         gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
 
         let content = chunk?.content
-
         // Handle array of text_delta objects
         if (Array.isArray(content)) {
           content = content
-            .filter(item => item.type === 'text_delta')
+            .filter(item => item.type === 'text_delta' || item.type === 'text')
             .map(item => item.text)
             .join('')
         }
@@ -298,19 +297,22 @@ export default defineEventHandler(async (event) => {
         }
       }
 
+      await mcpService.close()
+
       if (toolMessages.length) {
+        console.log("Inferencing with tool results")
         transformedMessages.push(new AIMessage(gathered as AIMessageFields))
         transformedMessages.push(...toolMessages)
         const finalResponse = await llm.stream(transformedMessages as BaseMessageLike[])
 
         for await (const chunk of finalResponse) {
           let content = chunk?.content
-
           // Handle array of text_delta objects
           if (Array.isArray(content)) {
             content = content
-              .filter((item): item is MessageContent & { type: 'text_delta'; text: string } =>
-                item.type === 'text_delta' && 'text' in item)
+              .filter((item): item is MessageContent & { type: 'text_delta'; text: string } | { type: 'text'; text: string } =>
+                item.type === 'text_delta' && 'text' in item || item.type === 'text' && 'text' in item
+              )
               .map(item => item.text)
               .join('')
           }
