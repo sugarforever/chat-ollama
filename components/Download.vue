@@ -29,6 +29,16 @@ const fetchStream = async (url: string, options: RequestInit) => {
             throw new Error(progress.error)
           }
 
+          // Handle success message for external providers
+          if (progress.status === "success" && progress.message) {
+            progresses.value.push({
+              status: progress.message,
+              completed: 1,
+              total: 1
+            })
+            return
+          }
+
           const existing = progresses.value.find((p) => p.status === progress.status)
           if (existing) {
             Object.assign(existing, progress)
