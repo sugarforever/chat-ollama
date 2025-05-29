@@ -52,11 +52,12 @@ const toggleLeftPanel = () => {
       <nav class="flex-1 p-4 space-y-2">
         <NuxtLink v-for="link in links" :key="link.to" :to="link.to"
                   class="flex items-center p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                  :class="{ 'justify-center': isLeftPanelCollapsed }"
                   active-class="!bg-primary-50 dark:!bg-primary-900/20 !text-primary-600 dark:!text-primary-400">
           <Icon :name="link.icon" class="w-5 h-5 flex-shrink-0" />
           <span v-if="!isLeftPanelCollapsed" class="ml-3 truncate">{{ link.label }}</span>
           <!-- Tooltip for collapsed state -->
-          <div v-if="isLeftPanelCollapsed" 
+          <div v-if="isLeftPanelCollapsed"
                class="absolute left-16 ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
             {{ link.label }}
           </div>
@@ -85,13 +86,13 @@ const toggleLeftPanel = () => {
 
         <!-- Auth Component -->
         <div class="flex items-center" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
-          <Auth />
+          <Auth :collapsed="isLeftPanelCollapsed" />
         </div>
 
         <!-- Collapse Toggle -->
         <button @click="toggleLeftPanel"
                 class="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-          <Icon :name="isLeftPanelCollapsed ? 'i-heroicons-chevron-double-right' : 'i-heroicons-chevron-double-left'" 
+          <Icon :name="isLeftPanelCollapsed ? 'i-heroicons-chevron-double-right' : 'i-heroicons-chevron-double-left'"
                 class="w-4 h-4" />
         </button>
       </div>
@@ -131,7 +132,7 @@ const toggleLeftPanel = () => {
       </div>
 
       <!-- Main Content -->
-      <main class="flex-1 h-full overflow-hidden p-4">
+      <main class="flex-1 h-full overflow-scroll p-4">
         <slot />
       </main>
     </div>
@@ -178,8 +179,8 @@ const toggleLeftPanel = () => {
           </button>
         </div>
         <Charlie v-if="selectedChat === 'charlie'"
-                :default-expanded="true"
-                @update:expanded="(expanded) => !expanded && handleChatCollapsed()" />
+                 :default-expanded="true"
+                 @update:expanded="(expanded) => !expanded && handleChatCollapsed()" />
         <CharlieGemini v-if="selectedChat === 'gemini'"
                        :default-expanded="true"
                        @update:expanded="(expanded) => !expanded && handleChatCollapsed()" />
@@ -197,4 +198,3 @@ const toggleLeftPanel = () => {
   }
 }
 </style>
-

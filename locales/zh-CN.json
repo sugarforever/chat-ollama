@@ -15,13 +15,11 @@
   },
   "home": {
     "welcome": "欢迎来到 ChatOllama",
-    "description": "ChatOllama 是一个网络应用程序，可以用来管理您的 <a class=\"text-primary font-bold\" href=\"https://ollama.ai\" target=\"_blank\">Ollama</a> 服务器，并与来自世界任何地方的 LLMs 聊天。",
+    "description": "ChatOllama 是一款Web应用，为您提供与多种大模型聊天的服务，并支持知识库管理。",
     "quickStart": "快速开始",
-    "step1": "确保您的Ollama服务器可以公开访问。如果需要，您可以使用 <a class=\"text-primary\" href=\"https://ngrok.com/\" target=\"_blank\">ngrok</a> 来公开本地机器中的Ollama服务器。",
-    "step2": "去到 <a class=\"text-primary\" href=\"/settings\"> @:menu.settings </a> 页面来设置你的 Ollama 服务器的访问地址。",
-    "step3": "开始享受优秀的 Ollama 服务。",
-    "step3_1": "模型管理（查看、下载、删除） - <a class=\"text-primary\" href=\"/models\">链接</a>",
-    "step3_2": "与模型聊天 - <a class=\"text-primary\" href=\"/chat\">链接</a>"
+    "step1": "在 <a class=\"text-primary\" href=\"/settings\"> @:menu.settings </a> 页面来设置你的 LLM 提供商。",
+    "step2": "可选地，在 <a class=\"text-primary\" href=\"/knowledgebases\"> @:menu.knowledgeBases </a> 页面来创建或更新你的知识库。",
+    "step3": "开始与你的 LLM 聊天。"
   },
   "models": {
     "family": "家族",
