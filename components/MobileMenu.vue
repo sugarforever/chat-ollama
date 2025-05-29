@@ -3,25 +3,37 @@ const menus = useMenus()
 </script>
 
 <template>
-  <div class="w-full box-border">
-    <ul class="p-4">
-      <li v-for="menu in menus" :key="menu.to" class="my-1">
-        <RouterLink :to="menu.to"
-                    active-class="!text-primary-400"
-                    class="block px-2 py-1 text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100">
-          <Icon :name="menu.icon" />
-          <span class="ml-2">{{ menu.label }}</span>
-        </RouterLink>
-      </li>
-    </ul>
-    <div class="flex items-center p-4 border-t border-gray-200 dark:border-gray-700">
-      <div class="mr-4">
+  <div class="w-full h-full flex flex-col">
+    <!-- Navigation Menu -->
+    <nav class="flex-1 p-4 space-y-2">
+      <NuxtLink v-for="link in menus" :key="link.to" :to="link.to"
+                class="flex items-center p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                active-class="!bg-primary-50 dark:!bg-primary-900/20 !text-primary-600 dark:!text-primary-400">
+        <Icon :name="link.icon" class="w-5 h-5 flex-shrink-0" />
+        <span class="ml-3 truncate">{{ link.label }}</span>
+      </NuxtLink>
+    </nav>
+
+    <!-- Bottom Section -->
+    <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+      <!-- Color Mode Toggle -->
+      <div class="flex items-center justify-start">
         <ColorMode />
+        <span class="ml-3 text-sm text-gray-600 dark:text-gray-400">Theme</span>
       </div>
-      <ULink to="https://github.com/sugarforever/chat-ollama"
-             target="_blank"
-             class="i-mdi-github text-2xl ml-2 mr-4"></ULink>
-      <Auth class="ml-auto" />
+
+      <!-- GitHub Link -->
+      <div class="flex items-center justify-start">
+        <ULink to="https://github.com/sugarforever/chat-ollama"
+               target="_blank"
+               class="i-mdi-github text-xl text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"></ULink>
+        <span class="ml-3 text-sm text-gray-600 dark:text-gray-400">GitHub</span>
+      </div>
+
+      <!-- Auth Component -->
+      <div class="flex items-center justify-start">
+        <Auth />
+      </div>
     </div>
   </div>
 </template>

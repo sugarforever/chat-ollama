@@ -38,7 +38,7 @@ const toggleLeftPanel = () => {
 <template>
   <div class="h-screen flex">
     <!-- Left Navigation Panel -->
-    <div class="flex flex-col bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300"
+    <div class="hidden md:flex flex-col bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300"
          :class="isLeftPanelCollapsed ? 'w-16' : 'w-64'">
       <!-- Logo and App Name -->
       <div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
@@ -96,8 +96,8 @@ const toggleLeftPanel = () => {
     <!-- Mobile Menu Overlay -->
     <div class="md:hidden fixed inset-0 z-50" v-if="open">
       <div class="fixed inset-0 bg-black bg-opacity-50" @click="open = false"></div>
-      <div class="fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 shadow-lg">
-        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 shadow-lg flex flex-col overflow-y-scroll">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div class="flex items-center">
             <TheLogo class="w-8 h-8" />
             <span class="ml-3 text-primary font-semibold text-lg">{{ $config.public.appName }}</span>
@@ -106,7 +106,9 @@ const toggleLeftPanel = () => {
             <Icon name="i-heroicons-x-mark" class="w-6 h-6" />
           </button>
         </div>
-        <MobileMenu />
+        <div class="flex-1 overflow-hidden">
+          <MobileMenu />
+        </div>
       </div>
     </div>
 
