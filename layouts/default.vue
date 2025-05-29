@@ -73,9 +73,13 @@ const toggleLeftPanel = () => {
 
         <!-- GitHub Link -->
         <div class="flex items-center" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
-          <ULink to="https://github.com/sugarforever/chat-ollama"
-                 target="_blank"
-                 class="i-mdi-github text-xl text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"></ULink>
+          <UButton color="gray"
+                   variant="ghost"
+                   icon="i-mdi-github"
+                   aria-label="GitHub"
+                   :to="'https://github.com/sugarforever/chat-ollama'"
+                   target="_blank"
+                   :external="true" />
           <span v-if="!isLeftPanelCollapsed" class="ml-3 text-sm text-gray-600 dark:text-gray-400">GitHub</span>
         </div>
 
@@ -127,7 +131,7 @@ const toggleLeftPanel = () => {
       </div>
 
       <!-- Main Content -->
-      <main class="flex-1 h-full overflow-hidden">
+      <main class="flex-1 h-full overflow-hidden p-4">
         <slot />
       </main>
     </div>
