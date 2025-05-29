@@ -144,3 +144,4 @@ yarn.lock
 
 .mcp-servers.json
 venv
+.cursor

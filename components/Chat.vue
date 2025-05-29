@@ -351,10 +351,11 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
 </script>
 
 <template>
-  <div class="flex box-border dark:text-gray-300 md:-mx-4 h-[calc(100vh-64px)]">
+  <div class="flex h-full dark:text-gray-300">
     <!-- Main chat area -->
-    <div class="flex flex-col flex-1 min-w-0">
-      <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center">
+    <div class="flex flex-col flex-1 min-w-0 h-full">
+      <!-- Header -->
+      <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center flex-shrink-0">
         <slot name="left-menu-btn"></slot>
         <UIcon
                :name="isSessionListVisible ? 'i-heroicons-chevron-double-left' : 'i-heroicons-chevron-double-right'"
@@ -375,13 +376,17 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
           <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
         </UTooltip>
       </div>
-      <div ref="messageListEl" class="relative flex-1 overflow-x-hidden overflow-y-auto px-4">
+      
+      <!-- Messages area - scrollable -->
+      <div ref="messageListEl" class="flex-1 overflow-x-hidden overflow-y-auto px-4 min-h-0">
         <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
                          :message :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
                          :is-previewing="showPreview && message.content === previewContent"
                          class="my-2" @resend="onResend" @remove="onRemove" @preview="onPreviewRequest" />
       </div>
-      <div class="shrink-0 p-4 border-t border-gray-200 dark:border-gray-800">
+      
+      <!-- Input box - fixed at bottom -->
+      <div class="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-800">
         <ChatInputBox ref="chatInputBoxRef"
                       :disabled="models.length === 0" :loading="sendingCount > 0"
                       @submit="onSend" @stop="onAbortChat">
