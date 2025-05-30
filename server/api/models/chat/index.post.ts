@@ -218,6 +218,7 @@ export default defineEventHandler(async (event) => {
 
     const mcpService = new McpService()
     const normalizedTools = await mcpService.listTools()
+    console.log("Normalized tools: ", normalizedTools)
     const toolsMap = normalizedTools.reduce((acc: Record<string, StructuredToolInterface>, tool) => {
       acc[tool.name] = tool
       return acc
