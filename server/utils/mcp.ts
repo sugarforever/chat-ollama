@@ -114,7 +114,11 @@ export class McpService {
       }
 
       if (server.env && Object.keys(server.env).length > 0) {
-        serverConfig.env = server.env
+        serverConfig.env = {
+          ...serverConfig.env,
+          ...server.env,
+          PATH: process.env.PATH
+        }
       }
 
       config.servers[server.name] = serverConfig
