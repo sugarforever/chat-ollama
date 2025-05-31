@@ -48,8 +48,8 @@ importers:
         specifier: ^0.0.5
         version: 0.0.5(encoding@0.1.13)(openai@4.33.0(encoding@0.1.13))
       '@langchain/mcp-adapters':
-        specifier: ^0.5.1
-        version: 0.5.1(@langchain/core@0.3.49(openai@4.33.0(encoding@0.1.13)))
+        specifier: ^0.3.4
+        version: 0.3.4(@langchain/core@0.3.49(openai@4.33.0(encoding@0.1.13)))
       '@langchain/ollama':
         specifier: ^0.2.0
         version: 0.2.0(@langchain/core@0.3.49(openai@4.33.0(encoding@0.1.13)))
@@ -625,6 +625,9 @@ packages:
 
   '@dabh/diagnostics@2.0.3':
     resolution: {integrity: sha512-hrlQOIi7hAfzsMqlGSFyVucrx38O+j6wiGOf//H2ecvIEqYN4ADBSS2iLMh5UFyDunCNniUIPk/q3riFv45xRA==}
+
+  '@dmitryrechkin/json-schema-to-zod@1.0.1':
+    resolution: {integrity: sha512-cG9gC4NMu/7JZqmRZy6uIb+l+kxek2GFQ0/qrhw7xeFK2l5B9yF9FVuujoqFPLRGDHNFYqtBWht7hY4KB0ngrA==}
 
   '@egoist/tailwindcss-icons@1.8.1':
     resolution: {integrity: sha512-hqZeASrhT6BOeaBHYDPB0yBH/zgMKqmm7y2Rsq0c4iRnNVv1RWEiXMBMJB38JsDMTHME450FKa/wvdaIhED+Iw==}
@@ -2041,11 +2044,11 @@ packages:
     resolution: {integrity: sha512-1cDQwwR0RUMr5MlXw7j0Gb2lJgznAflgj0cO5EOtjKEy9J/jsSxbxXG4b0oQTOFvyY6Sr9vjWnPzz9jv6t4fCA==}
     engines: {node: '>=18'}
 
-  '@langchain/mcp-adapters@0.5.1':
-    resolution: {integrity: sha512-DNKwY6r/B8uyijUWUgj5oOgEusanyrtZkmcuOH7bCd/4Eiu6NWj0wz6k6CAaItwO2BqEkbnuVQK98keVRzY4YQ==}
+  '@langchain/mcp-adapters@0.3.4':
+    resolution: {integrity: sha512-NzRth5iD7lYPW+8DilnccuBNIvPxhJlNJRop1mohlGeAtWC0nKw+2gBaCgddeieUnfqOAdJJv2gV9RGzp1Im7g==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@langchain/core': ^0.3.44
+      '@langchain/core': ^0.3.40
 
   '@langchain/ollama@0.2.0':
     resolution: {integrity: sha512-jLlYFqt+nbhaJKLakk7lRTWHZJ7wHeJLM6yuv4jToQ8zPzpL//372+MjggDoW0mnw8ofysg1T2C6mEJspKJtiA==}
@@ -8457,6 +8460,10 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
+  '@dmitryrechkin/json-schema-to-zod@1.0.1':
+    dependencies:
+      zod: 3.24.3
+
   '@egoist/tailwindcss-icons@1.8.1(tailwindcss@3.4.4)':
     dependencies:
       '@iconify/utils': 2.1.24
@@ -9147,12 +9154,12 @@ snapshots:
       - encoding
       - openai
 
-  '@langchain/mcp-adapters@0.5.1(@langchain/core@0.3.49(openai@4.33.0(encoding@0.1.13)))':
+  '@langchain/mcp-adapters@0.3.4(@langchain/core@0.3.49(openai@4.33.0(encoding@0.1.13)))':
     dependencies:
+      '@dmitryrechkin/json-schema-to-zod': 1.0.1
       '@langchain/core': 0.3.49(openai@4.33.0(encoding@0.1.13))
       '@modelcontextprotocol/sdk': 1.12.1
       debug: 4.4.0
-      zod: 3.24.3
     optionalDependencies:
       extended-eventsource: 1.7.0
     transitivePeerDependencies:
