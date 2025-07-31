@@ -168,6 +168,29 @@ const checkHost = (key: keyof typeof state, title: string) => {
   return { path: key, message: t('settings.linkRuleMessage', [title]) }
 }
 
+function getServerIcon(key: string): string {
+  const iconMap: Record<string, string> = {
+    ollamaServer: 'i-material-symbols-tune',
+    openAi: 'i-material-symbols-openai',
+    azureOpenAi: 'i-material-symbols-cloud',
+    anthropic: 'i-material-symbols-psychology',
+    moonshot: 'i-material-symbols-rocket',
+    gemini: 'i-material-symbols-auto-awesome',
+    groq: 'i-material-symbols-speed',
+  }
+  return iconMap[key] || 'i-material-symbols-server'
+}
+
+function getCurrentServerTitle(): string {
+  const server = LLMList.value.find(el => el.key === currentLLM.value)
+  if (server) return server.title
+  
+  const customServer = state.custom.find(el => el.name === currentLLM.value)
+  if (customServer) return customServer.name
+  
+  return ''
+}
+
 function getData() {
   const data = LLMList.value.reduce((acc, cur) => {
     cur.fields.forEach(el => {
@@ -212,52 +235,112 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
     <div class="max-w-6xl mx-auto">
       <SettingsCard>
         <template #header>
-          <div class="flex flex-wrap">
-            <UButton v-for="item in LLMList"
-                     :key="item.key"
-                     :color="currentLLM == item.key ? 'primary' : 'gray'"
-                     class="m-1"
-                     @click="currentLLM = item.key">{{ item.title }}</UButton>
-            <UButton v-for="item in state.custom" :key="item.name"
-                     :color="currentLLM == item.name ? 'primary' : 'gray'"
-                     class="m-1"
-                     @click="currentLLM = item.name">{{ item.name }}</UButton>
-            <UTooltip :text="t('settings.customApiService')">
-              <UButton class="m-1" icon="i-material-symbols-add" color="gray" @click="onAddCustomServer"></UButton>
-            </UTooltip>
-          </div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ t('settings.serverConfiguration') }}</h3>
         </template>
-        <div>
-          <UForm v-if="currentLLMFields.length > 0" :validate="validate" :state="state" @submit="onSubmit">
-            <template v-for="item in currentLLMFields" :key="item.value">
-              <UFormGroup v-if="item.value.endsWith('proxy') ? $config.public.modelProxyEnabled : true" :label="item.label"
-                          :name="item.value"
-                          class="mb-4">
-                <UInput v-if="item.type === 'input' || item.type === 'password'"
-                        v-model.trim="(state[item.value] as string)"
-                        :type="item.type"
-                        :placeholder="item.placeholder"
-                        size="lg"
-                        :rule="item.rule" />
-                <template v-else-if="item.type === 'checkbox'">
-                  <label class="flex items-center">
-                    <UCheckbox v-model="state[item.value] as boolean"></UCheckbox>
-                    <span class="ml-2 text-sm text-muted">({{ item.placeholder }})</span>
-                  </label>
-                </template>
-              </UFormGroup>
-            </template>
-            <div>
-              <UButton type="submit">
-                {{ t("global.save") }}
-              </UButton>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Server List -->
+          <div class="lg:col-span-1">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('settings.servers') }}</h4>
+                <UTooltip :text="t('settings.customApiService')" :popper="{ placement: 'top' }">
+                  <UButton size="xs" 
+                           variant="ghost" 
+                           color="gray" 
+                           icon="i-material-symbols-add"
+                           @click="onAddCustomServer" />
+                </UTooltip>
+              </div>
+              
+              <div class="space-y-2 max-h-96 overflow-y-auto">
+                <!-- Built-in Servers -->
+                <div class="space-y-1">
+                  <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ t('settings.builtInServers') }}</h5>
+                  <div v-for="item in LLMList" 
+                       :key="item.key"
+                       @click="currentLLM = item.key"
+                       :class="[
+                         'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
+                         currentLLM === item.key 
+                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800' 
+                           : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+                       ]">
+                    <UIcon :name="getServerIcon(item.key)" class="w-5 h-5 mr-3 flex-shrink-0" :class="currentLLM === item.key ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium truncate" :class="currentLLM === item.key ? 'text-primary-900 dark:text-primary-100' : 'text-gray-900 dark:text-gray-100'">
+                        {{ item.title }}
+                      </p>
+                    </div>
+                    <UIcon v-if="currentLLM === item.key" name="i-material-symbols-check" class="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                  </div>
+                </div>
+                
+                <!-- Custom Servers -->
+                <div v-if="state.custom.length > 0" class="space-y-1">
+                  <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ t('settings.customServers') }}</h5>
+                  <div v-for="item in state.custom" 
+                       :key="item.name"
+                       @click="currentLLM = item.name"
+                       :class="[
+                         'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
+                         currentLLM === item.name 
+                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800' 
+                           : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+                       ]">
+                    <UIcon name="i-material-symbols-settings-suggest" class="w-5 h-5 mr-3 flex-shrink-0" :class="currentLLM === item.name ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium truncate" :class="currentLLM === item.name ? 'text-primary-900 dark:text-primary-100' : 'text-gray-900 dark:text-gray-100'">
+                        {{ item.name }}
+                      </p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ item.aiType }}</p>
+                    </div>
+                    <UIcon v-if="currentLLM === item.name" name="i-material-symbols-check" class="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                  </div>
+                </div>
+              </div>
             </div>
-          </UForm>
-          <template v-else-if="currentCustomServer">
-            <CustomServerForm :value="currentCustomServer"
-                              :key="currentLLM"
-                              @update="d => onUpdateCustomServer(d)" @remove="onRemoveCustomServer()" />
-          </template>
+          </div>
+          
+          <!-- Form Area -->
+          <div class="lg:col-span-2">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+              <div v-if="currentLLMFields.length > 0">
+                <h4 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  {{ getCurrentServerTitle() }}
+                </h4>
+                <UForm :validate="validate" :state="state" @submit="onSubmit">
+                  <template v-for="item in currentLLMFields" :key="item.value">
+                    <UFormGroup v-if="item.value.endsWith('proxy') ? $config.public.modelProxyEnabled : true" :label="item.label"
+                                :name="item.value"
+                                class="mb-4">
+                      <UInput v-if="item.type === 'input' || item.type === 'password'"
+                              v-model.trim="(state[item.value] as string)"
+                              :type="item.type"
+                              :placeholder="item.placeholder"
+                              size="lg"
+                              :rule="item.rule" />
+                      <template v-else-if="item.type === 'checkbox'">
+                        <label class="flex items-center">
+                          <UCheckbox v-model="state[item.value] as boolean"></UCheckbox>
+                          <span class="ml-2 text-sm text-muted">({{ item.placeholder }})</span>
+                        </label>
+                      </template>
+                    </UFormGroup>
+                  </template>
+                  <div class="pt-4">
+                    <UButton type="submit" size="lg" class="w-full">
+                      {{ t("global.save") }}
+                    </UButton>
+                  </div>
+                </UForm>
+              </div>
+              <template v-else-if="currentCustomServer">
+                <CustomServerForm :value="currentCustomServer"
+                                  :key="currentLLM"
+                                  @update="d => onUpdateCustomServer(d)" @remove="onRemoveCustomServer()" />
+              </template>
+            </div>
+          </div>
         </div>
       </SettingsCard>
     </div>
