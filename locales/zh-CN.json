@@ -73,6 +73,8 @@
         "files": "{0} 个文件"
     },
     "chat": {
+        "welcome": "欢迎使用聊天",
+        "welcomeMessage": "开始新的对话，与您的AI助手聊天。",
         "newChat": "新建对话",
         "allChats": "所有对话",
         "untitled": "无标题",

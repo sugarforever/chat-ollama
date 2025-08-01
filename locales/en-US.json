@@ -73,6 +73,8 @@
         "files": "{0} Files"
     },
     "chat": {
+        "welcome": "Welcome to Chat",
+        "welcomeMessage": "Start a new conversation to begin chatting with your AI assistant.",
         "newChat": "New Chat",
         "allChats": "All Chats",
         "untitled": "Untitled",
