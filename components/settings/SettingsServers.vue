@@ -184,10 +184,10 @@ function getServerIcon(key: string): string {
 function getCurrentServerTitle(): string {
   const server = LLMList.value.find(el => el.key === currentLLM.value)
   if (server) return server.title
-  
+
   const customServer = state.custom.find(el => el.name === currentLLM.value)
   if (customServer) return customServer.name
-  
+
   return ''
 }
 
@@ -244,25 +244,25 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
               <div class="flex items-center justify-between">
                 <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('settings.servers') }}</h4>
                 <UTooltip :text="t('settings.customApiService')" :popper="{ placement: 'top' }">
-                  <UButton size="xs" 
-                           variant="ghost" 
-                           color="gray" 
+                  <UButton size="xs"
+                           variant="ghost"
+                           color="gray"
                            icon="i-material-symbols-add"
                            @click="onAddCustomServer" />
                 </UTooltip>
               </div>
-              
+
               <div class="space-y-2 max-h-96 overflow-y-auto">
                 <!-- Built-in Servers -->
                 <div class="space-y-1">
                   <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ t('settings.builtInServers') }}</h5>
-                  <div v-for="item in LLMList" 
+                  <div v-for="item in LLMList"
                        :key="item.key"
                        @click="currentLLM = item.key"
                        :class="[
                          'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
-                         currentLLM === item.key 
-                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800' 
+                         currentLLM === item.key
+                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
                            : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
                        ]">
                     <UIcon :name="getServerIcon(item.key)" class="w-5 h-5 mr-3 flex-shrink-0" :class="currentLLM === item.key ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
@@ -274,17 +274,17 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                     <UIcon v-if="currentLLM === item.key" name="i-material-symbols-check" class="w-4 h-4 text-primary-600 dark:text-primary-400" />
                   </div>
                 </div>
-                
+
                 <!-- Custom Servers -->
                 <div v-if="state.custom.length > 0" class="space-y-1">
                   <h5 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ t('settings.customServers') }}</h5>
-                  <div v-for="item in state.custom" 
+                  <div v-for="item in state.custom"
                        :key="item.name"
                        @click="currentLLM = item.name"
                        :class="[
                          'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
-                         currentLLM === item.name 
-                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800' 
+                         currentLLM === item.name
+                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
                            : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
                        ]">
                     <UIcon name="i-material-symbols-settings-suggest" class="w-5 h-5 mr-3 flex-shrink-0" :class="currentLLM === item.name ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
@@ -300,7 +300,7 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
               </div>
             </div>
           </div>
-          
+
           <!-- Form Area -->
           <div class="lg:col-span-2">
             <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
@@ -328,7 +328,7 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                     </UFormGroup>
                   </template>
                   <div class="pt-4">
-                    <UButton type="submit" size="lg" class="w-full">
+                    <UButton type="submit" size="lg">
                       {{ t("global.save") }}
                     </UButton>
                   </div>
