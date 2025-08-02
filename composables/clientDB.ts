@@ -35,7 +35,9 @@ export interface ChatHistory {
         }
     }>,
     toolResult: boolean,
-    toolCallId?: string
+    toolCallId?: string,
+    toolCalls?: Array<{ id: string, name: string, args: any }>,
+    toolResults?: Array<{ tool_call_id: string, content: string }>
 }
 
 export class MySubClassedDexie extends Dexie {

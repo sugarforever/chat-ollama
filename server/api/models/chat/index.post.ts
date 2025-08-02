@@ -251,7 +251,11 @@ export default defineEventHandler(async (event) => {
     const readableStream = Readable.from((async function* () {
 
       let gathered = undefined
+      let accumulatedContent = ''
+      let toolCalls: any[] = []
+      let toolResults: any[] = []
 
+      // Stream initial response and gather tool calls
       for await (const chunk of response) {
         gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
 
@@ -260,19 +264,27 @@ export default defineEventHandler(async (event) => {
         if (Array.isArray(content)) {
           content = content
             .filter(item => item.type === 'text_delta' || item.type === 'text')
-            .map(item => item.text)
+            .map(item => ('text' in item ? item.text : ''))
             .join('')
         }
 
-        const message = {
-          message: {
-            role: 'assistant',
-            content: content
+        if (content) {
+          accumulatedContent += content
+
+          // Stream content updates with partial content
+          const message = {
+            message: {
+              role: 'assistant',
+              content: accumulatedContent,
+              tool_calls: toolCalls,
+              tool_results: toolResults
+            }
           }
+          yield `${JSON.stringify(message)} \n\n`
         }
-        yield `${JSON.stringify(message)} \n\n`
       }
 
+      // Process tool calls if any
       const toolMessages = [] as ToolMessage[]
       console.log("Gathered response: ", gathered)
       for (const toolCall of gathered?.tool_calls ?? []) {
@@ -280,21 +292,34 @@ export default defineEventHandler(async (event) => {
         const selectedTool = toolsMap[toolCall.name]
 
         if (selectedTool) {
-          const result = await selectedTool.invoke(toolCall)
+          // Add tool call info to our tracking
+          toolCalls.push({
+            id: toolCall.id,
+            name: toolCall.name,
+            args: toolCall.args
+          })
 
+          const result = await selectedTool.invoke(toolCall)
           console.log("Tool result: ", result)
 
+          // Add tool result to our tracking
+          toolResults.push({
+            tool_call_id: result.tool_call_id,
+            content: result.content
+          })
+
+          // Stream updated message with tool calls and results
           const message = {
             message: {
-              role: "user",
-              type: "tool_result",
-              tool_use_id: result.tool_call_id,
-              content: result.content
+              role: 'assistant',
+              content: accumulatedContent,
+              tool_calls: toolCalls,
+              tool_results: toolResults
             }
           }
+          yield `${JSON.stringify(message)} \n\n`
 
           toolMessages.push(new ToolMessage(result.content, result.tool_call_id))
-          yield `${JSON.stringify(message)} \n\n`
         }
       }
 
@@ -311,20 +336,25 @@ export default defineEventHandler(async (event) => {
           // Handle array of text_delta objects
           if (Array.isArray(content)) {
             content = content
-              .filter((item): item is MessageContent & { type: 'text_delta'; text: string } | { type: 'text'; text: string } =>
-                item.type === 'text_delta' && 'text' in item || item.type === 'text' && 'text' in item
-              )
-              .map(item => item.text)
+              .filter(item => item.type === 'text_delta' || item.type === 'text')
+              .map(item => ('text' in item ? item.text : ''))
               .join('')
           }
 
-          const message = {
-            message: {
-              role: 'assistant',
-              content: content
+          if (content) {
+            accumulatedContent += content
+
+            // Stream final content with all tool call information
+            const message = {
+              message: {
+                role: 'assistant',
+                content: accumulatedContent,
+                tool_calls: toolCalls,
+                tool_results: toolResults
+              }
             }
+            yield `${JSON.stringify(message)} \n\n`
           }
-          yield `${JSON.stringify(message)} \n\n`
         }
       }
     })())
