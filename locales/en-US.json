@@ -6,6 +6,7 @@
         "knowledgeBases": "Knowledge Bases",
         "chat": "Chat",
         "realtime": "Realtime Chat",
+        "playground": "Playground",
         "settings": "Settings"
     },
     "colorMode": {

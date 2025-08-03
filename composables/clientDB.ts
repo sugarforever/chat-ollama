@@ -62,6 +62,23 @@ export class MySubClassedDexie extends Dexie {
                 }
             })
         })
+
+        // Add migration for tool calls support
+        this.version(4).stores({
+            chatSessions: '++id, updateTime',
+            chatHistories: '++id, sessionId', // Primary key and indexed props
+        })
+
+        this.version(4).upgrade(tx => {
+            return tx.table('chatHistories').toCollection().modify(history => {
+                if (!history.toolCalls) {
+                    history.toolCalls = []
+                }
+                if (!history.toolResults) {
+                    history.toolResults = []
+                }
+            })
+        })
     }
 }
 

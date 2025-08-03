@@ -20,7 +20,7 @@ export interface ChatMessage {
     endTime: number
     relevantDocs?: RelevantDocument[]
     toolResult: boolean
-    toolCallId?: string
-    toolCalls?: ToolCall[]
-    toolResults?: ToolResult[]
+    toolCallId: string
+    toolCalls: ToolCall[]
+    toolResults: ToolResult[]
 }

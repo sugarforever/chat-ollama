@@ -108,6 +108,8 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
         const splitter = ' \n\n'
         let prevPart = ''
         const relevantDocs: RelevantDocument[] = []
+        let toolCalls: Array<{ id: string, name: string, args: any }> = []
+        let toolResults: Array<{ tool_call_id: string, content: string }> = []
         let t = Date.now()
 
         while (true) {
@@ -139,6 +141,14 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
                     // Handle regular assistant message with potential tool calls/results
                     msgContent = chatMessage.message.content || ''
 
+                    // Accumulate tool calls and results
+                    if (chatMessage.message.tool_calls) {
+                        toolCalls = chatMessage.message.tool_calls
+                    }
+                    if (chatMessage.message.tool_results) {
+                        toolResults = chatMessage.message.tool_results
+                    }
+
                     const result: ChatHistory = {
                         role: 'assistant' as const,
                         model: data.model,
@@ -151,6 +161,8 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
                         endTime: Date.now(),
                         toolResult: false,
                         toolCallId: undefined,
+                        toolCalls: toolCalls,
+                        toolResults: toolResults,
                     }
 
                     if (id === -1) {
@@ -159,7 +171,12 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
                     // save message to DB after every 1s
                     else if (Date.now() - t > 1000) {
                         t = Date.now()
-                        updateToDB({ id, message: msgContent })
+                        updateToDB({
+                            id,
+                            message: msgContent,
+                            toolCalls: toolCalls,
+                            toolResults: toolResults
+                        })
                     }
 
                     sendMessageToMain({
@@ -201,6 +218,8 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
         await updateToDB({
             id,
             message: msgContent,
+            toolCalls: toolCalls,
+            toolResults: toolResults,
             relevantDocs: relevantDocs.map(el => {
                 const pageContent = el.pageContent.slice(0, 200) + (el.pageContent.length > 200 ? '...' : '') // Avoid saving large-sized content
                 return { ...el, pageContent }
@@ -225,6 +244,8 @@ async function updateToDB(data: SetRequired<Partial<ChatHistory>, 'id'>) {
         canceled: data.canceled,
         failed: data.failed,
         endTime: Date.now(),
+        toolCalls: data.toolCalls,
+        toolResults: data.toolResults,
     }
 
     if (data.message !== undefined) {
