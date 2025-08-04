@@ -35,7 +35,9 @@ export interface ChatHistory {
         }
     }>,
     toolResult: boolean,
-    toolCallId?: string
+    toolCallId?: string,
+    toolCalls?: Array<{ id: string, name: string, args: any }>,
+    toolResults?: Array<{ tool_call_id: string, content: string }>
 }
 
 export class MySubClassedDexie extends Dexie {
@@ -57,6 +59,23 @@ export class MySubClassedDexie extends Dexie {
             return tx.table('chatHistories').toCollection().modify(history => {
                 if (!history.messageType) {
                     history.messageType = 'string'
+                }
+            })
+        })
+
+        // Add migration for tool calls support
+        this.version(4).stores({
+            chatSessions: '++id, updateTime',
+            chatHistories: '++id, sessionId', // Primary key and indexed props
+        })
+
+        this.version(4).upgrade(tx => {
+            return tx.table('chatHistories').toCollection().modify(history => {
+                if (!history.toolCalls) {
+                    history.toolCalls = []
+                }
+                if (!history.toolResults) {
+                    history.toolResults = []
                 }
             })
         })

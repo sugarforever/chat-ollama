@@ -86,12 +86,17 @@ async function loadChatHistory(sessionId?: number) {
       return {
         id: el.id,
         content: el.message,
+        contentType: el.messageType || 'string',
         role: el.role,
         model: el.model,
         startTime: el.startTime || 0,
         endTime: el.endTime || 0,
         type: el.canceled ? 'canceled' : (el.failed ? 'error' : undefined),
-        relevantDocs: el.relevantDocs
+        relevantDocs: el.relevantDocs,
+        toolResult: el.toolResult || false,
+        toolCallId: el.toolCallId || '',
+        toolCalls: el.toolCalls || [],
+        toolResults: el.toolResults || []
       } as const
     })
   }
@@ -106,6 +111,8 @@ function createChatMessage(params: Partial<ChatMessage> & Pick<ChatMessage, 'rol
     endTime: Date.now(),
     toolResult: false,
     toolCallId: '',
+    toolCalls: [],
+    toolResults: [],
     type: undefined,
     ...params
   }
@@ -142,9 +149,13 @@ const onSend = async (data: ChatBoxFormData) => {
     message: data.content,
     model: models.value.join(','),
     role: 'user',
-    type: undefined,
+    messageType: Array.isArray(data.content) ? 'array' : 'string',
     startTime: timestamp,
     endTime: timestamp,
+    toolResult: false,
+    toolCallId: '',
+    failed: false,
+    canceled: false,
   })
 
   const userMessage = createChatMessage({
@@ -156,7 +167,9 @@ const onSend = async (data: ChatBoxFormData) => {
     endTime: timestamp,
     model: models.value.join(',') || '',
     toolResult: false,
-    toolCallId: ''
+    toolCallId: '',
+    toolCalls: [],
+    toolResults: []
   })
 
   emits('message', userMessage)
@@ -173,7 +186,9 @@ const onSend = async (data: ChatBoxFormData) => {
     endTime: Date.now(),
     model: models.value.join(','),
     toolResult: false,
-    toolCallId: ''
+    toolCallId: '',
+    toolCalls: [],
+    toolResults: []
   })
 
   emits('message', loadingMessage)
@@ -192,7 +207,9 @@ const onSend = async (data: ChatBoxFormData) => {
       .map(m => ({
         ...m,
         toolResult: false,
-        toolCallId: ''
+        toolCallId: '',
+        toolCalls: m.toolCalls || [],
+        toolResults: m.toolResults || []
       }))
 
     if (instructionInfo.value) {
@@ -201,7 +218,9 @@ const onSend = async (data: ChatBoxFormData) => {
         contentType: 'string',
         content: instructionInfo.value.instruction,
         toolResult: false,
-        toolCallId: ''
+        toolCallId: '',
+        toolCalls: [],
+        toolResults: []
       }))
     }
 
@@ -376,15 +395,15 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
           <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
         </UTooltip>
       </div>
-      
+
       <!-- Messages area - scrollable -->
       <div ref="messageListEl" class="flex-1 overflow-x-hidden overflow-y-auto px-4 min-h-0">
         <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
-                         :message :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
+                         :message="message" :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
                          :is-previewing="showPreview && message.content === previewContent"
                          class="my-2" @resend="onResend" @remove="onRemove" @preview="onPreviewRequest" />
       </div>
-      
+
       <!-- Input box - fixed at bottom -->
       <div class="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-800">
         <ChatInputBox ref="chatInputBoxRef"

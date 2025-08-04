@@ -138,6 +138,41 @@ const contentDisplay = computed(() => {
         </div>
         <template v-else-if="isModelMessage">
           <div class="p-3 overflow-hidden">
+                        <!-- Tool Calls Display - moved to top -->
+            <div v-if="message.toolCalls && message.toolCalls.length > 0" class="tool-calls mb-3 space-y-3">
+              <div v-for="toolCall in message.toolCalls" :key="toolCall.id" class="tool-call">
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <!-- Tool Header -->
+                  <div class="flex items-center gap-2 mb-3">
+                    <UIcon name="i-heroicons-cog-6-tooth" class="text-blue-600 dark:text-blue-400" />
+                    <span class="font-semibold text-blue-700 dark:text-blue-300">{{ toolCall.name }}</span>
+                  </div>
+
+                  <!-- Tool Parameters -->
+                  <details class="mb-3">
+                    <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                      View parameters
+                    </summary>
+                    <pre class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto">{{ JSON.stringify(toolCall.args, null, 2) }}</pre>
+                  </details>
+
+                                    <!-- Tool Result -->
+                  <div v-if="message.toolResults && message.toolResults.find(r => r.tool_call_id === toolCall.id)"
+                       class="tool-result border-t border-blue-200 dark:border-blue-700 pt-3">
+                    <details>
+                      <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-2">
+                        <UIcon name="i-heroicons-check-circle" class="text-blue-600 dark:text-blue-400" />
+                        <span class="font-medium text-blue-700 dark:text-blue-300">View result</span>
+                      </summary>
+                      <div class="mt-2 text-sm bg-gray-50 dark:bg-gray-800/50 rounded p-2">
+                        <pre class="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{{ message.toolResults.find(r => r.tool_call_id === toolCall.id)?.content }}</pre>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Image Gallery -->
             <div v-if="messageImages.length > 0" class="image-gallery mb-3 grid gap-2">
               <img v-for="(url, index) in messageImages"
@@ -146,8 +181,10 @@ const contentDisplay = computed(() => {
                    class="rounded-lg max-h-64 object-contain"
                    :alt="`Image ${index + 1}`" />
             </div>
+
             <!-- Text Content -->
             <div v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
+
             <Sources v-show="opened" :relevant_documents="message?.relevantDocs || []" />
           </div>
           <div class="flex flex-col">
