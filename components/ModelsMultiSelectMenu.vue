@@ -46,7 +46,9 @@ function onChange(models: string[]) {
 
 <template>
   <ClientOnly>
-    <USelectMenu v-model="models"
+    <USelectMenu
+                 searchable
+                 v-model="models"
                  :options="chatModels"
                  value-attribute="value"
                  :size
