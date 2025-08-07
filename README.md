@@ -6,12 +6,13 @@ English | [简体中文](README.zh-Hans.md)
 
 ## Supported Language Models
 
-- **OpenAI** / **Azure OpenAI** - GPT models with dynamic loading
-- **Anthropic** - Claude 3.5 Sonnet, Haiku, and other Claude models  
-- **Google Gemini** - Gemini 2.0 Flash, 1.5 Pro/Flash, and embedding models
-- **Groq** - Llama 3.1, Mixtral, Gemma models with fast inference
-- **Moonshot** - Chinese language models (8k, 32k, 128k context)
-- **Ollama** - Self-hosted open source models
+- **OpenAI** / **Azure OpenAI**
+- **Anthropic**
+- **Google Gemini**
+- **Groq**
+- **Moonshot**
+- **Ollama**
+- **OpenAI API compatible service providers**
 
 ## Key Features
 
@@ -20,20 +21,8 @@ English | [简体中文](README.zh-Hans.md)
 - **Realtime Voice Chat** - Voice conversations with Gemini 2.0 Flash
 - **Model Context Protocol (MCP)** - Extensible tool integration
 - **Vector Databases** - Chroma and Milvus support
-- **User Management** - Authentication and role-based access
-- **Responsive UI** - Modern interface built with Nuxt UI and Tailwind CSS
 - **Docker Support** - Easy deployment with Docker Compose
 - **Internationalization** - Multi-language support
-
-## Join Our Community
-
-Join our Discord community for support, discussions, and updates:
-
-**[Discord Invite Link](https://discord.gg/TjhZGYv5pC)**
-
-- **#technical-discussion** - For contributors and technical discussions
-- **#customer-support** - Get help with usage issues and troubleshooting
-- **#general** - Community chat and announcements
 
 ## Quick Start
 
@@ -65,8 +54,8 @@ For development or customization:
 
 2. **Installation**
    ```bash
-   git clone <repository-url>
-   cd chatollama
+   git clone git@github.com:sugarforever/chat-ollama.git
+   cd chat-ollama
    cp .env.example .env
    pnpm install
    pnpm prisma-migrate
@@ -121,23 +110,6 @@ NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
 # Optional: Cohere for reranking
 COHERE_API_KEY=your_cohere_key
 ```
-
-### Model Setup
-
-**For Ollama Models:**
-1. Install [Ollama](https://github.com/ollama/ollama)
-2. Pull models: `ollama pull llama3.1` or use the Models page in ChatOllama
-
-**For Knowledge Bases:**
-Download an embedding model:
-```bash
-ollama pull nomic-embed-text
-```
-
-Or configure OpenAI embeddings in Settings with models like:
-- `text-embedding-3-large`
-- `text-embedding-3-small`
-- `text-embedding-ada-002`
 
 ## Advanced Features
 
@@ -268,6 +240,16 @@ pnpm prisma-push       # Push schema changes
 - **Vector DB:** ChromaDB, Milvus
 - **AI/ML:** LangChain, Ollama, OpenAI, Anthropic, Google AI
 - **Deployment:** Docker, Docker Compose
+
+## Join Our Community
+
+Join our Discord community for support, discussions, and updates:
+
+**[Discord Invite Link](https://discord.gg/TjhZGYv5pC)**
+
+- **#technical-discussion** - For contributors and technical discussions
+- **#customer-support** - Get help with usage issues and troubleshooting
+- **#general** - Community chat and announcements
 
 ## License
 

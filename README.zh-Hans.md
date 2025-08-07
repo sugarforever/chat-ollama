@@ -6,12 +6,13 @@
 
 ## 支持的语言模型
 
-- **OpenAI** / **Azure OpenAI** - GPT 模型，支持动态加载
-- **Anthropic** - Claude 3.5 Sonnet、Haiku 和其他 Claude 模型
-- **Google Gemini** - Gemini 2.0 Flash、1.5 Pro/Flash 和嵌入模型
-- **Groq** - Llama 3.1、Mixtral、Gemma 模型，快速推理
-- **月之暗面 (Moonshot)** - 中文语言模型（8k、32k、128k 上下文）
-- **Ollama** - 自托管开源模型
+- **OpenAI** / **Azure OpenAI**
+- **Anthropic**
+- **Google Gemini**
+- **Groq**
+- **月之暗面 (Moonshot)**
+- **Ollama**
+- **OpenAI API 兼容服务提供商**
 
 ## 主要功能
 
@@ -20,20 +21,8 @@
 - **实时语音聊天** - 与 Gemini 2.0 Flash 进行语音对话
 - **模型上下文协议 (MCP)** - 可扩展的工具集成
 - **向量数据库** - 支持 Chroma 和 Milvus
-- **用户管理** - 身份验证和基于角色的访问控制
-- **响应式界面** - 使用 Nuxt UI 和 Tailwind CSS 构建的现代界面
 - **Docker 支持** - 使用 Docker Compose 轻松部署
 - **国际化** - 多语言支持
-
-## 加入我们的社区
-
-加入我们的 Discord 社区获取支持、讨论和更新：
-
-**[Discord 邀请链接](https://discord.gg/TjhZGYv5pC)**
-
-- **#technical-discussion** - 贡献者和技术讨论
-- **#customer-support** - 获取使用问题和故障排除帮助
-- **#general** - 社区聊天和公告
 
 ## 快速启动
 
@@ -65,8 +54,8 @@ docker compose exec chatollama npx prisma migrate dev
 
 2. **安装**
    ```bash
-   git clone <repository-url>
-   cd chatollama
+   git clone git@github.com:sugarforever/chat-ollama.git
+   cd chat-ollama
    cp .env.example .env
    pnpm install
    pnpm prisma-migrate
@@ -121,23 +110,6 @@ NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
 # 可选：Cohere 用于重排序
 COHERE_API_KEY=your_cohere_key
 ```
-
-### 模型设置
-
-**Ollama 模型：**
-1. 安装 [Ollama](https://github.com/ollama/ollama)
-2. 拉取模型：`ollama pull llama3.1` 或使用 ChatOllama 中的模型页面
-
-**知识库：**
-下载嵌入模型：
-```bash
-ollama pull nomic-embed-text
-```
-
-或在设置中配置 OpenAI 嵌入，支持的模型：
-- `text-embedding-3-large`
-- `text-embedding-3-small`
-- `text-embedding-ada-002`
 
 ## 高级功能
 
@@ -268,6 +240,16 @@ pnpm prisma-push       # 推送模式更改
 - **向量数据库：** ChromaDB、Milvus
 - **AI/ML：** LangChain、Ollama、OpenAI、Anthropic、Google AI
 - **部署：** Docker、Docker Compose
+
+## 加入我们的社区
+
+加入我们的 Discord 社区获取支持、讨论和更新：
+
+**[Discord 邀请链接](https://discord.gg/TjhZGYv5pC)**
+
+- **#technical-discussion** - 贡献者和技术讨论
+- **#customer-support** - 获取使用问题和故障排除帮助
+- **#general** - 社区聊天和公告
 
 ## 许可证
 
