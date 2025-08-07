@@ -2,171 +2,273 @@ English | [简体中文](README.zh-Hans.md)
 
 # ChatOllama
 
-`ChatOllama` is an open source chatbot based on LLMs. It supports a wide range of language models including:
+`ChatOllama` is an open source chatbot platform built with Nuxt 3, supporting a wide range of language models and advanced features including knowledge bases, realtime voice chat, and Model Context Protocol (MCP) integration.
 
-- OpenAI / Azure OpenAI
-- Anthropic
-- Gemini
-- Groq
-- [Volcano Engine](https://github.com/volcengine)
-- Moonshot
-- SiliconFlow
-- Tongyi
-- Ollama served models
+## Supported Language Models
 
-`ChatOllama` supports multiple types of chat:
+- **OpenAI** / **Azure OpenAI** - GPT models with dynamic loading
+- **Anthropic** - Claude 3.5 Sonnet, Haiku, and other Claude models  
+- **Google Gemini** - Gemini 2.0 Flash, 1.5 Pro/Flash, and embedding models
+- **Groq** - Llama 3.1, Mixtral, Gemma models with fast inference
+- **Moonshot** - Chinese language models (8k, 32k, 128k context)
+- **Ollama** - Self-hosted open source models
 
-- Free chat with LLMs (text and image input)
-- Chat with LLMs based on knowledge base
+## Key Features
 
-`ChatOllama` feature list:
-- Ollama models management
-- Knowledge bases management
-- Rich chat interface with text and image support
-- Commercial LLMs API keys management
+- **Multi-modal Chat** - Text and image input support
+- **Knowledge Bases** - RAG (Retrieval Augmented Generation) with document upload
+- **Realtime Voice Chat** - Voice conversations with Gemini 2.0 Flash
+- **Model Context Protocol (MCP)** - Extensible tool integration
+- **Vector Databases** - Chroma and Milvus support
+- **User Management** - Authentication and role-based access
+- **Responsive UI** - Modern interface built with Nuxt UI and Tailwind CSS
+- **Docker Support** - Easy deployment with Docker Compose
+- **Internationalization** - Multi-language support
 
 ## Join Our Community
 
-If you are a user, contributor, or even just new to `ChatOllama`, you are more than welcome to join our community on Discord by clicking the [invite link](https://discord.gg/TjhZGYv5pC).
+Join our Discord community for support, discussions, and updates:
 
-If you are a contributor, the channel `technical-discussion` is for you, where we discuss technical stuff.
+**[Discord Invite Link](https://discord.gg/TjhZGYv5pC)**
 
-If you have any issue in `ChatOllama` usage, please report to channel `customer-support`. We will help you out as soon as we can.
+- **#technical-discussion** - For contributors and technical discussions
+- **#customer-support** - Get help with usage issues and troubleshooting
+- **#general** - Community chat and announcements
 
 ## Quick Start
 
-As a user of `ChatOllama`, please walk through the document below, to make sure you get all the components up and running before starting using `ChatOllama`.
+Choose your preferred deployment method:
 
-### Supported Vector Databases
+### Option 1: Docker (Recommended)
 
-`ChatOllama` supported 2 types of vector databases: Milvus and Chroma.
+The easiest way to get started. Download [docker-compose.yaml](./docker-compose.yaml) and run:
 
-Please refer to the `.env.example` for how to work with your vector database setup.
-
+```bash
+docker compose up
 ```
-# Supported values: chroma, milvus
+
+Initialize the database on first run:
+```bash
+docker compose exec chatollama npx prisma migrate dev
+```
+
+Access ChatOllama at http://localhost:3000
+
+### Option 2: Development Setup
+
+For development or customization:
+
+1. **Prerequisites**
+   - Node.js 18+ and pnpm
+   - Ollama server running on http://localhost:11434
+   - ChromaDB or Milvus vector database
+
+2. **Installation**
+   ```bash
+   git clone <repository-url>
+   cd chatollama
+   cp .env.example .env
+   pnpm install
+   pnpm prisma-migrate
+   pnpm dev
+   ```
+
+### Vector Database Configuration
+
+ChatOllama supports two vector databases. Configure in your `.env` file:
+
+```bash
+# Choose: chroma or milvus
 VECTOR_STORE=chroma
 CHROMADB_URL=http://localhost:8000
 MILVUS_URL=http://localhost:19530
 ```
 
-By default `ChatOllama` is using Chroma. If you'd like to use Milvus, set `VECTOR_STORE` to `milvus` and specify the corresponding URL. It works both in the development server and Docker containers.
-
-### Use with Nuxt 3 Development Server
-
-If you'd like to run with the latest code base and apply changes as needed, you can clone this repository and follow the steps below.
-
-1. Install and run Ollama server
-
-    You will need an Ollama server running. Follow the installation guide of [Ollama](https://github.com/ollama/ollama). By default, it's running on http://localhost:11434.    
-
-2. Install Chroma
-
-    Please refer to [https://docs.trychroma.com/getting-started](https://docs.trychroma.com/getting-started) for Chroma installation.
-
-    We recommend you run it in a docker container:
-
-    ```bash
-    #https://hub.docker.com/r/chromadb/chroma/tags
-
-    docker pull chromadb/chroma
-    docker run -d -p 8000:8000 chromadb/chroma
-    ```
-    Now, ChromaDB is running on http://localhost:8000
-
-3. ChatOllama Setup
-
-    Now, we can complete the necessary setup to run ChatOllama.
-
-    3.1 Copy the `.env.example` file to `.env` file:
-
-    ```bash
-    cp .env.example .env
-    ```
-
-    3.2 Make sure to install the dependencies:
-
-    ```bash
-    pnpm install
-    ```
-
-    3.3 Run a migration to create your database tables with Prisma Migrate
-
-    ```bash
-    pnpm prisma-migrate
-    ```
-
-4. Launch Development Server
-
-    > Make sure both __[Ollama Server](#ollama-server)__ and __[ChromaDB](#install-chromadb-and-startup)__ are running.
-
-    Start the development server on `http://localhost:3000`:
-
-    ```bash
-    pnpm dev
-    ```
-
-### Use with Docker
-
-This is the easist way to use `ChatOllama`.
-
-The only thing you need is a copy of [docker-compose.yaml](./docker-compose.yaml). Please download it and execute the command below to launch `ChatOllama`.
-
-```shell
-$ docker compose up
+**ChromaDB Setup (Default)**
+```bash
+docker run -d -p 8000:8000 chromadb/chroma
 ```
 
-As `ChatOllama` is running within a docker container, you should set Ollama server to `http://host.docker.internal:11434` in the Settings section, assuming your Ollama server is running locally with default port.
+## Configuration
 
-Make sure you initialize the SQLite database as below if you are launching the dockerized `ChatOllama` for the first time:
+### Environment Variables
 
-```shell
-$ docker compose exec chatollama npx prisma migrate dev
+Key configuration options in `.env`:
+
+```bash
+# Database
+DATABASE_URL=file:../../chatollama.sqlite
+
+# Server
+PORT=3000
+HOST=
+
+# Vector Database
+VECTOR_STORE=chroma
+CHROMADB_URL=http://localhost:8000
+
+# Optional: API Keys for commercial models
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+GOOGLE_API_KEY=your_gemini_key
+GROQ_API_KEY=your_groq_key
+MOONSHOT_API_KEY=your_moonshot_key
+
+# Optional: Proxy settings
+NUXT_PUBLIC_MODEL_PROXY_ENABLED=false
+NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
+
+# Optional: Cohere for reranking
+COHERE_API_KEY=your_cohere_key
 ```
-#### Prerequisites for knowledge bases
-When using KnowledgeBases, we need a valid embedding model in place. It can be one of the models downloaded by Ollama or from 3rd party service provider for example, OpenAI.
 
-**Ollama Managed Embedding Model**
+### Model Setup
 
-We recommend you download `nomic-embed-text` model for embedding purpose.
+**For Ollama Models:**
+1. Install [Ollama](https://github.com/ollama/ollama)
+2. Pull models: `ollama pull llama3.1` or use the Models page in ChatOllama
 
-You can do so on Models page http://localhost:3000/models, or via CLI as below if you are using Docker.
-
-```shell
-# In the folder of docker-compose.yaml
-
-$ docker compose exec ollama ollama pull nomic-embed-text:latest
+**For Knowledge Bases:**
+Download an embedding model:
+```bash
+ollama pull nomic-embed-text
 ```
 
-**OpenAI Embedding Model**
-
-If you prefer to use OpenAI, please make sure you set a valid OpenAI API Key in Settings, and fill with one of the OpenAI embedding models listed below:
-
+Or configure OpenAI embeddings in Settings with models like:
 - `text-embedding-3-large`
 - `text-embedding-3-small`
 - `text-embedding-ada-002`
 
-#### Data Storage with Docker Containers
+## Advanced Features
 
-There are 2 types of data storage, vector data and relational data. See the summary below and for more details, please refer to [docker-compose.yaml](./docker-compose.yaml) for the settings.
+### Model Context Protocol (MCP)
 
-##### Vector data
+ChatOllama integrates with MCP to extend AI capabilities through external tools and data sources. MCP servers are managed through a user-friendly interface in Settings.
 
-With `docker-compose.yaml`, a dockerized Chroma database is run side by side with `ChatOllama`. The data is persisted in a docker volume.
+**Supported Transport Types:**
+- **STDIO** - Command-line tools (most common)
+- **Server-Sent Events (SSE)** - HTTP-based streaming
+- **Streamable HTTP** - HTTP-based communication
 
-##### Relational data
+**Configuration via Settings UI:**
+1. Navigate to **Settings → MCP** 
+2. Click **"Add Server"** to create a new MCP server
+3. Configure server details:
+   - **Name**: Descriptive server name
+   - **Transport**: Choose STDIO, SSE, or Streamable HTTP
+   - **Command/Args** (STDIO): Executable path and arguments
+   - **URL** (SSE/HTTP): Server endpoint URL
+   - **Environment Variables**: API keys and configuration
+   - **Enable/Disable**: Toggle server status
 
-The relational data including knowledge base records and their associated files are stored in a SQLite database file persisted and mounted from `~/.chatollama/chatollama.sqlite`.
+**STDIO Server Example:**
+```
+Name: Filesystem Tools
+Transport: stdio
+Command: uvx
+Args: mcp-server-filesystem
+Environment Variables:
+  PATH: ${PATH}
+```
 
-#### Proxy
+**Migration from Legacy Config:**
+If you have an existing `.mcp-servers.json` file:
+```bash
+pnpm exec ts-node scripts/migrate-mcp-servers.ts
+```
 
-We have provided a proxy configuration feature. For specific usage, please click [here](docs/proxy-usage.md).
+**Popular MCP Servers:**
+- `mcp-server-filesystem` - File system operations
+- `mcp-server-git` - Git repository management  
+- `mcp-server-sqlite` - SQLite database queries
+- `mcp-server-brave-search` - Web search capabilities
 
-## Developers Guide
+**How MCP Works in Chat:**
+When MCP servers are enabled, their tools become available to AI models during conversations. The AI can automatically call these tools to:
+- Read/write files when discussing code
+- Search the web for current information
+- Query databases for specific data
+- Perform system operations as needed
 
-As ChatOllama is still under active development, features, interfaces and database schema may be changed. Please follow the instructions below in your every `git pull` to make sure your dependencies and database schema are always in sync.
+Tools are loaded dynamically and integrated seamlessly into the chat experience.
 
-1. Install the latest dependencies
-    - `pnpm install`
-2. Prisma migrate
-    - `pnpm prisma-migrate`
+### Realtime Voice Chat
+
+Enable voice conversations with Gemini 2.0 Flash:
+
+1. Set your Google API key in Settings
+2. Enable "Realtime Chat" in Settings  
+3. Click the microphone icon to start voice conversations
+4. Access via `/realtime` page
+
+### Knowledge Bases
+
+Create knowledge bases for RAG conversations:
+
+1. **Create Knowledge Base** - Name and configure chunking parameters
+2. **Upload Documents** - PDF, DOCX, TXT files supported
+3. **Chat with Knowledge** - Reference your documents in conversations
+
+**Supported Vector Databases:**
+- **ChromaDB** (default) - Lightweight, easy setup
+- **Milvus** - Production-scale vector database
+
+### Data Storage
+
+**Docker Deployment:**
+- **Vector Data** - Stored in Docker volumes (chromadb_volume)
+- **Relational Data** - SQLite database at `~/.chatollama/chatollama.sqlite`
+- **Redis** - Session and caching data
+
+**Development:**
+- **Database** - Local SQLite file
+- **Vector Store** - External ChromaDB/Milvus instance
+
+## Development
+
+### Project Structure
+
+```
+chatollama/
+├── components/          # Vue components
+├── pages/              # Nuxt pages (routing)
+├── server/             # API routes and server logic
+├── prisma/             # Database schema and migrations
+├── locales/            # Internationalization files
+├── config/             # Configuration files
+└── docker-compose.yaml # Docker deployment
+```
+
+### Available Scripts
+
+```bash
+# Development
+pnpm dev                # Start development server
+pnpm build             # Build for production
+pnpm preview           # Preview production build
+
+# Database
+pnpm prisma-migrate    # Run database migrations
+pnpm prisma-generate   # Generate Prisma client
+pnpm prisma-push       # Push schema changes
+```
+
+### Contributing
+
+1. **Keep dependencies updated:** `pnpm install` after each `git pull`
+2. **Run migrations:** `pnpm prisma-migrate` when schema changes
+3. **Follow conventions:** Use TypeScript, Vue 3 Composition API, and Tailwind CSS
+4. **Test thoroughly:** Verify both Docker and development setups
+
+### Tech Stack
+
+- **Frontend:** Nuxt 3, Vue 3, Nuxt UI, Tailwind CSS
+- **Backend:** Nitro (Nuxt server), Prisma ORM
+- **Database:** SQLite (development), PostgreSQL (production ready)
+- **Vector DB:** ChromaDB, Milvus
+- **AI/ML:** LangChain, Ollama, OpenAI, Anthropic, Google AI
+- **Deployment:** Docker, Docker Compose
+
+## License
+
+[MIT License](LICENSE)

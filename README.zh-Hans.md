@@ -2,174 +2,273 @@
 
 # ChatOllama
 
-`ChatOllama` 是一个基于 LLMs（大语言模型）的开源聊天机器人平台，支持多种语言模型，包括：
+`ChatOllama` 是一个基于 Nuxt 3 构建的开源聊天机器人平台，支持多种语言模型和高级功能，包括知识库、实时语音聊天和模型上下文协议 (MCP) 集成。
 
-- OpenAI / Azure OpenAI
-- Anthropic
-- Gemini
-- Groq
-- [火山引擎](https://github.com/volcengine)
-- 月之暗面
-- 硅基流动
-- 通义千问
-- Ollama
+## 支持的语言模型
 
-`ChatOllama` 支持多种聊天类型：
+- **OpenAI** / **Azure OpenAI** - GPT 模型，支持动态加载
+- **Anthropic** - Claude 3.5 Sonnet、Haiku 和其他 Claude 模型
+- **Google Gemini** - Gemini 2.0 Flash、1.5 Pro/Flash 和嵌入模型
+- **Groq** - Llama 3.1、Mixtral、Gemma 模型，快速推理
+- **月之暗面 (Moonshot)** - 中文语言模型（8k、32k、128k 上下文）
+- **Ollama** - 自托管开源模型
 
-- 与 LLMs 免费聊天
-- 基于知识库与 LLMs 聊天
+## 主要功能
 
-`ChatOllama` 的功能列表：
-
-- Ollama 模型管理
-- 知识库管理
-- 聊天
-- 商业 LLMs API 密钥管理
+- **多模态聊天** - 支持文本和图像输入
+- **知识库** - RAG（检索增强生成）与文档上传
+- **实时语音聊天** - 与 Gemini 2.0 Flash 进行语音对话
+- **模型上下文协议 (MCP)** - 可扩展的工具集成
+- **向量数据库** - 支持 Chroma 和 Milvus
+- **用户管理** - 身份验证和基于角色的访问控制
+- **响应式界面** - 使用 Nuxt UI 和 Tailwind CSS 构建的现代界面
+- **Docker 支持** - 使用 Docker Compose 轻松部署
+- **国际化** - 多语言支持
 
 ## 加入我们的社区
 
-如果您是用户、贡献者或只是对 `ChatOllama` 感兴趣的人，您都欢迎加入我们的 Discord 社群，点击以下链接邀请链接 [https://discord.gg/TjhZGYv5pC](https://discord.gg/TjhZGYv5pC)。
+加入我们的 Discord 社区获取支持、讨论和更新：
 
-如果您是贡献者，请关注频道 `technical-discussion`，讨论技术相关问题。
+**[Discord 邀请链接](https://discord.gg/TjhZGYv5pC)**
 
-如果您在使用 `ChatOllama` 遇到问题，请报告到频道 `customer-support`。我们将尽快帮助您解决问题。
+- **#technical-discussion** - 贡献者和技术讨论
+- **#customer-support** - 获取使用问题和故障排除帮助
+- **#general** - 社区聊天和公告
 
 ## 快速启动
 
-作为 `ChatOllama` 的用户，请按照以下文档步骤，确保您从头到尾了解了所有组件的设置，然后才能使用 `ChatOllama`。
+选择您偏好的部署方式：
 
-### 支持的向量数据库
+### 方式一：Docker（推荐）
 
-`ChatOllama` 支持 2 种向量数据库：Milvus 和 Chroma。
+最简单的入门方式。下载 [docker-compose.yaml](./docker-compose.yaml) 并运行：
 
-请参阅 `.env.example` 文件，了解如何使用向量数据库配置。
-
+```bash
+docker compose up
 ```
-# 支持的值：chroma，milvus
+
+首次运行时初始化数据库：
+```bash
+docker compose exec chatollama npx prisma migrate dev
+```
+
+在 http://localhost:3000 访问 ChatOllama
+
+### 方式二：开发环境设置
+
+用于开发或自定义：
+
+1. **前置要求**
+   - Node.js 18+ 和 pnpm
+   - Ollama 服务器运行在 http://localhost:11434
+   - ChromaDB 或 Milvus 向量数据库
+
+2. **安装**
+   ```bash
+   git clone <repository-url>
+   cd chatollama
+   cp .env.example .env
+   pnpm install
+   pnpm prisma-migrate
+   pnpm dev
+   ```
+
+### 向量数据库配置
+
+ChatOllama 支持两种向量数据库。在 `.env` 文件中配置：
+
+```bash
+# 选择：chroma 或 milvus
 VECTOR_STORE=chroma
 CHROMADB_URL=http://localhost:8000
 MILVUS_URL=http://localhost:19530
 ```
 
-默认情况下，`ChatOllama` 使用了 Chroma。如果您想使用 Milvus，请将 `VECTOR_STORE` 设置为 `milvus`，并指定相应的 URL。它在开发服务器和 Docker 容器中都可用。
-
-### 使用 Nuxt 3 开发服务器
-
-如果您想在最新的代码库中运行，并且可以实时应用更改，clone 该存储库，并按照以下步骤进行：
-
-1. 安装 Ollama 服务器
-
-    您需要运行 Ollama 服务器。按照 [Ollama](https://github.com/ollama/ollama) 的安装指南进行安装。默认情况下，它运行在 http://localhost:11434。
-
-2. 安装 Chroma
-
-    请参阅 [https://docs.trychroma.com/getting-started](https://docs.trychroma.com/getting-started) 获取 Chroma 安装指南。
-
-    我们建议在 Docker 容器中运行：
-
-    ```bash
-    # https://hub.docker.com/r/chromadb/chroma/tags
-
-    docker pull chromadb/chroma
-    docker run -d -p 8000:8000 chromadb/chroma
-    ```
-    现在，ChromaDB 正在运行于 http://localhost:8000
-
-3. ChatOllama 设置
-
-    现在，我们可以完成必要的设置，以便运行 ChatOllama。
-
-    3.1 复制 `.env.example` 文件到 `.env` 文件：
-
-    ```bash
-    cp .env.example .env
-    ```
-
-    3.2 确保安装依赖项：
-
-    ```bash
-    pnpm install
-    ```
-
-    3.3 运行迁移命令以创建数据库表：
-
-    ```bash
-    pnpm prisma-migrate
-    ```
-
-4. 启动开发服务器
-
-    > 确保 __[Ollama Server](#ollama-server)__  服务器和 __[ChromaDB](#install-chromadb-and-startup)__  都正在运行。
-
-    启动开发服务器在 `http://localhost:3000`：
-
-    ```bash
-    pnpm dev
-    ```
-
-### 使用 Docker
-
-这是使用 `ChatOllama` 的最简单方法。
-
-唯一需要的是复制一份 [docker-compose.yaml](./docker-compose.yaml)。请下载它，并执行以下命令以启动 `ChatOllama`：
-
-```shell
-$ docker compose up
+**ChromaDB 设置（默认）**
+```bash
+docker run -d -p 8000:8000 chromadb/chroma
 ```
 
-由于 `ChatOllama` 在 Docker 容器中运行，您需要将 Ollama 服务器设置为 `http://host.docker.internal:11434`，假设您的 Ollama 服务器在本地运行默认端口。
+## 配置
 
-如果这是您第一次在 Docker 中启动 `ChatOllama`，请初始化 SQLite 数据库：
+### 环境变量
 
-```shell
-$ docker compose exec chatollama npx prisma migrate dev
+`.env` 中的关键配置选项：
+
+```bash
+# 数据库
+DATABASE_URL=file:../../chatollama.sqlite
+
+# 服务器
+PORT=3000
+HOST=
+
+# 向量数据库
+VECTOR_STORE=chroma
+CHROMADB_URL=http://localhost:8000
+
+# 可选：商业模型的 API 密钥
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+GOOGLE_API_KEY=your_gemini_key
+GROQ_API_KEY=your_groq_key
+MOONSHOT_API_KEY=your_moonshot_key
+
+# 可选：代理设置
+NUXT_PUBLIC_MODEL_PROXY_ENABLED=false
+NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
+
+# 可选：Cohere 用于重排序
+COHERE_API_KEY=your_cohere_key
 ```
 
-#### 使用知识库的提前准备
+### 模型设置
 
-使用知识库时，我们需要一个有效的嵌入模型。在这里可以是 Ollama 下载的模型或来自第三方服务提供商，例如 OpenAI。
+**Ollama 模型：**
+1. 安装 [Ollama](https://github.com/ollama/ollama)
+2. 拉取模型：`ollama pull llama3.1` 或使用 ChatOllama 中的模型页面
 
-**Ollama 管理嵌入模型**
-
-我们推荐使用 `nomic-embed-text` 模型。
-
-可以在 Models 页面 [http://localhost:3000/models](http://localhost:3000/models) 或使用 CLI 进行下载：
-
-```shell
-# 在 docker-compose.yaml 文件夹中
-
-$ docker compose exec ollama ollama pull nomic-embed-text:latest
+**知识库：**
+下载嵌入模型：
+```bash
+ollama pull nomic-embed-text
 ```
 
-**OpenAI 嵌入模型**
-
-如果您想使用 OpenAI，请确保您设置了有效的 OpenAI API 密钥，并选择以下之一的 OpenAI 嵌入模型：
-
+或在设置中配置 OpenAI 嵌入，支持的模型：
 - `text-embedding-3-large`
 - `text-embedding-3-small`
 - `text-embedding-ada-002`
 
-#### Docker 容器数据存储
+## 高级功能
 
-有两个类型的数据存储：向量数据和关系数据。详细信息请参阅 [docker-compose.yaml](./docker-compose.yaml)。
+### 模型上下文协议 (MCP)
 
-##### 向量数据
+ChatOllama 集成了 MCP，通过外部工具和数据源扩展 AI 功能。MCP 服务器通过设置中的用户友好界面进行管理。
 
-使用 `docker-compose.yaml`，会在同一 Docker 容器中运行 Chroma 数据库。数据将被 保存在 Docker 卷中。
+**支持的传输类型：**
+- **STDIO** - 命令行工具（最常用）
+- **服务器发送事件 (SSE)** - 基于 HTTP 的流式传输
+- **流式 HTTP** - 基于 HTTP 的通信
 
-##### 关系数据
+**通过设置界面配置：**
+1. 导航到 **设置 → MCP**
+2. 点击 **"添加服务器"** 创建新的 MCP 服务器
+3. 配置服务器详情：
+   - **名称**：描述性服务器名称
+   - **传输类型**：选择 STDIO、SSE 或流式 HTTP
+   - **命令/参数** (STDIO)：可执行文件路径和参数
+   - **URL** (SSE/HTTP)：服务器端点 URL
+   - **环境变量**：API 密钥和配置
+   - **启用/禁用**：切换服务器状态
 
-关系数据，包括知识库记录及其关联文件，存储在 SQLite 数据库文件中，保存在 `~/.chatollama/chatollama.sqlite`。
+**STDIO 服务器示例：**
+```
+名称: 文件系统工具
+传输类型: stdio
+命令: uvx
+参数: mcp-server-filesystem
+环境变量:
+  PATH: ${PATH}
+```
 
-#### 代理
+**从旧配置迁移：**
+如果您有现有的 `.mcp-servers.json` 文件：
+```bash
+pnpm exec ts-node scripts/migrate-mcp-servers.ts
+```
 
-我们提供了代理配置功能。对于特定的使用，请点击 [这里](docs/proxy-usage.md)。
+**热门 MCP 服务器：**
+- `mcp-server-filesystem` - 文件系统操作
+- `mcp-server-git` - Git 仓库管理
+- `mcp-server-sqlite` - SQLite 数据库查询
+- `mcp-server-brave-search` - 网络搜索功能
 
-## 开发者指南
+**MCP 在聊天中的工作原理：**
+当 MCP 服务器启用时，它们的工具在对话中对 AI 模型可用。AI 可以自动调用这些工具来：
+- 在讨论代码时读取/写入文件
+- 搜索网络获取最新信息
+- 查询数据库获取特定数据
+- 根据需要执行系统操作
 
-由于 `ChatOllama` 处于快速开发中，特性、接口和数据库架构可能会发生变化。请在每次 `git pull` 时，确保您的依赖项和数据库架构始终保持同步。
+工具动态加载并无缝集成到聊天体验中。
 
-1. 安装最新依赖项
-    - `pnpm install`
-2. Prisma 迁移
-    - `pnpm prisma-migrate`
+### 实时语音聊天
+
+启用与 Gemini 2.0 Flash 的语音对话：
+
+1. 在设置中设置您的 Google API 密钥
+2. 在设置中启用"实时聊天"
+3. 点击麦克风图标开始语音对话
+4. 通过 `/realtime` 页面访问
+
+### 知识库
+
+创建知识库进行 RAG 对话：
+
+1. **创建知识库** - 命名并配置分块参数
+2. **上传文档** - 支持 PDF、DOCX、TXT 文件
+3. **与知识聊天** - 在对话中引用您的文档
+
+**支持的向量数据库：**
+- **ChromaDB**（默认）- 轻量级，易于设置
+- **Milvus** - 生产级向量数据库
+
+### 数据存储
+
+**Docker 部署：**
+- **向量数据** - 存储在 Docker 卷中（chromadb_volume）
+- **关系数据** - SQLite 数据库位于 `~/.chatollama/chatollama.sqlite`
+- **Redis** - 会话和缓存数据
+
+**开发环境：**
+- **数据库** - 本地 SQLite 文件
+- **向量存储** - 外部 ChromaDB/Milvus 实例
+
+## 开发
+
+### 项目结构
+
+```
+chatollama/
+├── components/          # Vue 组件
+├── pages/              # Nuxt 页面（路由）
+├── server/             # API 路由和服务器逻辑
+├── prisma/             # 数据库模式和迁移
+├── locales/            # 国际化文件
+├── config/             # 配置文件
+└── docker-compose.yaml # Docker 部署
+```
+
+### 可用脚本
+
+```bash
+# 开发
+pnpm dev                # 启动开发服务器
+pnpm build             # 构建生产版本
+pnpm preview           # 预览生产构建
+
+# 数据库
+pnpm prisma-migrate    # 运行数据库迁移
+pnpm prisma-generate   # 生成 Prisma 客户端
+pnpm prisma-push       # 推送模式更改
+```
+
+### 贡献
+
+1. **保持依赖项更新：** 每次 `git pull` 后运行 `pnpm install`
+2. **运行迁移：** 当模式更改时运行 `pnpm prisma-migrate`
+3. **遵循约定：** 使用 TypeScript、Vue 3 Composition API 和 Tailwind CSS
+4. **彻底测试：** 验证 Docker 和开发环境设置
+
+### 技术栈
+
+- **前端：** Nuxt 3、Vue 3、Nuxt UI、Tailwind CSS
+- **后端：** Nitro（Nuxt 服务器）、Prisma ORM
+- **数据库：** SQLite（开发）、PostgreSQL（生产就绪）
+- **向量数据库：** ChromaDB、Milvus
+- **AI/ML：** LangChain、Ollama、OpenAI、Anthropic、Google AI
+- **部署：** Docker、Docker Compose
+
+## 许可证
+
+[MIT 许可证](LICENSE)
