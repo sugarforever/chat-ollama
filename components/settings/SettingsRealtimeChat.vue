@@ -10,11 +10,11 @@ const realtimeChatEnabled = useStorage('realtimeChatEnabled', false)
 </script>
 
 <template>
-    <ClientOnly>
-        <SettingsCard v-if="isRealtimeChatFeatureEnabled" :title="t('settings.realtimeChat')">
-            <UFormGroup :label="t('settings.realtimeChatEnabled')">
-                <UToggle v-model="realtimeChatEnabled" />
-            </UFormGroup>
-        </SettingsCard>
-    </ClientOnly>
+  <ClientOnly>
+    <SettingsCard v-if="isRealtimeChatFeatureEnabled" :title="t('settings.realtimeChat')">
+      <UFormGroup :label="t('settings.realtimeChatEnabled')">
+        <UToggle v-model="realtimeChatEnabled" />
+      </UFormGroup>
+    </SettingsCard>
+  </ClientOnly>
 </template>
