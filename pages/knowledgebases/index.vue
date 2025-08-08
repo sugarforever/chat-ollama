@@ -3,6 +3,10 @@ import { useStorage } from '@vueuse/core'
 import { type KnowledgeBase } from '@prisma/client'
 import { KnowledgeBaseForm } from '#components'
 
+definePageMeta({
+  middleware: 'knowledge-base'
+})
+
 const { t } = useI18n()
 const { token } = useAuth()
 const router = useRouter()
