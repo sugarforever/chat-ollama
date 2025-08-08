@@ -1,4 +1,7 @@
 <script setup>
+definePageMeta({
+  middleware: 'models-management'
+})
 </script>
 
 <template>

@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
+
+definePageMeta({
+  middleware: 'realtime-chat'
+})
+
 const { t } = useI18n()
 
 const realtimeChatEnabled = useStorage('realtimeChatEnabled', false)

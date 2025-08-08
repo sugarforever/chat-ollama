@@ -5,6 +5,9 @@ import type { ModelItem } from '@/server/api/models/index.get'
 const { t } = useI18n()
 const { loadModels, models } = useModels({ forceReload: true })
 
+const config = useRuntimeConfig()
+const isModelsManagementEnabled = computed(() => config.modelsManagementEnabled)
+
 const modelRows = computed(() => {
   return models.value.map((model) => {
     return {
@@ -87,9 +90,9 @@ function formatFileSize(bytes?: number) {
 </script>
 
 <template>
-  <Download @modelDownloaded="loadModels" />
+  <Download v-if="isModelsManagementEnabled" @modelDownloaded="loadModels" />
   <div class="mt-3 h-7">
-    <UDropdown v-if="selectedRows.length > 0" :items="actions" :ui="{ width: 'w-36' }">
+    <UDropdown v-if="isModelsManagementEnabled && selectedRows.length > 0" :items="actions" :ui="{ width: 'w-36' }">
       <UButton icon="i-heroicons-chevron-down" trailing color="gray" size="xs">
         {{ t("global.operations") }}
       </UButton>

@@ -1,6 +1,12 @@
 import { defineEventHandler } from 'h3'
 
 export default defineEventHandler(async (event) => {
+  // Check if realtime chat feature is enabled
+  if (!isRealtimeChatEnabled()) {
+    setResponseStatus(event, 403, 'Realtime chat feature is disabled')
+    return { error: 'Realtime chat feature is disabled' }
+  }
+
   try {
     const apiKey = event.context.keys.openai.key || ''
     const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
