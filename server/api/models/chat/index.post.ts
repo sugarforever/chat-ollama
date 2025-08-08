@@ -104,6 +104,13 @@ const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => 
 
 export default defineEventHandler(async (event) => {
   const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
+  
+  // Timeout optimization: Set streaming headers immediately
+  if (stream) {
+    setHeader(event, 'Content-Type', 'text/event-stream')
+    setHeader(event, 'Cache-Control', 'no-cache')
+    setHeader(event, 'Connection', 'keep-alive')
+  }
 
   if (knowledgebaseId) {
     console.log("Chat with knowledge base with id: ", knowledgebaseId)
@@ -271,7 +278,7 @@ export default defineEventHandler(async (event) => {
         if (content) {
           accumulatedContent += content
 
-          // Stream content updates with partial content
+          // Stream content updates immediately to prevent timeout
           const message = {
             message: {
               role: 'assistant',
@@ -344,7 +351,7 @@ export default defineEventHandler(async (event) => {
           if (content) {
             accumulatedContent += content
 
-            // Stream final content with all tool call information
+            // Stream final content immediately to prevent timeout
             const message = {
               message: {
                 role: 'assistant',
