@@ -52,7 +52,6 @@
     "@nuxt/ui": "^2.17.0",
     "@nuxtjs/i18n": "^8.3.1",
     "@prisma/client": "^5.12.1",
-    "@vercel/analytics": "^1.2.2",
     "@vueuse/core": "^10.11.0",
     "@vueuse/nuxt": "^10.11.0",
     "@zilliz/milvus2-sdk-node": "^2.3.5",

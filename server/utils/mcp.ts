@@ -124,7 +124,6 @@ export class McpService {
       config.servers[server.name] = serverConfig
     }
 
-    console.log('MCP Client Config:', JSON.stringify(config, null, 2))
     return config
   }
 
