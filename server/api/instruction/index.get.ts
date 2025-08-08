@@ -15,6 +15,12 @@ const listInstructions = async (): Promise<Instruction[] | null> => {
 }
 
 export default defineEventHandler(async (event) => {
+  // Check if instructions feature is enabled
+  if (!isInstructionsEnabled()) {
+    setResponseStatus(event, 403, 'Instructions feature is disabled')
+    return { error: 'Instructions feature is disabled' }
+  }
+
   const instructions = await listInstructions()
   return { instructions }
 })

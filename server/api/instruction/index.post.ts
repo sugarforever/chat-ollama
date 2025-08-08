@@ -1,19 +1,25 @@
-import prisma from "@/server/utils/prisma";
+import prisma from "@/server/utils/prisma"
 
 const saveInstructions = async (name: string, instruction: string) => {
   try {
-    return await prisma.instruction.create({ data: { name, instruction } });
+    return await prisma.instruction.create({ data: { name, instruction } })
   } catch (error) {
-    console.error("Error saving instructions: ", error);
-    return null;
+    console.error("Error saving instructions: ", error)
+    return null
   }
-};
+}
 
 export default defineEventHandler(async (event) => {
-  const { name, instruction } = await readBody(event);
-  if (!name || !instruction) {
-    return;
+  // Check if instructions feature is enabled
+  if (!isInstructionsEnabled()) {
+    setResponseStatus(event, 403, 'Instructions feature is disabled')
+    return { error: 'Instructions feature is disabled' }
   }
-  const result = await saveInstructions(name, instruction);
-  return result;
-});
+
+  const { name, instruction } = await readBody(event)
+  if (!name || !instruction) {
+    return
+  }
+  const result = await saveInstructions(name, instruction)
+  return result
+})
