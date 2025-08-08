@@ -225,7 +225,7 @@ export default defineEventHandler(async (event) => {
     let llm = createChatModel(model, family, event)
 
     const mcpService = new McpService()
-    const normalizedTools = await mcpService.listTools()
+    const normalizedTools = isMcpEnabled() ? await mcpService.listTools() : []
     console.log("Normalized tools: ", normalizedTools)
     const toolsMap = normalizedTools.reduce((acc: Record<string, StructuredToolInterface>, tool) => {
       acc[tool.name] = tool
