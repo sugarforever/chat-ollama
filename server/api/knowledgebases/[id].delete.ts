@@ -42,6 +42,12 @@ const deleteKnowledgeBase = async (
 }
 
 export default defineEventHandler(async (event) => {
+  // Check if knowledge base feature is enabled
+  if (!isKnowledgeBaseEnabled()) {
+    setResponseStatus(event, 403, 'Knowledge base feature is disabled')
+    return { error: 'Knowledge base feature is disabled' }
+  }
+
   const id = event?.context?.params?.id
 
   const knowledgeBase = await requireKnowledgeBase(id)

@@ -5,6 +5,11 @@ import { ingestDocument, ingestURLs } from '~/server/utils/rag'
 import { parseKnowledgeBaseFormRequest } from '@/server/utils/http'
 
 export default defineEventHandler(async (event) => {
+  // Check if knowledge base feature is enabled
+  if (!isKnowledgeBaseEnabled()) {
+    setResponseStatus(event, 403, 'Knowledge base feature is disabled')
+    return { error: 'Knowledge base feature is disabled' }
+  }
 
   const { name, description, embedding, isPublic, uploadedFiles, urls, chunking } =
     await parseKnowledgeBaseFormRequest(event)

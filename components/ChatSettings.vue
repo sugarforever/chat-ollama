@@ -2,6 +2,9 @@
 import { loadOllamaInstructions, loadKnowledgeBases } from '~/utils/settings'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
 
+const config = useRuntimeConfig()
+const isKnowledgeBaseEnabled = computed(() => config.knowledgeBaseEnabled)
+
 interface UpdatedOptions {
   title: string
   attachedMessagesCount: number
@@ -31,7 +34,7 @@ const state = reactive({
 })
 
 const instructions = await loadOllamaInstructions()
-const knowledgeBases = await loadKnowledgeBases()
+const knowledgeBases = isKnowledgeBaseEnabled.value ? await loadKnowledgeBases() : []
 
 const instructionContent = computed(() => {
   return instructions.find(el => el.id === state.instructionId)?.instruction || ''
@@ -57,7 +60,9 @@ function onClearHistory() {
 }
 
 async function onSave() {
-  const knowledgeBaseInfo = knowledgeBases.find(el => el.id === state.knowledgeBaseId)
+  const knowledgeBaseInfo = isKnowledgeBaseEnabled.value
+    ? knowledgeBases.find(el => el.id === state.knowledgeBaseId)
+    : undefined
   const instructionInfo = instructions.find(el => el.id === state.instructionId)
 
   await clientDB.chatSessions
@@ -92,7 +97,7 @@ async function onReset() {
         <UFormGroup :label="t('chat.topic')" name="title" class="mb-4">
           <UInput v-model="state.title" maxlength="40" />
         </UFormGroup>
-        <UFormGroup :label="t('chat.knowledgeBase')" name="knowledgeBaseId" class="mb-4">
+        <UFormGroup v-if="isKnowledgeBaseEnabled" :label="t('chat.knowledgeBase')" name="knowledgeBaseId" class="mb-4">
           <USelectMenu v-model="state.knowledgeBaseId"
                        :options="knowledgeBases"
                        value-attribute="id"

@@ -104,7 +104,7 @@ const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => 
 
 export default defineEventHandler(async (event) => {
   const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
-  
+
   // Timeout optimization: Set streaming headers immediately
   if (stream) {
     setHeader(event, 'Content-Type', 'text/event-stream')
@@ -112,7 +112,8 @@ export default defineEventHandler(async (event) => {
     setHeader(event, 'Connection', 'keep-alive')
   }
 
-  if (knowledgebaseId) {
+  // Check if knowledge base feature is enabled
+  if (knowledgebaseId && isKnowledgeBaseEnabled()) {
     console.log("Chat with knowledge base with id: ", knowledgebaseId)
     const knowledgebase = await prisma.knowledgeBase.findUnique({
       where: {

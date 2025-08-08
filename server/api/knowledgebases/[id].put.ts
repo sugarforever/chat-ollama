@@ -6,6 +6,12 @@ import { parseKnowledgeBaseFormRequest } from '@/server/utils/http'
 import { requireKnowledgeBase, requireKnowledgeBaseOwner } from '~/server/utils/knowledgeBase'
 
 export default defineEventHandler(async (event) => {
+  // Check if knowledge base feature is enabled
+  if (!isKnowledgeBaseEnabled()) {
+    setResponseStatus(event, 403, 'Knowledge base feature is disabled')
+    return { error: 'Knowledge base feature is disabled' }
+  }
+
   const { knowledgeBaseId, uploadedFiles, urls, name, description, isPublic } = await parseKnowledgeBaseFormRequest(event)
 
   console.log("Knowledge base ID: ", knowledgeBaseId)

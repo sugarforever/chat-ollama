@@ -82,6 +82,9 @@ export default defineNuxtConfig({
     }
   },
   runtimeConfig: {
+    // Server-side only (not exposed to client)
+    knowledgeBaseEnabled: process.env.KNOWLEDGE_BASE_ENABLED === 'true',
+
     public: {
       kb: {
         create: {
