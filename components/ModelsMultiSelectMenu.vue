@@ -20,7 +20,12 @@ const { chatModels, loadModels } = useModels()
 
 // Ensure models are loaded when component mounts
 onMounted(async () => {
-  await loadModels()
+  try {
+    await loadModels()
+  } catch (error) {
+    console.warn('Failed to load models in ModelsMultiSelectMenu:', error)
+    // Continue without models - the component should handle empty models gracefully
+  }
 })
 
 const uiMenu = {

@@ -55,13 +55,30 @@ export function useModels(options?: Options) {
 
   async function loadModels() {
     if (isLoading) {
-      f && clearTimeout(f)
+      // If models are already loading, wait for them to finish or use cached models
       return new Promise((resolve, reject) => {
-        f = setTimeout(() => reject(new Error('Timeout')), 5000)
-        watch(models, data => {
-          f && clearTimeout(f)
-          resolve(data)
-        }, { once: true })
+        f && clearTimeout(f)
+        
+        // If we already have models, return them immediately
+        if (models.value.length > 0) {
+          resolve(models.value)
+          return
+        }
+        
+        // Otherwise, wait for loading to complete with a longer timeout
+        f = setTimeout(() => {
+          // Even if timeout, resolve with current models instead of rejecting
+          console.warn('Model loading timeout, using current models:', models.value.length)
+          resolve(models.value)
+        }, 15000) // Increased timeout to 15 seconds
+        
+        const stopWatching = watch([models, () => isLoading], ([data, loading]) => {
+          if (!loading || data.length > 0) {
+            f && clearTimeout(f)
+            stopWatching()
+            resolve(data)
+          }
+        }, { immediate: true })
       })
     }
 
@@ -80,12 +97,23 @@ export function useModels(options?: Options) {
         }
       }
 
-      const response = await $fetchWithAuth('/api/models/', {
-        headers: getKeysHeader(),
-        signal: controller.signal,
-      })
-      firstLoaded = false
-      models.value = response as ModelItem[]
+      try {
+        const response = await $fetchWithAuth('/api/models/', {
+          headers: getKeysHeader(),
+          signal: controller.signal,
+        })
+        firstLoaded = false
+        models.value = response as ModelItem[]
+      } catch (error: any) {
+        if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+          console.log('Models API request was aborted during navigation')
+          // Don't update loading state if aborted, let the new request handle it
+          return models.value
+        } else {
+          console.error('Failed to load models from API:', error)
+          // For other errors, still reset loading state
+        }
+      }
     }
     loading.value = false
     isLoading = false

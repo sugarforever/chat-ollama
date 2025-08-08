@@ -18,13 +18,19 @@ export function useCreateChatSession() {
     }
 
     // set default model
-    await loadModels()
-    if (chatModels.value.length === 0) {
-      toast.add({ title: t('chat.noModelFound'), description: t('chat.noModelFoundDesc'), color: 'red' })
-      baseData.models = undefined
-    } else {
-      const availableModels = baseData.models?.filter(m => chatModels.value.some(cm => cm.value === m))
-      baseData.models = availableModels
+    try {
+      await loadModels()
+      if (chatModels.value.length === 0) {
+        toast.add({ title: t('chat.noModelFound'), description: t('chat.noModelFoundDesc'), color: 'red' })
+        baseData.models = undefined
+      } else {
+        const availableModels = baseData.models?.filter(m => chatModels.value.some(cm => cm.value === m))
+        baseData.models = availableModels
+      }
+    } catch (error) {
+      console.warn('Failed to load models during session creation:', error)
+      // Continue with session creation even if models fail to load
+      baseData.models = baseData.models || []
     }
 
     const id = await clientDB.chatSessions.add(baseData)

@@ -116,7 +116,12 @@ const onSubmit = async () => {
     const key = keyPaths.join('.') as keyof typeof state
     return key in state ? state[key] : value
   })
-  loadModels()
+  
+  try {
+    loadModels()
+  } catch (error) {
+    console.warn('Failed to reload models in SettingsServers:', error)
+  }
 
   toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
 }
@@ -149,7 +154,13 @@ function onUpdateCustomServer(data: ContextKeys['custom'][number]) {
   const index = state.custom.findIndex(el => el.name === currentCustomServer.value!.name)
   state.custom[index] = data
   keysStore.value.custom.splice(index, 1, data)
-  loadModels()
+  
+  try {
+    loadModels()
+  } catch (error) {
+    console.warn('Failed to reload models in SettingsServers:', error)
+  }
+  
   toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
 }
 
@@ -158,7 +169,12 @@ function onRemoveCustomServer() {
   state.custom.splice(index, 1)
   keysStore.value.custom.splice(index, 1)
   currentLLM.value = LLMList.value[0].key
-  loadModels()
+  
+  try {
+    loadModels()
+  } catch (error) {
+    console.warn('Failed to reload models in SettingsServers:', error)
+  }
 }
 
 const checkHost = (key: keyof typeof state, title: string) => {
