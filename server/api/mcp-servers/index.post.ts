@@ -2,36 +2,42 @@ import { McpService } from '~/server/utils/mcp'
 import { McpServerCreateInput } from '~/server/types/mcp'
 
 export default defineEventHandler(async (event) => {
-    const mcpService = new McpService()
+  // Check if MCP feature is enabled
+  if (!isMcpEnabled()) {
+    setResponseStatus(event, 403, 'MCP feature is disabled')
+    return { error: 'MCP feature is disabled' }
+  }
 
-    try {
-        const body = await readBody(event) as McpServerCreateInput
+  const mcpService = new McpService()
 
-        const result = await mcpService.createServer(body)
+  try {
+    const body = await readBody(event) as McpServerCreateInput
 
-        if (result.success) {
-            return {
-                success: true,
-                data: result.server
-            }
-        } else {
-            throw createError({
-                statusCode: 400,
-                statusMessage: result.errors?.join(', ') || 'Failed to create server'
-            })
-        }
-    } catch (error: any) {
-        console.error('Failed to create MCP server:', error)
+    const result = await mcpService.createServer(body)
 
-        if (error.statusCode) {
-            throw error
-        }
-
-        throw createError({
-            statusCode: 500,
-            statusMessage: 'Failed to create MCP server'
-        })
-    } finally {
-        await mcpService.close()
+    if (result.success) {
+      return {
+        success: true,
+        data: result.server
+      }
+    } else {
+      throw createError({
+        statusCode: 400,
+        statusMessage: result.errors?.join(', ') || 'Failed to create server'
+      })
     }
+  } catch (error: any) {
+    console.error('Failed to create MCP server:', error)
+
+    if (error.statusCode) {
+      throw error
+    }
+
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Failed to create MCP server'
+    })
+  } finally {
+    await mcpService.close()
+  }
 })
