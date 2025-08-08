@@ -15,6 +15,7 @@ const props = defineProps<{
 
 const config = useRuntimeConfig()
 const isKnowledgeBaseEnabled = computed(() => config.knowledgeBaseEnabled)
+const isInstructionsEnabled = computed(() => config.instructionsEnabled)
 
 const emits = defineEmits<{
   // it means remove a message if `data` is null
@@ -215,7 +216,7 @@ const onSend = async (data: ChatBoxFormData) => {
         toolResults: m.toolResults || []
       }))
 
-    if (instructionInfo.value) {
+    if (isInstructionsEnabled.value && instructionInfo.value) {
       chatMessages.unshift(createChatMessage({
         role: 'system',
         contentType: 'string',
@@ -275,16 +276,27 @@ onReceivedMessage(data => {
 })
 
 onMounted(async () => {
-  const promises = [loadOllamaInstructions()]
+  const promises = []
+
+  if (isInstructionsEnabled.value) {
+    promises.push(loadOllamaInstructions())
+  }
+
   if (isKnowledgeBaseEnabled.value) {
     promises.push(loadKnowledgeBases())
   }
 
   await Promise.all(promises)
     .then((results) => {
-      instructions.push(...results[0])
-      if (isKnowledgeBaseEnabled.value && results[1]) {
-        knowledgeBases.push(...results[1])
+      let resultIndex = 0
+
+      if (isInstructionsEnabled.value && results[resultIndex]) {
+        instructions.push(...results[resultIndex])
+        resultIndex++
+      }
+
+      if (isKnowledgeBaseEnabled.value && results[resultIndex]) {
+        knowledgeBases.push(...results[resultIndex])
       }
     })
   initData(props.sessionId)
@@ -348,7 +360,9 @@ async function initData(sessionId?: number) {
   const result = await clientDB.chatSessions.get(sessionId)
   sessionInfo.value = result
   knowledgeBaseInfo.value = knowledgeBases.find(el => el.id === result?.knowledgeBaseId)
-  instructionInfo.value = instructions.find(el => el.id === result?.instructionId)
+  instructionInfo.value = isInstructionsEnabled.value
+    ? instructions.find(el => el.id === result?.instructionId)
+    : undefined
   if (result?.models) {
     models.value = result.models
   }
@@ -390,7 +404,7 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
                :name="isSessionListVisible ? 'i-heroicons-chevron-double-left' : 'i-heroicons-chevron-double-right'"
                class="mr-2 text-lg text-gray-500 hidden md:block cursor-pointer hover:text-primary-500"
                @click="$emit('toggle-sidebar')" />
-        <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
+        <ChatConfigInfo v-if="isInstructionsEnabled && instructionInfo" icon="i-iconoir-terminal"
                         :title="instructionInfo.name"
                         :description="instructionInfo.instruction"
                         class="hidden md:block" />
@@ -399,7 +413,7 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
                         class="mx-2 hidden md:block" />
         <div class="mx-auto px-4 text-center">
           <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
-          <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
+          <div v-if="isInstructionsEnabled" class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
         </div>
         <UTooltip v-if="sessionId" :text="t('chat.modifyTips')">
           <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />

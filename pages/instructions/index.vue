@@ -4,6 +4,10 @@ import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
 import { useTools } from '~/composables/useTools'
 
+definePageMeta({
+  middleware: 'instructions'
+})
+
 const { t } = useI18n()
 const modal = useModal()
 const confirm = useDialog('confirm')
