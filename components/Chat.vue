@@ -13,6 +13,9 @@ const props = defineProps<{
   sessionId?: number
 }>()
 
+const config = useRuntimeConfig()
+const isKnowledgeBaseEnabled = computed(() => config.knowledgeBaseEnabled)
+
 const emits = defineEmits<{
   // it means remove a message if `data` is null
   message: [data: ChatMessage | null]
@@ -272,10 +275,17 @@ onReceivedMessage(data => {
 })
 
 onMounted(async () => {
-  await Promise.all([loadOllamaInstructions(), loadKnowledgeBases()])
-    .then(([res1, res2]) => {
-      instructions.push(...res1)
-      knowledgeBases.push(...res2)
+  const promises = [loadOllamaInstructions()]
+  if (isKnowledgeBaseEnabled.value) {
+    promises.push(loadKnowledgeBases())
+  }
+
+  await Promise.all(promises)
+    .then((results) => {
+      instructions.push(...results[0])
+      if (isKnowledgeBaseEnabled.value && results[1]) {
+        knowledgeBases.push(...results[1])
+      }
     })
   initData(props.sessionId)
 })
