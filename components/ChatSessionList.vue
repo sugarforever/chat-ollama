@@ -8,6 +8,7 @@ const emits = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const router = useRouter()
 const createChatSession = useCreateChatSession()
 const { isMobile } = useMediaBreakpoints()
 
@@ -19,9 +20,21 @@ onMounted(async () => {
     sessionList.value = await getSessionList()
 
     if (sessionList.value.length > 0) {
-        if (currentSessionId.value === -1 || !sessionList.value.some(el => el.id === currentSessionId.value)) {
-            currentSessionId.value = sessionList.value[0]?.id || -1
+        const currentRoute = router.currentRoute.value
+        
+        // If we're on the dynamic route, use the route param as the current session
+        if (currentRoute.path.startsWith('/chat/') && currentRoute.params.sessionId) {
+            const routeSessionId = Number(currentRoute.params.sessionId)
+            if (routeSessionId > 0 && sessionList.value.some(el => el.id === routeSessionId)) {
+                currentSessionId.value = routeSessionId
+            }
+        } else {
+            // Fallback to stored session or first session
+            if (currentSessionId.value === -1 || !sessionList.value.some(el => el.id === currentSessionId.value)) {
+                currentSessionId.value = sessionList.value[0]?.id || -1
+            }
         }
+        
         emits('select', currentSessionId.value)
     }
 })
@@ -29,14 +42,31 @@ onMounted(async () => {
 defineExpose({ updateSessionInfo, createChat: onNewChat })
 
 async function onNewChat() {
-    const data = await createChatSession()
-    sessionList.value.unshift(data)
-    onSelectChat(sessionList.value[0].id!)
+    try {
+        const data = await createChatSession()
+        sessionList.value.unshift(data)
+        await router.push(`/chat/${data.id}`)
+    } catch (error) {
+        console.error('Failed to create new chat session:', error)
+        // Still try to navigate even if session creation fails
+        const tempId = Date.now() // Use timestamp as fallback ID
+        await router.push(`/chat/${tempId}`)
+    }
 }
 
-function onSelectChat(sessionId: number) {
+async function onSelectChat(sessionId: number) {
     currentSessionId.value = sessionId
     emits('select', sessionId)
+    
+    // Also navigate to the session URL if we're using the dynamic routing
+    const currentRoute = router.currentRoute.value
+    if (currentRoute.path.startsWith('/chat/')) {
+        try {
+            await router.push(`/chat/${sessionId}`)
+        } catch (error) {
+            console.error('Failed to navigate to session:', error)
+        }
+    }
 }
 
 async function onTopChat(item: ChatSession, direction: string) {
@@ -45,7 +75,7 @@ async function onTopChat(item: ChatSession, direction: string) {
     sessionList.value = await getSessionList()
 }
 
-function onDeleteChat(data: ChatSession) {
+async function onDeleteChat(data: ChatSession) {
     confirm(t("chat.deleteChatConfirm", [data.title || `${t("chat.newChat")} ${data.id}`]), {
         title: t('chat.deleteChat'),
         dangerouslyUseHTMLString: true,
@@ -59,9 +89,9 @@ function onDeleteChat(data: ChatSession) {
 
             if (currentSessionId.value === sessionId) {
                 if (sessionList.value.length > 0) {
-                    onSelectChat(sessionList.value[0].id!)
+                    await onSelectChat(sessionList.value[0].id!)
                 } else {
-                    onSelectChat(0)
+                    await onSelectChat(0)
                 }
             }
         })

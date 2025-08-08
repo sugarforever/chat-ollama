@@ -27,7 +27,12 @@ const selectValue = computed({
   }
 })
 
-await loadModels()
+try {
+  await loadModels()
+} catch (error) {
+  console.warn('Failed to load models in ModelsSelectMenu:', error)
+  // Continue without models - the component should handle empty models gracefully
+}
 
 watch(value, () => {
   currentModel.value = getModelItem()
