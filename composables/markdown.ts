@@ -10,7 +10,6 @@ import MarkdownItTasklists from "markdown-it-task-lists"
 import MarkdownItTOC from "markdown-it-toc-done-right"
 import MarkdownItKatex from "markdown-it-katex"
 import hljs from "highlight.js"
-import { env } from 'process'
 
 // For client-side rendering of LaTeX code blocks
 let katexModule: any = null
