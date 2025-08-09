@@ -116,7 +116,7 @@ const onSubmit = async () => {
     const key = keyPaths.join('.') as keyof typeof state
     return key in state ? state[key] : value
   })
-  
+
   try {
     loadModels()
   } catch (error) {
@@ -154,13 +154,13 @@ function onUpdateCustomServer(data: ContextKeys['custom'][number]) {
   const index = state.custom.findIndex(el => el.name === currentCustomServer.value!.name)
   state.custom[index] = data
   keysStore.value.custom.splice(index, 1, data)
-  
+
   try {
     loadModels()
   } catch (error) {
     console.warn('Failed to reload models in SettingsServers:', error)
   }
-  
+
   toast.add({ title: t(`settings.setSuccessfully`), color: 'green' })
 }
 
@@ -169,7 +169,7 @@ function onRemoveCustomServer() {
   state.custom.splice(index, 1)
   keysStore.value.custom.splice(index, 1)
   currentLLM.value = LLMList.value[0].key
-  
+
   try {
     loadModels()
   } catch (error) {
@@ -251,7 +251,7 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
     <div class="max-w-6xl mx-auto">
       <SettingsCard>
         <template #header>
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ t('settings.serverConfiguration') }}</h3>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 py-2">{{ t('settings.serverConfiguration') }}</h3>
         </template>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Server List -->
@@ -276,11 +276,11 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                        :key="item.key"
                        @click="currentLLM = item.key"
                        :class="[
-                         'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
-                         currentLLM === item.key
-                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
-                           : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
-                       ]">
+                        'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
+                        currentLLM === item.key
+                          ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
+                          : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+                      ]">
                     <UIcon :name="getServerIcon(item.key)" class="w-5 h-5 mr-3 flex-shrink-0" :class="currentLLM === item.key ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium truncate" :class="currentLLM === item.key ? 'text-primary-900 dark:text-primary-100' : 'text-gray-900 dark:text-gray-100'">
@@ -298,11 +298,11 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                        :key="item.name"
                        @click="currentLLM = item.name"
                        :class="[
-                         'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
-                         currentLLM === item.name
-                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
-                           : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
-                       ]">
+                        'flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200',
+                        currentLLM === item.name
+                          ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
+                          : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+                      ]">
                     <UIcon name="i-material-symbols-settings-suggest" class="w-5 h-5 mr-3 flex-shrink-0" :class="currentLLM === item.name ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium truncate" :class="currentLLM === item.name ? 'text-primary-900 dark:text-primary-100' : 'text-gray-900 dark:text-gray-100'">

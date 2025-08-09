@@ -133,7 +133,7 @@ const toggleLeftPanel = () => {
       </div>
 
       <!-- Main Content -->
-      <main class="flex-1 h-full overflow-scroll p-4">
+      <main class="flex-1 h-full overflow-scroll">
         <slot />
       </main>
     </div>

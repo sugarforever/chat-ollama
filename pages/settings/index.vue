@@ -4,7 +4,7 @@ const isMcpEnabled = computed(() => config.mcpEnabled)
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto">
+  <div class="max-w-6xl mx-auto p-4">
     <div class="mb-4">
       <SettingsServers />
     </div>
