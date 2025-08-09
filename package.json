@@ -72,7 +72,6 @@
     "jsonwebtoken": "^9.0.2",
     "katex": "^0.16.21",
     "langchain": "^0.1.31",
-    "langsmith": "^0.1.14",
     "lodash": "^4.17.21",
     "mammoth": "^1.7.1",
     "markdown-it": "^14.1.0",
