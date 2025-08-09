@@ -7,11 +7,11 @@ const goToSettings = () => {
 }
 </script>
 <template>
-  <div class="h-full bg-white dark:bg-gray-900 flex items-center justify-center px-4">
+  <div class="min-h-full bg-white dark:bg-gray-900 flex items-center justify-center p-4">
     <div class="max-w-3xl w-full">
       <!-- Hero Section -->
       <div class="text-center mb-12">
-        <h1 class="text-3xl md:text-4xl font-bold text-black dark:text-white mb-4">
+        <h1 class="text-2xl md:text-4xl font-bold text-black dark:text-white mb-4">
           {{ t("home.welcome") }}
         </h1>
         <p class="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-xl mx-auto">
