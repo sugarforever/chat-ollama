@@ -1,6 +1,8 @@
 import MarkdownIt from "markdown-it"
 import MarkdownItAbbr from "markdown-it-abbr"
 import MarkdownItAnchor from "markdown-it-anchor"
+import MarkdownItDiagrams from "markdown-it-diagram"
+import { markdownItDiagramDom } from 'markdown-it-diagram/dom'
 import MarkdownItFootnote from "markdown-it-footnote"
 import MarkdownItSub from "markdown-it-sub"
 import MarkdownItSup from "markdown-it-sup"
@@ -19,6 +21,16 @@ if (typeof window !== 'undefined') {
     katexModule = module.default || module
   }).catch(err => {
     console.error('Failed to load KaTeX:', err)
+  })
+
+  import('mermaid').then(async (module) => {
+    const mermaidModule = module.default || module
+    mermaidModule.initialize({ startOnLoad: false })
+    await mermaidModule.run()
+    // initialize markdown-it-diagram/dom script
+    await markdownItDiagramDom()
+  }).catch(err => {
+    console.error('Failed to load Mermaid:', err)
   })
 }
 
@@ -80,6 +92,7 @@ export function useMarkdown() {
   })
     .use(MarkdownItAbbr)
     .use(MarkdownItAnchor)
+    .use(MarkdownItDiagrams)
     .use(MarkdownItFootnote)
     .use(MarkdownItSub)
     .use(MarkdownItSup)
