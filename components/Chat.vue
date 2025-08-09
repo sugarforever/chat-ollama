@@ -398,7 +398,7 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
     <!-- Main chat area -->
     <div class="flex flex-col flex-1 min-w-0 h-full">
       <!-- Header -->
-      <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-[57px] flex items-center flex-shrink-0">
+      <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-14 flex items-center flex-shrink-0">
         <slot name="left-menu-btn"></slot>
         <UIcon
                :name="isSessionListVisible ? 'i-heroicons-chevron-double-left' : 'i-heroicons-chevron-double-right'"

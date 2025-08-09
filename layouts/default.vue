@@ -39,13 +39,21 @@ const toggleLeftPanel = () => {
   <div class="h-screen flex">
     <!-- Left Navigation Panel -->
     <div class="hidden md:flex flex-col bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300"
-         :class="isLeftPanelCollapsed ? 'w-16' : 'w-64'">
+         :class="isLeftPanelCollapsed ? 'w-16' : 'w-54'">
       <!-- Logo and App Name -->
-      <div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-        <TheLogo class="w-8 h-8 flex-shrink-0" />
-        <span v-if="!isLeftPanelCollapsed" class="ml-3 text-primary font-semibold text-lg truncate">
-          {{ $config.public.appName }}
-        </span>
+      <div class="flex h-14 items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center min-w-0">
+          <TheLogo class="w-8 h-8 flex-shrink-0" />
+          <span v-if="!isLeftPanelCollapsed" class="ml-2 text-primary font-semibold text-lg truncate">
+            {{ $config.public.appName }}
+          </span>
+        </div>
+        <!-- Collapse Toggle -->
+        <button @click="toggleLeftPanel"
+                class="flex items-center justify-center p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0">
+          <Icon :name="isLeftPanelCollapsed ? 'i-heroicons-chevron-double-right' : 'i-heroicons-chevron-double-left'"
+                class="w-4 h-4" />
+        </button>
       </div>
 
       <!-- Navigation Menu -->
@@ -65,11 +73,10 @@ const toggleLeftPanel = () => {
       </nav>
 
       <!-- Bottom Section -->
-      <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+      <div :class="`flex ${isLeftPanelCollapsed ? 'flex-col' : 'flex-row'} p-4 border-t border-gray-200 dark:border-gray-700`">
         <!-- Color Mode Toggle -->
         <div class="flex items-center" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
           <ColorMode />
-          <span v-if="!isLeftPanelCollapsed" class="ml-3 text-sm text-gray-600 dark:text-gray-400">Theme</span>
         </div>
 
         <!-- GitHub Link -->
@@ -81,33 +88,27 @@ const toggleLeftPanel = () => {
                    :to="'https://github.com/sugarforever/chat-ollama'"
                    target="_blank"
                    :external="true" />
-          <span v-if="!isLeftPanelCollapsed" class="ml-3 text-sm text-gray-600 dark:text-gray-400">GitHub</span>
         </div>
 
         <!-- Auth Component -->
+        <!--
         <div class="flex items-center" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
           <Auth :collapsed="isLeftPanelCollapsed" />
         </div>
-
-        <!-- Collapse Toggle -->
-        <button @click="toggleLeftPanel"
-                class="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-          <Icon :name="isLeftPanelCollapsed ? 'i-heroicons-chevron-double-right' : 'i-heroicons-chevron-double-left'"
-                class="w-4 h-4" />
-        </button>
+        -->
       </div>
     </div>
 
     <!-- Mobile Menu Overlay -->
     <div class="md:hidden fixed inset-0 z-50" v-if="open">
       <div class="fixed inset-0 bg-black bg-opacity-50" @click="open = false"></div>
-      <div class="fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 shadow-lg flex flex-col overflow-y-scroll">
+      <div class="fixed left-0 top-0 h-full w-54 bg-white dark:bg-gray-900 shadow-lg flex flex-col overflow-y-scroll">
         <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div class="flex items-center">
             <TheLogo class="w-8 h-8" />
-            <span class="ml-3 text-primary font-semibold text-lg">{{ $config.public.appName }}</span>
+            <span class="ml-3 text-primary font-semibold text-base">{{ $config.public.appName }}</span>
           </div>
-          <button @click="open = false" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+          <button @click="open = false" class="ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             <Icon name="i-heroicons-x-mark" class="w-6 h-6" />
           </button>
         </div>
