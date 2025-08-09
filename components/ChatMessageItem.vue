@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { ChatMessage } from '~/types/chat'
-import { defineAsyncComponent } from 'vue'
 import { useKatexClient } from '~/composables/useKatexClient'
 
 const props = defineProps<{
@@ -17,8 +16,12 @@ const emits = defineEmits<{
 }>()
 
 const markdown = useMarkdown()
+const { renderMermaidDiagrams } = useMermaidRenderer()
 // Initialize client-side KaTeX rendering
 useKatexClient()
+
+// Ref for the message content container
+const messageContentRef = ref<HTMLElement>()
 
 const opened = ref(props.showToggleButton === true ? false : true)
 const isModelMessage = computed(() => props.message.role === 'assistant')
@@ -43,8 +46,6 @@ const modelName = computed(() => {
 watch(() => props.showToggleButton, (value) => {
   opened.value = value === true ? false : true
 })
-
-const showPreview = ref(false)
 
 const previewComponent = ref<any>(null)
 const isVueComponent = ref(false)
@@ -82,26 +83,53 @@ const togglePreview = () => {
   }
 }
 
-const extractTemplate = (code: string) => {
-  const templateMatch = code.match(/<template>([\s\S]*)<\/template>/)
-  return templateMatch ? templateMatch[1] : ''
-}
 
-const extractScript = (code: string) => {
-  const scriptMatch = code.match(/<script.*>([\s\S]*)<\/script>/)
-  return scriptMatch ? scriptMatch[1] : ''
-}
-
-const extractStyles = (code: string) => {
-  const styleMatch = code.match(/<style.*>([\s\S]*)<\/style>/)
-  return styleMatch ? styleMatch[1] : ''
-}
 
 const contentDisplay = computed(() => {
   if (props.isPreviewing && isModelMessage.value) {
     return isVueComponent.value ? 'component-preview' : 'preview-mode'
   }
   return props.message.type === 'loading' ? 'loading' : 'normal'
+})
+
+// Debounced rendering to prevent too frequent attempts during streaming
+let renderTimeout: NodeJS.Timeout | null = null
+
+// Watch for changes in message content and render mermaid diagrams
+watch([() => props.message.content, () => props.message.type, () => props.message.endTime, opened], async () => {
+  // Clear any pending render timeout
+  if (renderTimeout) {
+    clearTimeout(renderTimeout)
+  }
+
+  // Only render when message is complete (not loading and has endTime) and we have a container
+  const isMessageComplete = props.message.type !== 'loading' && props.message.endTime > 0
+
+  if (isMessageComplete && messageContentRef.value) {
+    // Debounce the rendering to avoid rendering incomplete diagrams
+    renderTimeout = setTimeout(async () => {
+      await nextTick()
+      await renderMermaidDiagrams(messageContentRef.value)
+      renderTimeout = null
+    }, 200) // Reduced timeout since we're now checking for completion
+  }
+}, { flush: 'post' })
+
+// Also render on mount for existing content
+onMounted(async () => {
+  const isMessageComplete = props.message.type !== 'loading' && props.message.endTime > 0
+  if (isMessageComplete && messageContentRef.value) {
+    await nextTick()
+    await renderMermaidDiagrams(messageContentRef.value)
+  }
+})
+
+// Cleanup timeout on unmount
+onUnmounted(() => {
+  if (renderTimeout) {
+    clearTimeout(renderTimeout)
+    renderTimeout = null
+  }
 })
 </script>
 
@@ -138,7 +166,7 @@ const contentDisplay = computed(() => {
         </div>
         <template v-else-if="isModelMessage">
           <div class="p-3 overflow-hidden">
-                        <!-- Tool Calls Display - moved to top -->
+            <!-- Tool Calls Display - moved to top -->
             <div v-if="message.toolCalls && message.toolCalls.length > 0" class="tool-calls mb-3 space-y-3">
               <div v-for="toolCall in message.toolCalls" :key="toolCall.id" class="tool-call">
                 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
@@ -156,7 +184,7 @@ const contentDisplay = computed(() => {
                     <pre class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto">{{ JSON.stringify(toolCall.args, null, 2) }}</pre>
                   </details>
 
-                                    <!-- Tool Result -->
+                  <!-- Tool Result -->
                   <div v-if="message.toolResults && message.toolResults.find(r => r.tool_call_id === toolCall.id)"
                        class="tool-result border-t border-blue-200 dark:border-blue-700 pt-3">
                     <details>
@@ -165,7 +193,7 @@ const contentDisplay = computed(() => {
                         <span class="font-medium text-blue-700 dark:text-blue-300">View result</span>
                       </summary>
                       <div class="mt-2 text-sm bg-gray-50 dark:bg-gray-800/50 rounded p-2">
-                        <pre class="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{{ message.toolResults.find(r => r.tool_call_id === toolCall.id)?.content }}</pre>
+                        <pre class="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{{message.toolResults.find(r => r.tool_call_id === toolCall.id)?.content}}</pre>
                       </div>
                     </details>
                   </div>
@@ -183,7 +211,7 @@ const contentDisplay = computed(() => {
             </div>
 
             <!-- Text Content -->
-            <div v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
+            <div ref="messageContentRef" v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
 
             <Sources v-show="opened" :relevant_documents="message?.relevantDocs || []" />
           </div>

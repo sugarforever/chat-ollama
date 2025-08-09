@@ -1191,3 +1191,32 @@
 .md-body .markdown-alert.markdown-alert-caution .markdown-alert-title {
   color: var(--color-danger-fg);
 }
+
+/* Mermaid diagram styles */
+.md-body .mermaid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px 0;
+  padding: 16px;
+  background-color: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  overflow: auto;
+
+  /* Ensure mermaid diagrams are visible */
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Dark mode adjustments for mermaid */
+.dark .md-body .mermaid {
+  background-color: var(--color-canvas-subtle);
+
+  /* Ensure text is visible in dark mode */
+  svg {
+    color: var(--color-fg-default);
+  }
+}
