@@ -53,7 +53,15 @@
     "deleteConfirm": "Are you sure deleting instruction?",
     "deleteFailed": "Failed to delete instruction.",
     "editFailed": "Failed to edit instruction.",
-    "createFailed": "Failed to create instruction."
+    "createFailed": "Failed to create instruction.",
+    "type": "Type",
+    "visibility": "Visibility",
+    "system": "System",
+    "user": "User",
+    "public": "Public",
+    "private": "Private",
+    "makePublic": "Make Public",
+    "makePublicDescription": "Allow other users to see and use this instruction"
   },
   "knowledgeBases": {
     "id": "ID",

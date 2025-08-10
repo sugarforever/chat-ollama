@@ -15,6 +15,7 @@ const toast = useToast()
 const state = reactive({
   name: props.data?.name || '',
   instruction: props.data?.instruction || '',
+  is_public: props.data?.is_public || false,
 })
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
@@ -83,6 +84,10 @@ async function submit(data: typeof state & { id?: number }) {
 
         <UFormGroup :label="t('instructions.instruction')" name="instruction" class="mb-4">
           <UTextarea v-model="state.instruction" autoresize :rows="3" :maxrows="8" />
+        </UFormGroup>
+
+        <UFormGroup :label="t('instructions.makePublic')" name="is_public" class="mb-4">
+          <UCheckbox v-model="state.is_public" :label="t('instructions.makePublicDescription')" />
         </UFormGroup>
 
         <div class="text-right">

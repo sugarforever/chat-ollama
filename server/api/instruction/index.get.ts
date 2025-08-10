@@ -1,11 +1,35 @@
 import { type Instruction } from "@prisma/client"
 import prisma from "@/server/utils/prisma"
 
-const listInstructions = async (): Promise<Instruction[] | null> => {
+const listInstructions = async (userId: number | null): Promise<Instruction[] | null> => {
   try {
+    const whereClause = (userId !== null && userId !== undefined) ?
+      {
+        OR: [
+          { user_id: userId },
+          { is_system: true },
+          { is_public: true }
+        ]
+      }
+      : {
+        OR: [
+          { is_system: true },
+          { is_public: true }
+        ]
+      }
+
     return await prisma.instruction.findMany({
+      where: whereClause,
       orderBy: {
         id: 'desc'
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       }
     })
   } catch (error) {
@@ -21,6 +45,6 @@ export default defineEventHandler(async (event) => {
     return { error: 'Instructions feature is disabled' }
   }
 
-  const instructions = await listInstructions()
+  const instructions = await listInstructions(event.context.user?.id)
   return { instructions }
 })

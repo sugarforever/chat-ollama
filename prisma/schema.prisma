@@ -30,6 +30,7 @@ model User {
     knowledgeBases KnowledgeBase[]
     accounts       Account[]
     sessions       Session[]
+    instructions   Instruction[]
 }
 
 model KnowledgeBase {
@@ -59,9 +60,13 @@ model KnowledgeBaseFile {
 }
 
 model Instruction {
-    id          Int    @id @default(autoincrement())
-    name        String @unique
+    id          Int     @id @default(autoincrement())
+    name        String  @unique
     instruction String
+    user_id     Int?
+    is_system   Boolean @default(false)
+    is_public   Boolean @default(false)
+    user        User?   @relation(fields: [user_id], references: [id])
 }
 
 model McpServer {

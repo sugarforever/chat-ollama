@@ -12,6 +12,7 @@ const { t } = useI18n()
 const modal = useModal()
 const confirm = useDialog('confirm')
 const { registerTool, unregisterTool } = useTools()
+const { data: session } = useAuth()
 
 const loading = ref(true)
 const instructions = ref<Instruction[]>([])
@@ -22,6 +23,10 @@ const tableRows = computed(() => {
       id: instruction.id,
       name: instruction.name,
       instruction: instruction.instruction,
+      is_system: instruction.is_system,
+      is_public: instruction.is_public,
+      user_name: instruction.user?.name,
+      user_id: instruction.user_id,
       class: instruction.isNew ? 'highlight-new' : ''
     }
   })
@@ -127,6 +132,8 @@ const columns = computed(() => {
   return [
     { key: "name", label: t("global.name") },
     { key: "instruction", label: t("instructions.instruction") },
+    { key: "type", label: t("instructions.type") },
+    { key: "visibility", label: t("instructions.visibility") },
     { key: "actions" },
   ]
 })
@@ -176,6 +183,24 @@ const addInstruction = (instruction) => {
   }, 2000)
 }
 
+const canEditInstruction = (instruction: any) => {
+  // System instructions cannot be edited
+  if (instruction.is_system) return false
+  
+  // If user is not logged in, can only edit legacy instructions (user_id is null)
+  if (!session.value?.user) {
+    return instruction.user_id === null
+  }
+  
+  // User can edit their own instructions or legacy instructions
+  return instruction.user_id === session.value.user.id || instruction.user_id === null
+}
+
+const canDeleteInstruction = (instruction: any) => {
+  // Same logic as edit for now
+  return canEditInstruction(instruction)
+}
+
 </script>
 
 <template>
@@ -194,12 +219,22 @@ const addInstruction = (instruction) => {
             class="w-full table-list"
             :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }"
             :row-class="(row) => row.class">
+      <template #type-data="{ row }">
+        <UBadge :color="row.is_system ? 'blue' : 'gray'" variant="soft">
+          {{ row.is_system ? t('instructions.system') : t('instructions.user') }}
+        </UBadge>
+      </template>
+      <template #visibility-data="{ row }">
+        <UBadge :color="row.is_public ? 'green' : 'orange'" variant="soft">
+          {{ row.is_public ? t('instructions.public') : t('instructions.private') }}
+        </UBadge>
+      </template>
       <template #actions-data="{ row }">
         <div class="action-btn">
-          <UTooltip :text="t('global.update')">
+          <UTooltip v-if="canEditInstruction(row)" :text="t('global.update')">
             <UButton icon="i-heroicons-pencil-square-solid" variant="ghost" class="mx-1" @click="onEdit(row)" />
           </UTooltip>
-          <UTooltip :text="t('global.delete')">
+          <UTooltip v-if="canDeleteInstruction(row)" :text="t('global.delete')">
             <UButton color="red" icon="i-heroicons-trash-20-solid" variant="ghost" class="mx-1"
                      @click="onDelete(row)" />
           </UTooltip>

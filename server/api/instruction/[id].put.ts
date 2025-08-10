@@ -1,18 +1,21 @@
 import prisma from "@/server/utils/prisma"
+import { requireInstruction, requireInstructionOwner } from "@/server/utils/instructions"
 
 const updateInstructions = async (
   id: string,
   name: string,
-  instruction: string
+  instruction: string,
+  isPublic?: boolean
 ) => {
   try {
-    return await prisma.instruction.upsert({
+    const updateData: any = { name, instruction }
+    if (isPublic !== undefined) {
+      updateData.is_public = isPublic
+    }
+
+    return await prisma.instruction.update({
       where: { id: parseInt(id) },
-      update: { name, instruction },
-      create: {
-        name,
-        instruction,
-      },
+      data: updateData
     })
   } catch (error) {
     console.error("Error editing instructions: ", error)
@@ -28,11 +31,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const id = event?.context?.params?.id
-  const { name, instruction } = await readBody(event)
+  const { name, instruction, is_public } = await readBody(event)
   if (!id || !name || !instruction) {
     return
   }
 
-  const result = await updateInstructions(id, name, instruction)
+  // Check if instruction exists and user has permission
+  const existingInstruction = await requireInstruction(id)
+  requireInstructionOwner(event, existingInstruction)
+
+  const result = await updateInstructions(id, name, instruction, is_public)
   return result
 })

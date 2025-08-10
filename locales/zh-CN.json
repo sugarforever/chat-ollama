@@ -53,7 +53,15 @@
     "deleteConfirm": "你确定要删除指令",
     "deleteFailed": "删除指令失败",
     "editFailed": "无法编辑",
-    "createFailed": "无法创建"
+    "createFailed": "无法创建",
+    "type": "类型",
+    "visibility": "可见性",
+    "system": "系统",
+    "user": "用户",
+    "public": "公开",
+    "private": "私有",
+    "makePublic": "设为公开",
+    "makePublicDescription": "允许其他用户查看并使用此指令"
   },
   "knowledgeBases": {
     "id": "ID",
