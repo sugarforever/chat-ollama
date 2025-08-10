@@ -71,6 +71,10 @@ onMounted(() => {
       }
     },
     handler: async (args) => {
+      if (!session.value?.user) {
+        return { success: false, error: 'Authentication required to create instructions' }
+      }
+
       try {
         await $fetchWithAuth('/api/instruction', {
           method: 'POST',
@@ -200,7 +204,7 @@ const canDeleteInstruction = (instruction: any) => {
   <div class="max-w-6xl mx-auto p-4">
     <div class="flex items-center mb-4">
       <h2 class="font-bold text-xl mr-auto">{{ t("instructions.instruction") }}</h2>
-      <UButton icon="i-material-symbols-add" @click="onCreate">
+      <UButton v-if="session?.user" icon="i-material-symbols-add" @click="onCreate">
         {{ t("global.create") }}
       </UButton>
     </div>
