@@ -1,6 +1,6 @@
 <script setup lang="ts">
-const config = useRuntimeConfig()
-const isMcpEnabled = computed(() => config.mcpEnabled)
+const features = useFeatures()
+const isMcpEnabled = computed(() => features.mcpEnabled)
 </script>
 
 <template>

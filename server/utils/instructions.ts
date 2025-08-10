@@ -1,13 +1,7 @@
 import type { Instruction } from '@prisma/client'
 import prisma from '@/server/utils/prisma'
 
-/**
- * Server-side utility to check if instructions feature is enabled
- */
-export function isInstructionsEnabled(): boolean {
-    const config = useRuntimeConfig()
-    return config.instructionsEnabled
-}
+// Instructions feature is now always enabled
 
 /**
  * Require an instruction to exist and return it
@@ -35,18 +29,10 @@ export async function requireInstruction(id?: string): Promise<Instruction> {
 }
 
 /**
- * Require the current user to be the owner of the instruction (or it's a system instruction they can view)
+ * Require the current user to be the owner of the instruction
  */
 export function requireInstructionOwner(event: any, instruction: Instruction): void {
   const currentUser = event.context.user
-
-  // System instructions cannot be modified by users
-  if (instruction.is_system) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Cannot modify system instructions'
-    })
-  }
 
   // If instruction has no owner (user_id is null), it's a legacy instruction - only allow modification if user is authenticated
   if (instruction.user_id === null) {

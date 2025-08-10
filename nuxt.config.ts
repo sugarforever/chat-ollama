@@ -92,7 +92,6 @@ export default defineNuxtConfig({
     knowledgeBaseEnabled: process.env.KNOWLEDGE_BASE_ENABLED === 'true',
     realtimeChatEnabled: process.env.REALTIME_CHAT_ENABLED === 'true',
     modelsManagementEnabled: process.env.MODELS_MANAGEMENT_ENABLED === 'true',
-    instructionsEnabled: process.env.INSTRUCTIONS_ENABLED === 'true',
     mcpEnabled: process.env.MCP_ENABLED === 'true',
 
     public: {

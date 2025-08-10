@@ -13,12 +13,6 @@ const deleteInstructions = async (id: string) => {
 }
 
 export default defineEventHandler(async (event) => {
-  // Check if instructions feature is enabled
-  if (!isInstructionsEnabled()) {
-    setResponseStatus(event, 403, 'Instructions feature is disabled')
-    return { error: 'Instructions feature is disabled' }
-  }
-
   const id = event?.context?.params?.id
   if (!id) return
 

@@ -1,142 +1,141 @@
 datasource sqlite {
-    provider = "sqlite"
-    url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
-    provider      = "prisma-client-js"
-    binaryTargets = ["linux-arm64-openssl-3.0.x", "darwin-arm64", "debian-openssl-3.0.x", "windows", "native"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["linux-arm64-openssl-3.0.x", "darwin-arm64", "debian-openssl-3.0.x", "windows", "native"]
 }
 
 model User {
-    id             Int       @id @default(autoincrement())
-    name           String    @unique
-    email          String?
-    password       String?
-    first_name     String?
-    last_name      String?
-    role           Int       @default(0)
-    email_verified Boolean   @default(false)
-    is_active      Boolean   @default(true)
-    last_login     DateTime?
-    created_at     DateTime  @default(now())
-    deleted_at     DateTime?
-    access_token   String?
-    updated_at     DateTime? @updatedAt
-    provider       String?
-    provider_id    String?
-    avatar         String?
+  id             Int       @id @default(autoincrement())
+  name           String    @unique
+  email          String?
+  password       String?
+  first_name     String?
+  last_name      String?
+  role           Int       @default(0)
+  email_verified Boolean   @default(false)
+  is_active      Boolean   @default(true)
+  last_login     DateTime?
+  created_at     DateTime  @default(now())
+  deleted_at     DateTime?
+  access_token   String?
+  updated_at     DateTime? @updatedAt
+  provider       String?
+  provider_id    String?
+  avatar         String?
 
-    knowledgeBases KnowledgeBase[]
-    accounts       Account[]
-    sessions       Session[]
-    instructions   Instruction[]
+  knowledgeBases KnowledgeBase[]
+  accounts       Account[]
+  sessions       Session[]
+  instructions   Instruction[]
 }
 
 model KnowledgeBase {
-    id                 Int                 @id @default(autoincrement())
-    name               String              @unique
-    embedding          String?
-    description        String?
-    created            DateTime?
-    updated            DateTime?
-    parentChunkSize    Int?
-    parentChunkOverlap Int?
-    childChunkSize     Int?
-    childChunkOverlap  Int?
-    parentK            Int?
-    childK             Int?
-    is_public          Boolean             @default(true)
-    user               User?               @relation(fields: [user_id], references: [id])
-    user_id            Int?
-    files              KnowledgeBaseFile[] @relation("Files")
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  embedding          String?
+  description        String?
+  created            DateTime?
+  updated            DateTime?
+  parentChunkSize    Int?
+  parentChunkOverlap Int?
+  childChunkSize     Int?
+  childChunkOverlap  Int?
+  parentK            Int?
+  childK             Int?
+  is_public          Boolean             @default(true)
+  user               User?               @relation(fields: [user_id], references: [id])
+  user_id            Int?
+  files              KnowledgeBaseFile[] @relation("Files")
 }
 
 model KnowledgeBaseFile {
-    id              Int           @id @default(autoincrement())
-    url             String
-    knowledgeBase   KnowledgeBase @relation("Files", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-    knowledgeBaseId Int
+  id              Int           @id @default(autoincrement())
+  url             String
+  knowledgeBase   KnowledgeBase @relation("Files", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  knowledgeBaseId Int
 }
 
 model Instruction {
-    id          Int     @id @default(autoincrement())
-    name        String  @unique
-    instruction String
-    user_id     Int?
-    is_system   Boolean @default(false)
-    is_public   Boolean @default(false)
-    user        User?   @relation(fields: [user_id], references: [id])
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  instruction String
+  user_id     Int?
+  is_public   Boolean @default(false)
+  user        User?   @relation(fields: [user_id], references: [id])
 }
 
 model McpServer {
-    id        Int    @id @default(autoincrement())
-    name      String @unique
-    transport String // stdio, sse, streamable-http, etc.
+  id        Int    @id @default(autoincrement())
+  name      String @unique
+  transport String // stdio, sse, streamable-http, etc.
 
-    // For stdio transport
-    command String?
-    args    String? // Store as single string
+  // For stdio transport
+  command String?
+  args    String? // Store as single string
 
-    // For other transports
-    url String?
+  // For other transports
+  url String?
 
-    // Common fields
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
-    enabled   Boolean  @default(true)
+  // Common fields
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  enabled   Boolean  @default(true)
 
-    // Relations
-    envVars McpServerEnvVar[]
+  // Relations
+  envVars McpServerEnvVar[]
 
-    @@map("mcp_servers")
+  @@map("mcp_servers")
 }
 
 model McpServerEnvVar {
-    id          Int      @id @default(autoincrement())
-    mcpServerId Int      @map("mcp_server_id")
-    key         String
-    value       String?
-    createdAt   DateTime @default(now()) @map("created_at")
+  id          Int      @id @default(autoincrement())
+  mcpServerId Int      @map("mcp_server_id")
+  key         String
+  value       String?
+  createdAt   DateTime @default(now()) @map("created_at")
 
-    // Relations
-    mcpServer McpServer @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
+  // Relations
+  mcpServer McpServer @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
 
-    @@unique([mcpServerId, key])
-    @@map("mcp_server_env_vars")
+  @@unique([mcpServerId, key])
+  @@map("mcp_server_env_vars")
 }
 
 model Account {
-    id                String  @id @default(cuid())
-    userId            Int
-    type              String
-    provider          String
-    providerAccountId String
-    refresh_token     String?
-    access_token      String?
-    expires_at        Int?
-    token_type        String?
-    scope             String?
-    id_token          String?
-    session_state     String?
+  id                String  @id @default(cuid())
+  userId            Int
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId])
 }
 
 model Session {
-    id           String   @id @default(cuid())
-    sessionToken String   @unique
-    userId       Int
-    expires      DateTime
-    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
-    @@unique([identifier, token])
+  @@unique([identifier, token])
 }

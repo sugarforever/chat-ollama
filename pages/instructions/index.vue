@@ -4,9 +4,7 @@ import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
 import { useTools } from '~/composables/useTools'
 
-definePageMeta({
-  middleware: 'instructions'
-})
+// Instructions feature is now always enabled
 
 const { t } = useI18n()
 const modal = useModal()
@@ -23,7 +21,6 @@ const tableRows = computed(() => {
       id: instruction.id,
       name: instruction.name,
       instruction: instruction.instruction,
-      is_system: instruction.is_system,
       is_public: instruction.is_public,
       user_name: instruction.user?.name,
       user_id: instruction.user_id,
@@ -132,7 +129,6 @@ const columns = computed(() => {
   return [
     { key: "name", label: t("global.name") },
     { key: "instruction", label: t("instructions.instruction") },
-    { key: "type", label: t("instructions.type") },
     { key: "visibility", label: t("instructions.visibility") },
     { key: "actions" },
   ]
@@ -184,14 +180,11 @@ const addInstruction = (instruction) => {
 }
 
 const canEditInstruction = (instruction: any) => {
-  // System instructions cannot be edited
-  if (instruction.is_system) return false
-  
   // If user is not logged in, can only edit legacy instructions (user_id is null)
   if (!session.value?.user) {
     return instruction.user_id === null
   }
-  
+
   // User can edit their own instructions or legacy instructions
   return instruction.user_id === session.value.user.id || instruction.user_id === null
 }
@@ -204,7 +197,7 @@ const canDeleteInstruction = (instruction: any) => {
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto">
+  <div class="max-w-6xl mx-auto p-4">
     <div class="flex items-center mb-4">
       <h2 class="font-bold text-xl mr-auto">{{ t("instructions.instruction") }}</h2>
       <UButton icon="i-material-symbols-add" @click="onCreate">
@@ -219,11 +212,6 @@ const canDeleteInstruction = (instruction: any) => {
             class="w-full table-list"
             :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }"
             :row-class="(row) => row.class">
-      <template #type-data="{ row }">
-        <UBadge :color="row.is_system ? 'blue' : 'gray'" variant="soft">
-          {{ row.is_system ? t('instructions.system') : t('instructions.user') }}
-        </UBadge>
-      </template>
       <template #visibility-data="{ row }">
         <UBadge :color="row.is_public ? 'green' : 'orange'" variant="soft">
           {{ row.is_public ? t('instructions.public') : t('instructions.private') }}

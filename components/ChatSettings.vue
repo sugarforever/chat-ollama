@@ -2,9 +2,8 @@
 import { loadOllamaInstructions, loadKnowledgeBases } from '~/utils/settings'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
 
-const config = useRuntimeConfig()
-const isKnowledgeBaseEnabled = computed(() => config.knowledgeBaseEnabled)
-const isInstructionsEnabled = computed(() => config.instructionsEnabled)
+const features = useFeatures()
+const isKnowledgeBaseEnabled = computed(() => features.knowledgeBaseEnabled)
 
 interface UpdatedOptions {
   title: string
@@ -34,7 +33,7 @@ const state = reactive({
   ...defaultConfig,
 })
 
-const instructions = isInstructionsEnabled.value ? await loadOllamaInstructions() : []
+const instructions = await loadOllamaInstructions()
 const knowledgeBases = isKnowledgeBaseEnabled.value ? await loadKnowledgeBases() : []
 
 const instructionContent = computed(() => {
@@ -64,9 +63,7 @@ async function onSave() {
   const knowledgeBaseInfo = isKnowledgeBaseEnabled.value
     ? knowledgeBases.find(el => el.id === state.knowledgeBaseId)
     : undefined
-  const instructionInfo = isInstructionsEnabled.value
-    ? instructions.find(el => el.id === state.instructionId)
-    : undefined
+  const instructionInfo = instructions.find(el => el.id === state.instructionId)
 
   await clientDB.chatSessions
     .where('id')
@@ -107,7 +104,7 @@ async function onReset() {
                        option-attribute="name"
                        :placeholder="t('chat.selectKB')"></USelectMenu>
         </UFormGroup>
-        <UFormGroup v-if="isInstructionsEnabled" :label="t('instructions.instruction')" name="instructionId" class="mb-4">
+        <UFormGroup :label="t('instructions.instruction')" name="instructionId" class="mb-4">
           <USelectMenu v-model="state.instructionId"
                        :options="instructions"
                        option-attribute="name"

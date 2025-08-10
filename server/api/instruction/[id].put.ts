@@ -2,44 +2,38 @@ import prisma from "@/server/utils/prisma"
 import { requireInstruction, requireInstructionOwner } from "@/server/utils/instructions"
 
 const updateInstructions = async (
-  id: string,
-  name: string,
-  instruction: string,
-  isPublic?: boolean
+    id: string,
+    name: string,
+    instruction: string,
+    isPublic?: boolean
 ) => {
-  try {
-    const updateData: any = { name, instruction }
-    if (isPublic !== undefined) {
-      updateData.is_public = isPublic
-    }
+    try {
+        const updateData: any = { name, instruction }
+        if (isPublic !== undefined) {
+            updateData.is_public = isPublic
+        }
 
-    return await prisma.instruction.update({
-      where: { id: parseInt(id) },
-      data: updateData
-    })
-  } catch (error) {
-    console.error("Error editing instructions: ", error)
-    return null
-  }
+        return await prisma.instruction.update({
+            where: { id: parseInt(id) },
+            data: updateData
+        })
+    } catch (error) {
+        console.error("Error editing instructions: ", error)
+        return null
+    }
 }
 
 export default defineEventHandler(async (event) => {
-  // Check if instructions feature is enabled
-  if (!isInstructionsEnabled()) {
-    setResponseStatus(event, 403, 'Instructions feature is disabled')
-    return { error: 'Instructions feature is disabled' }
-  }
+    const id = event?.context?.params?.id
+    const { name, instruction, is_public } = await readBody(event)
+    if (!id || !name || !instruction) {
+        return
+    }
 
-  const id = event?.context?.params?.id
-  const { name, instruction, is_public } = await readBody(event)
-  if (!id || !name || !instruction) {
-    return
-  }
+    // Check if instruction exists and user has permission
+    const existingInstruction = await requireInstruction(id)
+    requireInstructionOwner(event, existingInstruction)
 
-  // Check if instruction exists and user has permission
-  const existingInstruction = await requireInstruction(id)
-  requireInstructionOwner(event, existingInstruction)
-
-  const result = await updateInstructions(id, name, instruction, is_public)
-  return result
+    const result = await updateInstructions(id, name, instruction, is_public)
+    return result
 })

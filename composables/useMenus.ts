@@ -3,11 +3,11 @@ export const DEFAULT_PAGE_LINK = '/welcome'
 
 export function useMenus() {
   const { t } = useI18n()
-  const config = useRuntimeConfig()
-  const isKnowledgeBaseEnabled = computed(() => config.knowledgeBaseEnabled)
-  const isRealtimeChatEnabled = computed(() => config.realtimeChatEnabled)
-  const isModelsManagementEnabled = computed(() => config.modelsManagementEnabled)
-  const isInstructionsEnabled = computed(() => config.instructionsEnabled)
+  const features = useFeatures()
+
+  const isKnowledgeBaseEnabled = computed(() => features.knowledgeBaseEnabled)
+  const isRealtimeChatEnabled = computed(() => features.realtimeChatEnabled)
+  const isModelsManagementEnabled = computed(() => features.modelsManagementEnabled)
 
   return computed(() => {
     const menus = [
@@ -19,10 +19,8 @@ export function useMenus() {
       menus.push({ label: t('menu.models'), icon: 'i-heroicons-rectangle-stack', to: '/models' })
     }
 
-    // Only add instructions menu if feature is enabled
-    if (isInstructionsEnabled.value) {
-      menus.push({ label: t('menu.instructions'), icon: 'i-iconoir-terminal', to: '/instructions' })
-    }
+    // Instructions menu is always enabled
+    menus.push({ label: t('menu.instructions'), icon: 'i-iconoir-terminal', to: '/instructions' })
 
     // Only add knowledge base menu if feature is enabled
     if (isKnowledgeBaseEnabled.value) {
