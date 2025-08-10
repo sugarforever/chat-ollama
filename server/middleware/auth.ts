@@ -11,18 +11,28 @@ const extractToken = (authHeaderValue: string) => {
 
 const parseAuthUser = (event: H3Event) => {
   const authHeaderValue = getRequestHeader(event, 'Authorization')
+  const cookieToken = getCookie(event, 'auth-token')
 
+  // Try Authorization header first
   if (authHeaderValue != null) {
     const extractedToken = extractToken(authHeaderValue)
     try {
       return jwt.verify(extractedToken, SECRET)
     } catch (error) {
       console.log('Invalid token from Authorization header.')
-      return null
     }
-  } else {
-    return null
   }
+
+  // Fall back to cookie token
+  if (cookieToken) {
+    try {
+      return jwt.verify(cookieToken, SECRET)
+    } catch (error) {
+      console.log('Invalid token from cookie.')
+    }
+  }
+
+  return null
 }
 
 export default defineEventHandler((event) => {

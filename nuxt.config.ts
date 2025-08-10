@@ -7,15 +7,21 @@ export default defineNuxtConfig({
     provider: {
       type: 'local',
       endpoints: {
-        getSession: { path: '/user' }
+        getSession: { path: '/user', method: 'get' }
       },
       pages: {
-        login: '/'
+        login: '/login'
       },
       token: {
-        signInResponseTokenPointer: '/token/accessToken'
+        signInResponseTokenPointer: '/token/accessToken',
+        type: 'Bearer',
+        cookieName: 'auth-token',
+        headerName: 'Authorization',
+        headerType: 'Bearer',
+        name: 'auth-token',
+        maxAgeInSeconds: 60 * 60 * 24 * 365
       },
-      sessionDataType: { id: 'string', email: 'string', name: 'string' }
+      sessionDataType: { id: 'string', email: 'string', name: 'string', role: 'string' }
     },
     session: {
       // Whether to refresh the session every time the browser window is refocused.
