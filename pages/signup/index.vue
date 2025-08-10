@@ -74,7 +74,7 @@ async function signUpWithGoogle() {
 }
 </script>
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+  <div class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <!-- Logo and branding -->
       <div class="text-center mb-8">
@@ -83,7 +83,7 @@ async function signUpWithGoogle() {
       </div>
 
       <!-- Sign-up card -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
         <div class="space-y-6">
           <!-- Google sign-up -->
           <UButton
@@ -146,41 +146,41 @@ async function signUpWithGoogle() {
           <!-- Signup form -->
           <UForm :schema="schema" :state="state" @submit="onSubmit" class="space-y-4">
             <!-- Name field -->
-            <UFormGroup name="name">
+            <UFormGroup label="Name" name="name">
               <UInput
                       v-model="state.name"
                       type="text"
-                      placeholder="Name"
+                      placeholder="Enter your name"
                       size="lg"
                       :disabled="loading" />
             </UFormGroup>
 
             <!-- Email field -->
-            <UFormGroup name="email">
+            <UFormGroup label="Email" name="email">
               <UInput
                       v-model="state.email"
                       type="email"
-                      placeholder="Email"
+                      placeholder="Enter your email"
                       size="lg"
                       :disabled="loading" />
             </UFormGroup>
 
             <!-- Password field -->
-            <UFormGroup name="password">
+            <UFormGroup label="Password" name="password">
               <UInput
                       v-model="state.password"
                       type="password"
-                      placeholder="Password"
+                      placeholder="Enter your password"
                       size="lg"
                       :disabled="loading" />
             </UFormGroup>
 
             <!-- Confirm Password field -->
-            <UFormGroup name="confirmPassword">
+            <UFormGroup label="Confirm Password" name="confirmPassword">
               <UInput
                       v-model="state.confirmPassword"
                       type="password"
-                      placeholder="Confirm Password"
+                      placeholder="Confirm your password"
                       size="lg"
                       :disabled="loading" />
             </UFormGroup>

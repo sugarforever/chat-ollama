@@ -33,9 +33,11 @@ const menus = useMenus()
       </div>
 
       <!-- Auth Component -->
+      <!--
       <div class="flex items-center">
         <Auth />
       </div>
+      -->
     </div>
   </div>
 </template>

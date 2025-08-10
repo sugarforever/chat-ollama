@@ -91,9 +91,11 @@ const toggleLeftPanel = () => {
         </div>
 
         <!-- Auth Component -->
+        <!--
         <div class="flex items-center" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
           <Auth :collapsed="isLeftPanelCollapsed" />
         </div>
+        -->
       </div>
     </div>
 
