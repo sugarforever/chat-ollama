@@ -23,6 +23,21 @@ const validate = async (name: string, password: string) => {
     })
   }
 
+  // Check if user signed up with OAuth (no password set)
+  if (!exist.password && exist.provider) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Please sign in using ${exist.provider} instead`
+    })
+  }
+
+  if (!exist.password) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Invalid user name and password`
+    })
+  }
+
   const match = bcrypt.compareSync(password, exist.password)
   if (!match) {
     throw createError({
@@ -35,9 +50,11 @@ const validate = async (name: string, password: string) => {
 }
 
 export default eventHandler(async (event) => {
-  const { username, password } = await readBody(event)
+  const { name, username, password } = await readBody(event)
 
-  const userRecord = await validate(username, password)
+  // Support both 'name' and 'username' for backwards compatibility
+  const userIdentifier = name || username
+  const userRecord = await validate(userIdentifier, password)
 
   const expiresIn = 365 * 24 * 60 * 60
   const refreshToken = Math.floor(Math.random() * (1000000000000000 - 1 + 1)) + 1
@@ -60,6 +77,14 @@ export default eventHandler(async (event) => {
     accessToken,
     user
   }
+
+  // Set JWT token in cookie for browser-based authentication
+  setCookie(event, 'auth-token', accessToken, {
+    maxAge: expiresIn,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  })
 
   return {
     token: {

@@ -12,7 +12,7 @@ model User {
     id             Int       @id @default(autoincrement())
     name           String    @unique
     email          String?
-    password       String
+    password       String?
     first_name     String?
     last_name      String?
     role           Int       @default(0)
@@ -23,8 +23,13 @@ model User {
     deleted_at     DateTime?
     access_token   String?
     updated_at     DateTime? @updatedAt
+    provider       String?
+    provider_id    String?
+    avatar         String?
 
     knowledgeBases KnowledgeBase[]
+    accounts       Account[]
+    sessions       Session[]
 }
 
 model KnowledgeBase {
@@ -94,4 +99,39 @@ model McpServerEnvVar {
 
     @@unique([mcpServerId, key])
     @@map("mcp_server_env_vars")
+}
+
+model Account {
+    id                String  @id @default(cuid())
+    userId            Int
+    type              String
+    provider          String
+    providerAccountId String
+    refresh_token     String?
+    access_token      String?
+    expires_at        Int?
+    token_type        String?
+    scope             String?
+    id_token          String?
+    session_state     String?
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([provider, providerAccountId])
+}
+
+model Session {
+    id           String   @id @default(cuid())
+    sessionToken String   @unique
+    userId       Int
+    expires      DateTime
+    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+    identifier String
+    token      String   @unique
+    expires    DateTime
+
+    @@unique([identifier, token])
 }
