@@ -99,7 +99,6 @@ const toggleModel = (modelValue: string) => {
   } else {
     tempSelection.value.splice(index, 1)
   }
-  
   // Apply changes immediately
   applySelection()
 }
@@ -211,7 +210,7 @@ onClickOutside(dropdownRef, () => {
                 dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
               ]"
                :ui="{
-                body: { padding: 'p-0' }
+                body: { padding: 'sm:p-0 p-0' }
               }">
 
           <!-- Family Selection View -->
