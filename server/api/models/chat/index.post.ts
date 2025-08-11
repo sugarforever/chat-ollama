@@ -104,6 +104,175 @@ const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => 
   return normalizedMessages
 }
 
+const extractContentFromChunk = (chunk: BaseMessageChunk): string => {
+  let content = chunk?.content
+  // Handle array of text_delta objects
+  if (Array.isArray(content)) {
+    content = content
+      .filter(item => item.type === 'text_delta' || item.type === 'text')
+      .map(item => ('text' in item ? item.text : ''))
+      .join('')
+  }
+  return content || ''
+}
+
+const processToolCalls = async (
+  toolCalls: any[],
+  toolsMap: Record<string, StructuredToolInterface>,
+  accumulatedToolCalls: any[],
+  accumulatedToolResults: any[]
+): Promise<ToolMessage[]> => {
+  const toolMessages: ToolMessage[] = []
+  
+  for (const toolCall of toolCalls) {
+    console.log("Processing tool call: ", toolCall)
+    const selectedTool = toolsMap[toolCall.name]
+
+    if (selectedTool) {
+      // Add tool call info to tracking
+      accumulatedToolCalls.push({
+        id: toolCall.id,
+        name: toolCall.name,
+        args: toolCall.args
+      })
+
+      const result = await selectedTool.invoke(toolCall)
+      console.log("Tool result: ", result)
+
+      // Add tool result to tracking
+      accumulatedToolResults.push({
+        tool_call_id: toolCall.id, // Use the original tool call ID
+        content: result.content
+      })
+
+      // Create ToolMessage with the correct tool_call_id from the original tool call
+      toolMessages.push(new ToolMessage(result.content, toolCall.id))
+    }
+  }
+  
+  return toolMessages
+}
+
+const createMessageResponse = (content: string, toolCalls: any[], toolResults: any[]) => ({
+  message: {
+    role: 'assistant',
+    content,
+    tool_calls: toolCalls,
+    tool_results: toolResults
+  }
+})
+
+const safeJsonStringify = (obj: any): string => {
+  try {
+    // Use JSON.stringify with proper escaping for newlines
+    const jsonStr = JSON.stringify(obj, null, 0)
+    // Ensure no unescaped newlines that could break the stream parsing
+    return jsonStr.replace(/\r?\n/g, '\\n')
+  } catch (error) {
+    console.error('JSON stringify error:', error)
+    // Fallback to a safe error message
+    return JSON.stringify({ error: 'Failed to serialize message' })
+  }
+}
+
+const handleMultiRoundToolCalls = async function* (
+  llm: BaseChatModel,
+  transformedMessages: BaseMessageLike[],
+  toolsMap: Record<string, StructuredToolInterface>,
+  initialGathered: any,
+  initialContent: string,
+  initialToolCalls: any[],
+  initialToolResults: any[]
+) {
+  const MAX_ROUNDS = 10 // Prevent infinite loops
+  let accumulatedContent = initialContent
+  let accumulatedToolCalls = [...initialToolCalls]
+  let accumulatedToolResults = [...initialToolResults]
+  
+  // Add initial AI message with tool calls to conversation
+  if (initialGathered) {
+    console.log("Adding initial AI message with tool_calls:", initialGathered?.tool_calls?.length || 0)
+    transformedMessages.push(new AIMessage(initialGathered as AIMessageFields))
+  }
+  
+  const initialToolMessages = await processToolCalls(
+    initialGathered?.tool_calls ?? [],
+    toolsMap,
+    accumulatedToolCalls,
+    accumulatedToolResults
+  )
+  
+  console.log("Created initial tool messages:", initialToolMessages.length)
+  
+  // Stream initial tool results
+  yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
+  
+  transformedMessages.push(...initialToolMessages)
+  
+  let hasMoreToolCalls = initialToolMessages.length > 0
+  let roundCount = 0
+  
+  while (hasMoreToolCalls && roundCount < MAX_ROUNDS) {
+    roundCount++
+    console.log(`Tool call round ${roundCount}`)
+    
+    const nextResponse = await llm.stream(transformedMessages as BaseMessageLike[])
+    let nextGathered = undefined
+    let hasNewContent = false
+    
+    // Stream the response and gather potential new tool calls
+    for await (const chunk of nextResponse) {
+      nextGathered = nextGathered !== undefined ? concat(nextGathered, chunk) : chunk
+      
+      const content = extractContentFromChunk(chunk)
+      if (content) {
+        accumulatedContent += content
+        hasNewContent = true
+        
+        // Stream content updates immediately
+        yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
+      }
+    }
+    
+    // Check if there are more tool calls to process
+    const newToolCalls = nextGathered?.tool_calls ?? []
+    if (newToolCalls.length > 0) {
+      console.log(`Found ${newToolCalls.length} new tool calls in round ${roundCount}`)
+      
+      // Add the AI response to conversation if it had content or tool calls
+      if (hasNewContent || newToolCalls.length > 0) {
+        console.log(`Adding AI message for round ${roundCount} with tool_calls:`, newToolCalls.length)
+        console.log("AI message tool_calls structure:", JSON.stringify(newToolCalls, null, 2))
+        transformedMessages.push(new AIMessage(nextGathered as AIMessageFields))
+      }
+      
+      // Process the new tool calls
+      const newToolMessages = await processToolCalls(
+        newToolCalls,
+        toolsMap,
+        accumulatedToolCalls,
+        accumulatedToolResults
+      )
+      
+      console.log(`Created ${newToolMessages.length} tool messages for round ${roundCount}`)
+      console.log("Tool messages:", newToolMessages.map(tm => ({ content: tm.content, tool_call_id: tm.tool_call_id })))
+      
+      // Stream updated message with new tool calls and results
+      yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
+      
+      // Add tool messages to conversation for next round
+      transformedMessages.push(...newToolMessages)
+      hasMoreToolCalls = newToolMessages.length > 0
+    } else {
+      hasMoreToolCalls = false
+    }
+  }
+  
+  if (roundCount >= MAX_ROUNDS) {
+    console.warn(`Tool call processing stopped after ${MAX_ROUNDS} rounds to prevent infinite loops`)
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
 
@@ -212,7 +381,7 @@ export default defineEventHandler(async (event) => {
               content: chunk?.content
             }
           }
-          yield `${JSON.stringify(message)} \n\n`
+          yield `${safeJsonStringify(message)} \n\n`
         }
       }
 
@@ -220,7 +389,7 @@ export default defineEventHandler(async (event) => {
         type: "relevant_documents",
         relevant_documents: rerankedDocuments
       }
-      yield `${JSON.stringify(docsChunk)} \n\n`
+      yield `${safeJsonStringify(docsChunk)} \n\n`
     })())
     return sendStream(event, readableStream)
   } else {
@@ -259,7 +428,6 @@ export default defineEventHandler(async (event) => {
     console.log(response)
 
     const readableStream = Readable.from((async function* () {
-
       let gathered = undefined
       let accumulatedContent = ''
       let toolCalls: any[] = []
@@ -269,104 +437,32 @@ export default defineEventHandler(async (event) => {
       for await (const chunk of response) {
         gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
 
-        let content = chunk?.content
-        // Handle array of text_delta objects
-        if (Array.isArray(content)) {
-          content = content
-            .filter(item => item.type === 'text_delta' || item.type === 'text')
-            .map(item => ('text' in item ? item.text : ''))
-            .join('')
-        }
-
+        const content = extractContentFromChunk(chunk)
         if (content) {
           accumulatedContent += content
 
           // Stream content updates immediately to prevent timeout
-          const message = {
-            message: {
-              role: 'assistant',
-              content: accumulatedContent,
-              tool_calls: toolCalls,
-              tool_results: toolResults
-            }
-          }
-          yield `${JSON.stringify(message)} \n\n`
+          yield `${safeJsonStringify(createMessageResponse(accumulatedContent, toolCalls, toolResults))} \n\n`
         }
       }
 
-      // Process tool calls if any
-      const toolMessages = [] as ToolMessage[]
       console.log("Gathered response: ", gathered)
-      for (const toolCall of gathered?.tool_calls ?? []) {
-        console.log("Tool call: ", toolCall)
-        const selectedTool = toolsMap[toolCall.name]
-
-        if (selectedTool) {
-          // Add tool call info to our tracking
-          toolCalls.push({
-            id: toolCall.id,
-            name: toolCall.name,
-            args: toolCall.args
-          })
-
-          const result = await selectedTool.invoke(toolCall)
-          console.log("Tool result: ", result)
-
-          // Add tool result to our tracking
-          toolResults.push({
-            tool_call_id: result.tool_call_id,
-            content: result.content
-          })
-
-          // Stream updated message with tool calls and results
-          const message = {
-            message: {
-              role: 'assistant',
-              content: accumulatedContent,
-              tool_calls: toolCalls,
-              tool_results: toolResults
-            }
-          }
-          yield `${JSON.stringify(message)} \n\n`
-
-          toolMessages.push(new ToolMessage(result.content, result.tool_call_id))
-        }
+      
+      // Handle multi-round tool calls if any exist
+      if (gathered?.tool_calls?.length > 0) {
+        console.log("Starting multi-round tool call processing")
+        yield* handleMultiRoundToolCalls(
+          llm,
+          transformedMessages,
+          toolsMap,
+          gathered,
+          accumulatedContent,
+          toolCalls,
+          toolResults
+        )
       }
-
+      
       await mcpService.close()
-
-      if (toolMessages.length) {
-        console.log("Inferencing with tool results")
-        transformedMessages.push(new AIMessage(gathered as AIMessageFields))
-        transformedMessages.push(...toolMessages)
-        const finalResponse = await llm.stream(transformedMessages as BaseMessageLike[])
-
-        for await (const chunk of finalResponse) {
-          let content = chunk?.content
-          // Handle array of text_delta objects
-          if (Array.isArray(content)) {
-            content = content
-              .filter(item => item.type === 'text_delta' || item.type === 'text')
-              .map(item => ('text' in item ? item.text : ''))
-              .join('')
-          }
-
-          if (content) {
-            accumulatedContent += content
-
-            // Stream final content immediately to prevent timeout
-            const message = {
-              message: {
-                role: 'assistant',
-                content: accumulatedContent,
-                tool_calls: toolCalls,
-                tool_results: toolResults
-              }
-            }
-            yield `${JSON.stringify(message)} \n\n`
-          }
-        }
-      }
     })())
 
     return sendStream(event, readableStream)
