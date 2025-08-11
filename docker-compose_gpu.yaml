@@ -1,4 +1,4 @@
-version: '3.1'
+# version: '3.1'
 
 services:
   ollama:
@@ -43,5 +43,6 @@ services:
       - redis_data:/data
 
 volumes:
+  redis_data:
   chromadb_data:
   ollama_data:
