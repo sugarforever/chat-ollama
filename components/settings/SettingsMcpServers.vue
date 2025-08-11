@@ -10,6 +10,8 @@ const servers = ref<McpServerConfig[]>([])
 const loading = ref(false)
 const showCreateForm = ref(false)
 const editingServer = ref<McpServerConfig | null>(null)
+const serverTools = ref<Record<number, { tools: any[], loading: boolean, error: string | null }>>({})
+const expandedServers = ref<Set<number>>(new Set())
 
 // Form state
 const createForm = reactive<McpServerCreateInput>({
@@ -88,12 +90,60 @@ const fetchServers = async () => {
     const response = await $fetch<{ success: boolean; data: McpServerConfig[] }>('/api/mcp-servers')
     if (response.success) {
       servers.value = response.data
+      // Initialize tools state for all servers
+      serverTools.value = servers.value.reduce((acc, server) => {
+        if (server.id) {
+          acc[server.id] = { tools: [], loading: false, error: null }
+        }
+        return acc
+      }, {} as Record<number, { tools: any[], loading: boolean, error: string | null }>)
     }
   } catch (error) {
     console.error('Failed to fetch MCP servers:', error)
     toast.add({ title: 'Failed to fetch MCP servers', color: 'red' })
   } finally {
     loading.value = false
+  }
+}
+
+const fetchServerTools = async (serverId: number) => {
+  if (!serverTools.value[serverId]) {
+    serverTools.value[serverId] = { tools: [], loading: false, error: null }
+  }
+
+  serverTools.value[serverId].loading = true
+  serverTools.value[serverId].error = null
+
+  try {
+    const response = await $fetch(`/api/mcp-servers/${serverId}/tools`)
+    
+    if (response.success) {
+      serverTools.value[serverId].tools = response.data.tools || []
+      if (response.data.connectionError) {
+        serverTools.value[serverId].error = response.error || 'Connection failed'
+      }
+    } else {
+      serverTools.value[serverId].error = response.error || 'Failed to fetch tools'
+      serverTools.value[serverId].tools = []
+    }
+  } catch (error: any) {
+    console.error(`Failed to fetch tools for server ${serverId}:`, error)
+    serverTools.value[serverId].error = error.data?.message || 'Failed to fetch tools'
+    serverTools.value[serverId].tools = []
+  } finally {
+    serverTools.value[serverId].loading = false
+  }
+}
+
+const toggleServerExpansion = (serverId: number) => {
+  if (expandedServers.value.has(serverId)) {
+    expandedServers.value.delete(serverId)
+  } else {
+    expandedServers.value.add(serverId)
+    // Fetch tools when expanding if not already fetched
+    if (serverTools.value[serverId] && serverTools.value[serverId].tools.length === 0 && !serverTools.value[serverId].error) {
+      fetchServerTools(serverId)
+    }
   }
 }
 
@@ -116,6 +166,12 @@ const createServer = async () => {
 
     if (response.success) {
       servers.value.push(response.data)
+      
+      // Initialize tools state for the new server
+      if (response.data.id) {
+        serverTools.value[response.data.id] = { tools: [], loading: false, error: null }
+      }
+      
       resetCreateForm()
       showCreateForm.value = false
       toast.add({ title: 'MCP server created successfully', color: 'green' })
@@ -174,6 +230,13 @@ const toggleServer = async (server: McpServerConfig) => {
       if (index !== -1) {
         servers.value[index] = response.data
       }
+      
+      // Reset tools state when server is toggled
+      if (server.id && serverTools.value[server.id]) {
+        serverTools.value[server.id] = { tools: [], loading: false, error: null }
+        expandedServers.value.delete(server.id) // Collapse when toggling
+      }
+      
       toast.add({
         title: `MCP server ${response.data.enabled ? 'enabled' : 'disabled'} successfully`,
         color: 'green'
@@ -375,6 +438,14 @@ onMounted(() => {
                       <div class="flex items-center gap-2 mb-1">
                         <h4 class="font-medium text-sm text-gray-900 dark:text-gray-100">{{ server.name }}</h4>
                         <UBadge color="blue" variant="soft" size="xs">{{ server.transport }}</UBadge>
+                        <UBadge v-if="serverTools[server.id!] && serverTools[server.id!].tools.length > 0" 
+                                color="green" variant="soft" size="xs">
+                          {{ serverTools[server.id!].tools.length }} tool(s)
+                        </UBadge>
+                        <UBadge v-else-if="serverTools[server.id!] && serverTools[server.id!].error" 
+                                color="red" variant="soft" size="xs">
+                          Connection Error
+                        </UBadge>
                       </div>
 
                       <div class="text-xs text-gray-600 dark:text-gray-400 truncate">
@@ -388,6 +459,14 @@ onMounted(() => {
                   </div>
 
                   <div class="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <UButton v-if="server.id" 
+                             @click="toggleServerExpansion(server.id)" 
+                             :color="expandedServers.has(server.id) ? 'blue' : 'gray'" 
+                             size="xs" variant="ghost">
+                      <UIcon :name="expandedServers.has(server.id) ? 'i-material-symbols-expand-less' : 'i-material-symbols-expand-more'" 
+                             class="text-xs" />
+                    </UButton>
+
                     <UButton @click="toggleServer(server)" color="orange" size="xs" variant="ghost">
                       <UIcon name="i-material-symbols-pause" class="text-xs" />
                     </UButton>
@@ -399,6 +478,45 @@ onMounted(() => {
                     <UButton @click="confirmDelete(server)" color="red" size="xs" variant="ghost">
                       <UIcon name="i-material-symbols-delete" class="text-xs" />
                     </UButton>
+                  </div>
+                </div>
+
+                <!-- Tools Display -->
+                <div v-if="server.id && expandedServers.has(server.id)" class="mt-3 pl-6 border-l-2 border-green-200 dark:border-green-800">
+                  <div v-if="serverTools[server.id] && serverTools[server.id].loading" class="flex items-center gap-2 text-xs text-gray-500">
+                    <UIcon name="i-material-symbols-refresh" class="animate-spin w-3 h-3" />
+                    Fetching tools...
+                  </div>
+
+                  <div v-else-if="serverTools[server.id] && serverTools[server.id].error" class="text-xs">
+                    <div class="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
+                      <UIcon name="i-material-symbols-warning" class="w-3 h-3" />
+                      <span>{{ serverTools[server.id].error }}</span>
+                    </div>
+                    <UButton @click="fetchServerTools(server.id)" size="xs" color="red" variant="outline">
+                      <UIcon name="i-material-symbols-refresh" class="mr-1 text-xs" />
+                      Retry
+                    </UButton>
+                  </div>
+
+                  <div v-else-if="serverTools[server.id] && serverTools[server.id].tools.length > 0" class="space-y-2">
+                    <div class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Available Tools ({{ serverTools[server.id].tools.length }})
+                    </div>
+                    <div class="space-y-1">
+                      <div v-for="tool in serverTools[server.id].tools" :key="tool.name" 
+                           class="bg-green-50 dark:bg-green-950/50 rounded px-2 py-1 text-xs">
+                        <div class="font-medium text-green-800 dark:text-green-200">{{ tool.name }}</div>
+                        <div v-if="tool.description" class="text-green-600 dark:text-green-400 mt-1">
+                          {{ tool.description }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-else-if="serverTools[server.id] && serverTools[server.id].tools.length === 0 && !serverTools[server.id].error" 
+                       class="text-xs text-gray-500">
+                    No tools available for this server
                   </div>
                 </div>
               </div>
@@ -488,6 +606,7 @@ onMounted(() => {
                       <div class="flex items-center gap-2 mb-1">
                         <h4 class="font-medium text-sm text-gray-600 dark:text-gray-400">{{ server.name }}</h4>
                         <UBadge color="gray" variant="soft" size="xs">{{ server.transport }}</UBadge>
+                        <UBadge color="gray" variant="soft" size="xs">Disabled</UBadge>
                       </div>
 
                       <div class="text-xs text-gray-500 dark:text-gray-500 truncate">
@@ -513,6 +632,11 @@ onMounted(() => {
                       <UIcon name="i-material-symbols-delete" class="text-xs" />
                     </UButton>
                   </div>
+                </div>
+
+                <!-- Disabled server tools info -->
+                <div class="mt-2 pl-6 text-xs text-gray-500 italic">
+                  Enable server to fetch and view available tools
                 </div>
               </div>
             </div>

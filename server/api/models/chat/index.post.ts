@@ -41,6 +41,8 @@ interface RequestBody {
 const SYSTEM_TEMPLATE = `Answer the user's question based on the context below.
 Present your answer in a structured Markdown format.
 
+If a tool is to be called, you should always review the tool call result, and user's question. You may need to call multiple tools to get the final answer.
+
 If the context doesn't contain any relevant information to the question, don't make something up and just say "I don't know":
 
 <context>
