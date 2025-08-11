@@ -5,10 +5,12 @@ import { loadMcpTools, MultiServerMCPClient } from '@langchain/mcp-adapters'
 import fs from 'fs'
 import path from 'path'
 import { PrismaClient } from '@prisma/client'
-import {
+import type {
   McpServerConfig,
   McpServerCreateInput,
-  McpServerUpdateInput,
+  McpServerUpdateInput
+} from '../types/mcp'
+import {
   validateMcpServerConfig,
   dbRecordToConfig,
   TRANSPORT_CONFIGS
@@ -98,11 +100,21 @@ export class McpService {
   }
 
   private convertToMcpClientConfig(servers: McpServerConfig[]): any {
-    const config: any = { servers: {} }
+    return McpService.convertToMcpClientConfig(servers)
+  }
 
-    for (const server of servers) {
+  // Static method that can be used by both the service and external callers
+  static convertToMcpClientConfig(servers: McpServerConfig | McpServerConfig[]): any {
+    const config: any = { servers: {} }
+    const serverArray = Array.isArray(servers) ? servers : [servers]
+
+    for (const server of serverArray) {
       const serverConfig: any = {
         transport: server.transport
+      }
+
+      if (server.transport === 'streamable-http') {
+        delete serverConfig.transport
       }
 
       if (server.transport === 'stdio') {
