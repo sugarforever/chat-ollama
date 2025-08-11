@@ -90,7 +90,7 @@
     "ollama": "^0.5.2",
     "openai": "^4.33.0",
     "pdf-parse": "^1.1.1",
-    "prisma": "^6.13.0",
+    "prisma": "^5.12.1",
     "socks-proxy-agent": "^8.0.4",
     "ws": "^8.16.0",
     "yup": "^1.4.0",
