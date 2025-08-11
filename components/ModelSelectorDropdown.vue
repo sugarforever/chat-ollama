@@ -91,7 +91,7 @@ const selectFamily = (family: string) => {
   )
 }
 
-// Handle model toggle within family
+// Handle model toggle within family - apply immediately
 const toggleModel = (modelValue: string) => {
   const index = tempSelection.value.indexOf(modelValue)
   if (index === -1) {
@@ -99,9 +99,12 @@ const toggleModel = (modelValue: string) => {
   } else {
     tempSelection.value.splice(index, 1)
   }
+  
+  // Apply changes immediately
+  applySelection()
 }
 
-// Apply selection and close
+// Apply selection immediately without closing
 const applySelection = () => {
   // Merge temp selection with models from other families
   const otherFamilyModels = models.value.filter(m => {
@@ -111,7 +114,6 @@ const applySelection = () => {
 
   const newModels = [...otherFamilyModels, ...tempSelection.value]
   models.value = newModels
-  closeDropdown()
   onChange(newModels)
 }
 
@@ -248,26 +250,17 @@ onClickOutside(dropdownRef, () => {
           <!-- Model Selection View -->
           <div v-else-if="currentView === 'models' && selectedFamily" class="flex flex-col max-h-96">
             <!-- Header -->
-            <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <div class="flex items-center">
-                <UButton
-                         icon="i-heroicons-arrow-left-20-solid"
-                         size="xs"
-                         color="gray"
-                         variant="ghost"
-                         @click="backToFamilies"
-                         class="mr-2" />
-                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {{ selectedFamily }}
-                </h3>
-              </div>
-
+            <div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
               <UButton
+                       icon="i-heroicons-arrow-left-20-solid"
                        size="xs"
-                       color="primary"
-                       @click="applySelection">
-                Apply ({{ tempSelection.length }})
-              </UButton>
+                       color="gray"
+                       variant="ghost"
+                       @click="backToFamilies"
+                       class="mr-2" />
+              <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {{ selectedFamily }}
+              </h3>
             </div>
 
             <!-- Models List -->
