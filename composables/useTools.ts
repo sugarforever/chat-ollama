@@ -18,7 +18,6 @@ const globalTools: Ref<Tool[]> = ref([])
 
 export function useTools() {
   const registerTool = (tool: Tool) => {
-    console.log('Registering tool:', tool)
     const existingIndex = globalTools.value.findIndex(t => t.name === tool.name)
     if (existingIndex >= 0) {
       globalTools.value[existingIndex] = tool
@@ -28,7 +27,6 @@ export function useTools() {
   }
 
   const unregisterTool = (toolName: string) => {
-    console.log('Unregistering tool:', toolName)
     const index = globalTools.value.findIndex(t => t.name === toolName)
     if (index >= 0) {
       globalTools.value.splice(index, 1)

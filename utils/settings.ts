@@ -59,7 +59,6 @@ export const loadOllamaInstructions = async () => {
     const fetchMethod = token.value ? $fetchWithAuth : $fetch
 
     const { instructions } = await fetchMethod<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`)
-    console.log('instructions', instructions)
     return instructions
   } catch (e) {
     console.error("Failed to fetch Ollama instructions", e)

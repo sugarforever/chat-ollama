@@ -15,7 +15,7 @@ const toast = useToast()
 const state = reactive({
   name: props.data?.name || '',
   instruction: props.data?.instruction || '',
-  is_public: props.data?.is_public || false,
+  is_public: (props.data as any)?.is_public || false,
 })
 const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
@@ -78,12 +78,12 @@ async function submit(data: typeof state & { id?: number }) {
       </template>
 
       <UForm :validate="validate" :state="state" @submit="onSubmit">
-        <UFormGroup :label="t('global.name')" name="name" class="mb-4">
-          <UInput v-model="state.name" autocomplete="off" />
+        <UFormGroup name="name" class="mb-4">
+          <UInput v-model="state.name" :placeholder="t('global.name')" autocomplete="off" />
         </UFormGroup>
 
-        <UFormGroup :label="t('instructions.instruction')" name="instruction" class="mb-4">
-          <UTextarea v-model="state.instruction" autoresize :rows="3" :maxrows="8" />
+        <UFormGroup name="instruction" class="mb-4">
+          <UTextarea v-model="state.instruction" :placeholder="t('instructions.instruction')" autoresize :rows="3" :maxrows="8" />
         </UFormGroup>
 
         <UFormGroup :label="t('instructions.makePublic')" name="is_public" class="mb-4">
@@ -92,7 +92,7 @@ async function submit(data: typeof state & { id?: number }) {
 
         <div class="text-right">
           <UButton color="gray" class="mr-2" @click="onClose()">{{ t("global.cancel") }}</UButton>
-          <UButton type="submit" :loading>{{ t("global.save") }}</UButton>
+          <UButton type="submit" :loading="loading">{{ t("global.save") }}</UButton>
         </div>
       </UForm>
     </UCard>
