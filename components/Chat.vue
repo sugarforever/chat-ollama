@@ -430,7 +430,7 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
                               @submit="onSend" @stop="onAbortChat">
                     <div class="text-muted flex">
                         <div class="mr-4">
-                            <ModelsMultiSelectMenu v-model="models" @change="onModelsChange" />
+                            <ModelSelectorDropdown v-model="models" @change="onModelsChange" />
                         </div>
                         <UTooltip :text="t('chat.attachedMessagesCount')" :popper="{ placement: 'top-start' }">
                             <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
