@@ -184,17 +184,15 @@ const checkHost = (key: keyof typeof state, title: string) => {
   return { path: key, message: t('settings.linkRuleMessage', [title]) }
 }
 
+const { hasBrandIcon, getFallbackIcon, preloadCommonIcons } = useBrandIcons()
+
+// Preload common icons on component mount
+onMounted(() => {
+  preloadCommonIcons()
+})
+
 function getServerIcon(key: string): string {
-  const iconMap: Record<string, string> = {
-    ollamaServer: 'i-material-symbols-tune',
-    openAi: 'i-material-symbols-openai',
-    azureOpenAi: 'i-material-symbols-cloud',
-    anthropic: 'i-material-symbols-psychology',
-    moonshot: 'i-material-symbols-rocket',
-    gemini: 'i-material-symbols-auto-awesome',
-    groq: 'i-material-symbols-speed',
-  }
-  return iconMap[key] || 'i-material-symbols-server'
+  return getFallbackIcon(key)
 }
 
 function getCurrentServerTitle(): string {
@@ -281,7 +279,11 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                           ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
                           : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
                       ]">
-                    <UIcon :name="getServerIcon(item.key)" class="w-5 h-5 mr-3 flex-shrink-0" :class="currentLLM === item.key ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
+                    <BrandIcon
+                               :server-key="item.key"
+                               size="md"
+                               class="mr-3"
+                               :class="currentLLM === item.key ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" />
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium truncate" :class="currentLLM === item.key ? 'text-primary-900 dark:text-primary-100' : 'text-gray-900 dark:text-gray-100'">
                         {{ item.title }}
@@ -330,14 +332,14 @@ function recursiveObject(obj: Record<string, any>, cb: (keyPaths: string[], valu
                                 :name="item.value"
                                 class="mb-4">
                       <UInput v-if="item.type === 'input' || item.type === 'password'"
-                              v-model.trim="(state[item.value] as string)"
+                              v-model.trim="state[item.value]"
                               :type="item.type"
                               :placeholder="item.placeholder"
                               size="lg"
                               :rule="item.rule" />
                       <template v-else-if="item.type === 'checkbox'">
                         <label class="flex items-center">
-                          <UCheckbox v-model="state[item.value] as boolean"></UCheckbox>
+                          <UCheckbox v-model="state[item.value]"></UCheckbox>
                           <span class="ml-2 text-sm text-muted">({{ item.placeholder }})</span>
                         </label>
                       </template>
