@@ -127,12 +127,16 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
         prevPart = chunk
         continue
       }
-      prevPart = ''
+      
+      // Split on the separator and handle the last part which might be incomplete
+      const parts = chunk.split(splitter)
+      prevPart = parts.pop() || '' // Keep the last part for next iteration
 
-      for (const line of chunk.split(splitter)) {
-        if (!line) continue
+      for (const line of parts) {
+        if (!line.trim()) continue
 
-        const chatMessage = JSON.parse(line) as ResponseMessage | ResponseRelevantDocument
+        try {
+          const chatMessage = JSON.parse(line) as ResponseMessage | ResponseRelevantDocument
         const isMessage = !('type' in chatMessage) && 'message' in chatMessage
         const isToolResult = isMessage && chatMessage.message.type === 'tool_result'
 
@@ -210,6 +214,15 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
               toolResult: false
             },
           })
+        }
+        } catch (parseError) {
+          console.warn('Failed to parse JSON chunk:', {
+            chunk: line.substring(0, 200),
+            length: line.length,
+            error: parseError instanceof Error ? parseError.message : parseError
+          })
+          // Skip malformed JSON chunks but continue processing
+          continue
         }
       }
     }
