@@ -35,6 +35,7 @@ const listInstructions = async (userId: number | null): Promise<Instruction[] | 
 }
 
 export default defineEventHandler(async (event) => {
+  console.log("user:", event.context.user)
   const instructions = await listInstructions(event.context.user?.id)
   return { instructions }
 })

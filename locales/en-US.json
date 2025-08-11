@@ -187,7 +187,7 @@
     "customServers": "Custom Servers"
   },
   "auth": {
-    "signIn": "Sign In",
+    "signIn": "Log In",
     "signUp": "Sign Up",
     "nameRule1": "Name must be at least 1 characters",
     "passwordRule1": "Must be at least 8 characters",

@@ -45,7 +45,7 @@ async function onSubmit() {
   } catch (error: any) {
     toast.add({
       title: t('auth.failedLoginTitle'),
-      description: error.data?.statusMessage || 'Failed to sign in',
+      description: error.data?.statusMessage || 'Failed to log in',
       color: 'red'
     })
   } finally {
@@ -60,7 +60,7 @@ async function signInWithGoogle() {
   } catch (error: any) {
     toast.add({
       title: t('auth.failedLoginTitle'),
-      description: 'Failed to sign in with Google',
+      description: 'Failed to log in with Google',
       color: 'red'
     })
     loading.value = false
@@ -73,7 +73,7 @@ async function signInWithGoogle() {
       <!-- Logo and branding -->
       <div class="text-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome back</h1>
-        <p class="text-gray-600 dark:text-gray-400">Sign in to start your next chat</p>
+        <p class="text-gray-600 dark:text-gray-400">Log in to start your next chat</p>
       </div>
 
       <!-- Sign-in card -->
