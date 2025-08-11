@@ -27,7 +27,7 @@ const validate = async (name: string, password: string) => {
   if (!exist.password && exist.provider) {
     throw createError({
       statusCode: 400,
-      statusMessage: `Please sign in using ${exist.provider} instead`
+      statusMessage: `Please log in using ${exist.provider} instead`
     })
   }
 

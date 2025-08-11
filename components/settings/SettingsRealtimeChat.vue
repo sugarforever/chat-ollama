@@ -2,8 +2,8 @@
 import { useStorage } from '@vueuse/core'
 const { t } = useI18n()
 
-const config = useRuntimeConfig()
-const isRealtimeChatFeatureEnabled = computed(() => config.realtimeChatEnabled)
+const features = useFeatures()
+const isRealtimeChatFeatureEnabled = computed(() => features.realtimeChatEnabled)
 
 // Use composable for persistent storage
 const realtimeChatEnabled = useStorage('realtimeChatEnabled', false)

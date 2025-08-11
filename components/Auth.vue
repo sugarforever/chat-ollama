@@ -12,8 +12,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { signOut, data, status } = useAuth()
 const onClickSignOut = async () => {
-  // Call custom logout endpoint to clear the JWT cookie
-  await $fetch('/api/auth/logout', { method: 'POST' })
   await signOut({ callbackUrl: '/' })
 }
 

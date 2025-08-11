@@ -1,8 +1,15 @@
 import prisma from "@/server/utils/prisma"
 
-const saveInstructions = async (name: string, instruction: string) => {
+const saveInstructions = async (name: string, instruction: string, userId: number, isPublic: boolean = false) => {
   try {
-    return await prisma.instruction.create({ data: { name, instruction } })
+    return await prisma.instruction.create({
+      data: {
+        name,
+        instruction,
+        user_id: userId,
+        is_public: isPublic
+      }
+    })
   } catch (error) {
     console.error("Error saving instructions: ", error)
     return null
@@ -10,16 +17,22 @@ const saveInstructions = async (name: string, instruction: string) => {
 }
 
 export default defineEventHandler(async (event) => {
-  // Check if instructions feature is enabled
-  if (!isInstructionsEnabled()) {
-    setResponseStatus(event, 403, 'Instructions feature is disabled')
-    return { error: 'Instructions feature is disabled' }
+  // Require authentication for instruction creation
+  if (!event.context.user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Authentication required to create instructions'
+    })
   }
 
-  const { name, instruction } = await readBody(event)
+  const { name, instruction, is_public = false } = await readBody(event)
   if (!name || !instruction) {
-    return
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Name and instruction are required'
+    })
   }
-  const result = await saveInstructions(name, instruction)
+
+  const result = await saveInstructions(name, instruction, event.context.user.id, is_public)
   return result
 })

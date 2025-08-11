@@ -52,7 +52,14 @@ export const getKeysHeader = () => ({ 'x-chat-ollama-keys': encodeURIComponent(J
 
 export const loadOllamaInstructions = async () => {
   try {
-    const { instructions } = await $fetchWithAuth<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`)
+    console.log('loadOllamaInstructions')
+
+    // Check if user is authenticated and use appropriate fetch method
+    const { token } = useAuth()
+    const fetchMethod = token.value ? $fetchWithAuth : $fetch
+
+    const { instructions } = await fetchMethod<Record<string, { id: number, name: string, instruction: string }[]>>(`/api/instruction/`)
+    console.log('instructions', instructions)
     return instructions
   } catch (e) {
     console.error("Failed to fetch Ollama instructions", e)

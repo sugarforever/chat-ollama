@@ -5,8 +5,8 @@ import type { ModelItem } from '@/server/api/models/index.get'
 const { t } = useI18n()
 const { loadModels, models } = useModels({ forceReload: true })
 
-const config = useRuntimeConfig()
-const isModelsManagementEnabled = computed(() => config.modelsManagementEnabled)
+const features = useFeatures()
+const isModelsManagementEnabled = computed(() => features.modelsManagementEnabled)
 
 const modelRows = computed(() => {
   return models.value.map((model) => {

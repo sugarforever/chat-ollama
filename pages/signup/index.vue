@@ -42,7 +42,7 @@ async function onSubmit() {
 
     toast.add({
       title: 'Success',
-      description: 'Account created successfully! Please sign in.',
+      description: 'Account created successfully! Please log in.',
       color: 'green'
     })
 
@@ -197,10 +197,10 @@ async function signUpWithGoogle() {
           </UForm>
         </div>
 
-        <!-- Sign in link -->
+        <!-- Log in link -->
         <div class="mt-8 text-center">
           <span class="text-sm text-gray-600 dark:text-gray-400">Already have an account? </span>
-          <UButton to="/login" variant="link" class="text-sm p-0">Sign in</UButton>
+          <UButton to="/login" variant="link" class="text-sm p-0">Log in</UButton>
         </div>
       </div>
 

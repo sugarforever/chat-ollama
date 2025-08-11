@@ -58,18 +58,20 @@ const toggleLeftPanel = () => {
 
       <!-- Navigation Menu -->
       <nav class="flex-1 p-4 space-y-2">
-        <NuxtLink v-for="link in links" :key="link.to" :to="link.to"
-                  class="flex items-center p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-                  :class="{ 'justify-center': isLeftPanelCollapsed }"
-                  active-class="!bg-primary-50 dark:!bg-primary-900/20 !text-primary-600 dark:!text-primary-400">
-          <Icon :name="link.icon" class="w-5 h-5 flex-shrink-0" />
-          <span v-if="!isLeftPanelCollapsed" class="ml-3 truncate">{{ link.label }}</span>
-          <!-- Tooltip for collapsed state -->
-          <div v-if="isLeftPanelCollapsed"
-               class="absolute left-16 ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-            {{ link.label }}
-          </div>
-        </NuxtLink>
+        <ClientOnly>
+          <NuxtLink v-for="link in links" :key="link.to" :to="link.to"
+                    class="flex items-center p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                    :class="{ 'justify-center': isLeftPanelCollapsed }"
+                    active-class="!bg-primary-50 dark:!bg-primary-900/20 !text-primary-600 dark:!text-primary-400">
+            <Icon :name="link.icon" class="w-5 h-5 flex-shrink-0" />
+            <span v-if="!isLeftPanelCollapsed" class="ml-3 truncate">{{ link.label }}</span>
+            <!-- Tooltip for collapsed state -->
+            <div v-if="isLeftPanelCollapsed"
+                 class="absolute left-16 ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              {{ link.label }}
+            </div>
+          </NuxtLink>
+        </ClientOnly>
       </nav>
 
       <!-- Bottom Section -->
@@ -91,11 +93,9 @@ const toggleLeftPanel = () => {
         </div>
 
         <!-- Auth Component -->
-        <!--
         <div class="flex items-center" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
           <Auth :collapsed="isLeftPanelCollapsed" />
         </div>
-        -->
       </div>
     </div>
 
