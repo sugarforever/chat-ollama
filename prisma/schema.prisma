@@ -1,6 +1,7 @@
-datasource sqlite {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+datasource postgres {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
