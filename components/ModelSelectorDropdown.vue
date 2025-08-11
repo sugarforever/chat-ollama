@@ -141,6 +141,12 @@ const shouldShowSearch = computed(() => {
   return familyModels.length > 6
 })
 
+// Clear all selections
+const clearAllSelections = () => {
+  models.value = []
+  onChange([])
+}
+
 // Back to family selection
 const backToFamilies = () => {
   currentView.value = 'families'
@@ -241,9 +247,21 @@ onClickOutside(dropdownRef, () => {
 
           <!-- Family Selection View -->
           <div v-if="currentView === 'families'" class="p-4">
-            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-              {{ t('models.selectFamily') || 'Select Model Family' }}
-            </h3>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {{ t('models.selectFamily') || 'Select Model Family' }}
+              </h3>
+              <UButton
+                v-if="models.length > 0"
+                size="xs"
+                color="gray"
+                variant="ghost"
+                icon="i-heroicons-x-mark-20-solid"
+                @click="clearAllSelections"
+                class="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
+                Clear All
+              </UButton>
+            </div>
 
             <div class="space-y-2 max-h-64 overflow-y-auto">
               <div
