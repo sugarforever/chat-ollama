@@ -27,6 +27,7 @@ const tempSelection = ref<string[]>([])
 const triggerRef = ref()
 const dropdownRef = ref()
 const dropdownPosition = ref<'bottom' | 'top'>('bottom')
+const searchQuery = ref('')
 
 // Ensure models are loaded when component mounts
 onMounted(async () => {
@@ -84,6 +85,7 @@ watch([chatModels, models], ([data1, data2]) => {
 const selectFamily = (family: string) => {
   selectedFamily.value = family
   currentView.value = 'models'
+  searchQuery.value = '' // Clear search when entering family
   // Initialize temp selection with current models from this family
   const familyModels = modelsByFamily.value[family] || []
   tempSelection.value = models.value.filter(m =>
@@ -116,11 +118,35 @@ const applySelection = () => {
   onChange(newModels)
 }
 
+// Filtered models based on search query
+const filteredModels = computed(() => {
+  if (!selectedFamily.value) return []
+  const familyModels = modelsByFamily.value[selectedFamily.value] || []
+  
+  if (!searchQuery.value.trim()) {
+    return familyModels
+  }
+  
+  const query = searchQuery.value.toLowerCase()
+  return familyModels.filter(model => 
+    model.label.toLowerCase().includes(query) ||
+    model.name.toLowerCase().includes(query)
+  )
+})
+
+// Check if search should be shown (more than 6 models)
+const shouldShowSearch = computed(() => {
+  if (!selectedFamily.value) return false
+  const familyModels = modelsByFamily.value[selectedFamily.value] || []
+  return familyModels.length > 6
+})
+
 // Back to family selection
 const backToFamilies = () => {
   currentView.value = 'families'
   selectedFamily.value = null
   tempSelection.value = []
+  searchQuery.value = ''
 }
 
 // Close dropdown
@@ -206,7 +232,7 @@ onClickOutside(dropdownRef, () => {
         <UCard
                v-if="isOpen"
                :class="[
-                'absolute z-50 min-w-80 max-w-2xl w-max max-h-96 overflow-hidden shadow-lg left-0',
+                'absolute z-50 min-w-80 max-w-2xl w-max max-h-[500px] overflow-hidden shadow-lg left-0',
                 dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
               ]"
                :ui="{
@@ -247,7 +273,7 @@ onClickOutside(dropdownRef, () => {
           </div>
 
           <!-- Model Selection View -->
-          <div v-else-if="currentView === 'models' && selectedFamily" class="flex flex-col max-h-96">
+          <div v-else-if="currentView === 'models' && selectedFamily" class="flex flex-col max-h-[500px]">
             <!-- Header -->
             <div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
               <UButton
@@ -262,11 +288,27 @@ onClickOutside(dropdownRef, () => {
               </h3>
             </div>
 
+            <!-- Search Box (if more than 6 models) -->
+            <div v-if="shouldShowSearch" class="px-4 pt-3 pb-3">
+              <UInput
+                v-model="searchQuery"
+                icon="i-heroicons-magnifying-glass-20-solid"
+                :placeholder="`Search ${selectedFamily} models...`"
+                size="sm"
+                class="w-full"
+                :ui="{
+                  base: 'focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-600'
+                }" />
+            </div>
+
             <!-- Models List -->
-            <div class="flex-1 overflow-y-auto p-4 min-h-0 max-h-64">
-              <div class="space-y-2">
+            <div class="flex-1 overflow-y-auto p-4 min-h-0 max-h-80" :class="{ 'pt-0': shouldShowSearch }">
+              <div v-if="filteredModels.length === 0" class="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                No models found matching "{{ searchQuery }}"
+              </div>
+              <div v-else class="space-y-2">
                 <label
-                       v-for="model in modelsByFamily[selectedFamily]"
+                       v-for="model in filteredModels"
                        :key="model.value"
                        class="flex items-center p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
 
