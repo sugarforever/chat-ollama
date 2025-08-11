@@ -3,14 +3,14 @@ import type { ModelInfo } from '~/composables/useModels'
 import { onMounted } from 'vue'
 
 withDefaults(defineProps<{
-  autoDefault?: boolean,
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+    autoDefault?: boolean,
+    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 }>(), {
-  autoDefault: true,
+    autoDefault: true,
 })
 
 const emits = defineEmits<{
-  change: [models: string[], modelsRaw: ModelInfo[]]
+    change: [models: string[], modelsRaw: ModelInfo[]]
 }>()
 
 const models = defineModel<string[]>({ default: [] })
@@ -20,59 +20,61 @@ const { chatModels, loadModels } = useModels()
 
 // Ensure models are loaded when component mounts
 onMounted(async () => {
-  try {
-    await loadModels()
-  } catch (error) {
-    console.warn('Failed to load models in ModelsMultiSelectMenu:', error)
-    // Continue without models - the component should handle empty models gracefully
-  }
+    try {
+        await loadModels()
+    } catch (error) {
+        console.warn('Failed to load models in ModelsMultiSelectMenu:', error)
+        // Continue without models - the component should handle empty models gracefully
+    }
 })
 
 const uiMenu = {
-  container: 'z-20 group w-[unset] whitespace-nowrap !w-auto',
-  option: { base: 'cursor-default select-none relative flex items-center justify-between gap-1 pr-8' }
+    container: 'z-20 group w-[unset] whitespace-nowrap !w-auto',
+    option: { base: 'cursor-default select-none relative flex items-center justify-between gap-1 pr-8' }
 }
 
 watch([chatModels, models], ([data1, data2]) => {
-  if (data1.length > 0 && data2.length > 0) {
-    const arr = data2.filter(m => data1.some(d => d.value === m))
-    if (arr.length !== data2.length) {
-      models.value = arr
+    if (data1.length > 0 && data2.length > 0) {
+        const arr = data2.filter(m => data1.some(d => d.value === m))
+        if (arr.length !== data2.length) {
+            models.value = arr
+        }
     }
-  }
 }, { immediate: true })
 
 function onChange(models: string[]) {
-  const modelsRaw = chatModels.value.filter(model => models.includes(model.value))
-  emits('change', models, modelsRaw)
+    const modelsRaw = chatModels.value
+        .filter(model => models.includes(model.value))
+        .map(model => ({ ...model })) // Create plain objects to avoid Vue reactivity issues
+    emits('change', models, modelsRaw)
 }
 
 </script>
 
 <template>
-  <ClientOnly>
-    <USelectMenu
-                 searchable
-                 v-model="models"
-                 :options="chatModels"
-                 value-attribute="value"
-                 :size
-                 multiple
-                 :ui-menu="uiMenu"
-                 :popper="{ placement: 'top-start' }"
-                 :placeholder="t('global.selectModels')"
-                 @change="onChange">
-      <template #label>
-        <div class="text-muted inline-flex items-center">
-          <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
-          <span>{{ models?.length }} Models</span>
-        </div>
-      </template>
-      <template #option="{ option }">
-        <span>{{ option.family }}</span>
-        <span class="text-muted">/</span>
-        <span>{{ option.label }}</span>
-      </template>
-    </USelectMenu>
-  </ClientOnly>
+    <ClientOnly>
+        <USelectMenu
+                     searchable
+                     v-model="models"
+                     :options="chatModels"
+                     value-attribute="value"
+                     :size
+                     multiple
+                     :ui-menu="uiMenu"
+                     :popper="{ placement: 'top-start' }"
+                     :placeholder="t('global.selectModels')"
+                     @change="onChange">
+            <template #label>
+                <div class="text-muted inline-flex items-center">
+                    <UIcon name="i-heroicons-rectangle-stack" class="mr-1"></UIcon>
+                    <span>{{ models?.length }} Models</span>
+                </div>
+            </template>
+            <template #option="{ option }">
+                <span>{{ option.family }}</span>
+                <span class="text-muted">/</span>
+                <span>{{ option.label }}</span>
+            </template>
+        </USelectMenu>
+    </ClientOnly>
 </template>

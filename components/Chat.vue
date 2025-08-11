@@ -337,8 +337,14 @@ function onOpenSettings() {
     })
 }
 
-async function onModelsChange(models: string[]) {
-    await clientDB.chatSessions.update(props.sessionId!, { models })
+async function onModelsChange(models: string[], modelsRaw?: ModelInfo[]) {
+    if (!props.sessionId) return
+    
+    try {
+        await clientDB.chatSessions.update(props.sessionId, { models: [...models] })
+    } catch (error) {
+        console.error('Failed to save models:', error)
+    }
 }
 
 async function onResend(data: ChatMessage) {
@@ -358,8 +364,9 @@ async function initData(sessionId?: number) {
     sessionInfo.value = result
     knowledgeBaseInfo.value = knowledgeBases.find(el => el.id === result?.knowledgeBaseId)
     instructionInfo.value = instructions.find(el => el.id === result?.instructionId)
-    if (result?.models) {
-        models.value = result.models
+    
+    if (result?.models && Array.isArray(result.models) && result.models.length > 0) {
+        models.value = [...result.models]
     }
     // incompatible old data
     else if (result?.model) {
