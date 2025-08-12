@@ -376,6 +376,11 @@ async function initData(sessionId?: number) {
 
   messages.value = await loadChatHistory(sessionId)
 
+  // Reconstruct artifact version history from loaded messages
+  if (sessionId) {
+    reconstructVersionHistory(sessionId.toString(), messages.value)
+  }
+
   nextTick(() => {
     scrollToBottom('auto')
     isFirstLoad.value = false
@@ -386,7 +391,7 @@ async function initData(sessionId?: number) {
 const showArtifacts = ref(false)
 const currentArtifact = ref<Artifact | null>(null)
 const currentArtifactVersions = ref<ArtifactVersion[]>([])
-const { detectArtifact, downloadArtifact, shareArtifact, addArtifactVersion, getArtifactVersions } = useArtifacts()
+const { detectArtifact, downloadArtifact, shareArtifact, addArtifactVersion, getArtifactVersions, reconstructVersionHistory } = useArtifacts()
 
 // Handle artifact requests from messages
 const onArtifactRequest = (artifact: Artifact) => {

@@ -9,8 +9,45 @@ export interface ArtifactDetectionResult {
  * Composable for detecting and extracting artifacts from message content
  */
 export function useArtifacts() {
-  // Store for artifact versions by session
+  // Store for artifact versions by session - persistent storage
   const artifactVersions = ref<Map<string, ArtifactVersion[]>>(new Map())
+  
+  // Load versions from localStorage on initialization
+  const loadVersionsFromStorage = () => {
+    try {
+      const stored = localStorage.getItem('chatollama-artifact-versions')
+      if (stored) {
+        const data = JSON.parse(stored)
+        Object.entries(data).forEach(([sessionId, versions]) => {
+          artifactVersions.value.set(sessionId, versions as ArtifactVersion[])
+        })
+      }
+    } catch (error) {
+      console.warn('Failed to load artifact versions from storage:', error)
+    }
+  }
+  
+  // Save versions to localStorage
+  const saveVersionsToStorage = () => {
+    try {
+      const data: Record<string, ArtifactVersion[]> = {}
+      artifactVersions.value.forEach((versions, sessionId) => {
+        data[sessionId] = versions
+      })
+      localStorage.setItem('chatollama-artifact-versions', JSON.stringify(data))
+    } catch (error) {
+      console.warn('Failed to save artifact versions to storage:', error)
+    }
+  }
+  
+  // Initialize storage on first use
+  let initialized = false
+  const ensureInitialized = () => {
+    if (!initialized) {
+      loadVersionsFromStorage()
+      initialized = true
+    }
+  }
   
   /**
    * Detects if a message contains an artifact and extracts it
@@ -280,6 +317,8 @@ export function useArtifacts() {
    * Adds an artifact version to the session store
    */
   function addArtifactVersion(sessionId: string, artifact: Artifact) {
+    ensureInitialized()
+    
     const versions = artifactVersions.value.get(sessionId) || []
     const artifactVersion: ArtifactVersion = {
       artifact: {
@@ -293,6 +332,9 @@ export function useArtifacts() {
     versions.push(artifactVersion)
     artifactVersions.value.set(sessionId, versions)
     
+    // Persist to storage
+    saveVersionsToStorage()
+    
     return artifactVersion
   }
 
@@ -300,6 +342,8 @@ export function useArtifacts() {
    * Gets all versions of artifacts for a session
    */
   function getArtifactVersions(sessionId: string, artifactType?: string): ArtifactVersion[] {
+    ensureInitialized()
+    
     const versions = artifactVersions.value.get(sessionId) || []
     if (artifactType) {
       return versions.filter(v => v.artifact.type === artifactType)
@@ -311,6 +355,8 @@ export function useArtifacts() {
    * Gets the next version number for an artifact type in a session
    */
   function getNextVersionNumber(sessionId: string, artifactType: string): number {
+    ensureInitialized()
+    
     const versions = getArtifactVersions(sessionId, artifactType)
     return versions.length + 1
   }
@@ -319,15 +365,47 @@ export function useArtifacts() {
    * Clears all versions for a session
    */
   function clearSessionVersions(sessionId: string) {
+    ensureInitialized()
+    
     artifactVersions.value.delete(sessionId)
+    saveVersionsToStorage()
   }
 
   /**
    * Gets the latest version of an artifact type in a session
    */
   function getLatestArtifactVersion(sessionId: string, artifactType: string): ArtifactVersion | null {
+    ensureInitialized()
+    
     const versions = getArtifactVersions(sessionId, artifactType)
     return versions.length > 0 ? versions[versions.length - 1] : null
+  }
+  
+  /**
+   * Reconstructs version history from existing messages in a session
+   * Used when loading old sessions to rebuild version data
+   */
+  function reconstructVersionHistory(sessionId: string, messages: any[]) {
+    ensureInitialized()
+    
+    // Clear existing versions for this session
+    artifactVersions.value.delete(sessionId)
+    
+    // Process messages in chronological order
+    const sortedMessages = messages
+      .filter(msg => msg.role === 'assistant' && msg.content)
+      .sort((a, b) => (a.startTime || 0) - (b.startTime || 0))
+    
+    for (const message of sortedMessages) {
+      const result = detectArtifact(message.content, message.id)
+      if (result.hasArtifact && result.artifact) {
+        // Set timestamp from message if available
+        result.artifact.timestamp = message.startTime || message.endTime || Date.now()
+        result.artifact.messageId = message.id
+        
+        addArtifactVersion(sessionId, result.artifact)
+      }
+    }
   }
 
   return {
@@ -340,6 +418,7 @@ export function useArtifacts() {
     getArtifactVersions,
     clearSessionVersions,
     getLatestArtifactVersion,
+    reconstructVersionHistory,
     artifactVersions: readonly(artifactVersions)
   }
 }
