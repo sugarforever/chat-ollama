@@ -80,8 +80,8 @@ const { detectArtifact } = useArtifacts()
 // Detect artifacts in the current message
 const detectedArtifact = computed(() => {
   if (!messageContent.value) return null
-  
-  const result = detectArtifact(messageContent.value, props.message.id)
+
+  const result = detectArtifact(messageContent.value)
   return result.hasArtifact ? result.artifact : null
 })
 
@@ -90,6 +90,8 @@ const toggleArtifact = () => {
     emits('artifact', detectedArtifact.value)
   }
 }
+
+
 
 
 
@@ -213,15 +215,17 @@ onUnmounted(() => {
           </div>
           <div class="flex flex-col">
             <MessageToggleCollapseButton v-if="showToggleButton" :opened="opened" @click="opened = !opened" />
-            <UButton v-if="detectedArtifact"
-                     icon="i-heroicons-document-text-20-solid"
-                     color="gray"
-                     variant="ghost"
-                     size="xs"
-                     class="mt-1 artifact-btn"
-                     @click="toggleArtifact">
-              <UTooltip text="Open Artifact" :popper="{ placement: 'left' }" />
-            </UButton>
+            <UTooltip v-if="detectedArtifact"
+                      text="Preview"
+                      :popper="{ placement: 'left' }"
+                      class="artifact-tooltip">
+              <UButton icon="i-heroicons-eye-20-solid"
+                       color="primary"
+                       variant="ghost"
+                       size="xs"
+                       class="mt-1 artifact-btn group hover:scale-105 transition-all duration-200"
+                       @click="toggleArtifact" />
+            </UTooltip>
           </div>
         </template>
         <template v-else>
@@ -269,12 +273,19 @@ onUnmounted(() => {
 
   .artifact-btn {
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(8px);
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+      transform: translateX(0) scale(1.05);
+    }
   }
 
   &:hover {
     .artifact-btn {
       opacity: 1;
+      transform: translateX(0);
     }
   }
 }
@@ -319,6 +330,27 @@ onUnmounted(() => {
 .dark {
   .image-gallery img {
     background: var(--color-gray-800);
+  }
+
+  .artifact-btn:hover {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  }
+}
+
+/* Custom artifact tooltip styling */
+:deep(.artifact-tooltip) {
+  .ui-tooltip {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    font-weight: 500;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+
+    &::before {
+      border-left-color: #667eea;
+    }
   }
 }
 </style>
