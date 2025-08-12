@@ -6,7 +6,7 @@ import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
 import type { ChatMessage } from '~/types/chat'
-import type { Artifact } from '~/components/ArtifactPanel.vue'
+import type { Artifact, ArtifactVersion } from '~/components/ArtifactPanel.vue'
 
 type Instruction = Awaited<ReturnType<typeof loadOllamaInstructions>>[number]
 
@@ -385,11 +385,22 @@ async function initData(sessionId?: number) {
 // Add new state for artifacts
 const showArtifacts = ref(false)
 const currentArtifact = ref<Artifact | null>(null)
-const { detectArtifact, downloadArtifact, shareArtifact } = useArtifacts()
+const currentArtifactVersions = ref<ArtifactVersion[]>([])
+const { detectArtifact, downloadArtifact, shareArtifact, addArtifactVersion, getArtifactVersions } = useArtifacts()
 
 // Handle artifact requests from messages
 const onArtifactRequest = (artifact: Artifact) => {
+  if (!sessionInfo.value?.id) return
+  
+  // Add artifact to version history
+  const sessionId = sessionInfo.value.id.toString()
+  artifact.messageId = artifact.messageId || Math.random()
+  
+  const artifactVersion = addArtifactVersion(sessionId, artifact)
+  
+  // Set current artifact and load all versions of the same type
   currentArtifact.value = artifact
+  currentArtifactVersions.value = getArtifactVersions(sessionId, artifact.type)
   showArtifacts.value = true
 }
 
@@ -411,6 +422,10 @@ const onArtifactShare = () => {
     // You could show a toast notification here
     console.log(result)
   }
+}
+
+const onVersionChange = (version: ArtifactVersion) => {
+  currentArtifact.value = version.artifact
 }
 
 // Add near the top of the script section
@@ -474,10 +489,12 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
     <!-- Artifact panel -->
     <ArtifactPanel
       :artifact="currentArtifact"
+      :versions="currentArtifactVersions"
       :show="showArtifacts"
       @close="showArtifacts = false"
       @edit="onArtifactEdit"
       @download="onArtifactDownload"
-      @share="onArtifactShare" />
+      @share="onArtifactShare"
+      @version-change="onVersionChange" />
   </div>
 </template>

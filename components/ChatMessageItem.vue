@@ -81,7 +81,7 @@ const { detectArtifact } = useArtifacts()
 const detectedArtifact = computed(() => {
   if (!messageContent.value) return null
   
-  const result = detectArtifact(messageContent.value)
+  const result = detectArtifact(messageContent.value, props.message.id)
   return result.hasArtifact ? result.artifact : null
 })
 

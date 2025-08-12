@@ -1,4 +1,4 @@
-import type { Artifact } from '~/components/ArtifactPanel.vue'
+import type { Artifact, ArtifactVersion } from '~/components/ArtifactPanel.vue'
 
 export interface ArtifactDetectionResult {
   hasArtifact: boolean
@@ -9,11 +9,13 @@ export interface ArtifactDetectionResult {
  * Composable for detecting and extracting artifacts from message content
  */
 export function useArtifacts() {
+  // Store for artifact versions by session
+  const artifactVersions = ref<Map<string, ArtifactVersion[]>>(new Map())
   
   /**
    * Detects if a message contains an artifact and extracts it
    */
-  function detectArtifact(content: string | any[]): ArtifactDetectionResult {
+  function detectArtifact(content: string | any[], messageId?: string | number): ArtifactDetectionResult {
     // Handle array content (multimodal messages)
     if (Array.isArray(content)) {
       const textContent = content
@@ -110,7 +112,10 @@ export function useArtifacts() {
               type,
               title: extractArtifactTitle(extractedContent) || title,
               content: extractedContent,
-              language: type
+              language: type,
+              version: 1,
+              messageId,
+              timestamp: Date.now()
             }
           }
         }
@@ -130,7 +135,10 @@ export function useArtifacts() {
               type,
               title: extractArtifactTitle(extractedContent) || title,
               content: extractedContent,
-              language: type
+              language: type,
+              version: 1,
+              messageId,
+              timestamp: Date.now()
             }
           }
         }
@@ -268,11 +276,70 @@ export function useArtifacts() {
     return 'Sharing not supported'
   }
 
+  /**
+   * Adds an artifact version to the session store
+   */
+  function addArtifactVersion(sessionId: string, artifact: Artifact) {
+    const versions = artifactVersions.value.get(sessionId) || []
+    const artifactVersion: ArtifactVersion = {
+      artifact: {
+        ...artifact,
+        version: getNextVersionNumber(sessionId, artifact.type)
+      },
+      messageId: artifact.messageId || '',
+      timestamp: artifact.timestamp
+    }
+    
+    versions.push(artifactVersion)
+    artifactVersions.value.set(sessionId, versions)
+    
+    return artifactVersion
+  }
+
+  /**
+   * Gets all versions of artifacts for a session
+   */
+  function getArtifactVersions(sessionId: string, artifactType?: string): ArtifactVersion[] {
+    const versions = artifactVersions.value.get(sessionId) || []
+    if (artifactType) {
+      return versions.filter(v => v.artifact.type === artifactType)
+    }
+    return versions
+  }
+
+  /**
+   * Gets the next version number for an artifact type in a session
+   */
+  function getNextVersionNumber(sessionId: string, artifactType: string): number {
+    const versions = getArtifactVersions(sessionId, artifactType)
+    return versions.length + 1
+  }
+
+  /**
+   * Clears all versions for a session
+   */
+  function clearSessionVersions(sessionId: string) {
+    artifactVersions.value.delete(sessionId)
+  }
+
+  /**
+   * Gets the latest version of an artifact type in a session
+   */
+  function getLatestArtifactVersion(sessionId: string, artifactType: string): ArtifactVersion | null {
+    const versions = getArtifactVersions(sessionId, artifactType)
+    return versions.length > 0 ? versions[versions.length - 1] : null
+  }
+
   return {
     detectArtifact,
     downloadArtifact,
     shareArtifact,
     isValidArtifactContent,
-    extractArtifactTitle
+    extractArtifactTitle,
+    addArtifactVersion,
+    getArtifactVersions,
+    clearSessionVersions,
+    getLatestArtifactVersion,
+    artifactVersions: readonly(artifactVersions)
   }
 }
