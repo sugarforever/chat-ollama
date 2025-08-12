@@ -113,7 +113,7 @@ export function useArtifacts() {
       }
     ]
 
-    // Also check for standalone HTML, SVG, or Mermaid content
+    // Also check for standalone HTML, SVG, Vue, or Mermaid content
     const standalonePatterns = [
       // Standalone HTML (must have html, head, or body tags)
       {
@@ -121,6 +121,13 @@ export function useArtifacts() {
         extract: (content: string) => content,
         type: 'html' as const,
         title: 'HTML Document'
+      },
+      // Standalone Vue component (must have <template> and <script setup>)
+      {
+        pattern: /<template>[\s\S]*<\/template>[\s\S]*<script setup>/i,
+        extract: (content: string) => content,
+        type: 'vue' as const,
+        title: 'Vue Component'
       },
       // Standalone SVG
       {

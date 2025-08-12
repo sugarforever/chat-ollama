@@ -107,7 +107,7 @@ const renderContent = computed(() => {
         case 'html':
             return renderHTML(content)
         case 'vue':
-            return content // Will be handled by VueRenderer
+            return content // Vue preview temporarily disabled
         case 'svg':
             return content
         case 'mermaid':
@@ -283,16 +283,14 @@ const fileExtension = computed(() => {
                         class="w-full h-full border-0"
                         sandbox="allow-scripts allow-same-origin" />
 
-                <!-- Vue Component -->
+                <!-- Vue Component - Preview disabled -->
                 <div v-else-if="displayedArtifact.type === 'vue'" class="h-full overflow-auto p-4">
-                    <Suspense>
-                        <template #default>
-                            <VueRenderer :code="renderContent" />
-                        </template>
-                        <template #fallback>
-                            <div class="text-gray-500">Loading Vue component...</div>
-                        </template>
-                    </Suspense>
+                    <div class="text-center text-gray-500 py-8">
+                        <UIcon name="i-heroicons-code-bracket" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p class="mb-2">Vue Component Preview</p>
+                        <p class="text-sm">Preview functionality temporarily disabled</p>
+                        <p class="text-xs mt-2">Use the edit mode to view the code</p>
+                    </div>
                 </div>
 
                 <!-- SVG -->
