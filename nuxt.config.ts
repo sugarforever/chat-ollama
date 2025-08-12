@@ -83,6 +83,10 @@ export default defineNuxtConfig({
         {
           name: 'viewport',
           content: 'width=device-width',
+        },
+        {
+          'http-equiv': 'origin-trial',
+          content: process.env.CHROME_TRIAL_TOKEN_PROMPT_API || '',
         }
       ],
       title: APP_NAME,
