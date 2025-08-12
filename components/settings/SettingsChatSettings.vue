@@ -7,15 +7,27 @@ const { t } = useI18n()
 <template>
   <ClientOnly>
     <SettingsCard :title="t('settings.chatSettings')">
-      <UFormGroup :label="t('settings.defaultModel')" class="mb-4">
-        <ModelsMultiSelectMenu v-model="chatDefaultSettings.models" size="lg"></ModelsMultiSelectMenu>
-      </UFormGroup>
-      <UFormGroup :label="t('chat.attachedMessagesCount')">
-        <div class="flex items-center">
-          <span class="mr-2 w-6 text-primary-500">{{ chatDefaultSettings.attachedMessagesCount }}</span>
-          <URange v-model="chatDefaultSettings.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
-        </div>
-      </UFormGroup>
+      <div class="space-y-6">
+        <!-- Default Model Section -->
+        <UFormGroup :label="t('settings.defaultModel')">
+          <div class="max-w-md">
+            <ModelSelectorDropdown v-model="chatDefaultSettings.models" size="lg"></ModelSelectorDropdown>
+          </div>
+        </UFormGroup>
+
+        <!-- Attached Messages Count Section -->
+        <UFormGroup :label="t('chat.attachedMessagesCount')">
+          <div class="flex items-center max-w-sm">
+            <span class="mr-3 w-8 text-center text-primary-500 font-medium">{{ chatDefaultSettings.attachedMessagesCount }}</span>
+            <URange 
+              v-model="chatDefaultSettings.attachedMessagesCount" 
+              :min="0" 
+              :max="$config.public.chatMaxAttachedMessages" 
+              size="md" 
+              class="flex-1" />
+          </div>
+        </UFormGroup>
+      </div>
     </SettingsCard>
   </ClientOnly>
 </template>
