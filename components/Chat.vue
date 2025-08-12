@@ -6,6 +6,7 @@ import { type ChatBoxFormData } from '@/components/ChatInputBox.vue'
 import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
 import type { ChatMessage } from '~/types/chat'
+import type { Artifact } from '~/components/ArtifactPanel.vue'
 
 type Instruction = Awaited<ReturnType<typeof loadOllamaInstructions>>[number]
 
@@ -381,14 +382,35 @@ async function initData(sessionId?: number) {
   })
 }
 
-// Add new state for preview
-const showPreview = ref(false)
-const previewContent = ref('')
+// Add new state for artifacts
+const showArtifacts = ref(false)
+const currentArtifact = ref<Artifact | null>(null)
+const { detectArtifact, downloadArtifact, shareArtifact } = useArtifacts()
 
-// Add method to handle preview requests from messages
-const onPreviewRequest = (content: string) => {
-  previewContent.value = content
-  showPreview.value = true
+// Handle artifact requests from messages
+const onArtifactRequest = (artifact: Artifact) => {
+  currentArtifact.value = artifact
+  showArtifacts.value = true
+}
+
+const onArtifactEdit = (content: string) => {
+  if (currentArtifact.value) {
+    currentArtifact.value.content = content
+  }
+}
+
+const onArtifactDownload = () => {
+  if (currentArtifact.value) {
+    downloadArtifact(currentArtifact.value)
+  }
+}
+
+const onArtifactShare = () => {
+  if (currentArtifact.value) {
+    const result = shareArtifact(currentArtifact.value)
+    // You could show a toast notification here
+    console.log(result)
+  }
 }
 
 // Add near the top of the script section
@@ -426,8 +448,7 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
       <div ref="messageListEl" class="flex-1 overflow-x-hidden overflow-y-auto px-4 min-h-0">
         <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
                          :message="message" :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
-                         :is-previewing="showPreview && message.content === previewContent"
-                         class="my-2" @resend="onResend" @remove="onRemove" @preview="onPreviewRequest" />
+                         class="my-2" @resend="onResend" @remove="onRemove" @artifact="onArtifactRequest" />
       </div>
 
       <!-- Input box - fixed at bottom -->
@@ -450,10 +471,13 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
       </div>
     </div>
 
-    <!-- Preview panel -->
-    <ComponentPreview
-                      :content="previewContent"
-                      :show="showPreview"
-                      @close="showPreview = false" />
+    <!-- Artifact panel -->
+    <ArtifactPanel
+      :artifact="currentArtifact"
+      :show="showArtifacts"
+      @close="showArtifacts = false"
+      @edit="onArtifactEdit"
+      @download="onArtifactDownload"
+      @share="onArtifactShare" />
   </div>
 </template>
