@@ -27,6 +27,7 @@ const opened = ref(props.showToggleButton === true ? false : true)
 const isModelMessage = computed(() => props.message.role === 'assistant')
 const contentClass = computed(() => {
   return [
+    "min-w-[50%]",
     isModelMessage.value ? 'max-w-[calc(100%-2rem)]' : 'max-w-full',
     props.message.type === 'error'
       ? 'bg-red-50 dark:bg-red-800/60'
@@ -165,7 +166,7 @@ onUnmounted(() => {
           </div>
         </div>
         <template v-else-if="isModelMessage">
-          <div class="p-3 overflow-hidden">
+          <div class="p-3 overflow-hidden w-full">
             <!-- Tool Calls Display - moved to top -->
             <div v-if="message.toolCalls && message.toolCalls.length > 0" class="tool-calls mb-3 space-y-3">
               <div v-for="toolCall in message.toolCalls" :key="toolCall.id" class="tool-call">
