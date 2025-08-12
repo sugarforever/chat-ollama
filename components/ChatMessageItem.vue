@@ -6,13 +6,14 @@ const props = defineProps<{
   message: ChatMessage
   sending: boolean
   showToggleButton?: boolean
-  isPreviewing?: boolean
 }>()
+
+import type { Artifact } from '~/components/ArtifactPanel.vue'
 
 const emits = defineEmits<{
   resend: [message: ChatMessage]
   remove: [message: ChatMessage]
-  preview: [content: string]
+  artifact: [artifact: Artifact]
 }>()
 
 const markdown = useMarkdown()
@@ -48,8 +49,7 @@ watch(() => props.showToggleButton, (value) => {
   opened.value = value === true ? false : true
 })
 
-const previewComponent = ref<any>(null)
-const isVueComponent = ref(false)
+// Removed preview component refs - now using artifacts
 
 const messageContent = computed(() => {
   const content = props.message.content
@@ -75,21 +75,27 @@ const messageImages = computed(() => {
     .map(item => item.image_url!.url)
 })
 
-const togglePreview = () => {
-  if (!messageContent.value) return
+const { detectArtifact } = useArtifacts()
 
-  const vueMatch = messageContent.value.match(/```vue\n([\s\S]*?)```/)
-  if (vueMatch) {
-    emits('preview', vueMatch[1])
+// Detect artifacts in the current message
+const detectedArtifact = computed(() => {
+  if (!messageContent.value) return null
+
+  const result = detectArtifact(messageContent.value)
+  return result.hasArtifact ? result.artifact : null
+})
+
+const toggleArtifact = () => {
+  if (detectedArtifact.value) {
+    emits('artifact', detectedArtifact.value)
   }
 }
 
 
 
+
+
 const contentDisplay = computed(() => {
-  if (props.isPreviewing && isModelMessage.value) {
-    return isVueComponent.value ? 'component-preview' : 'preview-mode'
-  }
   return props.message.type === 'loading' ? 'loading' : 'normal'
 })
 
@@ -156,15 +162,6 @@ onUnmounted(() => {
         <div v-if="contentDisplay === 'loading'" class="text-xl text-primary p-3">
           <span class="block i-svg-spinners-3-dots-scale"></span>
         </div>
-        <div v-else-if="contentDisplay === 'preview-mode'" class="p-3 flex items-center text-gray-500">
-          <UIcon name="i-heroicons-document-text" class="mr-2" />
-          <span>Content in preview</span>
-        </div>
-        <div v-else-if="contentDisplay === 'component-preview'" class="p-3 w-full">
-          <div class="preview-container">
-            <component :is="previewComponent" v-if="previewComponent" />
-          </div>
-        </div>
         <template v-else-if="isModelMessage">
           <div class="p-3 overflow-hidden w-full">
             <!-- Tool Calls Display - moved to top -->
@@ -218,14 +215,17 @@ onUnmounted(() => {
           </div>
           <div class="flex flex-col">
             <MessageToggleCollapseButton v-if="showToggleButton" :opened="opened" @click="opened = !opened" />
-            <UButton v-if="messageContent"
-                     icon="i-heroicons-eye-20-solid"
-                     color="gray"
-                     variant="ghost"
-                     size="xs"
-                     class="mt-1 preview-btn"
-                     :class="{ 'text-primary-500': isPreviewing }"
-                     @click="togglePreview" />
+            <UTooltip v-if="detectedArtifact"
+                      text="Preview"
+                      :popper="{ placement: 'left' }"
+                      class="artifact-tooltip">
+              <UButton icon="i-heroicons-eye-20-solid"
+                       color="primary"
+                       variant="ghost"
+                       size="xs"
+                       class="mt-1 artifact-btn group hover:scale-105 transition-all duration-200"
+                       @click="toggleArtifact" />
+            </UTooltip>
           </div>
         </template>
         <template v-else>
@@ -271,14 +271,21 @@ onUnmounted(() => {
     }
   }
 
-  .preview-btn {
+  .artifact-btn {
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(8px);
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+      transform: translateX(0) scale(1.05);
+    }
   }
 
   &:hover {
-    .preview-btn {
+    .artifact-btn {
       opacity: 1;
+      transform: translateX(0);
     }
   }
 }
@@ -323,6 +330,27 @@ onUnmounted(() => {
 .dark {
   .image-gallery img {
     background: var(--color-gray-800);
+  }
+
+  .artifact-btn:hover {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  }
+}
+
+/* Custom artifact tooltip styling */
+:deep(.artifact-tooltip) {
+  .ui-tooltip {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    font-weight: 500;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+
+    &::before {
+      border-left-color: #667eea;
+    }
   }
 }
 </style>
