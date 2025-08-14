@@ -2,6 +2,8 @@ English | [简体中文](README.zh-Hans.md)
 
 # ChatOllama
 
+> **📢 Database Migration Notice (2025-08-14):** ChatOllama has moved from SQLite to PostgreSQL as the primary database provider for better performance and scalability.
+
 `ChatOllama` is an open source chatbot platform built with Nuxt 3, supporting a wide range of language models and advanced features including knowledge bases, realtime voice chat, and Model Context Protocol (MCP) integration.
 
 ## Supported Language Models
@@ -36,11 +38,6 @@ The easiest way to get started. Download [docker-compose.yaml](./docker-compose.
 docker compose up
 ```
 
-Initialize the database on first run:
-```bash
-docker compose exec chatollama npx prisma migrate dev
-```
-
 Access ChatOllama at http://localhost:3000
 
 ### Option 2: Development Setup
@@ -49,6 +46,7 @@ For development or customization:
 
 1. **Prerequisites**
    - Node.js 18+ and pnpm
+   - Local PostgreSQL database server
    - Ollama server running on http://localhost:11434
    - ChromaDB or Milvus vector database
 
@@ -58,9 +56,59 @@ For development or customization:
    cd chat-ollama
    cp .env.example .env
    pnpm install
-   pnpm prisma-migrate
+   ```
+
+3. **Database Setup**
+   - Create a PostgreSQL database
+   - Configure the database URL in `.env`
+   - Run migrations: `pnpm prisma migrate deploy`
+
+4. **Start Development**
+   ```bash
    pnpm dev
    ```
+
+## Data Migration from SQLite to PostgreSQL
+
+If you're upgrading from a previous version that used SQLite, follow these steps to migrate your data:
+
+### For Docker Users
+
+**No action required!** Docker deployments handle the migration automatically:
+- The PostgreSQL service starts automatically
+- Database migrations run on container startup
+- Your existing data will be preserved
+
+### For Development Users
+
+1. **Backup your existing SQLite data** (if you have important chat history):
+   ```bash
+   cp chatollama.sqlite chatollama.sqlite.backup
+   ```
+
+2. **Install and setup PostgreSQL**:
+   ```bash
+   # macOS with Homebrew
+   brew install postgresql
+   brew services start postgresql
+   
+   # Create database
+   createdb chatollama
+   ```
+
+3. **Update your `.env` file**:
+   ```bash
+   # Replace SQLite URL with PostgreSQL
+   DATABASE_URL="postgresql://username:password@localhost:5432/chatollama"
+   ```
+
+4. **Run migrations**:
+   ```bash
+   pnpm prisma migrate deploy
+   ```
+
+5. **Optional: Migrate existing data**:
+   If you need to preserve chat history from SQLite, you can use database migration tools or manually export/import your data.
 
 ### Vector Database Configuration
 
