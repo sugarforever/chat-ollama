@@ -2,6 +2,8 @@
 
 # ChatOllama
 
+> **📢 数据库迁移通知 (2025-08-14)：** ChatOllama 已从 SQLite 迁移到 PostgreSQL 作为主要数据库提供商，以获得更好的性能和可扩展性。
+
 `ChatOllama` 是一个基于 Nuxt 3 构建的开源聊天机器人平台，支持多种语言模型和高级功能，包括知识库、实时语音聊天和模型上下文协议 (MCP) 集成。
 
 ## 支持的语言模型
@@ -36,11 +38,6 @@
 docker compose up
 ```
 
-首次运行时初始化数据库：
-```bash
-docker compose exec chatollama npx prisma migrate dev
-```
-
 在 http://localhost:3000 访问 ChatOllama
 
 ### 方式二：开发环境设置
@@ -49,6 +46,7 @@ docker compose exec chatollama npx prisma migrate dev
 
 1. **前置要求**
    - Node.js 18+ 和 pnpm
+   - 本地 PostgreSQL 数据库服务器
    - Ollama 服务器运行在 http://localhost:11434
    - ChromaDB 或 Milvus 向量数据库
 
@@ -58,8 +56,64 @@ docker compose exec chatollama npx prisma migrate dev
    cd chat-ollama
    cp .env.example .env
    pnpm install
-   pnpm prisma-migrate
+   ```
+
+3. **数据库设置**
+   - 创建 PostgreSQL 数据库
+   - 在 `.env` 中配置数据库 URL
+   - 运行迁移：`pnpm prisma migrate deploy`
+
+4. **启动开发**
+   ```bash
    pnpm dev
+   ```
+
+## 从 SQLite 迁移到 PostgreSQL
+
+如果您正在从使用 SQLite 的旧版本升级，请按照以下步骤迁移数据：
+
+### Docker 用户
+
+**无需任何操作！** Docker 部署会自动处理迁移：
+- PostgreSQL 服务自动启动
+- 数据库迁移在容器启动时运行
+- 您的现有数据将被保留
+
+### 开发环境用户
+
+1. **备份现有的 SQLite 数据**（如果您有重要的聊天记录）：
+   ```bash
+   cp chatollama.sqlite chatollama.sqlite.backup
+   ```
+
+2. **安装和设置 PostgreSQL**：
+   ```bash
+   # macOS 使用 Homebrew
+   brew install postgresql
+   brew services start postgresql
+   
+   # 创建数据库和用户
+   psql postgres
+   CREATE DATABASE chatollama;
+   CREATE USER chatollama WITH PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE chatollama TO chatollama;
+   \q
+   ```
+
+3. **更新您的 `.env` 文件**：
+   ```bash
+   # 将 SQLite URL 替换为 PostgreSQL
+   DATABASE_URL="postgresql://chatollama:your_password@localhost:5432/chatollama"
+   ```
+
+4. **运行数据库迁移**：
+   ```bash
+   pnpm prisma migrate deploy
+   ```
+
+5. **迁移现有的 SQLite 数据**（如果您有需要保留的聊天记录）：
+   ```bash
+   pnpm migrate:sqlite-to-postgres
    ```
 
 ### 向量数据库配置
