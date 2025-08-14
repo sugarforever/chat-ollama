@@ -62,7 +62,7 @@ model KnowledgeBaseFile {
 
 model Instruction {
   id          Int     @id @default(autoincrement())
-  name        String  @unique
+  name        String
   instruction String
   user_id     Int?
   is_public   Boolean @default(false)
