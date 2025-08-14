@@ -92,23 +92,29 @@ If you're upgrading from a previous version that used SQLite, follow these steps
    brew install postgresql
    brew services start postgresql
    
-   # Create database
-   createdb chatollama
+   # Create database and user
+   psql postgres
+   CREATE DATABASE chatollama;
+   CREATE USER chatollama WITH PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE chatollama TO chatollama;
+   \q
    ```
 
 3. **Update your `.env` file**:
    ```bash
    # Replace SQLite URL with PostgreSQL
-   DATABASE_URL="postgresql://username:password@localhost:5432/chatollama"
+   DATABASE_URL="postgresql://chatollama:your_password@localhost:5432/chatollama"
    ```
 
-4. **Run migrations**:
+4. **Run database migrations**:
    ```bash
    pnpm prisma migrate deploy
    ```
 
-5. **Optional: Migrate existing data**:
-   If you need to preserve chat history from SQLite, you can use database migration tools or manually export/import your data.
+5. **Migrate existing SQLite data** (if you have chat history to preserve):
+   ```bash
+   pnpm migrate:sqlite-to-postgres
+   ```
 
 ### Vector Database Configuration
 

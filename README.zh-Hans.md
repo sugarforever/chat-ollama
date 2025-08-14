@@ -92,23 +92,29 @@ docker compose up
    brew install postgresql
    brew services start postgresql
    
-   # 创建数据库
-   createdb chatollama
+   # 创建数据库和用户
+   psql postgres
+   CREATE DATABASE chatollama;
+   CREATE USER chatollama WITH PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE chatollama TO chatollama;
+   \q
    ```
 
 3. **更新您的 `.env` 文件**：
    ```bash
    # 将 SQLite URL 替换为 PostgreSQL
-   DATABASE_URL="postgresql://username:password@localhost:5432/chatollama"
+   DATABASE_URL="postgresql://chatollama:your_password@localhost:5432/chatollama"
    ```
 
-4. **运行迁移**：
+4. **运行数据库迁移**：
    ```bash
    pnpm prisma migrate deploy
    ```
 
-5. **可选：迁移现有数据**：
-   如果您需要保留 SQLite 中的聊天记录，可以使用数据库迁移工具或手动导出/导入数据。
+5. **迁移现有的 SQLite 数据**（如果您有需要保留的聊天记录）：
+   ```bash
+   pnpm migrate:sqlite-to-postgres
+   ```
 
 ### 向量数据库配置
 
