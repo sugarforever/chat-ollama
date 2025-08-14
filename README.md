@@ -36,6 +36,8 @@ The easiest way to get started. Download [docker-compose.yaml](./docker-compose.
 docker compose up
 ```
 
+**Note:** The Docker configuration includes `pull_policy: always` to ensure you get the latest ChatOllama image from Docker Hub on each startup.
+
 Initialize the database on first run:
 ```bash
 docker compose exec chatollama npx prisma migrate dev
