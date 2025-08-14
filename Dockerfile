@@ -2,7 +2,7 @@ ARG NODE_VERSION=20.13.1
 
 FROM node:${NODE_VERSION}-slim
 
-RUN apt-get update && apt-get install -y openssl iputils-ping net-tools python3 make g++
+RUN apt-get update && apt-get install -y openssl iputils-ping net-tools python3 make g++ sqlite3 postgresql-client
 
 WORKDIR /app
 
@@ -14,6 +14,9 @@ RUN npm install -g pnpm
 RUN pnpm i
 
 COPY . .
+
+# Make scripts executable
+RUN chmod +x /app/scripts/*.sh
 
 RUN pnpm run prisma-generate
 
