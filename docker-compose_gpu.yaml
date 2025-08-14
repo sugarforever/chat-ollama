@@ -45,6 +45,7 @@ services:
     environment:
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=postgresql://chatollama:chatollama_password@postgres:5432/chatollama
+      - DIRECT_URL=postgresql://chatollama:chatollama_password@postgres:5432/chatollama
       - REDIS_HOST=redis
       # Migration settings
       - SKIP_MIGRATION=false  # Set to 'true' to skip automatic migration
