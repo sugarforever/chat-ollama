@@ -15,19 +15,6 @@ const { data: session } = useAuth()
 const loading = ref(true)
 const instructions = ref<Instruction[]>([])
 
-const tableRows = computed(() => {
-  return instructions.value.map((instruction) => {
-    return {
-      id: instruction.id,
-      name: instruction.name,
-      instruction: instruction.instruction,
-      is_public: instruction.is_public,
-      user_name: instruction.user?.name,
-      user_id: instruction.user_id,
-      class: instruction.isNew ? 'highlight-new' : ''
-    }
-  })
-})
 
 const loadInstructions = async (latestAsNew: boolean = false) => {
   instructions.value = await loadOllamaInstructions()
@@ -123,20 +110,6 @@ onUnmounted(() => {
   unregisterTool('deleteInstruction')
 })
 
-const ui = {
-  td: {
-    base: "whitespace-break-spaces",
-  },
-}
-
-const columns = computed(() => {
-  return [
-    { key: "name", label: t("global.name") },
-    { key: "instruction", label: t("instructions.instruction") },
-    { key: "visibility", label: t("instructions.visibility") },
-    { key: "actions" },
-  ]
-})
 
 function onCreate() {
   modal.open(InstructionForm, {
@@ -201,38 +174,113 @@ const canDeleteInstruction = (instruction: any) => {
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto p-4">
-    <div class="flex items-center mb-4">
-      <h2 class="font-bold text-xl mr-auto">{{ t("instructions.instruction") }}</h2>
-      <UButton v-if="session?.id" icon="i-material-symbols-add" @click="onCreate">
+  <div class="max-w-7xl mx-auto p-6">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ t("instructions.instruction") }}</h1>
+        <p class="text-lg text-gray-600 dark:text-gray-400 mt-2">Manage your AI instructions and prompts</p>
+      </div>
+      <UButton 
+        v-if="session?.id" 
+        icon="i-material-symbols-add" 
+        size="lg"
+        class="px-6 py-3"
+        @click="onCreate"
+      >
         {{ t("global.create") }}
       </UButton>
     </div>
-    <UTable
-            :rows="tableRows"
-            :columns="columns"
-            :ui="ui"
-            :loading="loading"
-            class="w-full table-list"
-            :empty-state="{ icon: 'i-heroicons-circle-stack-20-solid', label: t('global.noData') }"
-            :row-class="(row) => row.class">
-      <template #visibility-data="{ row }">
-        <UBadge :color="row.is_public ? 'green' : 'orange'" variant="soft">
-          {{ row.is_public ? t('instructions.public') : t('instructions.private') }}
-        </UBadge>
-      </template>
-      <template #actions-data="{ row }">
-        <div class="action-btn">
-          <UTooltip v-if="canEditInstruction(row)" :text="t('global.update')">
-            <UButton icon="i-heroicons-pencil-square-solid" variant="ghost" class="mx-1" @click="onEdit(row)" />
-          </UTooltip>
-          <UTooltip v-if="canDeleteInstruction(row)" :text="t('global.delete')">
-            <UButton color="red" icon="i-heroicons-trash-20-solid" variant="ghost" class="mx-1"
-                     @click="onDelete(row)" />
-          </UTooltip>
+
+    <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-for="i in 6" :key="i" class="animate-pulse">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 h-48">
+          <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+          <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+          <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-4"></div>
+          <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-20 mb-3"></div>
+          <div class="flex justify-between items-center mt-auto">
+            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+            <div class="flex gap-2">
+              <div class="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div class="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            </div>
+          </div>
         </div>
-      </template>
-    </UTable>
+      </div>
+    </div>
+
+    <div v-else-if="instructions.length === 0" class="text-center py-16">
+      <div class="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+        <UIcon name="i-heroicons-circle-stack-20-solid" class="w-8 h-8 text-gray-400" />
+      </div>
+      <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">{{ t('global.noData') }}</h3>
+      <p class="text-gray-600 dark:text-gray-400 mb-6">Get started by creating your first instruction</p>
+      <UButton 
+        v-if="session?.id" 
+        icon="i-material-symbols-add" 
+        @click="onCreate"
+        size="lg"
+      >
+        {{ t("global.create") }}
+      </UButton>
+    </div>
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div 
+        v-for="instruction in instructions" 
+        :key="instruction.id"
+        :class="[
+          'bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 p-6 flex flex-col',
+          instruction.isNew ? 'highlight-new' : ''
+        ]"
+      >
+        <div class="flex items-start justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate pr-2 leading-6">
+            {{ instruction.name }}
+          </h3>
+          <UBadge 
+            :color="instruction.is_public ? 'green' : 'orange'" 
+            variant="soft"
+            class="flex-shrink-0"
+          >
+            {{ instruction.is_public ? t('instructions.public') : t('instructions.private') }}
+          </UBadge>
+        </div>
+
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4 flex-grow line-clamp-3 leading-relaxed">
+          {{ instruction.instruction }}
+        </p>
+
+        <div class="flex items-center justify-between mt-auto pt-4 border-t border-gray-100 dark:border-gray-700">
+          <div class="flex items-center text-xs text-gray-500 dark:text-gray-400">
+            <UIcon name="i-heroicons-user-20-solid" class="w-3 h-3 mr-1" />
+            <span class="truncate max-w-[120px]">
+              {{ instruction.user?.name || 'Unknown' }}
+            </span>
+          </div>
+          <div class="flex gap-1">
+            <UTooltip v-if="canEditInstruction(instruction)" :text="t('global.update')">
+              <UButton 
+                icon="i-heroicons-pencil-square-solid" 
+                variant="ghost" 
+                size="sm"
+                color="gray"
+                @click="onEdit(instruction)" 
+              />
+            </UTooltip>
+            <UTooltip v-if="canDeleteInstruction(instruction)" :text="t('global.delete')">
+              <UButton 
+                color="red" 
+                icon="i-heroicons-trash-20-solid" 
+                variant="ghost" 
+                size="sm"
+                @click="onDelete(instruction)" 
+              />
+            </UTooltip>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -240,14 +288,22 @@ const canDeleteInstruction = (instruction: any) => {
 @keyframes highlightNew {
   0% {
     background-color: rgb(var(--color-primary-100));
+    transform: scale(1.02);
   }
-
   100% {
     background-color: transparent;
+    transform: scale(1);
   }
 }
 
-:deep(.highlight-new) {
+.highlight-new {
   animation: highlightNew 2s ease-out forwards;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>
