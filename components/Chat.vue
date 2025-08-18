@@ -59,7 +59,9 @@ const isUserScrolling = computed(() => {
 
 const scrollToBottom = (_behavior: ScrollBehavior) => {
     behavior.value = _behavior
-    y.value = messageListEl.value!.scrollHeight
+    if (messageListEl.value) {
+        y.value = messageListEl.value.scrollHeight
+    }
 }
 
 const visibleMessages = computed(() => {
