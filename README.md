@@ -165,6 +165,45 @@ NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
 COHERE_API_KEY=your_cohere_key
 ```
 
+## Feature Flags (Docker and .env)
+
+You can enable or disable major product areas via feature flags. These can be set at build time using `.env`, or at runtime in Docker using `NUXT_`-prefixed variables.
+
+- **Available features**
+  - **MCP (Model Context Protocol)** → toggles `Settings → MCP` module. Flag: `mcpEnabled`
+  - **Knowledge Bases** → toggles Knowledge Bases menu and pages. Flag: `knowledgeBaseEnabled`
+  - **Realtime Chat** → toggles `/realtime` voice chat page. Flag: `realtimeChatEnabled`
+  - **Models Management** → toggles `Models` menu and `/models` page. Flag: `modelsManagementEnabled`
+
+- **Docker (recommended for deployments)**
+  Set runtime overrides with `NUXT_` variables in `docker-compose.yaml`:
+  
+  ```yaml
+  services:
+    chatollama:
+      environment:
+        - NUXT_MCP_ENABLED=true
+        - NUXT_KNOWLEDGE_BASE_ENABLED=true
+        - NUXT_REALTIME_CHAT_ENABLED=true
+        - NUXT_MODELS_MANAGEMENT_ENABLED=true
+  ```
+
+- **.env (build time during `pnpm build`)**
+  If you are building locally (non-Docker) or creating a custom image, you can set:
+  
+  ```bash
+  MCP_ENABLED=true
+  KNOWLEDGE_BASE_ENABLED=true
+  REALTIME_CHAT_ENABLED=true
+  MODELS_MANAGEMENT_ENABLED=true
+  ```
+
+  Note: These are evaluated when `nuxt.config.ts` is built. For prebuilt Docker images, prefer the `NUXT_` variables above to override at runtime.
+
+- **Notes**
+  - `NUXT_` variables map directly to `runtimeConfig` keys at runtime and take precedence in containers.
+  - Using `MCP_ENABLED=true` in Compose will not override a prebuilt image’s `runtimeConfig`; use `NUXT_MCP_ENABLED=true` instead.
+
 ## Advanced Features
 
 ### Model Context Protocol (MCP)
