@@ -15,6 +15,7 @@ const { isMobile } = useMediaBreakpoints()
 const sessionList = ref<ChatSession[]>([])
 const currentSessionId = useStorage<number>('currentSessionId', 0)
 const confirm = useDialog('confirm')
+const isCreatingChat = ref(false)
 
 onMounted(async () => {
   sessionList.value = await getSessionList()
@@ -42,6 +43,9 @@ onMounted(async () => {
 defineExpose({ updateSessionInfo, createChat: onNewChat })
 
 async function onNewChat() {
+  if (isCreatingChat.value) return
+  
+  isCreatingChat.value = true
   try {
     const data = await createChatSession()
     sessionList.value.unshift(data)
@@ -51,6 +55,8 @@ async function onNewChat() {
     // Still try to navigate even if session creation fails
     const tempId = Date.now() // Use timestamp as fallback ID
     await router.push(`/chat/${tempId}`)
+  } finally {
+    isCreatingChat.value = false
   }
 }
 

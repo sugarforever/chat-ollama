@@ -22,6 +22,7 @@ const props = defineProps<{
     artifact: Artifact | null
     versions: ArtifactVersion[]
     show: boolean
+    isFullscreen?: boolean
 }>()
 
 const emits = defineEmits<{
@@ -30,6 +31,7 @@ const emits = defineEmits<{
     download: []
     share: []
     versionChange: [version: ArtifactVersion]
+    toggleFullscreen: []
 }>()
 
 const isEditing = ref(false)
@@ -176,9 +178,23 @@ const fileExtension = computed(() => {
 
 <template>
     <div v-show="show"
-         class="w-[500px] border-l dark:border-gray-800 flex flex-col shrink-0 h-full">
+         :class="[
+             'border-l dark:border-gray-800 flex flex-col shrink-0 h-full',
+             props.isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900' : 'w-[500px]'
+         ]">
+        <!-- Fullscreen close button -->
+        <div v-if="props.isFullscreen" class="absolute top-4 right-4 z-10">
+            <UButton
+                     icon="i-heroicons-x-mark"
+                     color="gray"
+                     variant="solid"
+                     size="lg"
+                     @click="emits('toggleFullscreen')"
+                     class="bg-black/20 hover:bg-black/40 backdrop-blur-sm" />
+        </div>
+
         <!-- Header -->
-        <div class="p-4 border-b dark:border-gray-800 flex flex-col gap-2 flex-shrink-0">
+        <div v-if="!props.isFullscreen" class="p-4 border-b dark:border-gray-800 flex flex-col gap-2 flex-shrink-0">
             <div class="flex items-center gap-2">
                 <div class="flex-1">
                     <h3 class="font-semibold text-sm">
@@ -240,6 +256,16 @@ const fileExtension = computed(() => {
                              variant="ghost"
                              size="sm"
                              @click="shareArtifact"
+                             :disabled="!displayedArtifact" />
+                </UTooltip>
+
+                <UTooltip :text="props.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'">
+                    <UButton
+                             :icon="props.isFullscreen ? 'i-heroicons-arrows-pointing-in' : 'i-heroicons-arrows-pointing-out'"
+                             color="gray"
+                             variant="ghost"
+                             size="sm"
+                             @click="emits('toggleFullscreen')"
                              :disabled="!displayedArtifact" />
                 </UTooltip>
 
