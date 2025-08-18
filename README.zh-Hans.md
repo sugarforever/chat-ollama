@@ -165,6 +165,45 @@ NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
 COHERE_API_KEY=your_cohere_key
 ```
 
+## 功能开关（Docker 与 .env）
+
+可以通过功能开关启用或禁用主要产品模块。它们可以在构建时通过 `.env` 设置，也可以在 Docker 运行时通过带有 `NUXT_` 前缀的变量设置。
+
+- **可用功能**
+  - **MCP（模型上下文协议）** → 控制「设置 → MCP」模块。标志：`mcpEnabled`
+  - **知识库** → 控制知识库菜单与页面。标志：`knowledgeBaseEnabled`
+  - **实时聊天** → 控制 `/realtime` 语音聊天页面。标志：`realtimeChatEnabled`
+  - **模型管理** → 控制「模型」菜单与 `/models` 页面。标志：`modelsManagementEnabled`
+
+- **Docker（部署环境推荐）**
+  在 `docker-compose.yaml` 中通过 `NUXT_` 变量进行运行时覆盖：
+  
+  ```yaml
+  services:
+    chatollama:
+      environment:
+        - NUXT_MCP_ENABLED=true
+        - NUXT_KNOWLEDGE_BASE_ENABLED=true
+        - NUXT_REALTIME_CHAT_ENABLED=true
+        - NUXT_MODELS_MANAGEMENT_ENABLED=true
+  ```
+
+- **.env（在执行 `pnpm build` 的构建时）**
+  如果本地构建（非 Docker）或自定义镜像，可以设置：
+  
+  ```bash
+  MCP_ENABLED=true
+  KNOWLEDGE_BASE_ENABLED=true
+  REALTIME_CHAT_ENABLED=true
+  MODELS_MANAGEMENT_ENABLED=true
+  ```
+
+  注意：这些值在构建 `nuxt.config.ts` 时生效。对于预构建的 Docker 镜像，优先使用上面的 `NUXT_` 变量在运行时覆盖。
+
+- **说明**
+  - `NUXT_` 变量在运行时直接映射到 `runtimeConfig` 键，在容器环境中更优先。
+  - 在 Compose 中使用 `MCP_ENABLED=true` 不能覆盖预构建镜像的 `runtimeConfig`；请使用 `NUXT_MCP_ENABLED=true`。
+
 ## 高级功能
 
 ### 模型上下文协议 (MCP)
