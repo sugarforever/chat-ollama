@@ -5,61 +5,59 @@ interface FeatureFlags {
   mcpEnabled: boolean
 }
 
-// Global reactive state to ensure consistent values across hydration
-const _featuresState = ref<FeatureFlags>({
-  knowledgeBaseEnabled: false,
-  realtimeChatEnabled: false,
-  modelsManagementEnabled: false,
-  mcpEnabled: false
-})
-
-// Flag to track if features have been initialized
+// Global state to prevent multiple fetches
+const _featuresData = ref<FeatureFlags | null>(null)
+const _featuresPending = ref(false)
+const _featuresError = ref<any>(null)
 const _featuresInitialized = ref(false)
 
-export function useFeatures(): FeatureFlags {
-  // Initialize features if not already done
+export function useFeatures() {
+  // Only fetch once globally
   if (!_featuresInitialized.value) {
-    let features: FeatureFlags
+    _featuresInitialized.value = true
+    _featuresPending.value = true
 
-    // Server-side: get from runtime config
-    if (process.server) {
-      const config = useRuntimeConfig()
-      features = {
-        knowledgeBaseEnabled: Boolean(config.knowledgeBaseEnabled),
-        realtimeChatEnabled: Boolean(config.realtimeChatEnabled),
-        modelsManagementEnabled: Boolean(config.modelsManagementEnabled),
-        mcpEnabled: Boolean(config.mcpEnabled)
-      }
-    } else {
-      // Client-side: get from SSR payload with proper fallback during hydration
-      const nuxtApp = useNuxtApp()
-
-      // Try to get features from payload first (set by server plugin)
-      let payloadFeatures = nuxtApp.payload.features as FeatureFlags | undefined
-
-      // If not available yet, try from ssrContext
-      if (!payloadFeatures) {
-        payloadFeatures = nuxtApp.ssrContext?.features as FeatureFlags | undefined
-      }
-
-      // Final fallback for hydration safety - ensure we always have valid FeatureFlags
-      if (!payloadFeatures ||
-        typeof payloadFeatures.knowledgeBaseEnabled === 'undefined') {
-        features = {
+    $fetch<{ success: boolean; data: FeatureFlags }>('/api/features')
+      .then(response => {
+        _featuresData.value = response.data
+        _featuresError.value = null
+      })
+      .catch(error => {
+        _featuresError.value = error
+        _featuresData.value = {
           knowledgeBaseEnabled: false,
           realtimeChatEnabled: false,
           modelsManagementEnabled: false,
           mcpEnabled: false
         }
-      } else {
-        features = payloadFeatures
-      }
-    }
-
-    // Update the reactive state
-    _featuresState.value = features
-    _featuresInitialized.value = true
+      })
+      .finally(() => {
+        _featuresPending.value = false
+      })
   }
 
-  return _featuresState.value
+  const refresh = async () => {
+    _featuresPending.value = true
+    try {
+      const response = await $fetch<{ success: boolean; data: FeatureFlags }>('/api/features')
+      _featuresData.value = response.data
+      _featuresError.value = null
+    } catch (error) {
+      _featuresError.value = error
+    } finally {
+      _featuresPending.value = false
+    }
+  }
+
+  return {
+    features: computed(() => _featuresData.value || {
+      knowledgeBaseEnabled: false,
+      realtimeChatEnabled: false,
+      modelsManagementEnabled: false,
+      mcpEnabled: false
+    }),
+    pending: readonly(_featuresPending),
+    error: readonly(_featuresError),
+    refresh
+  }
 }

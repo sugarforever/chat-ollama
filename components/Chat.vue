@@ -14,8 +14,8 @@ const props = defineProps<{
     sessionId?: number
 }>()
 
-const features = useFeatures()
-const isKnowledgeBaseEnabled = computed(() => features.knowledgeBaseEnabled)
+const { features } = useFeatures()
+const isKnowledgeBaseEnabled = computed(() => features.value.knowledgeBaseEnabled)
 
 const emits = defineEmits<{
     // it means remove a message if `data` is null

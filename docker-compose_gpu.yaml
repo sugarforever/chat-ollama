@@ -53,7 +53,7 @@ services:
     image: 0001coder/chatollama:latest
     ports:
       - "3000:3000"
-    pull_policy: always
+
     restart: always
     depends_on:
       postgres:
