@@ -395,6 +395,18 @@ const currentArtifact = ref<Artifact | null>(null)
 const currentArtifactVersions = ref<ArtifactVersion[]>([])
 const { detectArtifact, downloadArtifact, shareArtifact, addArtifactVersion, getArtifactVersions, reconstructVersionHistory } = useArtifacts()
 
+// Add fullscreen state
+const isFullscreen = ref(false)
+
+const toggleFullscreen = () => {
+    isFullscreen.value = !isFullscreen.value
+}
+
+const closeArtifacts = () => {
+    showArtifacts.value = false
+    isFullscreen.value = false
+}
+
 // Handle artifact requests from messages
 const onArtifactRequest = (artifact: Artifact) => {
     if (!sessionInfo.value?.id) return
@@ -513,10 +525,12 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
                        :artifact="currentArtifact"
                        :versions="currentArtifactVersions"
                        :show="showArtifacts"
-                       @close="showArtifacts = false"
+                       :is-fullscreen="isFullscreen"
+                       @close="closeArtifacts"
                        @edit="onArtifactEdit"
                        @download="onArtifactDownload"
                        @share="onArtifactShare"
-                       @version-change="onVersionChange" />
+                       @version-change="onVersionChange"
+                       @toggle-fullscreen="toggleFullscreen" />
     </div>
 </template>

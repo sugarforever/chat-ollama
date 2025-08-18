@@ -274,18 +274,16 @@ onUnmounted(() => {
   .artifact-btn {
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateX(8px);
 
     &:hover {
       box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-      transform: translateX(0) scale(1.05);
+      transform: scale(1.05);
     }
   }
 
   &:hover {
     .artifact-btn {
       opacity: 1;
-      transform: translateX(0);
     }
   }
 }
