@@ -204,6 +204,12 @@
     "haveAnAccount": "Have an account?",
     "noAccount": "No account?"
   },
+  "agents": {
+    "title": "AI Agent Chat",
+    "welcome": "Welcome to AI Agents",
+    "welcomeMessage": "Start chatting with your AI agent. It has access to various tools to help you accomplish tasks.",
+    "inputPlaceholder": "Ask the agent to help you with anything..."
+  },
   "global": {
     "name": "Name",
     "size": "Size",

@@ -6,6 +6,7 @@ import type { Artifact, ArtifactVersion } from '~/components/ArtifactPanel.vue'
 import { getKeysHeader } from '~/utils/settings'
 import { useAgentWorker } from '~/composables/useAgentWorker'
 import { useArtifacts } from '~/composables/useArtifacts'
+import AgentToolMessage from '~/components/AgentToolMessage.vue'
 
 const { t } = useI18n()
 const { onReceivedMessage, sendMessage } = useAgentWorker()
@@ -19,7 +20,7 @@ const { y } = useScroll(messageListEl, { behavior })
 const isFirstLoad = ref(true)
 
 // Agent-specific settings
-const agentInstruction = ref('You are a helpful AI assistant. Use the available tools to help the user with their requests.')
+const agentInstruction = ref('You are an expert researcher. Your job is to conduct thorough research, and then write a polished report.\n\nYou have access to a few tools.\n\nUse this to run an internet search for a given query. You can specify the number of results, the topic, and whether raw content should be included.')
 
 const isUserScrolling = computed(() => {
     if (isFirstLoad.value) return false
@@ -89,6 +90,9 @@ const onSend = async (data: ChatBoxFormData) => {
     const timestamp = Date.now()
     sendingCount.value = 1
 
+    // Generate a unique conversation round UUID
+    const conversationRoundId = crypto.randomUUID()
+
     const userMessage = createChatMessage({
         role: "user",
         id: Math.random(),
@@ -135,6 +139,7 @@ const onSend = async (data: ChatBoxFormData) => {
         sendMessage({
             type: 'request',
             uid: loadingMessage.id!,
+            conversationRoundId: conversationRoundId,
             headers: getKeysHeader(),
             data: {
                 instruction: agentInstruction.value,
@@ -154,7 +159,7 @@ onReceivedMessage((data: any) => {
             sendingCount.value = 0
             break
         case 'message':
-            updateMessage(data, { content: data.data.content, type: undefined })
+            handleStructuredMessage(data)
             break
         case 'complete':
             sendingCount.value = 0
@@ -165,6 +170,81 @@ onReceivedMessage((data: any) => {
             break
     }
 })
+
+function handleStructuredMessage(data: any) {
+    const messageData = data.data
+    const messageType = messageData.messageType
+
+    if (messageType === 'tool') {
+        // Handle tool messages separately
+        const toolMessage = createChatMessage({
+            id: data.id,
+            role: 'assistant',
+            contentType: 'tool',
+            content: messageData.content,
+            toolName: messageData.name,
+            toolCallId: messageData.tool_call_id,
+            additionalKwargs: messageData.additional_kwargs,
+            startTime: messageData.timestamp,
+            endTime: messageData.timestamp,
+            model: 'agent',
+            type: 'tool'
+        })
+        
+        // Check if this tool message already exists, if not add it
+        const existingIndex = messages.value.findIndex(msg => 
+            msg.toolCallId === messageData.tool_call_id && msg.type === 'tool'
+        )
+        
+        if (existingIndex === -1) {
+            messages.value.push(toolMessage)
+        } else {
+            messages.value[existingIndex] = toolMessage
+        }
+    } else if (messageType === 'ai') {
+        // Handle AI messages - update the loading message or create/update AI message
+        const loadingMessageIndex = messages.value.findIndex(msg => 
+            msg.id === data.uid && msg.type === 'loading'
+        )
+        
+        if (loadingMessageIndex !== -1) {
+            // Update the loading message
+            const loadingMessage = messages.value[loadingMessageIndex]
+            messages.value.splice(loadingMessageIndex, 1, {
+                ...loadingMessage,
+                id: data.id, // Update to the AI message ID
+                content: messageData.content,
+                type: undefined,
+                messageType: messageData.messageType
+            })
+        } else {
+            // Check if AI message already exists and update it
+            const aiMessageIndex = messages.value.findIndex(msg => msg.id === data.id)
+            if (aiMessageIndex !== -1) {
+                const existingMessage = messages.value[aiMessageIndex]
+                messages.value.splice(aiMessageIndex, 1, {
+                    ...existingMessage,
+                    content: messageData.content,
+                    type: undefined,
+                    messageType: messageData.messageType
+                })
+            } else {
+                // Create new AI message
+                const aiMessage = createChatMessage({
+                    id: data.id,
+                    role: 'assistant',
+                    contentType: 'string',
+                    content: messageData.content,
+                    startTime: messageData.timestamp,
+                    endTime: messageData.timestamp,
+                    model: 'agent',
+                    messageType: messageData.messageType
+                })
+                messages.value.push(aiMessage)
+            }
+        }
+    }
+}
 
 function updateMessage(data: { uid: number, id: number }, newData: Partial<ChatMessage>) {
     const index = messages.value.findIndex(el => el.id === data.uid || el.id === data.id)
@@ -323,14 +403,28 @@ onMounted(() => {
                 </div>
 
                 <!-- Chat messages -->
-                <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
-                                 :message="message"
-                                 :sending="sendingCount > 0"
-                                 :show-toggle-button="false"
-                                 class="my-2"
-                                 @resend="onResend"
-                                 @remove="onRemove"
-                                 @artifact="onArtifactRequest" />
+                <template v-for="message in visibleMessages" :key="message.id">
+                    <!-- Tool messages -->
+                    <AgentToolMessage 
+                        v-if="message.type === 'tool'"
+                        :name="message.toolName"
+                        :content="message.content"
+                        :tool-call-id="message.toolCallId"
+                        class="my-2"
+                    />
+                    
+                    <!-- Regular chat messages -->
+                    <ChatMessageItem 
+                        v-else
+                        :message="message"
+                        :sending="sendingCount > 0"
+                        :show-toggle-button="false"
+                        class="my-2"
+                        @resend="onResend"
+                        @remove="onRemove"
+                        @artifact="onArtifactRequest" 
+                    />
+                </template>
             </div>
 
             <!-- Input box - fixed at bottom -->

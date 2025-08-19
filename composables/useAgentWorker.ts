@@ -8,6 +8,7 @@ interface AgentRequestData {
 export type AgentWorkerReceivedMessage = {
     type: 'request'
     uid: number
+    conversationRoundId: string
     data: AgentRequestData
     headers: Record<string, any>
 } | {
@@ -19,7 +20,7 @@ export type AgentWorkerSendMessage = {
     uid: number
     id: number
 } & (
-        | { type: 'message', data: { content: string } }
+        | { type: 'message', data: { messageType: string, content: any, name?: string, tool_call_id?: string, additional_kwargs?: any, timestamp: number } }
         | { type: 'error', message: string }
         | { type: 'complete' }
         | { type: 'abort' }
@@ -31,14 +32,14 @@ export function useAgentWorker() {
     const handlers: Handler[] = []
     const abortControllers = new Map<number, AbortController>()
 
-    async function sendAgentRequest(uid: number, data: AgentRequestData, headers: Record<string, any>) {
+    async function sendAgentRequest(uid: number, conversationRoundId: string, data: AgentRequestData, headers: Record<string, any>) {
         const controller = new AbortController()
         abortControllers.set(uid, controller)
 
         try {
             const response = await fetch('/api/agents/1', {
                 method: 'POST',
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...data, conversationRoundId }),
                 headers: {
                     ...headers,
                     'Content-Type': 'application/json',
@@ -54,7 +55,7 @@ export function useAgentWorker() {
 
             if (response.body) {
                 const reader = response.body.getReader()
-                let content = ''
+                let buffer = ''
 
                 while (true) {
                     const { value, done } = await reader.read().catch((err: any) => {
@@ -67,15 +68,34 @@ export function useAgentWorker() {
                     if (done) break
 
                     const chunk = new TextDecoder().decode(value)
-                    content += chunk
+                    buffer += chunk
 
-                    // Send incremental updates
-                    handlers.forEach(h => h({
-                        uid,
-                        id: uid,
-                        type: 'message',
-                        data: { content }
-                    }))
+                    // Process complete JSON lines
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                const messageData = JSON.parse(line)
+                                handlers.forEach(h => h({
+                                    uid,
+                                    id: messageData.id, // Use the ID from the message data
+                                    type: 'message',
+                                    data: {
+                                        messageType: messageData.type,
+                                        content: messageData.content,
+                                        name: messageData.name,
+                                        tool_call_id: messageData.tool_call_id,
+                                        additional_kwargs: messageData.additional_kwargs,
+                                        timestamp: messageData.timestamp
+                                    }
+                                }))
+                            } catch (e) {
+                                console.error('Failed to parse message data:', e, line)
+                            }
+                        }
+                    }
                 }
 
                 handlers.forEach(h => h({ uid, id: uid, type: 'complete' }))
@@ -96,7 +116,7 @@ export function useAgentWorker() {
 
     function sendMessage(data: AgentWorkerReceivedMessage) {
         if (data.type === 'request') {
-            sendAgentRequest(data.uid, data.data, data.headers)
+            sendAgentRequest(data.uid, data.conversationRoundId, data.data, data.headers)
         } else if (data.type === 'abort') {
             if (data.uid) {
                 const controller = abortControllers.get(data.uid)
