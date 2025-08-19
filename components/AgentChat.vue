@@ -176,7 +176,9 @@ function handleStructuredMessage(data: any) {
     const messageType = messageData.messageType
 
     if (messageType === 'tool') {
-        // Handle tool messages separately
+        // Handle tool messages - server has already processed them
+        const existingIndex = messages.value.findIndex(msg => msg.id === data.id)
+        
         const toolMessage = createChatMessage({
             id: data.id,
             role: 'assistant',
@@ -184,47 +186,46 @@ function handleStructuredMessage(data: any) {
             content: messageData.content,
             toolName: messageData.name,
             toolCallId: messageData.tool_call_id,
-            additionalKwargs: messageData.additional_kwargs,
             startTime: messageData.timestamp,
             endTime: messageData.timestamp,
             model: 'agent',
             type: 'tool'
         })
         
-        // Check if this tool message already exists, if not add it
-        const existingIndex = messages.value.findIndex(msg => 
-            msg.toolCallId === messageData.tool_call_id && msg.type === 'tool'
-        )
-        
         if (existingIndex === -1) {
             messages.value.push(toolMessage)
         } else {
             messages.value[existingIndex] = toolMessage
         }
-    } else if (messageType === 'ai') {
-        // Handle AI messages - update the loading message or create/update AI message
-        const loadingMessageIndex = messages.value.findIndex(msg => 
-            msg.id === data.uid && msg.type === 'loading'
-        )
         
-        if (loadingMessageIndex !== -1) {
-            // Update the loading message
-            const loadingMessage = messages.value[loadingMessageIndex]
-            messages.value.splice(loadingMessageIndex, 1, {
-                ...loadingMessage,
-                id: data.id, // Update to the AI message ID
-                content: messageData.content,
-                type: undefined,
-                messageType: messageData.messageType
-            })
-        } else {
-            // Check if AI message already exists and update it
+    } else if (messageType === 'ai') {
+        // Handle AI messages - server has already processed and accumulated content
+        if (messageData.isUpdate) {
+            // This is an update to existing AI message
             const aiMessageIndex = messages.value.findIndex(msg => msg.id === data.id)
             if (aiMessageIndex !== -1) {
                 const existingMessage = messages.value[aiMessageIndex]
                 messages.value.splice(aiMessageIndex, 1, {
                     ...existingMessage,
                     content: messageData.content,
+                    type: undefined,
+                    messageType: messageData.messageType
+                })
+            }
+        } else {
+            // This is the first AI message - convert loading message or create new
+            const loadingMessageIndex = messages.value.findIndex(msg => 
+                msg.id === data.uid && msg.type === 'loading'
+            )
+            
+            if (loadingMessageIndex !== -1) {
+                // Convert loading message to AI message
+                const loadingMessage = messages.value[loadingMessageIndex]
+                messages.value.splice(loadingMessageIndex, 1, {
+                    ...loadingMessage,
+                    id: data.id,
+                    content: messageData.content,
+                    contentType: 'string',
                     type: undefined,
                     messageType: messageData.messageType
                 })

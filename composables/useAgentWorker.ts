@@ -18,9 +18,9 @@ export type AgentWorkerReceivedMessage = {
 
 export type AgentWorkerSendMessage = {
     uid: number
-    id: number
+    id: string
 } & (
-        | { type: 'message', data: { messageType: string, content: any, name?: string, tool_call_id?: string, additional_kwargs?: any, timestamp: number } }
+        | { type: 'message', data: { messageType: string, content: string, name?: string, tool_call_id?: string, conversationRoundId: string, timestamp: number, isUpdate?: boolean } }
         | { type: 'error', message: string }
         | { type: 'complete' }
         | { type: 'abort' }
@@ -80,15 +80,16 @@ export function useAgentWorker() {
                                 const messageData = JSON.parse(line)
                                 handlers.forEach(h => h({
                                     uid,
-                                    id: messageData.id, // Use the ID from the message data
+                                    id: messageData.id,
                                     type: 'message',
                                     data: {
                                         messageType: messageData.type,
                                         content: messageData.content,
                                         name: messageData.name,
                                         tool_call_id: messageData.tool_call_id,
-                                        additional_kwargs: messageData.additional_kwargs,
-                                        timestamp: messageData.timestamp
+                                        conversationRoundId: messageData.conversationRoundId,
+                                        timestamp: messageData.timestamp,
+                                        isUpdate: messageData.isUpdate
                                     }
                                 }))
                             } catch (e) {
