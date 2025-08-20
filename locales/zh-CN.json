@@ -203,6 +203,12 @@
     "haveAnAccount": "已有帐户？",
     "noAccount": "没有帐户？"
   },
+  "agents": {
+    "title": "AI 智能体聊天",
+    "welcome": "欢迎使用 AI 智能体",
+    "welcomeMessage": "开始与您的 AI 智能体聊天。它可以使用各种工具来帮助您完成任务。",
+    "inputPlaceholder": "请告诉智能体您需要什么帮助..."
+  },
   "global": {
     "name": "名称",
     "size": "大小",

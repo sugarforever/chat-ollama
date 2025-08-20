@@ -13,9 +13,9 @@ export interface ChatMessage {
     id?: number
     role: 'system' | 'assistant' | 'user'
     model: string,
-    contentType: 'string' | 'array',
+    contentType: 'string' | 'array' | 'tool',
     content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>
-    type?: 'loading' | 'canceled' | 'error'
+    type?: 'loading' | 'canceled' | 'error' | 'tool'
     startTime: number
     endTime: number
     relevantDocs?: RelevantDocument[]
@@ -23,4 +23,8 @@ export interface ChatMessage {
     toolCallId: string
     toolCalls: ToolCall[]
     toolResults: ToolResult[]
+    // Agent-specific properties
+    messageType?: string
+    toolName?: string
+    additionalKwargs?: any
 }
