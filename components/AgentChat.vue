@@ -201,16 +201,15 @@ function handleStructuredMessage(data: any) {
     } else if (messageType === 'ai') {
         // Handle AI messages - server has already processed and accumulated content
         if (messageData.isUpdate) {
-            // This is an update to existing AI message
+            // This is an update to existing AI message - directly modify properties for reactivity
             const aiMessageIndex = messages.value.findIndex(msg => msg.id === data.id)
             if (aiMessageIndex !== -1) {
                 const existingMessage = messages.value[aiMessageIndex]
-                messages.value.splice(aiMessageIndex, 1, {
-                    ...existingMessage,
-                    content: messageData.content,
-                    type: undefined,
-                    messageType: messageData.messageType
-                })
+                // Directly modify properties to maintain Vue reactivity
+                existingMessage.content = messageData.content
+                existingMessage.type = undefined
+                existingMessage.messageType = messageData.messageType
+                console.log('Updated AI message content:', messageData.content.length, 'characters')
             }
         } else {
             // This is the first AI message - convert loading message or create new
@@ -219,16 +218,14 @@ function handleStructuredMessage(data: any) {
             )
             
             if (loadingMessageIndex !== -1) {
-                // Convert loading message to AI message
+                // Convert loading message to AI message - directly modify for reactivity
                 const loadingMessage = messages.value[loadingMessageIndex]
-                messages.value.splice(loadingMessageIndex, 1, {
-                    ...loadingMessage,
-                    id: data.id,
-                    content: messageData.content,
-                    contentType: 'string',
-                    type: undefined,
-                    messageType: messageData.messageType
-                })
+                loadingMessage.id = data.id
+                loadingMessage.content = messageData.content
+                loadingMessage.contentType = 'string'
+                loadingMessage.type = undefined
+                loadingMessage.messageType = messageData.messageType
+                console.log('Created initial AI message content:', messageData.content.length, 'characters')
             } else {
                 // Create new AI message
                 const aiMessage = createChatMessage({

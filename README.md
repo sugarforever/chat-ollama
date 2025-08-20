@@ -1,6 +1,8 @@
 English | [简体中文](README.zh-Hans.md)
 
-# ChatOllama
+# 🧠🤖 ChatOllama + Deep Agents
+
+> **🤖 Deep Agents Support (2025-08-19):** ChatOllama now supports AI Agents with tool access! Currently requires Anthropic API key. Please refer to `.env.example` and set `ANTHROPIC_API_KEY` in `.env`. Tools are configured through MCP settings. Visit `/agents` to get started.
 
 > **📢 Database Migration Notice (2025-08-14):** ChatOllama has moved from SQLite to PostgreSQL as the primary database provider for better performance and scalability.
 
@@ -18,6 +20,7 @@ English | [简体中文](README.zh-Hans.md)
 
 ## Key Features
 
+- **AI Agents** - Intelligent agents with tool access for research and task execution
 - **Multi-modal Chat** - Text and image input support
 - **Knowledge Bases** - RAG (Retrieval Augmented Generation) with document upload
 - **Realtime Voice Chat** - Voice conversations with Gemini 2.0 Flash
