@@ -6,9 +6,11 @@ import type { Artifact, ArtifactVersion } from '~/components/ArtifactPanel.vue'
 import { getKeysHeader } from '~/utils/settings'
 import { useAgentWorker } from '~/composables/useAgentWorker'
 import { useArtifacts } from '~/composables/useArtifacts'
-import AgentToolMessage from '~/components/AgentToolMessage.vue'
+
+
 
 const { t } = useI18n()
+const { chatModels } = useModels()
 const { onReceivedMessage, sendMessage } = useAgentWorker()
 
 const chatInputBoxRef = shallowRef()
@@ -21,6 +23,16 @@ const isFirstLoad = ref(true)
 
 // Agent-specific settings
 const agentInstruction = ref('You are an expert researcher. Your job is to conduct thorough research, and then write a polished report.\n\nYou have access to a few tools.\n\nUse this to run an internet search for a given query. You can specify the number of results, the topic, and whether raw content should be included.')
+
+// Model selection state
+const models = ref<string[]>([])
+
+// Initialize with default model when chatModels are loaded
+watch(chatModels, (newModels) => {
+    if (newModels.length > 0 && models.value.length === 0) {
+        models.value = [newModels[0].value]
+    }
+}, { immediate: true })
 
 const isUserScrolling = computed(() => {
     if (isFirstLoad.value) return false
@@ -143,7 +155,8 @@ const onSend = async (data: ChatBoxFormData) => {
             headers: getKeysHeader(),
             data: {
                 instruction: agentInstruction.value,
-                prompt: promptText
+                prompt: promptText,
+                models: models.value
             },
         })
     } catch (error) {
@@ -178,7 +191,7 @@ function handleStructuredMessage(data: any) {
     if (messageType === 'tool') {
         // Handle tool messages - server has already processed them
         const existingIndex = messages.value.findIndex(msg => msg.id === data.id)
-        
+
         const toolMessage = createChatMessage({
             id: data.id,
             role: 'assistant',
@@ -191,13 +204,13 @@ function handleStructuredMessage(data: any) {
             model: 'agent',
             type: 'tool'
         })
-        
+
         if (existingIndex === -1) {
             messages.value.push(toolMessage)
         } else {
             messages.value[existingIndex] = toolMessage
         }
-        
+
     } else if (messageType === 'ai') {
         // Handle AI messages - server has already processed and accumulated content
         if (messageData.isUpdate) {
@@ -213,10 +226,10 @@ function handleStructuredMessage(data: any) {
             }
         } else {
             // This is the first AI message - convert loading message or create new
-            const loadingMessageIndex = messages.value.findIndex(msg => 
+            const loadingMessageIndex = messages.value.findIndex(msg =>
                 msg.id === data.uid && msg.type === 'loading'
             )
-            
+
             if (loadingMessageIndex !== -1) {
                 // Convert loading message to AI message - directly modify for reactivity
                 const loadingMessage = messages.value[loadingMessageIndex]
@@ -341,6 +354,12 @@ function reset() {
     })
 }
 
+// Handle model changes
+function onModelsChange(selectedModels: string[]) {
+    // Additional logic for model change can be added here if needed
+    console.log('Selected models for agent:', selectedModels)
+}
+
 // Expose reset function
 defineExpose({
     reset
@@ -403,16 +422,16 @@ onMounted(() => {
                 <!-- Chat messages -->
                 <template v-for="message in visibleMessages" :key="message.id">
                     <!-- Tool messages -->
-                    <AgentToolMessage 
+                    <AgentToolMessage
                         v-if="message.type === 'tool'"
                         :name="message.toolName"
                         :content="message.content"
                         :tool-call-id="message.toolCallId"
                         class="my-2"
                     />
-                    
+
                     <!-- Regular chat messages -->
-                    <ChatMessageItem 
+                    <ChatMessageItem
                         v-else
                         :message="message"
                         :sending="sendingCount > 0"
@@ -420,7 +439,7 @@ onMounted(() => {
                         class="my-2"
                         @resend="onResend"
                         @remove="onRemove"
-                        @artifact="onArtifactRequest" 
+                        @artifact="onArtifactRequest"
                     />
                 </template>
             </div>
@@ -428,14 +447,19 @@ onMounted(() => {
             <!-- Input box - fixed at bottom -->
             <div class="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-800">
                 <ChatInputBox ref="chatInputBoxRef"
-                              :disabled="false"
+                              :disabled="models.length === 0"
                               :loading="sendingCount > 0"
                               :placeholder="t('agents.inputPlaceholder') || 'Ask the agent to help you with anything...'"
                               @submit="onSend"
                               @stop="onAbortChat">
-                    <div class="text-muted flex items-center">
-                        <UIcon name="i-iconoir-brain" class="mr-1"></UIcon>
-                        <span class="text-sm">AI Agent with Tools</span>
+                    <div class="text-muted flex">
+                        <div class="mr-4">
+                            <ModelSelectorDropdown v-model="models" size="xs" @change="onModelsChange" />
+                        </div>
+                        <div class="flex items-center">
+                            <UIcon name="i-iconoir-brain" class="mr-1"></UIcon>
+                            <span class="text-sm">AI Agent with Tools</span>
+                        </div>
                     </div>
                 </ChatInputBox>
             </div>

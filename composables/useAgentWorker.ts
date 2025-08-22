@@ -3,6 +3,7 @@ import type { ChatMessage } from '~/types/chat'
 interface AgentRequestData {
     instruction: string
     prompt: string
+    models?: string[]
 }
 
 export type AgentWorkerReceivedMessage = {
@@ -49,7 +50,7 @@ export function useAgentWorker() {
 
             if (response.status !== 200) {
                 const errorMessage = `Status Code ${response.status}${' - ' + response.statusText}`
-                handlers.forEach(h => h({ uid, id: uid, type: 'error', message: errorMessage }))
+                handlers.forEach(h => h({ uid, id: String(uid), type: 'error', message: errorMessage }))
                 return
             }
 
@@ -99,13 +100,13 @@ export function useAgentWorker() {
                     }
                 }
 
-                handlers.forEach(h => h({ uid, id: uid, type: 'complete' }))
+                handlers.forEach(h => h({ uid, id: String(uid), type: 'complete' }))
             }
         } catch (error: any) {
             if (error.name !== 'AbortError') {
                 handlers.forEach(h => h({
                     uid,
-                    id: uid,
+                    id: String(uid),
                     type: 'error',
                     message: error.message || 'Unknown error occurred'
                 }))
@@ -124,13 +125,13 @@ export function useAgentWorker() {
                 if (controller) {
                     controller.abort()
                     abortControllers.delete(data.uid)
-                    handlers.forEach(h => h({ uid: data.uid!, id: data.uid!, type: 'abort' }))
+                    handlers.forEach(h => h({ uid: data.uid!, id: String(data.uid!), type: 'abort' }))
                 }
             } else {
                 // Abort all requests
                 abortControllers.forEach((controller, uid) => {
                     controller.abort()
-                    handlers.forEach(h => h({ uid, id: uid, type: 'abort' }))
+                    handlers.forEach(h => h({ uid, id: String(uid), type: 'abort' }))
                 })
                 abortControllers.clear()
             }
