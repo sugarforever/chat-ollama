@@ -62,7 +62,8 @@
     "public": "Public",
     "private": "Private",
     "makePublic": "Make Public",
-    "makePublicDescription": "Allow other users to see and use this instruction"
+    "makePublicDescription": "Allow other users to see and use this instruction",
+    "instructionPlaceholder": "Enter your custom instruction..."
   },
   "knowledgeBases": {
     "id": "ID",
@@ -208,7 +209,8 @@
     "title": "AI Agent Chat",
     "welcome": "Welcome to AI Agents",
     "welcomeMessage": "Start chatting with your AI agent. It has access to various tools to help you accomplish tasks.",
-    "inputPlaceholder": "Ask the agent to help you with anything..."
+    "inputPlaceholder": "Ask the agent to help you with anything...",
+    "settings": "Agent Settings"
   },
   "global": {
     "name": "Name",

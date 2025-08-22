@@ -62,7 +62,8 @@
     "public": "公开",
     "private": "私有",
     "makePublic": "设为公开",
-    "makePublicDescription": "允许其他用户查看并使用此指令"
+    "makePublicDescription": "允许其他用户查看并使用此指令",
+    "instructionPlaceholder": "请输入您的自定义指令..."
   },
   "knowledgeBases": {
     "id": "ID",
@@ -207,7 +208,8 @@
     "title": "AI 智能体聊天",
     "welcome": "欢迎使用 AI 智能体",
     "welcomeMessage": "开始与您的 AI 智能体聊天。它可以使用各种工具来帮助您完成任务。",
-    "inputPlaceholder": "请告诉智能体您需要什么帮助..."
+    "inputPlaceholder": "请告诉智能体您需要什么帮助...",
+    "settings": "智能体设置"
   },
   "global": {
     "name": "名称",
