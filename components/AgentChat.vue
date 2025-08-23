@@ -37,7 +37,7 @@ watch(chatModels, (newModels) => {
     const defaultModels = chatDefaultSettings.value.models
     if (defaultModels && defaultModels.length > 0) {
       // Filter to only include models that are actually available
-      const availableDefaultModels = defaultModels.filter(model => 
+      const availableDefaultModels = defaultModels.filter(model =>
         newModels.some(m => m.value === model)
       )
       if (availableDefaultModels.length > 0) {
