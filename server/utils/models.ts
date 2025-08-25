@@ -125,26 +125,14 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
   const keys = event.context.keys
   const [familyValue] = Object.entries(MODEL_FAMILIES).find(([key, val]) => val === family) || []
 
-  // Debug logging
-  console.log(`createChatModel: ${modelName}, family: ${family}, familyValue: ${familyValue}`)
-  console.log('Available keys:', Object.keys(keys || {}))
-
   if (familyValue) {
     const data = keys[familyValue as Exclude<keyof ContextKeys, 'ollama' | 'custom'>]
-    if (!data) {
-      console.warn(`No configuration found for ${familyValue}, falling back to Ollama`)
-    } else if (!data.key) {
-      console.warn(`No API key found for ${familyValue}, falling back to Ollama`)
-    } else {
-      const model = initChat(family, modelName, data)
-      if (model) return model
-    }
+    return initChat(family, modelName, data)!
   }
 
   const customModel = keys.custom?.find(el => el.name === family)
   if (customModel && MODEL_FAMILIES.hasOwnProperty(customModel.aiType)) {
-    const model = initChat(MODEL_FAMILIES[customModel.aiType as keyof typeof MODEL_FAMILIES], modelName, customModel, true)
-    if (model) return model
+    return initChat(MODEL_FAMILIES[customModel.aiType as keyof typeof MODEL_FAMILIES], modelName, customModel, true)!
   }
 
   console.log("Chat with Ollama, Host:", keys.ollama?.endpoint || 'http://127.0.0.1:11434')
