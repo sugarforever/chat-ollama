@@ -65,8 +65,8 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
     const baseURL = openaiApiFillPath(endpoint)
     return new ChatOpenAI({
       configuration: { baseURL },
-      openAIApiKey: params.key,
-      modelName: modelName,
+      apiKey: params.key,
+      model: modelName,
     })
   }
 
@@ -82,8 +82,8 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
   if (family === MODEL_FAMILIES.anthropic && (isCustomModel || ANTHROPIC_MODELS.includes(modelName))) {
     return new ChatAnthropic({
       anthropicApiUrl: endpoint,
-      anthropicApiKey: params.key,
-      modelName: modelName,
+      apiKey: params.key,
+      model: modelName,
     })
   }
 
@@ -101,7 +101,7 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
     return new ChatGoogleGenerativeAI({
       apiVersion: "v1beta",
       apiKey: params.key,
-      modelName: modelName,
+      model: modelName,
       baseUrl: endpoint,
     })
   }
@@ -114,7 +114,7 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
     return new ChatGroq({
       apiKey: params.key,
       verbose: true,
-      modelName: modelName,
+      model: modelName,
     })
   }
 
@@ -130,14 +130,14 @@ export const createChatModel = (modelName: string, family: string, event: H3Even
     return initChat(family, modelName, data)!
   }
 
-  const customModel = keys.custom.find(el => el.name === family)
+  const customModel = keys.custom?.find(el => el.name === family)
   if (customModel && MODEL_FAMILIES.hasOwnProperty(customModel.aiType)) {
     return initChat(MODEL_FAMILIES[customModel.aiType as keyof typeof MODEL_FAMILIES], modelName, customModel, true)!
   }
 
-  console.log("Chat with Ollama, Host:", keys.ollama.endpoint)
+  console.log("Chat with Ollama, Host:", keys.ollama?.endpoint || 'http://127.0.0.1:11434')
   return new ChatOllama({
-    baseUrl: keys.ollama.endpoint,
+    baseUrl: keys.ollama?.endpoint || 'http://127.0.0.1:11434',
     model: modelName,
     numPredict: 3000
   })
