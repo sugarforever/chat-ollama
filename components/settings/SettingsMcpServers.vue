@@ -5,6 +5,13 @@ const { t } = useI18n()
 const toast = useToast()
 const confirm = useDialog('confirm')
 
+// Auth state for role checking
+const authUser = useState<{ role: string } | null>('auth.user', () => null)
+const isAdmin = computed(() => {
+  if (!authUser.value) return false
+  return authUser.value.role === 'admin' || authUser.value.role === 'superadmin'
+})
+
 // State management
 const servers = ref<McpServerConfig[]>([])
 const loading = ref(false)
@@ -115,11 +122,11 @@ const fetchServerTools = async (serverId: number) => {
   serverTools.value[serverId].error = null
 
   try {
-    const response = await $fetch(`/api/mcp-servers/${serverId}/tools`)
-    
+    const response = await $fetch<{ success: boolean; data: { tools: any[] }; error?: string }>(`/api/mcp-servers/${serverId}/tools`)
+
     if (response.success) {
       serverTools.value[serverId].tools = response.data.tools || []
-      if (response.data.connectionError) {
+      if ('connectionError' in response.data) {
         serverTools.value[serverId].error = response.error || 'Connection failed'
       }
     } else {
@@ -166,12 +173,12 @@ const createServer = async () => {
 
     if (response.success) {
       servers.value.push(response.data)
-      
+
       // Initialize tools state for the new server
       if (response.data.id) {
         serverTools.value[response.data.id] = { tools: [], loading: false, error: null }
       }
-      
+
       resetCreateForm()
       showCreateForm.value = false
       toast.add({ title: 'MCP server created successfully', color: 'green' })
@@ -230,13 +237,13 @@ const toggleServer = async (server: McpServerConfig) => {
       if (index !== -1) {
         servers.value[index] = response.data
       }
-      
+
       // Reset tools state when server is toggled
       if (server.id && serverTools.value[server.id]) {
         serverTools.value[server.id] = { tools: [], loading: false, error: null }
         expandedServers.value.delete(server.id) // Collapse when toggling
       }
-      
+
       toast.add({
         title: `MCP server ${response.data.enabled ? 'enabled' : 'disabled'} successfully`,
         color: 'green'
@@ -313,7 +320,17 @@ const confirmDelete = async (server: McpServerConfig) => {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  // Check admin access
+  if (!isAdmin.value) {
+    toast.add({
+      title: 'Admin access required',
+      description: 'MCP server management requires administrator privileges',
+      color: 'red'
+    })
+    return
+  }
+
   fetchServers()
 })
 </script>
@@ -321,7 +338,26 @@ onMounted(() => {
 <template>
   <ClientOnly>
     <SettingsCard title="MCP">
-      <div class="space-y-4">
+      <!-- Admin Access Required Message -->
+      <div v-if="!isAdmin" class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+        <div class="flex">
+          <UIcon name="i-material-symbols-lock" class="h-5 w-5 text-amber-400" />
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-amber-800 dark:text-amber-200">Admin Access Required</h3>
+            <div class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+              <p>MCP server configuration requires administrator privileges. Contact your administrator to:</p>
+              <ul class="mt-1 list-disc pl-5 space-y-1">
+                <li>Configure new MCP servers</li>
+                <li>Update existing server settings</li>
+                <li>Enable or disable MCP servers</li>
+                <li>Manage environment variables and transport settings</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="space-y-4">
         <!-- Server List -->
         <div v-if="loading" class="text-center py-6">
           <UIcon name="i-material-symbols-refresh" class="animate-spin w-5 h-5 mx-auto" />
@@ -438,11 +474,11 @@ onMounted(() => {
                       <div class="flex items-center gap-2 mb-1">
                         <h4 class="font-medium text-sm text-gray-900 dark:text-gray-100">{{ server.name }}</h4>
                         <UBadge color="blue" variant="soft" size="xs">{{ server.transport }}</UBadge>
-                        <UBadge v-if="serverTools[server.id!] && serverTools[server.id!].tools.length > 0" 
+                        <UBadge v-if="server.id && serverTools[server.id] && serverTools[server.id].tools.length > 0"
                                 color="green" variant="soft" size="xs">
-                          {{ serverTools[server.id!].tools.length }} tool(s)
+                          {{ server.id && serverTools[server.id] ? serverTools[server.id].tools.length : 0 }} tool(s)
                         </UBadge>
-                        <UBadge v-else-if="serverTools[server.id!] && serverTools[server.id!].error" 
+                        <UBadge v-else-if="server.id && serverTools[server.id] && serverTools[server.id].error"
                                 color="red" variant="soft" size="xs">
                           Connection Error
                         </UBadge>
@@ -459,11 +495,11 @@ onMounted(() => {
                   </div>
 
                   <div class="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <UButton v-if="server.id" 
-                             @click="toggleServerExpansion(server.id)" 
-                             :color="expandedServers.has(server.id) ? 'blue' : 'gray'" 
+                    <UButton v-if="server.id"
+                             @click="toggleServerExpansion(server.id)"
+                             :color="expandedServers.has(server.id) ? 'blue' : 'gray'"
                              size="xs" variant="ghost">
-                      <UIcon :name="expandedServers.has(server.id) ? 'i-material-symbols-expand-less' : 'i-material-symbols-expand-more'" 
+                      <UIcon :name="expandedServers.has(server.id) ? 'i-material-symbols-expand-less' : 'i-material-symbols-expand-more'"
                              class="text-xs" />
                     </UButton>
 
@@ -504,7 +540,7 @@ onMounted(() => {
                       Available Tools ({{ serverTools[server.id].tools.length }})
                     </div>
                     <div class="space-y-1">
-                      <div v-for="tool in serverTools[server.id].tools" :key="tool.name" 
+                      <div v-for="tool in serverTools[server.id].tools" :key="tool.name"
                            class="bg-green-50 dark:bg-green-950/50 rounded px-2 py-1 text-xs">
                         <div class="font-medium text-green-800 dark:text-green-200">{{ tool.name }}</div>
                         <div v-if="tool.description" class="text-green-600 dark:text-green-400 mt-1">
@@ -514,7 +550,7 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div v-else-if="serverTools[server.id] && serverTools[server.id].tools.length === 0 && !serverTools[server.id].error" 
+                  <div v-else-if="serverTools[server.id] && serverTools[server.id].tools.length === 0 && !serverTools[server.id].error"
                        class="text-xs text-gray-500">
                     No tools available for this server
                   </div>
@@ -719,7 +755,7 @@ onMounted(() => {
             </div>
           </UForm>
         </div>
-      </div>
+      </div> <!-- End v-else for admin check -->
     </SettingsCard>
   </ClientOnly>
 </template>
