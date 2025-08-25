@@ -62,10 +62,10 @@ export default defineEventHandler(async (event) => {
     }
 
     let agent, responseStream
-    
+
     try {
       agent = createAgent(instruction, mcpTools as StructuredTool[], chatModel)
-      
+
       responseStream = await agent.stream({
         "messages": [
           {
@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
       // Handle errors during agent creation or stream initialization
       console.error('Agent creation/stream initialization error:', agentError)
       console.log('Sending error message to client:', errorMessage)
-      
+
       // Format error message based on error type
       let errorMessage = 'Agent initialization failed'
       if (agentError.message?.includes('Recursion limit')) {
@@ -88,9 +88,9 @@ export default defineEventHandler(async (event) => {
       } else if (agentError.message) {
         errorMessage = `Agent error: ${agentError.message}`
       }
-      
+
       setEventStreamResponse(event)
-      
+
       const errorStream = Readable.from((async function* () {
         const errorData = {
           id: `error_${conversationRoundId}`,
@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
           timestamp: Date.now()
         }
         yield JSON.stringify(errorData) + '\n'
-        
+
         const completionData = {
           id: `complete_${conversationRoundId}`,
           type: 'complete',
@@ -109,8 +109,8 @@ export default defineEventHandler(async (event) => {
           timestamp: Date.now()
         }
         yield JSON.stringify(completionData) + '\n'
-      })()
-      
+      })())
+
       return sendStream(event, errorStream)
     }
 
