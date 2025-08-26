@@ -1,39 +1,5 @@
-import { getRequestHeader, H3Event } from 'h3'
-import jwt from 'jsonwebtoken'
-import { SECRET } from '../api/auth/login.post'
-
-const TOKEN_TYPE = 'Bearer'
-
-const extractToken = (authHeaderValue: string) => {
-  const [, token] = authHeaderValue.split(`${TOKEN_TYPE} `)
-  return token
-}
-
-const parseAuthUser = (event: H3Event) => {
-  const authHeaderValue = getRequestHeader(event, 'Authorization')
-  const cookieToken = getCookie(event, 'auth-token')
-
-  // Try Authorization header first
-  if (authHeaderValue != null) {
-    const extractedToken = extractToken(authHeaderValue)
-    try {
-      return jwt.verify(extractedToken, SECRET)
-    } catch (error) {
-      console.log('Invalid token from Authorization header.')
-    }
-  }
-
-  // Fall back to cookie token
-  if (cookieToken) {
-    try {
-      return jwt.verify(cookieToken, SECRET)
-    } catch (error) {
-      console.log('Invalid token from cookie.')
-    }
-  }
-
-  return null
-}
+import { H3Event } from 'h3'
+import { parseAuthUser } from '../utils/auth'
 
 export default defineEventHandler((event) => {
   const uri = new URL(event.path, 'http://localhost')

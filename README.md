@@ -2,6 +2,8 @@ English | [简体中文](README.zh-Hans.md)
 
 # 🧠🤖 ChatOllama + Deep Agents
 
+> **🔐 New ACL Feature (2025-08-25):** Access Control Lists (ACL) for MCP server management! Control who can configure MCP servers with `ACL_ENABLED` environment variable. [Learn more about ACL configuration →](#mcp-server-management-permissions)
+
 > **🤖 Deep Agents Support (2025-08-19):** ChatOllama now supports AI Agents with tool access! Currently requires Anthropic API key. Please refer to `.env.example` and set `ANTHROPIC_API_KEY` in `.env`. Tools are configured through MCP settings. Visit `/agents` to get started.
 
 > **📢 Database Migration Notice (2025-08-14):** ChatOllama has moved from SQLite to PostgreSQL as the primary database provider for better performance and scalability.
@@ -142,6 +144,9 @@ docker run -d -p 8000:8000 chromadb/chroma
 Key configuration options in `.env`:
 
 ```bash
+# Access Control
+ACL_ENABLED=false  # Set to 'true' for production (admin-only MCP management)
+
 # Database
 DATABASE_URL=file:../../chatollama.sqlite
 
@@ -213,6 +218,34 @@ You can enable or disable major product areas via feature flags. These can be se
 
 ChatOllama integrates with MCP to extend AI capabilities through external tools and data sources. MCP servers are managed through a user-friendly interface in Settings.
 
+#### MCP Server Management Permissions
+
+ChatOllama provides flexible access control for MCP server management to support both development and production environments.
+
+**Permission Modes:**
+- **`ACL_ENABLED=false` (default)**: Open access - all users can manage MCP servers
+- **`ACL_ENABLED=true`**: Restricted access - only admin/superadmin users can manage MCP servers
+
+**🔧 Development & Personal Use (Recommended: ACL_ENABLED=false)**
+```bash
+# .env file
+ACL_ENABLED=false
+```
+
+**User Experience by Role:**
+
+| User Type | ACL_ENABLED=false | ACL_ENABLED=true |
+|-----------|-------------------|------------------|
+| **Unauthenticated** | ✅ Full MCP access | ❌ Admin required |
+| **Regular User** | ✅ Full MCP access | ❌ Admin required |
+| **Admin** | ✅ Full MCP access | ✅ Full MCP access |
+| **Super Admin** | ✅ Full MCP access | ✅ Full MCP access |
+
+**Important Notes:**
+- **MCP Tool Usage**: All users can use configured MCP tools in chat regardless of ACL setting
+- **Backward Compatibility**: Existing installations continue working without changes
+- **Migration Safe**: Enable ACL anytime by setting `ACL_ENABLED=true`
+
 **Supported Transport Types:**
 - **STDIO** - Command-line tools (most common)
 - **Server-Sent Events (SSE)** - HTTP-based streaming
@@ -259,6 +292,88 @@ When MCP servers are enabled, their tools become available to AI models during c
 - Perform system operations as needed
 
 Tools are loaded dynamically and integrated seamlessly into the chat experience.
+
+#### Troubleshooting MCP Permissions
+
+**Common Issues and Solutions:**
+
+1. **"Admin access required" message appears:**
+   - **Cause**: `ACL_ENABLED=true` and user lacks admin privileges
+   - **Solution**: Either disable ACL or promote user to admin
+   ```bash
+   # Option 1: Disable ACL (development)
+   ACL_ENABLED=false
+   
+   # Option 2: Promote user to admin (contact super admin)
+   ```
+
+2. **Cannot access MCP settings after enabling ACL:**
+   - **Cause**: No admin account exists
+   - **Solution**: Create super admin account
+   ```bash
+   # Set before first user signup
+   SUPER_ADMIN_NAME=admin-username
+   ```
+
+3. **MCP tools not working in chat:**
+   - **Cause**: MCP feature disabled or servers misconfigured
+   - **Solution**: Check MCP feature flag and server status
+   ```bash
+   # Enable MCP feature
+   NUXT_MCP_ENABLED=true  # Docker
+   MCP_ENABLED=true       # .env
+   ```
+
+4. **Permission changes not taking effect:**
+   - **Cause**: Browser cache or session issue
+   - **Solution**: Logout and login again, or restart application
+
+## User Management & Admin Setup
+
+### Creating Super Admin Account
+
+**Before setting SUPER_ADMIN_NAME:**
+- The first user to sign up automatically becomes super admin
+
+**After setting SUPER_ADMIN_NAME:**
+- Only the user with the specified username becomes super admin when they sign up
+- Set in `.env` file: `SUPER_ADMIN_NAME=your-admin-username`
+- Or in Docker: add to environment variables
+
+**Managing existing users:**
+- Use the promotion script tool to manage super admin roles:
+  ```bash
+  # Promote existing user to super admin
+  pnpm promote-super-admin username_or_email
+  
+  # List current super admins
+  pnpm promote-super-admin --list
+  ```
+
+### Managing User Roles
+
+**Super Admin Capabilities:**
+- Promote regular users to admin
+- Manage all MCP servers (when ACL enabled)
+- Access user management interface
+- Configure system-wide settings
+
+**Admin Capabilities:**
+- Manage MCP servers (when ACL enabled)
+- Cannot promote other users
+
+**Regular User Capabilities:**
+- Use all chat features and MCP tools
+- Manage MCP servers (only when ACL disabled)
+
+### Production Security Recommendations
+
+```bash
+# Recommended production settings
+ACL_ENABLED=false          # Default: open access to MCP management
+SUPER_ADMIN_NAME=admin     # Set super admin username
+AUTH_SECRET=your-long-random-secret-key-here
+```
 
 ### Realtime Voice Chat
 
@@ -319,6 +434,10 @@ pnpm preview           # Preview production build
 pnpm prisma-migrate    # Run database migrations
 pnpm prisma-generate   # Generate Prisma client
 pnpm prisma-push       # Push schema changes
+
+# User Management
+pnpm promote-super-admin <username|email>  # Promote user to super admin
+pnpm promote-super-admin --list            # List all super admins
 ```
 
 ### Contributing

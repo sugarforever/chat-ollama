@@ -1,5 +1,6 @@
 import { McpService } from '~/server/utils/mcp'
 import { MultiServerMCPClient } from '@langchain/mcp-adapters'
+import { requireAdminIfAclEnabled } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   // Check if MCP feature is enabled
@@ -7,6 +8,9 @@ export default defineEventHandler(async (event) => {
     setResponseStatus(event, 403, 'MCP feature is disabled')
     return { error: 'MCP feature is disabled' }
   }
+
+  // Require admin privileges for MCP server management (if ACL is enabled)
+  requireAdminIfAclEnabled(event)
 
   const id = getRouterParam(event, 'id')
   const serverId = parseInt(id || '0')
