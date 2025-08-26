@@ -12,6 +12,7 @@ export interface ChatSession {
     knowledgeBaseId?: number
     attachedMessagesCount: number
     isTop: number
+    enableToolUsage?: boolean
 }
 
 export interface ChatHistory {
