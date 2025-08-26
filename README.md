@@ -376,6 +376,21 @@ To manage users and enable ACL in production, you need a super admin account:
 
 3. **Verify super admin status** in Settings → Users (only visible to super admins)
 
+4. **Promote existing users to super admin** (if needed):
+   ```bash
+   # Promote user by username
+   pnpm promote-super-admin john_doe
+   
+   # Promote user by email
+   pnpm promote-super-admin john@example.com
+   
+   # List current super admins
+   pnpm promote-super-admin --list
+   
+   # Show help
+   pnpm promote-super-admin --help
+   ```
+
 ### Managing User Roles
 
 **Super Admin Capabilities:**
@@ -460,6 +475,10 @@ pnpm preview           # Preview production build
 pnpm prisma-migrate    # Run database migrations
 pnpm prisma-generate   # Generate Prisma client
 pnpm prisma-push       # Push schema changes
+
+# User Management
+pnpm promote-super-admin <username|email>  # Promote user to super admin
+pnpm promote-super-admin --list            # List all super admins
 ```
 
 ### Contributing

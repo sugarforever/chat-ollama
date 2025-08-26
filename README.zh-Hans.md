@@ -373,6 +373,21 @@ pnpm exec ts-node scripts/migrate-mcp-servers.ts
 
 3. **在设置 → 用户中验证超级管理员状态**（仅对超级管理员可见）
 
+4. **将现有用户提升为超级管理员**（如需要）：
+   ```bash
+   # 通过用户名提升用户
+   pnpm promote-super-admin john_doe
+   
+   # 通过邮箱提升用户
+   pnpm promote-super-admin john@example.com
+   
+   # 列出当前的超级管理员
+   pnpm promote-super-admin --list
+   
+   # 显示帮助
+   pnpm promote-super-admin --help
+   ```
+
 ### 管理用户角色
 
 **超级管理员能力：**
@@ -457,6 +472,10 @@ pnpm preview           # 预览生产构建
 pnpm prisma-migrate    # 运行数据库迁移
 pnpm prisma-generate   # 生成 Prisma 客户端
 pnpm prisma-push       # 推送模式更改
+
+# 用户管理
+pnpm promote-super-admin <用户名|邮箱>  # 将用户提升为超级管理员
+pnpm promote-super-admin --list        # 列出所有超级管理员
 ```
 
 ### 贡献

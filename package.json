@@ -12,7 +12,8 @@
         "prisma-migrate": "prisma migrate dev",
         "prisma-generate": "prisma generate",
         "prisma-push": "prisma db push",
-        "migrate:sqlite-to-postgres": "tsx scripts/migrate-sqlite-to-postgres-simple.ts"
+        "migrate:sqlite-to-postgres": "tsx scripts/migrate-sqlite-to-postgres-simple.ts",
+        "promote-super-admin": "tsx scripts/promote-super-admin.ts"
     },
     "devDependencies": {
         "@nuxtjs/google-fonts": "^3.2.0",
