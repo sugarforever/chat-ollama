@@ -51,6 +51,8 @@ model KnowledgeBase {
   user               User?               @relation(fields: [user_id], references: [id])
   user_id            Int?
   files              KnowledgeBaseFile[] @relation("Files")
+
+  @@index([user_id])
 }
 
 model KnowledgeBaseFile {
@@ -58,6 +60,8 @@ model KnowledgeBaseFile {
   url             String
   knowledgeBase   KnowledgeBase @relation("Files", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   knowledgeBaseId Int
+
+  @@index([knowledgeBaseId])
 }
 
 model Instruction {
@@ -67,6 +71,8 @@ model Instruction {
   user_id     Int?
   is_public   Boolean @default(false)
   user        User?   @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
 }
 
 model McpServer {
@@ -123,6 +129,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -131,6 +138,8 @@ model Session {
   userId       Int
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -138,5 +147,5 @@ model VerificationToken {
   token      String   @unique
   expires    DateTime
 
-  @@unique([identifier, token])
+  @@id([identifier, token])
 }
