@@ -2,6 +2,8 @@
 
 # ChatOllama
 
+> **🔐 新增 ACL 功能 (2025-08-25):** MCP 服务器管理访问控制列表（ACL）！通过 `ACL_ENABLED` 环境变量控制谁可以配置 MCP 服务器。[了解更多 ACL 配置 →](#mcp-服务器管理权限)
+
 > **🤖 深度智能体支持 (2025-08-19)：** ChatOllama 现在支持具有工具访问能力的 AI 智能体！目前需要 Anthropic API 密钥，请参考 `.env.example`，在 `.env` 中添加 `ANTHROPIC_API_KEY`。工具通过 MCP 设置进行配置。访问 `/agents` 开始使用。
 
 > **📢 数据库迁移通知 (2025-08-14)：** ChatOllama 已从 SQLite 迁移到 PostgreSQL 作为主要数据库提供商，以获得更好的性能和可扩展性。
@@ -213,6 +215,63 @@ COHERE_API_KEY=your_cohere_key
 
 ChatOllama 集成了 MCP，通过外部工具和数据源扩展 AI 功能。MCP 服务器通过设置中的用户友好界面进行管理。
 
+#### MCP 服务器管理权限
+
+ChatOllama 为 MCP 服务器管理提供灵活的访问控制，以支持开发和生产环境。
+
+**权限模式：**
+- **`ACL_ENABLED=false`（默认）**：开放访问 - 所有用户都可以管理 MCP 服务器
+- **`ACL_ENABLED=true`**：限制访问 - 只有管理员/超级管理员用户可以管理 MCP 服务器
+
+**🔧 开发与个人使用（推荐：ACL_ENABLED=false）**
+```bash
+# .env 文件
+ACL_ENABLED=false
+```
+
+**🏢 生产与多用户环境（推荐：ACL_ENABLED=true）**
+```yaml
+# docker-compose.yaml
+services:
+  chatollama:
+    environment:
+      - ACL_ENABLED=true
+```
+
+**设置管理员访问权限：**
+
+1. **创建超级管理员账户：**
+   ```bash
+   # 在首次注册前设置超级管理员名称
+   SUPER_ADMIN_NAME=your-username
+   ```
+   
+2. **管理员用户管理：**
+   - 超级管理员可以通过设置将普通用户提升为管理员
+   - 启用 ACL 时，管理员和超级管理员用户可以管理 MCP 服务器
+   - 启用 ACL 时，普通用户会看到"需要管理员权限"消息
+
+3. **权限验证：**
+   ```bash
+   # 通过 API 检查当前 ACL 状态
+   curl http://localhost:3000/api/auth/acl-status
+   # 返回：{"aclEnabled": true/false}
+   ```
+
+**按角色划分的用户体验：**
+
+| 用户类型 | ACL_ENABLED=false | ACL_ENABLED=true |
+|----------|-------------------|------------------|
+| **未认证用户** | ✅ 完整 MCP 访问 | ❌ 需要管理员权限 |
+| **普通用户** | ✅ 完整 MCP 访问 | ❌ 需要管理员权限 |
+| **管理员** | ✅ 完整 MCP 访问 | ✅ 完整 MCP 访问 |
+| **超级管理员** | ✅ 完整 MCP 访问 | ✅ 完整 MCP 访问 |
+
+**重要说明：**
+- **MCP 工具使用**：无论 ACL 设置如何，所有用户都可以在聊天中使用已配置的 MCP 工具
+- **向后兼容性**：现有安装继续工作而无需更改
+- **安全迁移**：可以随时通过设置 `ACL_ENABLED=true` 启用 ACL
+
 **支持的传输类型：**
 - **STDIO** - 命令行工具（最常用）
 - **服务器发送事件 (SSE)** - 基于 HTTP 的流式传输
@@ -259,6 +318,85 @@ pnpm exec ts-node scripts/migrate-mcp-servers.ts
 - 根据需要执行系统操作
 
 工具动态加载并无缝集成到聊天体验中。
+
+#### MCP 权限故障排除
+
+**常见问题及解决方案：**
+
+1. **出现"需要管理员权限"消息：**
+   - **原因**：`ACL_ENABLED=true` 且用户缺乏管理员权限
+   - **解决方案**：禁用 ACL 或将用户提升为管理员
+   ```bash
+   # 选项 1：禁用 ACL（开发环境）
+   ACL_ENABLED=false
+   
+   # 选项 2：将用户提升为管理员（联系超级管理员）
+   ```
+
+2. **启用 ACL 后无法访问 MCP 设置：**
+   - **原因**：不存在管理员账户
+   - **解决方案**：创建超级管理员账户
+   ```bash
+   # 在首次用户注册前设置
+   SUPER_ADMIN_NAME=admin-username
+   ```
+
+3. **MCP 工具在聊天中不工作：**
+   - **原因**：MCP 功能被禁用或服务器配置错误
+   - **解决方案**：检查 MCP 功能开关和服务器状态
+   ```bash
+   # 启用 MCP 功能
+   NUXT_MCP_ENABLED=true  # Docker
+   MCP_ENABLED=true       # .env
+   ```
+
+4. **权限更改未生效：**
+   - **原因**：浏览器缓存或会话问题
+   - **解决方案**：退出登录后重新登录，或重启应用程序
+
+## 用户管理与管理员设置
+
+### 创建超级管理员账户
+
+要管理用户并在生产环境中启用 ACL，您需要一个超级管理员账户：
+
+1. **在首次用户注册前设置超级管理员名称：**
+   ```bash
+   # 在 .env 文件中
+   SUPER_ADMIN_NAME=your-admin-username
+   
+   # 或在 Docker 中
+   SUPER_ADMIN_NAME=your-admin-username
+   ```
+
+2. **使用指定的用户名注册** - 第一个使用此确切用户名的用户将成为超级管理员
+
+3. **在设置 → 用户中验证超级管理员状态**（仅对超级管理员可见）
+
+### 管理用户角色
+
+**超级管理员能力：**
+- 将普通用户提升为管理员
+- 管理所有 MCP 服务器（当启用 ACL 时）
+- 访问用户管理界面
+- 配置系统范围的设置
+
+**管理员能力：**
+- 管理 MCP 服务器（当启用 ACL 时）
+- 无法提升其他用户
+
+**普通用户能力：**
+- 使用所有聊天功能和 MCP 工具
+- 管理 MCP 服务器（仅当 ACL 禁用时）
+
+### 生产环境安全建议
+
+```bash
+# 推荐的生产环境设置
+ACL_ENABLED=true           # 启用访问控制
+SUPER_ADMIN_NAME=admin     # 设置超级管理员用户名
+AUTH_SECRET=your-long-random-secret-key-here
+```
 
 ### 实时语音聊天
 

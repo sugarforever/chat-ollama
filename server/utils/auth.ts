@@ -4,6 +4,15 @@ import jwt from 'jsonwebtoken'
 export const SECRET = process.env.SECRET || 'changeit'
 export const TOKEN_TYPE = 'Bearer'
 
+/**
+ * Check if Access Control Lists (ACL) are enabled
+ * When disabled, all users can manage MCP servers (backward compatibility)
+ * When enabled, only admin/superadmin users can manage MCP servers
+ */
+export const isAclEnabled = (): boolean => {
+  return process.env.ACL_ENABLED?.toLowerCase() === 'true'
+}
+
 export enum Role {
     USER = 0,
     ADMIN = 1,
@@ -103,6 +112,22 @@ export function requireSuperAdmin(event: H3Event): AuthUser {
     }
 
     return user
+}
+
+/**
+ * Conditionally require admin access based on ACL_ENABLED environment variable
+ * If ACL is disabled, allows anonymous access (no authentication required)
+ * If ACL is enabled, requires admin or superadmin role
+ */
+export function requireAdminIfAclEnabled(event: H3Event): AuthUser | null {
+    if (!isAclEnabled()) {
+        // ACL disabled - allow anonymous access (for backward compatibility)
+        // Return parsed user if available, but don't require authentication
+        return parseAuthUser(event)
+    }
+
+    // ACL enabled - require admin privileges
+    return requireAdmin(event)
 }
 
 /**

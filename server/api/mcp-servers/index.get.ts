@@ -1,5 +1,5 @@
 import { McpService } from '~/server/utils/mcp'
-import { requireAdmin } from '~/server/utils/auth'
+import { requireAdminIfAclEnabled } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   // Check if MCP feature is enabled
@@ -8,8 +8,8 @@ export default defineEventHandler(async (event) => {
     return { error: 'MCP feature is disabled' }
   }
 
-  // Require admin privileges for MCP server management
-  requireAdmin(event)
+  // Require admin privileges for MCP server management (if ACL is enabled)
+  requireAdminIfAclEnabled(event)
 
   const mcpService = new McpService()
 
