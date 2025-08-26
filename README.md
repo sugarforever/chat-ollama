@@ -232,35 +232,6 @@ ChatOllama provides flexible access control for MCP server management to support
 ACL_ENABLED=false
 ```
 
-**🏢 Production & Multi-user Environments (Recommended: ACL_ENABLED=true)**
-```yaml
-# docker-compose.yaml
-services:
-  chatollama:
-    environment:
-      - ACL_ENABLED=true
-```
-
-**Setting Up Admin Access:**
-
-1. **Create Super Admin Account:**
-   ```bash
-   # Set super admin name before first signup
-   SUPER_ADMIN_NAME=your-username
-   ```
-   
-2. **Admin User Management:**
-   - Super admins can promote regular users to admin via Settings
-   - Admin and super admin users can manage MCP servers when ACL is enabled
-   - Regular users see "Admin access required" message when ACL is enabled
-
-3. **Permission Verification:**
-   ```bash
-   # Check current ACL status via API
-   curl http://localhost:3000/api/auth/acl-status
-   # Returns: {"aclEnabled": true/false}
-   ```
-
 **User Experience by Role:**
 
 | User Type | ACL_ENABLED=false | ACL_ENABLED=true |
@@ -361,35 +332,23 @@ Tools are loaded dynamically and integrated seamlessly into the chat experience.
 
 ### Creating Super Admin Account
 
-To manage users and enable ACL in production, you need a super admin account:
+**Before setting SUPER_ADMIN_NAME:**
+- The first user to sign up automatically becomes super admin
 
-1. **Set super admin name before first user signup:**
-   ```bash
-   # In .env file
-   SUPER_ADMIN_NAME=your-admin-username
-   
-   # Or in Docker
-   SUPER_ADMIN_NAME=your-admin-username
-   ```
+**After setting SUPER_ADMIN_NAME:**
+- Only the user with the specified username becomes super admin when they sign up
+- Set in `.env` file: `SUPER_ADMIN_NAME=your-admin-username`
+- Or in Docker: add to environment variables
 
-2. **Sign up with the specified username** - The first user with this exact username becomes super admin
-
-3. **Verify super admin status** in Settings → Users (only visible to super admins)
-
-4. **Promote existing users to super admin** (if needed):
-   ```bash
-   # Promote user by username
-   pnpm promote-super-admin john_doe
-   
-   # Promote user by email
-   pnpm promote-super-admin john@example.com
-   
-   # List current super admins
-   pnpm promote-super-admin --list
-   
-   # Show help
-   pnpm promote-super-admin --help
-   ```
+**Managing existing users:**
+- Use the promotion script tool to manage super admin roles:
+  ```bash
+  # Promote existing user to super admin
+  pnpm promote-super-admin username_or_email
+  
+  # List current super admins
+  pnpm promote-super-admin --list
+  ```
 
 ### Managing User Roles
 
@@ -411,7 +370,7 @@ To manage users and enable ACL in production, you need a super admin account:
 
 ```bash
 # Recommended production settings
-ACL_ENABLED=true           # Enable access control
+ACL_ENABLED=false          # Default: open access to MCP management
 SUPER_ADMIN_NAME=admin     # Set super admin username
 AUTH_SECRET=your-long-random-secret-key-here
 ```

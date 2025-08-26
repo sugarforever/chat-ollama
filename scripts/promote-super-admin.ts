@@ -13,7 +13,7 @@ const prisma = new PrismaClient()
 async function promoteUserToSuperAdmin(identifier: string) {
     try {
         console.log(`🔍 Looking for user: ${identifier}`)
-        
+
         // Try to find user by name or email
         const user = await prisma.user.findFirst({
             where: {
@@ -45,7 +45,7 @@ async function promoteUserToSuperAdmin(identifier: string) {
         console.log(`   Name: ${updatedUser.name}`)
         console.log(`   Email: ${updatedUser.email}`)
         console.log(`   Role: ${updatedUser.role} (Super Admin)`)
-        
+
         return true
     } catch (error) {
         console.error('❌ Error promoting user:', error)
@@ -100,7 +100,7 @@ Options:
 
 async function main() {
     const args = process.argv.slice(2)
-    
+
     if (args.length === 0 || args.includes('--help')) {
         await showUsage()
         return
@@ -119,9 +119,9 @@ async function main() {
     }
 
     console.log('🚀 Starting Super Admin promotion process...')
-    
+
     const success = await promoteUserToSuperAdmin(identifier)
-    
+
     if (success) {
         console.log('\n🎯 Promotion completed successfully!')
         console.log('💡 The user now has Super Admin privileges')
