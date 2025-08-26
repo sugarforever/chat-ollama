@@ -123,7 +123,7 @@ const processToolCalls = async (
   accumulatedToolResults: any[]
 ): Promise<ToolMessage[]> => {
   const toolMessages: ToolMessage[] = []
-  
+
   for (const toolCall of toolCalls) {
     console.log("Processing tool call: ", toolCall)
     const selectedTool = toolsMap[toolCall.name]
@@ -149,7 +149,7 @@ const processToolCalls = async (
       toolMessages.push(new ToolMessage(result.content, toolCall.id))
     }
   }
-  
+
   return toolMessages
 }
 
@@ -188,64 +188,64 @@ const handleMultiRoundToolCalls = async function* (
   let accumulatedContent = initialContent
   let accumulatedToolCalls = [...initialToolCalls]
   let accumulatedToolResults = [...initialToolResults]
-  
+
   // Add initial AI message with tool calls to conversation
   if (initialGathered) {
     console.log("Adding initial AI message with tool_calls:", initialGathered?.tool_calls?.length || 0)
     transformedMessages.push(new AIMessage(initialGathered as AIMessageFields))
   }
-  
+
   const initialToolMessages = await processToolCalls(
     initialGathered?.tool_calls ?? [],
     toolsMap,
     accumulatedToolCalls,
     accumulatedToolResults
   )
-  
+
   console.log("Created initial tool messages:", initialToolMessages.length)
-  
+
   // Stream initial tool results
   yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
-  
+
   transformedMessages.push(...initialToolMessages)
-  
+
   let hasMoreToolCalls = initialToolMessages.length > 0
   let roundCount = 0
-  
+
   while (hasMoreToolCalls && roundCount < MAX_ROUNDS) {
     roundCount++
     console.log(`Tool call round ${roundCount}`)
-    
+
     const nextResponse = await llm.stream(transformedMessages as BaseMessageLike[])
     let nextGathered = undefined
     let hasNewContent = false
-    
+
     // Stream the response and gather potential new tool calls
     for await (const chunk of nextResponse) {
       nextGathered = nextGathered !== undefined ? concat(nextGathered, chunk) : chunk
-      
+
       const content = extractContentFromChunk(chunk)
       if (content) {
         accumulatedContent += content
         hasNewContent = true
-        
+
         // Stream content updates immediately
         yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
       }
     }
-    
+
     // Check if there are more tool calls to process
     const newToolCalls = nextGathered?.tool_calls ?? []
     if (newToolCalls.length > 0) {
       console.log(`Found ${newToolCalls.length} new tool calls in round ${roundCount}`)
-      
+
       // Add the AI response to conversation if it had content or tool calls
       if (hasNewContent || newToolCalls.length > 0) {
         console.log(`Adding AI message for round ${roundCount} with tool_calls:`, newToolCalls.length)
         console.log("AI message tool_calls structure:", JSON.stringify(newToolCalls, null, 2))
         transformedMessages.push(new AIMessage(nextGathered as AIMessageFields))
       }
-      
+
       // Process the new tool calls
       const newToolMessages = await processToolCalls(
         newToolCalls,
@@ -253,13 +253,13 @@ const handleMultiRoundToolCalls = async function* (
         accumulatedToolCalls,
         accumulatedToolResults
       )
-      
+
       console.log(`Created ${newToolMessages.length} tool messages for round ${roundCount}`)
       console.log("Tool messages:", newToolMessages.map(tm => ({ content: tm.content, tool_call_id: tm.tool_call_id })))
-      
+
       // Stream updated message with new tool calls and results
       yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
-      
+
       // Add tool messages to conversation for next round
       transformedMessages.push(...newToolMessages)
       hasMoreToolCalls = newToolMessages.length > 0
@@ -267,9 +267,30 @@ const handleMultiRoundToolCalls = async function* (
       hasMoreToolCalls = false
     }
   }
-  
+
   if (roundCount >= MAX_ROUNDS) {
     console.warn(`Tool call processing stopped after ${MAX_ROUNDS} rounds to prevent infinite loops`)
+
+    // Create a final AI response to summarize what was accomplished
+    const finalResponse = await llm.stream([
+      ...transformedMessages,
+      new HumanMessage(`Based on all the tool calls and results above, please provide a comprehensive summary of what was accomplished and answer the original user question.`)
+    ])
+
+    try {
+      // Stream the final AI response
+      for await (const chunk of finalResponse) {
+        const content = extractContentFromChunk(chunk)
+        if (content) {
+          accumulatedContent += content
+
+          // Stream the final message content
+          yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
+        }
+      }
+    } catch (error) {
+      console.error('Error generating final summary:', error)
+    }
   }
 }
 
@@ -447,7 +468,7 @@ export default defineEventHandler(async (event) => {
       }
 
       console.log("Gathered response: ", gathered)
-      
+
       // Handle multi-round tool calls if any exist
       if (gathered?.tool_calls?.length > 0) {
         console.log("Starting multi-round tool call processing")
@@ -461,7 +482,7 @@ export default defineEventHandler(async (event) => {
           toolResults
         )
       }
-      
+
       await mcpService.close()
     })())
 
