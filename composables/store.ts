@@ -4,6 +4,7 @@ import { DEFAULT_ATTACHED_MESSAGES_COUNT, MODEL_FAMILY_SEPARATOR } from '~/confi
 export const chatDefaultSettings = useStorage('chat-default-settings', {
   models: [] as string[],
   attachedMessagesCount: DEFAULT_ATTACHED_MESSAGES_COUNT,
+  enableToolUsage: false,
 })
 
 // incompatible with old data format
@@ -14,6 +15,7 @@ if (model) {
     chatDefaultSettings.value = {
       models,
       attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount || DEFAULT_ATTACHED_MESSAGES_COUNT,
+      enableToolUsage: false,
     }
   } else {
     chatDefaultSettings.value = null

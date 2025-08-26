@@ -245,6 +245,7 @@ const onSend = async (data: ChatBoxFormData) => {
                         stream: true,
                         sessionId: sessionInfo.value!.id!,
                         timestamp,
+                        enableToolUsage: chatDefaultSettings.value.enableToolUsage,
                     },
                 })
             }

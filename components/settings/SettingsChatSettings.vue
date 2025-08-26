@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 
 const { t } = useI18n()
+const features = useFeatures()
+const isMcpEnabled = computed(() => features.mcpEnabled)
 
 </script>
 
@@ -26,6 +28,14 @@ const { t } = useI18n()
               size="md" 
               class="flex-1" />
           </div>
+        </UFormGroup>
+
+        <!-- Tool Usage Toggle Section -->
+        <UFormGroup v-if="isMcpEnabled" :label="t('settings.enableToolUsage')" :help="t('settings.enableToolUsageHelp')">
+          <UToggle 
+            v-model="chatDefaultSettings.enableToolUsage" 
+            size="md" 
+          />
         </UFormGroup>
       </div>
     </SettingsCard>

@@ -149,6 +149,8 @@
         "proxyTips": "仅当设置了当前端点和代理设置时才有效",
         "chatSettings": "对话设置",
         "defaultModel": "默认模型",
+        "enableToolUsage": "启用工具使用",
+        "enableToolUsageHelp": "启用后允许 AI 模型使用 MCP 工具",
         "language": "语言",
         "customApiService": "自定义 API 服务",
         "customApiServiceName": "自定义 API 服务名",
