@@ -245,6 +245,7 @@ const onSend = async (data: ChatBoxFormData) => {
                         stream: true,
                         sessionId: sessionInfo.value!.id!,
                         timestamp,
+                        enableToolUsage: sessionInfo.value?.enableToolUsage ?? chatDefaultSettings.value.enableToolUsage,
                     },
                 })
             }
@@ -326,6 +327,7 @@ function onOpenSettings() {
                 attachedMessagesCount: data.attachedMessagesCount,
                 knowledgeBaseId: data.knowledgeBaseInfo?.id,
                 instructionId: data.instructionInfo?.id,
+                enableToolUsage: data.enableToolUsage,
             }
             Object.assign(sessionInfo.value!, updatedSessionInfo)
 

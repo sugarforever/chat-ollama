@@ -36,6 +36,7 @@ interface RequestBody {
     toolResult: boolean
   }[]
   stream: any
+  enableToolUsage?: boolean
 }
 
 const SYSTEM_TEMPLATE = `Answer the user's question based on the context below.
@@ -295,7 +296,7 @@ const handleMultiRoundToolCalls = async function* (
 }
 
 export default defineEventHandler(async (event) => {
-  const { knowledgebaseId, model, family, messages, stream } = await readBody<RequestBody>(event)
+  const { knowledgebaseId, model, family, messages, stream, enableToolUsage } = await readBody<RequestBody>(event)
 
   // Timeout optimization: Set streaming headers immediately
   if (stream) {
@@ -417,7 +418,7 @@ export default defineEventHandler(async (event) => {
     let llm = createChatModel(model, family, event)
 
     const mcpService = new McpService()
-    const normalizedTools = isMcpEnabled() ? await mcpService.listTools() : []
+    const normalizedTools = isMcpEnabled() && enableToolUsage ? await mcpService.listTools() : []
     console.log("Normalized tools: ", normalizedTools)
     const toolsMap = normalizedTools.reduce((acc: Record<string, StructuredToolInterface>, tool) => {
       acc[tool.name] = tool

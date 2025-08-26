@@ -14,6 +14,7 @@ export function useCreateChatSession() {
       instructionId: params?.instructionId || 0,
       knowledgeBaseId: params?.knowledgeBaseId || 0,
       attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount,
+      enableToolUsage: params?.enableToolUsage ?? chatDefaultSettings.value.enableToolUsage,
       isTop: 0,
     }
 

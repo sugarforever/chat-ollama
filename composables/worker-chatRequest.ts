@@ -23,6 +23,7 @@ interface RequestData {
   messages: Array<SetRequired<Partial<ChatMessage>, 'role' | 'content' | 'toolResult' | 'toolCallId'>>
   stream: boolean
   timestamp: number
+  enableToolUsage?: boolean
 }
 
 export type WorkerReceivedMessage =
@@ -77,6 +78,7 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
       family,
       messages: data.messages,
       stream: data.stream,
+      enableToolUsage: data.enableToolUsage,
     }),
     headers: {
       ...headers,

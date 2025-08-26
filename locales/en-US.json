@@ -149,6 +149,8 @@
         "proxyTips": "Only works when the current Endpoint and Proxy Settings is set",
         "chatSettings": "Chat Settings",
         "defaultModel": "Default Model",
+        "enableToolUsage": "Enable Tool Usage",
+        "enableToolUsageHelp": "Allow AI models to use MCP tools when enabled",
         "language": "Language",
         "customApiService": "Custom API Service",
         "customApiServiceName": "Custom API Service Name",

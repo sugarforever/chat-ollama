@@ -4,12 +4,14 @@ import type { Instruction, KnowledgeBase } from '@prisma/client'
 
 const features = useFeatures()
 const isKnowledgeBaseEnabled = computed(() => features.knowledgeBaseEnabled)
+const isMcpEnabled = computed(() => features.mcpEnabled)
 
 interface UpdatedOptions {
   title: string
   attachedMessagesCount: number
   knowledgeBaseInfo?: KnowledgeBase
   instructionInfo?: Instruction
+  enableToolUsage?: boolean
 }
 
 const props = defineProps<{
@@ -26,6 +28,7 @@ const defaultConfig = {
   instructionId: 0,
   knowledgeBaseId: 0,
   attachedMessagesCount: chatDefaultSettings.value.attachedMessagesCount,
+  enableToolUsage: chatDefaultSettings.value.enableToolUsage,
 } as const
 
 const state = reactive({
@@ -75,6 +78,7 @@ async function onSave() {
     attachedMessagesCount: state.attachedMessagesCount,
     knowledgeBaseInfo: knowledgeBaseInfo as KnowledgeBase,
     instructionInfo,
+    enableToolUsage: state.enableToolUsage,
   })
   props.onClose()
 }
@@ -117,6 +121,9 @@ async function onReset() {
             <span class="mr-2 w-6 text-primary-500">{{ state.attachedMessagesCount }}</span>
             <URange v-model="state.attachedMessagesCount" :min="0" :max="$config.public.chatMaxAttachedMessages" size="md" />
           </div>
+        </UFormGroup>
+        <UFormGroup v-if="isMcpEnabled" :label="t('settings.enableToolUsage')" name="enableToolUsage" :help="t('settings.enableToolUsageHelp')" class="mb-4">
+          <UToggle v-model="state.enableToolUsage" size="md" />
         </UFormGroup>
         <div class="text-center mt-6">
           <UButton icon="i-material-symbols-delete-history" color="red" @click="onClearHistory">{{ t('chat.clearBtn') }}</UButton>
