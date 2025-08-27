@@ -4,7 +4,7 @@ import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai"
 import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { ChatAnthropic } from "@langchain/anthropic"
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama"
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAI } from '~/server/models/openai/'
 import { ChatGoogleGenerativeAI } from "~/server/models/genai/generative-ai"
 import { ChatGroq } from "@langchain/groq"
 import { AzureChatOpenAI } from "@langchain/azure-openai"
@@ -66,7 +66,7 @@ function initChat(family: string, modelName: string, params: InitChatParams, isC
     return new ChatOpenAI({
       configuration: { baseURL },
       apiKey: params.key,
-      model: modelName,
+      model: modelName
     })
   }
 
