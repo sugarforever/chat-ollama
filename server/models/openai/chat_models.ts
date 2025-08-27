@@ -2354,7 +2354,6 @@ export class ChatOpenAICompletions<
     options: this["ParsedCallOptions"],
     runManager?: CallbackManagerForLLMRun
   ): Promise<ChatResult> {
-    console.log("ChatOpenAICompletions _generate called")
     const usageMetadata = {} as UsageMetadata
     const params = this.invocationParams(options)
     const messagesMapped: OpenAIClient.Chat.Completions.ChatCompletionMessageParam[] =
@@ -2364,8 +2363,6 @@ export class ChatOpenAICompletions<
       const stream = this._streamResponseChunks(messages, options, runManager)
       const finalChunks: Record<number, ChatGenerationChunk> = {}
       for await (const chunk of stream) {
-        console.log("Original chunk: ", chunk)
-
         chunk.message.response_metadata = {
           ...chunk.generationInfo,
           ...chunk.message.response_metadata,
@@ -2532,37 +2529,22 @@ export class ChatOpenAICompletions<
     }
     let defaultRole: OpenAIClient.Chat.ChatCompletionRole | undefined
 
-    console.log("[DEBUG] Stream params:", {
-      model: params.model,
-      stream: params.stream,
-      messagesCount: params.messages.length
-    })
-
     const streamIterable = await this.completionWithRetry(params, options)
     let usage: OpenAIClient.Completions.CompletionUsage | undefined
     let chunkCount = 0
     for await (const data of streamIterable) {
       chunkCount++
-      console.log("[DEBUG] Processing stream chunk", chunkCount, ":", {
-        id: data.id,
-        model: data.model,
-        choicesCount: data.choices?.length || 0,
-        firstChoiceDelta: data.choices?.[0]?.delta,
-        usage: data.usage
-      })
 
       const choice = data?.choices?.[0]
       if (data.usage) {
         usage = data.usage
       }
       if (!choice) {
-        console.log("[DEBUG] No choice found in chunk", chunkCount)
         continue
       }
 
       const { delta } = choice
       if (!delta) {
-        console.log("[DEBUG] No delta found in choice for chunk", chunkCount)
         continue
       }
       const chunk = this._convertCompletionsDeltaToBaseMessageChunk(
@@ -2570,12 +2552,6 @@ export class ChatOpenAICompletions<
         data,
         defaultRole
       )
-      console.log("[DEBUG] Converted chunk", chunkCount, "result:", {
-        role: chunk.constructor.name,
-        contentType: typeof chunk.content,
-        contentLength: Array.isArray(chunk.content) ? chunk.content.length : chunk.content?.length || 0,
-        content: chunk.content
-      })
       defaultRole = delta.role ?? defaultRole
       const newTokenIndices = {
         prompt: options.promptIndex ?? 0,
@@ -2592,9 +2568,6 @@ export class ChatOpenAICompletions<
           .filter(item => item.type === "text")
           .map(item => item.text)
           .join("")
-        console.log("[DEBUG] Extracted text from multimodal content:", chunkText)
-      } else {
-        console.log("[DEBUG] Unexpected content type:", typeof chunk.content, chunk.content)
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const generationInfo: Record<string, any> = { ...newTokenIndices }
@@ -2613,12 +2586,6 @@ export class ChatOpenAICompletions<
         message: chunk,
         text: chunkText, // Use extracted text for token handling
         generationInfo,
-      })
-      console.log("[DEBUG] Created generation chunk", chunkCount, ":", {
-        messageType: chunk.constructor.name,
-        textLength: chunkText.length,
-        contentType: typeof chunk.content,
-        hasMultimodalContent: Array.isArray(chunk.content)
       })
       yield generationChunk
       await runManager?.handleLLMNewToken(
@@ -2755,49 +2722,27 @@ export class ChatOpenAICompletions<
           additional_kwargs.audio = message.audio
         }
 
-        console.log("[DEBUG] _convertCompletionsMessageToBaseMessage - Processing message:", {
-          role: message.role,
-          content: message.content,
-          hasImages: !!message.images,
-          imagesCount: message.images ? message.images.length : 0,
-          imagesData: message.images
-        })
-
         // Handle images field that might contain image_url content
         let content = message.content || ""
         if (message.images && Array.isArray(message.images)) {
-          console.log("[DEBUG] Found images field with", message.images.length, "images")
           // Convert content to array format if it's a string and there are images
           if (typeof content === "string") {
-            console.log("[DEBUG] Converting string content to array format. Original content:", content)
             const contentArray = []
             if (content) {
               contentArray.push({ type: "text", text: content })
-              console.log("[DEBUG] Added text content to array")
             }
             // Add image content from the images field
             for (const image of message.images) {
-              console.log("[DEBUG] Processing image:", image)
               if (image.type === "image_url" && image.image_url) {
-                console.log("[DEBUG] Valid image_url found, adding to content array")
                 contentArray.push({
                   type: "image_url",
                   image_url: image.image_url,
                 })
-              } else {
-                console.log("[DEBUG] Invalid image object, skipping:", { type: image.type, hasImageUrl: !!image.image_url })
               }
             }
             content = contentArray
-            console.log("[DEBUG] Final content array:", content)
-          } else {
-            console.log("[DEBUG] Content is not a string, keeping original format. Type:", typeof content)
           }
-        } else {
-          console.log("[DEBUG] No images field found or not an array. Images field:", message.images)
         }
-
-        console.log("[DEBUG] Creating AIMessage with final content:", content)
 
         return new AIMessage({
           content,
@@ -2823,48 +2768,28 @@ export class ChatOpenAICompletions<
     rawResponse: OpenAIClient.Chat.Completions.ChatCompletionChunk,
     defaultRole?: OpenAIClient.Chat.ChatCompletionRole
   ) {
-    console.log("[DEBUG] _convertCompletionsDeltaToBaseMessageChunk - Processing delta:", {
-      role: delta.role,
-      content: delta.content,
-      hasImages: !!delta.images,
-      imagesCount: delta.images ? delta.images.length : 0,
-      imagesData: delta.images
-    })
-
     const role = delta.role ?? defaultRole
     let content = delta.content ?? ""
 
     // Handle images field that might contain image_url content
     if (delta.images && Array.isArray(delta.images)) {
-      console.log("[DEBUG] Found images field with", delta.images.length, "images")
       // Convert content to array format if it's a string and there are images
       if (typeof content === "string") {
-        console.log("[DEBUG] Converting string content to array format. Original content:", content)
         const contentArray = []
         if (content) {
           contentArray.push({ type: "text", text: content })
-          console.log("[DEBUG] Added text content to array")
         }
         // Add image content from the images field
         for (const image of delta.images) {
-          console.log("[DEBUG] Processing image:", image)
           if (image.type === "image_url" && image.image_url) {
-            console.log("[DEBUG] Valid image_url found, adding to content array")
             contentArray.push({
               type: "image_url",
               image_url: image.image_url,
             })
-          } else {
-            console.log("[DEBUG] Invalid image object, skipping:", { type: image.type, hasImageUrl: !!image.image_url })
           }
         }
         content = contentArray
-        console.log("[DEBUG] Final content array:", content)
-      } else {
-        console.log("[DEBUG] Content is not a string, keeping original format. Type:", typeof content)
       }
-    } else {
-      console.log("[DEBUG] No images field found or not an array. Images field:", delta.images)
     }
 
     let additional_kwargs: Record<string, unknown>
@@ -2906,7 +2831,6 @@ export class ChatOpenAICompletions<
           })
         }
       }
-      console.log("[DEBUG] Creating AIMessageChunk with final content:", content)
       return new AIMessageChunk({
         content,
         tool_call_chunks: toolCallChunks,

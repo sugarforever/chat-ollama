@@ -155,8 +155,8 @@ onUnmounted(() => {
         </template>
       </div>
     </div>
-    <div class="leading-6 text-sm flex items-center max-w-full message-content"
-         :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': !isModelMessage }">
+      <div class="leading-6 text-sm flex items-center max-w-full group"
+           :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': !isModelMessage }">
       <div class="flex border border-primary/20 rounded-lg overflow-hidden box-border"
            :class="contentClass">
         <div v-if="contentDisplay === 'loading'" class="text-xl text-primary p-3">
@@ -199,17 +199,17 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Image Gallery -->
-            <div v-if="messageImages.length > 0" class="image-gallery mb-3 grid gap-2">
+            <!-- Text Content -->
+            <div ref="messageContentRef" v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
+
+            <!-- Image Gallery - below text content -->
+            <div v-if="messageImages.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
               <img v-for="(url, index) in messageImages"
                    :key="index"
                    :src="url"
-                   class="rounded-lg max-h-64 object-contain"
+                   class="w-full h-auto rounded-lg max-h-64 object-contain bg-gray-100 dark:bg-gray-800 hover:cursor-pointer hover:opacity-90 transition-opacity"
                    :alt="`Image ${index + 1}`" />
             </div>
-
-            <!-- Text Content -->
-            <div ref="messageContentRef" v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
 
             <Sources v-show="opened" :relevant_documents="message?.relevantDocs || []" />
           </div>
@@ -219,26 +219,27 @@ onUnmounted(() => {
                       text="Preview"
                       :popper="{ placement: 'left' }"
                       class="artifact-tooltip">
-              <UButton icon="i-heroicons-eye-20-solid"
-                       color="primary"
-                       variant="ghost"
-                       size="xs"
-                       class="mt-1 artifact-btn group hover:scale-105 transition-all duration-200"
-                       @click="toggleArtifact" />
+            <UButton icon="i-heroicons-eye-20-solid"
+                     color="primary"
+                     variant="ghost"
+                     size="xs"
+                     class="mt-1 opacity-0 group-hover:opacity-100 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 transition-all duration-300 ease-out"
+                     @click="toggleArtifact" />
             </UTooltip>
           </div>
         </template>
         <template v-else>
           <!-- User message with images -->
           <div class="p-3">
-            <div v-if="messageImages.length > 0" class="image-gallery mb-3 grid gap-2">
+            <pre v-if="messageContent" v-text="messageContent" class="whitespace-break-spaces" />
+            <!-- Image Gallery - below text content for user messages too -->
+            <div v-if="messageImages.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
               <img v-for="(url, index) in messageImages"
                    :key="index"
                    :src="url"
-                   class="rounded-lg max-h-64 object-contain"
+                   class="w-full h-auto rounded-lg max-h-64 object-contain bg-gray-100 dark:bg-gray-800 hover:cursor-pointer hover:opacity-90 transition-opacity"
                    :alt="`Image ${index + 1}`" />
             </div>
-            <pre v-if="messageContent" v-text="messageContent" class="whitespace-break-spaces" />
           </div>
         </template>
       </div>
@@ -248,107 +249,21 @@ onUnmounted(() => {
                              @remove="emits('remove', message)">
         <UButton :class="{ invisible: sending }" icon="i-material-symbols-more-vert" color="gray"
                  :variant="'link'"
-                 class="action-more">
+                 class="scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-300 origin-center">
         </UButton>
       </ChatMessageActionMore>
     </div>
   </div>
 </template>
 
-<style scoped lang="scss">
-.message-content {
-  .action-more {
-    transform-origin: center center;
-    transition: all 0.3s;
-    transform: scale(0);
-    opacity: 0;
-  }
-
-  &:hover {
-    .action-more {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
-  .artifact-btn {
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    &:hover {
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-      transform: scale(1.05);
-    }
-  }
-
-  &:hover {
-    .artifact-btn {
-      opacity: 1;
-    }
-  }
-}
-
+<style scoped>
+/* Minimal custom styles that cannot be replicated with Tailwind */
 .preview-container {
-  border: 1px solid var(--color-gray-200);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  background: var(--color-gray-50);
-  min-height: 100px;
-
-  :deep() {
-    * {
-      margin: initial;
-      padding: initial;
-    }
-  }
+  @apply border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 min-h-[100px];
 }
 
-.dark {
-  .preview-container {
-    border-color: var(--color-gray-700);
-    background: var(--color-gray-800);
-  }
-}
-
-.image-gallery {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-
-  img {
-    width: 100%;
-    height: auto;
-    background: var(--color-gray-100);
-
-    &:hover {
-      cursor: pointer;
-      opacity: 0.9;
-    }
-  }
-}
-
-.dark {
-  .image-gallery img {
-    background: var(--color-gray-800);
-  }
-
-  .artifact-btn:hover {
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-  }
-}
-
-/* Custom artifact tooltip styling */
-:deep(.artifact-tooltip) {
-  .ui-tooltip {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    font-weight: 500;
-    font-size: 0.8rem;
-    padding: 8px 12px;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-
-    &::before {
-      border-left-color: #667eea;
-    }
-  }
+.preview-container :deep(*) {
+  margin: initial;
+  padding: initial;
 }
 </style>
