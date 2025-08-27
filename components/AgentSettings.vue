@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { loadOllamaInstructions } from '~/utils/settings'
 import type { Instruction } from '@prisma/client'
 import { InstructionForm } from '#components'
 
@@ -20,10 +19,12 @@ const state = reactive({
 const instructions = ref<Instruction[]>([])
 const loading = ref(true)
 
+const { getInstructions } = useInstructionsCache()
+
 // Load instructions
 const loadInstructions = async () => {
     try {
-        const loadedInstructions = await loadOllamaInstructions()
+        const loadedInstructions = await getInstructions()
         instructions.value = loadedInstructions as Instruction[]
         // Try to match current instruction with existing ones
         const matchingInstruction = instructions.value.find(inst =>
