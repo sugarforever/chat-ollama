@@ -105,16 +105,29 @@ const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => 
   return normalizedMessages
 }
 
-const extractContentFromChunk = (chunk: BaseMessageChunk): string => {
+const extractContentFromChunk = (chunk: BaseMessageChunk): { text: string; images: any[] } => {
   let content = chunk?.content
-  // Handle array of text_delta objects
+  let textContent = ''
+  let images: any[] = []
+
+  // Handle array content (multimodal)
   if (Array.isArray(content)) {
-    content = content
+    // Extract text content
+    textContent = content
       .filter(item => item.type === 'text_delta' || item.type === 'text')
       .map(item => ('text' in item ? item.text : ''))
       .join('')
+
+    // Extract image content
+    images = content
+      .filter(item => item.type === 'image_url' && item.image_url?.url)
+      .map(item => ({ type: 'image_url', image_url: item.image_url }))
+  } else {
+    // Handle string content
+    textContent = content || ''
   }
-  return content || ''
+
+  return { text: textContent, images }
 }
 
 const processToolCalls = async (
@@ -154,7 +167,7 @@ const processToolCalls = async (
   return toolMessages
 }
 
-const createMessageResponse = (content: string, toolCalls: any[], toolResults: any[]) => ({
+const createMessageResponse = (content: string | MessageContent[], toolCalls: any[], toolResults: any[]) => ({
   message: {
     role: 'assistant',
     content,
@@ -181,7 +194,7 @@ const handleMultiRoundToolCalls = async function* (
   transformedMessages: BaseMessageLike[],
   toolsMap: Record<string, StructuredToolInterface>,
   initialGathered: any,
-  initialContent: string,
+  initialContent: string | MessageContent[],
   initialToolCalls: any[],
   initialToolResults: any[]
 ) {
@@ -220,15 +233,50 @@ const handleMultiRoundToolCalls = async function* (
     const nextResponse = await llm.stream(transformedMessages as BaseMessageLike[])
     let nextGathered = undefined
     let hasNewContent = false
+    let roundTextContent = ''
+    let roundImages: any[] = []
 
     // Stream the response and gather potential new tool calls
     for await (const chunk of nextResponse) {
       nextGathered = nextGathered !== undefined ? concat(nextGathered, chunk) : chunk
 
-      const content = extractContentFromChunk(chunk)
-      if (content) {
-        accumulatedContent += content
+      const { text, images } = extractContentFromChunk(chunk)
+      if (text) {
+        roundTextContent += text
         hasNewContent = true
+      }
+      if (images.length > 0) {
+        roundImages.push(...images)
+        hasNewContent = true
+      }
+
+      if (hasNewContent) {
+        // Update accumulated content with new text and images
+        if (typeof accumulatedContent === 'string') {
+          if (roundImages.length > 0) {
+            // Convert to array format when images are added
+            const contentArray: MessageContent[] = []
+            if (accumulatedContent || roundTextContent) {
+              contentArray.push({ type: 'text', text: accumulatedContent + roundTextContent })
+            }
+            contentArray.push(...roundImages)
+            accumulatedContent = contentArray
+          } else {
+            // Keep as string if no images
+            accumulatedContent += roundTextContent
+          }
+        } else {
+          // Already array format - update text and add images
+          const textIndex = accumulatedContent.findIndex(item => item.type === 'text')
+          if (textIndex >= 0 && roundTextContent) {
+            accumulatedContent[textIndex].text = (accumulatedContent[textIndex].text || '') + roundTextContent
+          } else if (roundTextContent) {
+            accumulatedContent.unshift({ type: 'text', text: roundTextContent })
+          }
+          if (roundImages.length > 0) {
+            accumulatedContent.push(...roundImages)
+          }
+        }
 
         // Stream content updates immediately
         yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
@@ -279,11 +327,43 @@ const handleMultiRoundToolCalls = async function* (
     ])
 
     try {
+      let finalTextContent = ''
+      let finalImages: any[] = []
+
       // Stream the final AI response
       for await (const chunk of finalResponse) {
-        const content = extractContentFromChunk(chunk)
-        if (content) {
-          accumulatedContent += content
+        const { text, images } = extractContentFromChunk(chunk)
+        if (text) {
+          finalTextContent += text
+        }
+        if (images.length > 0) {
+          finalImages.push(...images)
+        }
+
+        if (text || images.length > 0) {
+          // Update accumulated content with final response
+          if (typeof accumulatedContent === 'string') {
+            if (finalImages.length > 0) {
+              const contentArray: MessageContent[] = []
+              if (accumulatedContent || finalTextContent) {
+                contentArray.push({ type: 'text', text: accumulatedContent + finalTextContent })
+              }
+              contentArray.push(...finalImages)
+              accumulatedContent = contentArray
+            } else {
+              accumulatedContent += finalTextContent
+            }
+          } else {
+            const textIndex = accumulatedContent.findIndex(item => item.type === 'text')
+            if (textIndex >= 0 && finalTextContent) {
+              accumulatedContent[textIndex].text = (accumulatedContent[textIndex].text || '') + finalTextContent
+            } else if (finalTextContent) {
+              accumulatedContent.unshift({ type: 'text', text: finalTextContent })
+            }
+            if (finalImages.length > 0) {
+              accumulatedContent.push(...finalImages)
+            }
+          }
 
           // Stream the final message content
           yield `${safeJsonStringify(createMessageResponse(accumulatedContent, accumulatedToolCalls, accumulatedToolResults))} \n\n`
@@ -467,20 +547,40 @@ export default defineEventHandler(async (event) => {
 
     const readableStream = Readable.from((async function* () {
       let gathered = undefined
-      let accumulatedContent = ''
+      let accumulatedTextContent = ''
+      let accumulatedImages: any[] = []
       let toolCalls: any[] = []
       let toolResults: any[] = []
 
       // Stream initial response and gather tool calls
       for await (const chunk of response) {
+        console.log("Received chunk: ", chunk)
         gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
 
-        const content = extractContentFromChunk(chunk)
-        if (content) {
-          accumulatedContent += content
+        const { text, images } = extractContentFromChunk(chunk)
+        if (text) {
+          accumulatedTextContent += text
+        }
+        if (images.length > 0) {
+          accumulatedImages.push(...images)
+        }
 
-          // Stream content updates immediately to prevent timeout
-          yield `${safeJsonStringify(createMessageResponse(accumulatedContent, toolCalls, toolResults))} \n\n`
+        // Create multimodal content if we have images, otherwise use string
+        let contentToStream: string | MessageContent[]
+        if (accumulatedImages.length > 0) {
+          const contentArray: MessageContent[] = []
+          if (accumulatedTextContent) {
+            contentArray.push({ type: 'text', text: accumulatedTextContent })
+          }
+          contentArray.push(...accumulatedImages)
+          contentToStream = contentArray
+        } else {
+          contentToStream = accumulatedTextContent
+        }
+
+        // Stream content updates immediately to prevent timeout
+        if (text || images.length > 0) {
+          yield `${safeJsonStringify(createMessageResponse(contentToStream, toolCalls, toolResults))} \n\n`
         }
       }
 
@@ -489,12 +589,26 @@ export default defineEventHandler(async (event) => {
       // Handle multi-round tool calls if any exist
       if (gathered?.tool_calls?.length > 0) {
         console.log("Starting multi-round tool call processing")
+
+        // Create final content for tool call processing
+        let finalContent: string | MessageContent[]
+        if (accumulatedImages.length > 0) {
+          const contentArray: MessageContent[] = []
+          if (accumulatedTextContent) {
+            contentArray.push({ type: 'text', text: accumulatedTextContent })
+          }
+          contentArray.push(...accumulatedImages)
+          finalContent = contentArray
+        } else {
+          finalContent = accumulatedTextContent
+        }
+
         yield* handleMultiRoundToolCalls(
           llm,
           transformedMessages,
           toolsMap,
           gathered,
-          accumulatedContent,
+          finalContent,
           toolCalls,
           toolResults
         )

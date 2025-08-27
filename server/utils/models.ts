@@ -1,5 +1,5 @@
 import { Embeddings } from "@langchain/core/embeddings"
-import { OpenAIEmbeddings } from "@langchain/openai"
+import { OpenAIEmbeddings } from "~/server/models/openai"
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai"
 import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { ChatAnthropic } from "@langchain/anthropic"
