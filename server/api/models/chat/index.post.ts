@@ -521,22 +521,6 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    /*
-    const openai = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: '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'
-    })
-    const completion = await openai.chat.completions.create({
-      model: 'google/gemini-2.5-flash-image-preview:free',
-      messages: [
-        {
-          role: 'user',
-          content: 'Generate an image of a banana wearing a costume.',
-        },
-      ],
-    })
-    console.log("Response from OpenAI Client: ", completion.choices[0].message)
-    */
     console.log("Streaming response")
     const transformedMessages = messages.map((message: RequestBody['messages'][number]) => {
       return [message.role, message.content]
