@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Instruction } from '@prisma/client'
-import { loadOllamaInstructions } from "@/utils/settings"
 import InstructionForm from '~/components/InstructionForm.vue'
 import { useTools } from '~/composables/useTools'
 
@@ -16,8 +15,13 @@ const loading = ref(true)
 const instructions = ref<Instruction[]>([])
 
 
-const loadInstructions = async (latestAsNew: boolean = false) => {
-  instructions.value = await loadOllamaInstructions()
+const { getInstructions, clearCache } = useInstructionsCache()
+
+const loadInstructions = async (latestAsNew: boolean = false, forceRefresh: boolean = false) => {
+  if (forceRefresh) {
+    clearCache()
+  }
+  instructions.value = await getInstructions()
   if (latestAsNew) {
     const latestInstruction = instructions.value.reduce((max, current) => current.id > max.id ? current : max, { id: 0 })
     latestInstruction.isNew = true
@@ -67,7 +71,7 @@ onMounted(() => {
           method: 'POST',
           body: args
         })
-        await loadInstructions(true)
+        await loadInstructions(true, true)
         return { success: true }
       } catch (error) {
         return { success: false, error: error.message }
@@ -95,7 +99,7 @@ onMounted(() => {
         await $fetchWithAuth(`/api/instruction/${instruction.id}`, {
           method: "DELETE",
         })
-        await loadInstructions()
+        await loadInstructions(false, true)
         return { success: true }
       } catch (error) {
         return { success: false, error: error.message }
@@ -116,7 +120,7 @@ function onCreate() {
     title: t('instructions.createInstruction'),
     type: 'create',
     onClose: () => modal.close(),
-    onSuccess: () => loadInstructions(true),
+    onSuccess: () => loadInstructions(true, true),
   })
 }
 
@@ -126,7 +130,7 @@ async function onEdit(data: Instruction) {
     type: 'update',
     data,
     onClose: () => modal.close(),
-    onSuccess: () => loadInstructions(),
+    onSuccess: () => loadInstructions(false, true),
   })
 }
 
@@ -140,7 +144,7 @@ async function onDelete(data: Instruction) {
         await $fetchWithAuth(`/api/instruction/${data.id}`, {
           method: "DELETE",
         })
-        await loadInstructions()
+        await loadInstructions(false, true)
       } catch (e) {
         console.error(t("instructions.deleteFailed"), e)
       }

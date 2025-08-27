@@ -4,6 +4,7 @@ export function useCreateChatSession() {
   const { chatModels, loadModels } = useModels({ immediate: false })
   const { t } = useI18n()
   const toast = useToast()
+  const { preloadInstructions } = useInstructionsCache()
 
   return async function createChatSession(params?: Partial<Omit<ChatSessionBaseData, 'attachedMessagesCount' | 'createTime' | 'updateTime'>>) {
     const baseData: ChatSessionBaseData = {
@@ -33,6 +34,11 @@ export function useCreateChatSession() {
       // Continue with session creation even if models fail to load
       baseData.models = baseData.models || []
     }
+
+    // Preload instructions for faster settings panel opening
+    preloadInstructions().catch(error => {
+      console.warn('Failed to preload instructions during chat creation:', error)
+    })
 
     const id = await clientDB.chatSessions.add(baseData)
     return { ...baseData, id, count: 0 }

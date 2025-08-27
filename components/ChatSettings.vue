@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { loadOllamaInstructions, loadKnowledgeBases } from '~/utils/settings'
+import { loadKnowledgeBases } from '~/utils/settings'
 import type { Instruction, KnowledgeBase } from '@prisma/client'
 
 const features = useFeatures()
@@ -36,7 +36,8 @@ const state = reactive({
   ...defaultConfig,
 })
 
-const instructions = await loadOllamaInstructions()
+const { getInstructions, isLoading: isInstructionsLoading } = useInstructionsCache()
+const instructions = await getInstructions()
 const knowledgeBases = isKnowledgeBaseEnabled.value ? await loadKnowledgeBases() : []
 
 const instructionContent = computed(() => {
