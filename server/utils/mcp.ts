@@ -379,6 +379,7 @@ const globalForMcp = globalThis as unknown as {
 
 const mcpService = globalForMcp.mcpService ?? new McpService()
 
-if (process.env.NODE_ENV !== 'production') globalForMcp.mcpService = mcpService
+// Store in global for both development AND production to ensure singleton
+globalForMcp.mcpService = mcpService
 
 export { mcpService as McpServiceSingleton }

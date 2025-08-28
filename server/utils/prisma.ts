@@ -9,6 +9,7 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// Store in global for both development AND production to ensure singleton
+globalForPrisma.prisma = prisma
 
 export default prisma;
