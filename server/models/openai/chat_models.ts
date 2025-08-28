@@ -2554,12 +2554,18 @@ export class ChatOpenAICompletions<
         prompt: options.promptIndex ?? 0,
         completion: choice.index ?? 0,
       };
-      if (typeof chunk.content !== "string") {
-        console.log(
-          "[WARNING]: Received non-string content from OpenAI. This is currently not supported."
-        );
-        continue;
+      // Handle both string and multimodal content
+      let textContent = "";
+      if (typeof chunk.content === "string") {
+        textContent = chunk.content;
+      } else if (Array.isArray(chunk.content)) {
+        // Extract text from multimodal content
+        textContent = chunk.content
+          .filter(item => item.type === "text" || item.type === "text_delta")
+          .map(item => item.text || "")
+          .join("");
       }
+      
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const generationInfo: Record<string, any> = { ...newTokenIndices };
       if (choice.finish_reason != null) {
@@ -2575,7 +2581,7 @@ export class ChatOpenAICompletions<
       }
       const generationChunk = new ChatGenerationChunk({
         message: chunk,
-        text: chunk.content,
+        text: textContent,
         generationInfo,
       });
       yield generationChunk;
@@ -2713,8 +2719,30 @@ export class ChatOpenAICompletions<
           additional_kwargs.audio = message.audio;
         }
 
+        // Handle images field that might contain image_url content
+        let content = message.content || "";
+        if ((message as any).images && Array.isArray((message as any).images)) {
+          // Convert content to array format if it's a string and there are images
+          if (typeof content === "string") {
+            const contentArray = [];
+            if (content) {
+              contentArray.push({ type: "text", text: content });
+            }
+            // Add image content from the images field
+            for (const image of (message as any).images) {
+              if (image.type === "image_url" && image.image_url) {
+                contentArray.push({
+                  type: "image_url",
+                  image_url: image.image_url,
+                });
+              }
+            }
+            content = contentArray;
+          }
+        }
+
         return new AIMessage({
-          content: message.content || "",
+          content,
           tool_calls: toolCalls,
           invalid_tool_calls: invalidToolCalls,
           additional_kwargs,
@@ -2738,8 +2766,29 @@ export class ChatOpenAICompletions<
     defaultRole?: OpenAIClient.Chat.ChatCompletionRole
   ) {
     const role = delta.role ?? defaultRole;
-    const content = delta.content ?? "";
-    
+    let content = delta.content ?? "";
+
+    // Handle images field that might contain image_url content
+    if (delta.images && Array.isArray(delta.images)) {
+      // Convert content to array format if it's a string and there are images
+      if (typeof content === "string") {
+        const contentArray = [];
+        if (content) {
+          contentArray.push({ type: "text", text: content });
+        }
+        // Add image content from the images field
+        for (const image of delta.images) {
+          if (image.type === "image_url" && image.image_url) {
+            contentArray.push({
+              type: "image_url",
+              image_url: image.image_url,
+            });
+          }
+        }
+        content = contentArray;
+      }
+    }
+
     let additional_kwargs: Record<string, unknown>;
     if (delta.function_call) {
       additional_kwargs = {
