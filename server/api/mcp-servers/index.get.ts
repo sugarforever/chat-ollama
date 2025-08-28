@@ -1,4 +1,4 @@
-import { McpService } from '~/server/utils/mcp'
+import { McpServiceSingleton } from '~/server/utils/mcp'
 import { requireAdminIfAclEnabled } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
@@ -11,10 +11,8 @@ export default defineEventHandler(async (event) => {
   // Require admin privileges for MCP server management (if ACL is enabled)
   requireAdminIfAclEnabled(event)
 
-  const mcpService = new McpService()
-
   try {
-    const servers = await mcpService.getAllServers()
+    const servers = await McpServiceSingleton.getAllServers()
     return {
       success: true,
       data: servers
@@ -25,7 +23,6 @@ export default defineEventHandler(async (event) => {
       statusCode: 500,
       statusMessage: 'Failed to fetch MCP servers'
     })
-  } finally {
-    await mcpService.close()
   }
+  // No need to close singleton
 })

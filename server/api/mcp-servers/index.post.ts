@@ -1,4 +1,4 @@
-import { McpService } from '~/server/utils/mcp'
+import { McpServiceSingleton } from '~/server/utils/mcp'
 import { McpServerCreateInput } from '~/server/types/mcp'
 import { requireAdminIfAclEnabled } from '~/server/utils/auth'
 
@@ -12,12 +12,10 @@ export default defineEventHandler(async (event) => {
   // Require admin privileges for MCP server management (if ACL is enabled)
   requireAdminIfAclEnabled(event)
 
-  const mcpService = new McpService()
-
   try {
     const body = await readBody(event) as McpServerCreateInput
 
-    const result = await mcpService.createServer(body)
+    const result = await McpServiceSingleton.createServer(body)
 
     if (result.success) {
       return {
@@ -41,7 +39,6 @@ export default defineEventHandler(async (event) => {
       statusCode: 500,
       statusMessage: 'Failed to create MCP server'
     })
-  } finally {
-    await mcpService.close()
   }
+  // No need to close singleton
 })

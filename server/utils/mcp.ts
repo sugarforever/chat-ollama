@@ -4,7 +4,7 @@ import { type StructuredToolInterface } from "@langchain/core/tools"
 import { loadMcpTools, MultiServerMCPClient } from '@langchain/mcp-adapters'
 import fs from 'fs'
 import path from 'path'
-import { PrismaClient } from '@prisma/client'
+import prisma from './prisma'
 import type {
   McpServerConfig,
   McpServerCreateInput,
@@ -28,10 +28,9 @@ interface LegacyMcpConfig {
 
 export class McpService {
   private mcpClient: MultiServerMCPClient | null = null
-  private prisma: PrismaClient
 
   constructor() {
-    this.prisma = new PrismaClient()
+    // Use the singleton Prisma client instead of creating new instances
   }
 
   async listTools(): Promise<StructuredToolInterface[]> {
@@ -143,7 +142,7 @@ export class McpService {
   // CRUD Operations for MCP Servers
 
   async getAllServers(): Promise<McpServerConfig[]> {
-    const servers = await this.prisma.mcpServer.findMany({
+    const servers = await prisma.mcpServer.findMany({
       include: {
         envVars: true
       },
@@ -156,7 +155,7 @@ export class McpService {
   }
 
   async getServerById(id: number): Promise<McpServerConfig | null> {
-    const server = await this.prisma.mcpServer.findUnique({
+    const server = await prisma.mcpServer.findUnique({
       where: { id },
       include: {
         envVars: true
@@ -167,7 +166,7 @@ export class McpService {
   }
 
   async getServerByName(name: string): Promise<McpServerConfig | null> {
-    const server = await this.prisma.mcpServer.findUnique({
+    const server = await prisma.mcpServer.findUnique({
       where: { name },
       include: {
         envVars: true
@@ -186,7 +185,7 @@ export class McpService {
 
     try {
       // Check if server with same name already exists
-      const existing = await this.prisma.mcpServer.findUnique({
+      const existing = await prisma.mcpServer.findUnique({
         where: { name: input.name }
       })
 
@@ -194,7 +193,7 @@ export class McpService {
         return { success: false, errors: ['Server with this name already exists'] }
       }
 
-      const server = await this.prisma.mcpServer.create({
+      const server = await prisma.mcpServer.create({
         data: {
           name: input.name,
           transport: input.transport,
@@ -224,7 +223,7 @@ export class McpService {
   async updateServer(id: number, input: McpServerUpdateInput): Promise<{ success: boolean; server?: McpServerConfig; errors?: string[] }> {
     try {
       // Check if server exists
-      const existing = await this.prisma.mcpServer.findUnique({
+      const existing = await prisma.mcpServer.findUnique({
         where: { id }
       })
 
@@ -251,7 +250,7 @@ export class McpService {
 
       // Check if name is being changed and conflicts with existing
       if (input.name && input.name !== existing.name) {
-        const nameConflict = await this.prisma.mcpServer.findUnique({
+        const nameConflict = await prisma.mcpServer.findUnique({
           where: { name: input.name }
         })
 
@@ -269,7 +268,7 @@ export class McpService {
       if (input.url !== undefined) updateData.url = input.url
       if (input.enabled !== undefined) updateData.enabled = input.enabled
 
-      const server = await this.prisma.mcpServer.update({
+      const server = await prisma.mcpServer.update({
         where: { id },
         data: updateData,
         include: {
@@ -280,12 +279,12 @@ export class McpService {
       // Update env vars if provided
       if (input.envVars) {
         // Delete existing env vars
-        await this.prisma.mcpServerEnvVar.deleteMany({
+        await prisma.mcpServerEnvVar.deleteMany({
           where: { mcpServerId: id }
         })
 
         // Create new env vars
-        await this.prisma.mcpServerEnvVar.createMany({
+        await prisma.mcpServerEnvVar.createMany({
           data: input.envVars.map(env => ({
             mcpServerId: id,
             key: env.key,
@@ -294,7 +293,7 @@ export class McpService {
         })
 
         // Refetch server with updated env vars
-        const updatedServer = await this.prisma.mcpServer.findUnique({
+        const updatedServer = await prisma.mcpServer.findUnique({
           where: { id },
           include: { envVars: true }
         })
@@ -311,7 +310,7 @@ export class McpService {
 
   async deleteServer(id: number): Promise<{ success: boolean; errors?: string[] }> {
     try {
-      const existing = await this.prisma.mcpServer.findUnique({
+      const existing = await prisma.mcpServer.findUnique({
         where: { id }
       })
 
@@ -319,7 +318,7 @@ export class McpService {
         return { success: false, errors: ['Server not found'] }
       }
 
-      await this.prisma.mcpServer.delete({
+      await prisma.mcpServer.delete({
         where: { id }
       })
 
@@ -332,7 +331,7 @@ export class McpService {
 
   async toggleServer(id: number): Promise<{ success: boolean; server?: McpServerConfig; errors?: string[] }> {
     try {
-      const existing = await this.prisma.mcpServer.findUnique({
+      const existing = await prisma.mcpServer.findUnique({
         where: { id }
       })
 
@@ -340,7 +339,7 @@ export class McpService {
         return { success: false, errors: ['Server not found'] }
       }
 
-      const server = await this.prisma.mcpServer.update({
+      const server = await prisma.mcpServer.update({
         where: { id },
         data: { enabled: !existing.enabled },
         include: { envVars: true }
@@ -357,7 +356,7 @@ export class McpService {
     if (this.mcpClient) {
       await this.mcpClient.close()
     }
-    await this.prisma.$disconnect()
+    // Don't disconnect the singleton Prisma client
   }
 
   private async getToolsFromTransport(serverName: string, transport: StdioClientTransport): Promise<StructuredToolInterface[]> {
@@ -372,3 +371,20 @@ export class McpService {
     return await loadMcpTools(serverName, client)
   }
 }
+
+// Singleton pattern following Next.js best practices
+const mcpServiceSingleton = () => {
+  return new McpService()
+}
+
+type McpServiceSingleton = ReturnType<typeof mcpServiceSingleton>
+
+const globalForMcp = globalThis as unknown as {
+  mcpService: McpServiceSingleton | undefined
+}
+
+const mcpService = globalForMcp.mcpService ?? mcpServiceSingleton()
+
+export { mcpService as McpServiceSingleton }
+
+if (process.env.NODE_ENV !== 'production') globalForMcp.mcpService = mcpService

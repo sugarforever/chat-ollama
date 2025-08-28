@@ -7,7 +7,7 @@ type ResponseRelevantDocument = { type: 'relevant_documents', relevant_documents
 type ResponseMessage = {
   message: {
     role: string,
-    content: string,
+    content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>,
     type?: string,
     tool_use_id?: string,
     tool_calls?: Array<{ id: string, name: string, args: any }>,
@@ -144,7 +144,14 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
 
         if (isMessage && !isToolResult) {
           // Handle regular assistant message with potential tool calls/results
-          msgContent = chatMessage.message.content || ''
+          const messageContent = chatMessage.message.content
+          
+          // Handle both string and multimodal array content
+          if (Array.isArray(messageContent)) {
+            msgContent = messageContent
+          } else {
+            msgContent = messageContent || ''
+          }
 
           // Accumulate tool calls and results
           if (chatMessage.message.tool_calls) {
@@ -159,7 +166,7 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
             model: data.model,
             sessionId: data.sessionId,
             message: msgContent,
-            messageType: 'string',
+            messageType: Array.isArray(msgContent) ? 'array' : 'string',
             failed: false,
             canceled: false,
             startTime: data.timestamp,
@@ -189,7 +196,7 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
             data: {
               id,
               content: msgContent,
-              contentType: 'string',
+              contentType: Array.isArray(msgContent) ? 'array' : 'string',
               startTime: data.timestamp,
               endTime: Date.now(),
               role: 'assistant',
@@ -207,7 +214,7 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
             data: {
               id,
               content: msgContent,
-              contentType: 'string',
+              contentType: Array.isArray(msgContent) ? 'array' : 'string',
               startTime: data.timestamp,
               endTime: Date.now(),
               role: 'assistant',

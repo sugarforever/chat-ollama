@@ -1,6 +1,6 @@
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts"
 import { BaseMessage } from '@langchain/core/messages'
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAI } from '~/server/models/openai'
 import { JsonOutputParser } from "@langchain/core/output_parsers"
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 

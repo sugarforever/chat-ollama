@@ -199,17 +199,17 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <!-- Text Content -->
+            <div ref="messageContentRef" v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
+
             <!-- Image Gallery -->
-            <div v-if="messageImages.length > 0" class="image-gallery mb-3 grid gap-2">
+            <div v-if="messageImages.length > 0" class="image-gallery my-3 grid gap-2">
               <img v-for="(url, index) in messageImages"
                    :key="index"
                    :src="url"
                    class="rounded-lg max-h-64 object-contain"
                    :alt="`Image ${index + 1}`" />
             </div>
-
-            <!-- Text Content -->
-            <div ref="messageContentRef" v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
 
             <Sources v-show="opened" :relevant_documents="message?.relevantDocs || []" />
           </div>

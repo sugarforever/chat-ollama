@@ -128,7 +128,7 @@ async function fetchCustomModels(customConfigs: any[]): Promise<ModelItem[]> {
 
         if (response.ok) {
           const data: ModelApiResponse = await response.json()
-          console.log(`${item.name} models:`, data.data.map(d => d.id || d.name))
+          console.log(`${item.name} models:`, data.data?.length)
           data.data.forEach(model => {
             models.push({
               name: model.id || model.name,
