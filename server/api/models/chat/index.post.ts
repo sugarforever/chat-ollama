@@ -13,7 +13,7 @@ import { AIMessage, AIMessageChunk, AIMessageFields, BaseMessage, BaseMessageChu
 import { resolveCoreference } from '~/server/coref'
 import { concat } from "@langchain/core/utils/stream"
 import { MODEL_FAMILIES } from '~/config'
-import { McpService } from '@/server/utils/mcp'
+import { McpServiceSingleton } from '@/server/utils/mcp'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { ChatOllama } from '@langchain/ollama'
 import { StructuredToolInterface, tool } from '@langchain/core/tools'
@@ -495,8 +495,7 @@ export default defineEventHandler(async (event) => {
   } else {
     let llm = createChatModel(model, family, event)
 
-    const mcpService = new McpService()
-    const normalizedTools = isMcpEnabled() && enableToolUsage ? await mcpService.listTools() : []
+    const normalizedTools = isMcpEnabled() && enableToolUsage ? await McpServiceSingleton.listTools() : []
     console.log("Normalized tools: ", normalizedTools)
     const toolsMap = normalizedTools.reduce((acc: Record<string, StructuredToolInterface>, tool) => {
       acc[tool.name] = tool
@@ -583,7 +582,7 @@ export default defineEventHandler(async (event) => {
         )
       }
 
-      await mcpService.close()
+      await McpServiceSingleton.close()
     })())
 
     return sendStream(event, readableStream)
