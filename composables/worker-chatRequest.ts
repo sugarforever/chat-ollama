@@ -123,7 +123,13 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
       })
       if (done) break
 
-      const chunk = prevPart + new TextDecoder().decode(value)
+      let chunk: string
+      try {
+        chunk = prevPart + new TextDecoder().decode(value)
+      } catch (decodeError) {
+        console.warn('Failed to decode chunk, skipping:', decodeError)
+        continue
+      }
 
       if (!chunk.includes(splitter)) {
         prevPart = chunk
@@ -135,10 +141,17 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
       prevPart = parts.pop() || '' // Keep the last part for next iteration
 
       for (const line of parts) {
-        if (!line.trim()) continue
+        const trimmedLine = line.trim()
+        if (!trimmedLine) continue
 
         try {
-          const chatMessage = JSON.parse(line) as ResponseMessage | ResponseRelevantDocument
+          // Additional validation to ensure the line looks like JSON
+          if (!trimmedLine.startsWith('{') && !trimmedLine.startsWith('[')) {
+            console.warn('Skipping non-JSON line:', trimmedLine.substring(0, 100))
+            continue
+          }
+          
+          const chatMessage = JSON.parse(trimmedLine) as ResponseMessage | ResponseRelevantDocument
         const isMessage = !('type' in chatMessage) && 'message' in chatMessage
         const isToolResult = isMessage && chatMessage.message.type === 'tool_result'
 
@@ -226,9 +239,10 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
         }
         } catch (parseError) {
           console.warn('Failed to parse JSON chunk:', {
-            chunk: line.substring(0, 200),
-            length: line.length,
-            error: parseError instanceof Error ? parseError.message : parseError
+            chunk: trimmedLine.substring(0, 200),
+            length: trimmedLine.length,
+            error: parseError instanceof Error ? parseError.message : parseError,
+            errorType: parseError instanceof SyntaxError ? 'SyntaxError' : 'Unknown'
           })
           // Skip malformed JSON chunks but continue processing
           continue
