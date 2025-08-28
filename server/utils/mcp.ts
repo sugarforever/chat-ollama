@@ -372,14 +372,19 @@ export class McpService {
   }
 }
 
-// Singleton instance to prevent multiple instances
-const globalForMcp = globalThis as unknown as {
-  mcpService: McpService | undefined
+// Singleton pattern following Next.js best practices
+const mcpServiceSingleton = () => {
+  return new McpService()
 }
 
-const mcpService = globalForMcp.mcpService ?? new McpService()
+type McpServiceSingleton = ReturnType<typeof mcpServiceSingleton>
 
-// Store in global for both development AND production to ensure singleton
-globalForMcp.mcpService = mcpService
+const globalForMcp = globalThis as unknown as {
+  mcpService: McpServiceSingleton | undefined
+}
+
+const mcpService = globalForMcp.mcpService ?? mcpServiceSingleton()
 
 export { mcpService as McpServiceSingleton }
+
+if (process.env.NODE_ENV !== 'production') globalForMcp.mcpService = mcpService

@@ -1,15 +1,19 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client'
 
-// Implement singleton pattern to prevent multiple instances
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  })
 }
 
-const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-})
+type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>
 
-// Store in global for both development AND production to ensure singleton
-globalForPrisma.prisma = prisma
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClientSingleton | undefined
+}
 
-export default prisma;
+const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
+
+export default prisma
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
