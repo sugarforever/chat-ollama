@@ -19,9 +19,12 @@ const { getInstructions, clearCache } = useInstructionsCache()
 
 const loadInstructions = async (latestAsNew: boolean = false, forceRefresh: boolean = false) => {
   if (forceRefresh) {
-    clearCache()
+    // Instead of clearing cache immediately, fetch fresh data first
+    const freshInstructions = await getInstructions(true) // Pass true to force refresh
+    instructions.value = freshInstructions
+  } else {
+    instructions.value = await getInstructions()
   }
-  instructions.value = await getInstructions()
   if (latestAsNew) {
     const latestInstruction = instructions.value.reduce((max, current) => current.id > max.id ? current : max, { id: 0 })
     latestInstruction.isNew = true

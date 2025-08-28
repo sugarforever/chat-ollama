@@ -23,9 +23,9 @@ export function useInstructionsCache() {
   const instructions = computed(() => cache.value.instructions)
   const isLoading = computed(() => cache.value.loading)
 
-  async function preloadInstructions() {
+  async function preloadInstructions(forceRefresh: boolean = false) {
     if (cache.value.loading) return cache.value.instructions
-    if (isCacheValid.value) return cache.value.instructions
+    if (!forceRefresh && isCacheValid.value) return cache.value.instructions
 
     cache.value.loading = true
     try {
@@ -41,11 +41,11 @@ export function useInstructionsCache() {
     }
   }
 
-  async function getInstructions() {
-    if (isCacheValid.value) {
+  async function getInstructions(forceRefresh: boolean = false) {
+    if (!forceRefresh && isCacheValid.value) {
       return cache.value.instructions
     }
-    return await preloadInstructions()
+    return await preloadInstructions(forceRefresh)
   }
 
   function clearCache() {

@@ -123,112 +123,120 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
       })
       if (done) break
 
-      const chunk = prevPart + new TextDecoder().decode(value)
+      let chunk: string
+      try {
+        chunk = prevPart + new TextDecoder().decode(value)
+      } catch (decodeError) {
+        console.warn('Failed to decode chunk, skipping:', decodeError)
+        continue
+      }
 
       if (!chunk.includes(splitter)) {
         prevPart = chunk
         continue
       }
-      
+
       // Split on the separator and handle the last part which might be incomplete
       const parts = chunk.split(splitter)
       prevPart = parts.pop() || '' // Keep the last part for next iteration
 
       for (const line of parts) {
-        if (!line.trim()) continue
+        const trimmedLine = line.trim()
+        if (!trimmedLine) continue
 
         try {
-          const chatMessage = JSON.parse(line) as ResponseMessage | ResponseRelevantDocument
-        const isMessage = !('type' in chatMessage) && 'message' in chatMessage
-        const isToolResult = isMessage && chatMessage.message.type === 'tool_result'
+          const chatMessage = JSON.parse(trimmedLine) as ResponseMessage | ResponseRelevantDocument
+          const isMessage = !('type' in chatMessage) && 'message' in chatMessage
+          const isToolResult = isMessage && chatMessage.message.type === 'tool_result'
 
-        if (isMessage && !isToolResult) {
-          // Handle regular assistant message with potential tool calls/results
-          const messageContent = chatMessage.message.content
-          
-          // Handle both string and multimodal array content
-          if (Array.isArray(messageContent)) {
-            msgContent = messageContent
-          } else {
-            msgContent = messageContent || ''
-          }
+          if (isMessage && !isToolResult) {
+            // Handle regular assistant message with potential tool calls/results
+            const messageContent = chatMessage.message.content
 
-          // Accumulate tool calls and results
-          if (chatMessage.message.tool_calls) {
-            toolCalls = chatMessage.message.tool_calls
-          }
-          if (chatMessage.message.tool_results) {
-            toolResults = chatMessage.message.tool_results
-          }
+            // Handle both string and multimodal array content
+            if (Array.isArray(messageContent)) {
+              msgContent = messageContent
+            } else {
+              msgContent = messageContent || ''
+            }
 
-          const result: ChatHistory = {
-            role: 'assistant' as const,
-            model: data.model,
-            sessionId: data.sessionId,
-            message: msgContent,
-            messageType: Array.isArray(msgContent) ? 'array' : 'string',
-            failed: false,
-            canceled: false,
-            startTime: data.timestamp,
-            endTime: Date.now(),
-            toolResult: false,
-            toolCallId: undefined,
-            toolCalls: toolCalls,
-            toolResults: toolResults,
-          }
+            // Accumulate tool calls and results
+            if (chatMessage.message.tool_calls) {
+              toolCalls = chatMessage.message.tool_calls
+            }
+            if (chatMessage.message.tool_results) {
+              toolResults = chatMessage.message.tool_results
+            }
 
-          if (id === -1) {
-            id = await addToDB(result)
-          }
-          // save message to DB after every 1s
-          else if (Date.now() - t > 1000) {
-            t = Date.now()
-            updateToDB({
-              id,
+            const result: ChatHistory = {
+              role: 'assistant' as const,
+              model: data.model,
+              sessionId: data.sessionId,
               message: msgContent,
-              toolCalls: toolCalls,
-              toolResults: toolResults
-            })
-          }
-
-          sendMessageToMain({
-            uid, type: 'message', sessionId: data.sessionId, id,
-            data: {
-              id,
-              content: msgContent,
-              contentType: Array.isArray(msgContent) ? 'array' : 'string',
+              messageType: Array.isArray(msgContent) ? 'array' : 'string',
+              failed: false,
+              canceled: false,
               startTime: data.timestamp,
               endTime: Date.now(),
-              role: 'assistant',
-              model: data.model,
               toolResult: false,
               toolCallId: undefined,
-              toolCalls: chatMessage.message.tool_calls || [],
-              toolResults: chatMessage.message.tool_results || [],
+              toolCalls: toolCalls,
+              toolResults: toolResults,
             }
-          })
-        } else if ('type' in chatMessage && chatMessage.type === 'relevant_documents') {
-          relevantDocs.push(...chatMessage.relevant_documents)
-          sendMessageToMain({
-            uid, type: 'relevant_documents', sessionId: data.sessionId, id,
-            data: {
-              id,
-              content: msgContent,
-              contentType: Array.isArray(msgContent) ? 'array' : 'string',
-              startTime: data.timestamp,
-              endTime: Date.now(),
-              role: 'assistant',
-              model: data.model,
-              relevantDocs: chatMessage.relevant_documents,
-              toolResult: false
-            },
-          })
-        }
+
+            if (id === -1) {
+              id = await addToDB(result)
+            }
+            // save message to DB after every 1s
+            else if (Date.now() - t > 1000) {
+              t = Date.now()
+              updateToDB({
+                id,
+                message: msgContent,
+                toolCalls: toolCalls,
+                toolResults: toolResults
+              })
+            }
+
+            sendMessageToMain({
+              uid, type: 'message', sessionId: data.sessionId, id,
+              data: {
+                id,
+                content: msgContent,
+                contentType: Array.isArray(msgContent) ? 'array' : 'string',
+                startTime: data.timestamp,
+                endTime: Date.now(),
+                role: 'assistant',
+                model: data.model,
+                toolResult: false,
+                toolCallId: undefined,
+                toolCalls: chatMessage.message.tool_calls || [],
+                toolResults: chatMessage.message.tool_results || [],
+              }
+            })
+          } else if ('type' in chatMessage && chatMessage.type === 'relevant_documents') {
+            relevantDocs.push(...chatMessage.relevant_documents)
+            sendMessageToMain({
+              uid, type: 'relevant_documents', sessionId: data.sessionId, id,
+              data: {
+                id,
+                content: msgContent,
+                contentType: Array.isArray(msgContent) ? 'array' : 'string',
+                startTime: data.timestamp,
+                endTime: Date.now(),
+                role: 'assistant',
+                model: data.model,
+                relevantDocs: chatMessage.relevant_documents,
+                toolResult: false
+              },
+            })
+          }
         } catch (parseError) {
           console.warn('Failed to parse JSON chunk:', {
-            chunk: line.substring(0, 200),
-            length: line.length,
-            error: parseError instanceof Error ? parseError.message : parseError
+            chunk: trimmedLine.substring(0, 200),
+            length: trimmedLine.length,
+            error: parseError instanceof Error ? parseError.message : parseError,
+            errorType: parseError instanceof SyntaxError ? 'SyntaxError' : 'Unknown'
           })
           // Skip malformed JSON chunks but continue processing
           continue
