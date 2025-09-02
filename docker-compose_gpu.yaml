@@ -49,7 +49,7 @@ services:
       - NUXT_KNOWLEDGE_BASE_ENABLED=true
       - NUXT_REALTIME_CHAT_ENABLED=false
       - NUXT_MODELS_MANAGEMENT_ENABLED=true
-      - NUXT_MCP_ENABLED=false
+      - NUXT_MCP_ENABLED=true
       # Database and Service URLs
       - CHROMADB_URL=http://chromadb:8000
       - DATABASE_URL=postgresql://chatollama:chatollama_password@postgres:5432/chatollama
