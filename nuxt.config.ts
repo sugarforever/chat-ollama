@@ -18,7 +18,6 @@ export default defineNuxtConfig({
         type: 'Bearer',
         cookieName: 'auth-token',
         headerName: 'Authorization',
-        headerType: 'Bearer',
         name: 'auth-token',
         maxAgeInSeconds: 60 * 60 * 24 * 365
       },
