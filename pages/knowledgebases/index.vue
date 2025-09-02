@@ -101,7 +101,7 @@ function onShowUpdate(data: KnowledgeBase) {
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto">
+  <div class="max-w-6xl mx-auto mt-4">
     <div class="flex items-center mb-4">
       <h2 class="font-bold text-xl mr-auto">{{ t("menu.knowledgeBases") }}</h2>
       <UButton icon="i-material-symbols-add"
