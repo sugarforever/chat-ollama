@@ -496,16 +496,10 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
                         :title="instructionInfo.name"
                         :description="instructionInfo.instruction"
                         class="hidden md:block" />
-        <ChatConfigInfo v-if="knowledgeBaseInfo" icon="i-heroicons-book-open"
-                        :title="knowledgeBaseInfo.name"
-                        class="mx-2 hidden md:block" />
         <div class="mx-auto px-4 text-center">
           <h2 class="line-clamp-1">{{ sessionInfo?.title || t('chat.untitled') }}</h2>
           <div class="text-xs text-muted line-clamp-1">{{ instructionInfo?.name }}</div>
         </div>
-        <UTooltip v-if="sessionId" :text="t('chat.modifyTips')">
-          <UButton icon="i-iconoir-edit-pencil" color="gray" @click="onOpenSettings" />
-        </UTooltip>
       </div>
 
       <!-- Messages area - scrollable -->
@@ -524,10 +518,21 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
             <div class="mr-4">
               <ModelSelectorDropdown v-model="models" size="xs" @change="onModelsChange" />
             </div>
-            <UTooltip :text="t('chat.attachedMessagesCount')" :popper="{ placement: 'top-start' }">
+            <UTooltip :popper="{ placement: 'top-start' }">
+              <template #text>
+                <div class="space-y-1">
+                  <div v-if="knowledgeBaseInfo" class="flex items-center">
+                    <UIcon name="i-heroicons-book-open" class="mr-2 text-xs"></UIcon>
+                    <span class="text-xs">{{ knowledgeBaseInfo.name }}</span>
+                  </div>
+                  <div class="flex items-center">
+                    <UIcon name="i-material-symbols-history" class="mr-2 text-xs"></UIcon>
+                    <span class="text-xs">{{ t('chat.attachedMessagesCount') }}: {{ sessionInfo?.attachedMessagesCount }}</span>
+                  </div>
+                </div>
+              </template>
               <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
-                <UIcon name="i-material-symbols-history" class="mr-1"></UIcon>
-                <span class="text-sm">{{ sessionInfo?.attachedMessagesCount }}</span>
+                <UIcon name="i-heroicons-cog-6-tooth" class="mr-1"></UIcon>
               </div>
             </UTooltip>
           </div>
