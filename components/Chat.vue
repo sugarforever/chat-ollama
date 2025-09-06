@@ -270,6 +270,19 @@ onReceivedMessage(data => {
       updateMessage(data, { type: undefined, ...data.data })
       break
     case 'complete':
+      console.log('Message completed for uid:', data.uid, 'id:', data.id, 'remaining count:', sendingCount.value - 1)
+      // Find the message that was completed and ensure it's properly finalized
+      const completedIndex = messages.value.findIndex(el => el.id === data.uid || el.id === data.id)
+      if (completedIndex > -1) {
+        const completedMessage = messages.value[completedIndex]
+        console.log('Completed message content length:', completedMessage.content?.length)
+        // Ensure the message type is cleared (remove loading state)
+        if (completedMessage.type === 'loading') {
+          const finalMessage = { ...completedMessage, type: undefined }
+          messages.value.splice(completedIndex, 1, finalMessage)
+          console.log('Cleared loading state for completed message')
+        }
+      }
       sendingCount.value -= 1
       break
     case 'abort':
@@ -505,26 +518,23 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
             <div class="mr-4">
               <ModelSelectorDropdown v-model="models" size="xs" @change="onModelsChange" />
             </div>
-            <div class="flex items-center space-x-3">
-
-              <UTooltip :popper="{ placement: 'top-start' }">
-                <template #text>
-                  <div class="space-y-1">
-                    <div v-if="knowledgeBaseInfo" class="flex items-center">
-                      <UIcon name="i-heroicons-book-open" class="mr-2 text-xs"></UIcon>
-                      <span class="text-xs">{{ knowledgeBaseInfo.name }}</span>
-                    </div>
-                    <div class="flex items-center">
-                      <UIcon name="i-material-symbols-history" class="mr-2 text-xs"></UIcon>
-                      <span class="text-xs">{{ t('chat.attachedMessagesCount') }}: {{ sessionInfo?.attachedMessagesCount }}</span>
-                    </div>
+            <UTooltip :popper="{ placement: 'top-start' }">
+              <template #text>
+                <div class="space-y-1">
+                  <div v-if="knowledgeBaseInfo" class="flex items-center">
+                    <UIcon name="i-heroicons-book-open" class="mr-2 text-xs"></UIcon>
+                    <span class="text-xs">{{ knowledgeBaseInfo.name }}</span>
                   </div>
-                </template>
-                <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
-                  <UIcon name="i-heroicons-cog-6-tooth" class="mr-1"></UIcon>
+                  <div class="flex items-center">
+                    <UIcon name="i-material-symbols-history" class="mr-2 text-xs"></UIcon>
+                    <span class="text-xs">{{ t('chat.attachedMessagesCount') }}: {{ sessionInfo?.attachedMessagesCount }}</span>
+                  </div>
                 </div>
-              </UTooltip>
-            </div>
+              </template>
+              <div class="flex items-center cursor-pointer hover:text-primary-400" @click="onOpenSettings">
+                <UIcon name="i-heroicons-cog-6-tooth" class="mr-1"></UIcon>
+              </div>
+            </UTooltip>
           </div>
         </ChatInputBox>
       </div>

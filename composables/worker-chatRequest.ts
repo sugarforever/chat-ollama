@@ -157,7 +157,13 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
             if (Array.isArray(messageContent)) {
               msgContent = messageContent
             } else {
-              msgContent = messageContent || ''
+              // Accumulate content for streaming - append new chunks to existing content
+              const newChunk = messageContent || ''
+              if (typeof msgContent === 'string' && newChunk) {
+                msgContent = msgContent + newChunk
+              } else if (!msgContent) {
+                msgContent = newChunk
+              }
             }
 
             // Accumulate tool calls and results

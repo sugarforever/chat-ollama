@@ -123,6 +123,7 @@ export default defineEventHandler(async (event) => {
       let aiMessageSent = false
       const toolMessages = new Map()
       let hasError = false
+      let messageCount = 0
 
       try {
         for await (const chunk of responseStream) {
@@ -150,21 +151,29 @@ export default defineEventHandler(async (event) => {
                 textContent = String(lastMessage.content || '')
               }
 
-              // Only update if we have more content than before
-              if (textContent.length > accumulatedAIContent.length) {
-                accumulatedAIContent = textContent
+              // DeepAgent sends full content in each chunk, so we need to check if this is new content
+              // and accumulate it properly to ensure the UI shows the complete message
+              if (textContent.length > 0) {
+                // If this content is longer than what we have, it's an update
+                const hasNewContent = textContent.length > accumulatedAIContent.length || textContent !== accumulatedAIContent
+                
+                if (hasNewContent) {
+                  accumulatedAIContent = textContent
+                  messageCount++
 
-                const messageData = {
-                  id: aiMessageId,
-                  type: 'ai',
-                  content: accumulatedAIContent,
-                  conversationRoundId: conversationRoundId,
-                  timestamp: Date.now(),
-                  isUpdate: aiMessageSent // true if this is an update to existing message
+                  const messageData = {
+                    id: aiMessageId,
+                    type: 'ai',
+                    content: accumulatedAIContent,
+                    conversationRoundId: conversationRoundId,
+                    timestamp: Date.now(),
+                    isUpdate: aiMessageSent // true if this is an update to existing message
+                  }
+
+                  console.log(`AI message ${messageCount}: ${textContent.length} chars, accumulated: ${accumulatedAIContent.length} chars, isUpdate: ${aiMessageSent}`)
+                  aiMessageSent = true
+                  yield JSON.stringify(messageData) + '\n'
                 }
-
-                aiMessageSent = true
-                yield JSON.stringify(messageData) + '\n'
               }
 
             } else if (messageType === 'tool') {
