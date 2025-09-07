@@ -2,6 +2,10 @@
 import { useStorage } from '@vueuse/core'
 import { USlideover } from '#components'
 
+const props = defineProps<{
+  isCollapsed?: boolean
+}>()
+
 const emits = defineEmits<{
   select: [sessionId: number]
   closePanel: []
@@ -44,7 +48,7 @@ defineExpose({ updateSessionInfo, createChat: onNewChat })
 
 async function onNewChat() {
   if (isCreatingChat.value) return
-  
+
   isCreatingChat.value = true
   try {
     const data = await createChatSession()
@@ -147,22 +151,37 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
   <Component :is="isMobile ? USlideover : 'div'"
              :class="isMobile ? 'w-[80vw] max-w-[400px] h-full' : 'border-r dark:border-gray-800'"
              class="h-full box-border">
-    <div class="h-14 p-3 border-b border-primary-400/30 flex items-center">
-      <h3 class="text-primary-600 dark:text-primary-300 mr-auto">{{ t("chat.allChats") }} ({{ sessionList.length }})</h3>
-      <UTooltip :text="t('chat.newChat')" :popper="{ placement: 'top' }">
-        <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat"></UButton>
-      </UTooltip>
-      <UButton icon="i-material-symbols-close-rounded" color="gray" class="md:hidden ml-4" @click="emits('closePanel')"></UButton>
+    <!-- Header - Different layout for collapsed/expanded -->
+    <div class="h-14 border-b border-primary-400/30 flex items-center"
+         :class="props.isCollapsed ? 'px-2 justify-center' : 'px-3'">
+      <!-- Expanded Header -->
+      <template v-if="!props.isCollapsed">
+        <h3 class="text-primary-600 dark:text-primary-300 mr-auto">{{ t("chat.allChats") }} ({{ sessionList.length }})</h3>
+        <UTooltip :text="t('chat.newChat')" :popper="{ placement: 'top' }">
+          <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat"></UButton>
+        </UTooltip>
+        <UButton icon="i-material-symbols-close-rounded" color="gray" class="md:hidden ml-4" @click="emits('closePanel')"></UButton>
+      </template>
+
+      <!-- Collapsed Header - Just the + icon -->
+      <template v-else>
+        <UTooltip :text="t('chat.newChat')" :popper="{ placement: 'right' }">
+          <UButton icon="i-material-symbols-add" color="primary" square @click="onNewChat"></UButton>
+        </UTooltip>
+      </template>
     </div>
-    <TransitionGroup tag="div" name="list" class="h-[calc(100%-57px)] overflow-auto">
+    <TransitionGroup tag="div" class="h-[calc(100%-57px)] overflow-auto">
       <div v-for="item in sessionList" :key="item.id"
-           class="session-item relative box-border p-2 cursor-pointer dark:text-gray-300 border-b border-b-gray-100 dark:border-b-gray-100/5 border-l-2"
+           class="session-item relative cursor-pointer dark:text-gray-300 border-b border-b-gray-100 dark:border-b-gray-100/5"
            :class="[
+            props.isCollapsed ? 'p-2 border-l-0' : 'p-2 border-l-2',
             item.isTop ? 'bg-primary-300/10 dark:bg-primary-800/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30',
-            currentSessionId === item.id ? 'border-l-pink-700/80 dark:border-l-pink-400/80' : 'border-l-transparent'
+            !props.isCollapsed && currentSessionId === item.id ? 'border-l-pink-700/80 dark:border-l-pink-400/80' : 'border-l-transparent'
           ]"
            @click="onSelectChat(item.id!)">
-        <div class="w-full flex items-center text-sm h-[32px]">
+
+        <!-- Expanded View -->
+        <div v-if="!props.isCollapsed" class="w-full flex items-center text-sm h-[32px]">
           <div class="line-clamp-1 grow"
                :class="currentSessionId === item.id ? 'text-pink-700  dark:text-pink-400 font-bold' : 'opacity-80'">
             {{ item.title || `${t("chat.newChat")} ${item.id}` }}
@@ -172,6 +191,20 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
                                      @pin="onTopChat(item, 'up')"
                                      @unpin="onTopChat(item, 'down')"
                                      @delete="onDeleteChat(item)" />
+        </div>
+
+        <!-- Collapsed View - Icon Only -->
+        <div v-else class="w-full flex items-center justify-center h-[32px]">
+          <UTooltip :text="item.title || `${t('chat.newChat')} ${item.id}`" :popper="{ placement: 'right' }">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+                 :class="[
+                  currentSessionId === item.id
+                    ? 'bg-pink-700/20 dark:bg-pink-400/20 text-pink-700 dark:text-pink-400'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                ]">
+              <UIcon name="i-material-symbols-chat-bubble-outline" class="w-3 h-3" />
+            </div>
+          </UTooltip>
         </div>
       </div>
     </TransitionGroup>
@@ -194,16 +227,5 @@ async function updateSessionInfo(data: Partial<Omit<ChatSession, 'id' | 'createT
       display: block;
     }
   }
-}
-
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.3s ease;
-}
-
-.list-enter-from,
-.list-leave-to {
-  opacity: 0;
-  transform: translateY(-20px);
 }
 </style>
