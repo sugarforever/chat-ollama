@@ -126,7 +126,19 @@
         "clearConfirmTip": "Are you sure you want to clear all history messages for this conversation?",
         "pin": "Pin",
         "unpin": "Unpin",
-        "stop": "Stop"
+        "stop": "Stop",
+        "fork": "Fork Chat",
+        "forkSession": "Fork from this message",
+        "forkSessionDescription": "Create a new chat session starting from this message",
+        "forkConfirm": "This will create a new chat session with all messages up to this point. Continue?",
+        "forkError": "Fork Error",
+        "forkSuccess": "Chat Forked Successfully",
+        "forkSuccessDescription": "A new chat session has been created",
+        "forkSessionNotFound": "Original session not found",
+        "forkMessageNotFound": "Message not found in session",
+        "forkDefaultTitle": "Untitled Chat",
+        "forkForkedSuffix": "Fork",
+        "forkGenericError": "Failed to fork chat session"
     },
     "settings": {
         "ollamaServer": "Ollama Server",

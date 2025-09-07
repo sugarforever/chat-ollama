@@ -126,7 +126,19 @@
         "clearConfirmTip": "确定要清空该对话的所有历史消息吗？",
         "pin": "置顶",
         "unpin": "取消置顶",
-        "stop": "停止"
+        "stop": "停止",
+        "fork": "分叉对话",
+        "forkSession": "从此消息分叉",
+        "forkSessionDescription": "从此消息开始创建新的对话会话",
+        "forkConfirm": "这将创建一个包含到此点所有消息的新对话会话。继续吗？",
+        "forkError": "分叉错误",
+        "forkSuccess": "对话分叉成功",
+        "forkSuccessDescription": "已创建新的对话会话",
+        "forkSessionNotFound": "找不到原始会话",
+        "forkMessageNotFound": "在会话中找不到消息",
+        "forkDefaultTitle": "无标题对话",
+        "forkForkedSuffix": "分叉",
+        "forkGenericError": "分叉对话会话失败"
     },
     "settings": {
         "ollamaServer": "Ollama 服务",

@@ -14,6 +14,7 @@ const emits = defineEmits<{
   resend: [message: ChatMessage]
   remove: [message: ChatMessage]
   artifact: [artifact: Artifact]
+  fork: [message: ChatMessage]
 }>()
 
 const markdown = useMarkdown()
@@ -245,7 +246,8 @@ onUnmounted(() => {
       <ChatMessageActionMore :message="message"
                              :disabled="sending"
                              @resend="emits('resend', message)"
-                             @remove="emits('remove', message)">
+                             @remove="emits('remove', message)"
+                             @fork="emits('fork', message)">
         <UButton :class="{ invisible: sending }" icon="i-material-symbols-more-vert" color="gray"
                  :variant="'link'"
                  class="action-more">
