@@ -7,7 +7,7 @@ const open = ref(false)
 const isMenuOpen = ref(false)
 const isChatExpanded = ref(false)
 const selectedChat = ref<'charlie' | 'gemini' | null>(null)
-const isLeftPanelCollapsed = ref(false)
+const isLeftPanelCollapsed = ref(true)
 
 // Add realtime chat setting
 const realtimeChatEnabled = useStorage('realtimeChatEnabled', false)
@@ -37,24 +37,20 @@ const toggleLeftPanel = () => {
 
 <template>
   <div class="h-screen flex">
-    <!-- Left Navigation Panel -->
-    <div class="hidden md:flex flex-col bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300"
-         :class="isLeftPanelCollapsed ? 'w-16' : 'w-54'">
-      <!-- Logo and App Name -->
-      <div class="flex h-14 items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <div class="flex items-center min-w-0">
-          <TheLogo class="w-8 h-8 flex-shrink-0" />
-          <span v-if="!isLeftPanelCollapsed" class="ml-2 text-primary font-semibold text-lg truncate">
-            {{ $config.public.appName }}
-          </span>
+    <!-- Left Navigation Panel with Caret Toggle -->
+    <div class="hidden md:block relative h-full">
+      <div class="flex flex-col h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300"
+           :class="isLeftPanelCollapsed ? 'w-16' : 'w-54'">
+        <!-- Logo and App Name -->
+        <div class="flex h-14 items-center p-4 border-b border-gray-200 dark:border-gray-700"
+             :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
+          <div class="flex items-center min-w-0">
+            <TheLogo class="w-8 h-8 flex-shrink-0" />
+            <span v-if="!isLeftPanelCollapsed" class="ml-2 text-primary font-semibold text-lg truncate">
+              {{ $config.public.appName }}
+            </span>
+          </div>
         </div>
-        <!-- Collapse Toggle -->
-        <button @click="toggleLeftPanel"
-                class="flex items-center justify-center p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0">
-          <Icon :name="isLeftPanelCollapsed ? 'i-heroicons-chevron-double-right' : 'i-heroicons-chevron-double-left'"
-                class="w-4 h-4" />
-        </button>
-      </div>
 
       <!-- Navigation Menu -->
       <nav class="flex-1 p-4 space-y-2">
@@ -76,11 +72,19 @@ const toggleLeftPanel = () => {
         </ClientOnly>
       </nav>
 
-      <!-- Bottom Section -->
-      <div class="flex p-4 border-t border-gray-200 dark:border-gray-700" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
-        <!-- Auth Component -->
-        <Auth :collapsed="isLeftPanelCollapsed" />
+        <!-- Bottom Section -->
+        <div class="flex p-4 border-t border-gray-200 dark:border-gray-700" :class="isLeftPanelCollapsed ? 'justify-center' : 'justify-start'">
+          <!-- Auth Component -->
+          <Auth :collapsed="isLeftPanelCollapsed" />
+        </div>
       </div>
+      
+      <!-- Caret Toggle Button -->
+      <button @click="toggleLeftPanel"
+              class="absolute top-1/2 -right-3 z-10 w-6 h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+        <UIcon :name="isLeftPanelCollapsed ? 'i-heroicons-chevron-right' : 'i-heroicons-chevron-left'" 
+               class="w-3 h-3 text-gray-500 dark:text-gray-400" />
+      </button>
     </div>
 
     <!-- Mobile Menu Overlay -->

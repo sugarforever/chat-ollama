@@ -488,10 +488,6 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
       <!-- Header -->
       <div class="px-4 border-b border-gray-200 dark:border-gray-700 box-border h-14 flex items-center flex-shrink-0">
         <slot name="left-menu-btn"></slot>
-        <UIcon
-               :name="isSessionListVisible ? 'i-heroicons-chevron-double-left' : 'i-heroicons-chevron-double-right'"
-               class="mr-2 text-lg text-gray-500 hidden md:block cursor-pointer hover:text-primary-500"
-               @click="$emit('toggle-sidebar')" />
         <ChatConfigInfo v-if="instructionInfo" icon="i-iconoir-terminal"
                         :title="instructionInfo.name"
                         :description="instructionInfo.instruction"
