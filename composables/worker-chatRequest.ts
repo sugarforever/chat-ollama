@@ -157,12 +157,20 @@ async function chatRequest(uid: number, data: RequestData, headers: Record<strin
             if (Array.isArray(messageContent)) {
               msgContent = messageContent
             } else {
-              // Accumulate content for streaming - append new chunks to existing content
-              const newChunk = messageContent || ''
-              if (typeof msgContent === 'string' && newChunk) {
-                msgContent = msgContent + newChunk
-              } else if (!msgContent) {
-                msgContent = newChunk
+              // Different streaming patterns based on whether knowledge base is used:
+              // - With knowledge base: each chunk contains full content (replace)
+              // - Without knowledge base: each chunk contains incremental content (accumulate)
+              if (!data.knowledgebaseId) {
+                // Knowledge base streaming: full content in each chunk
+                msgContent = messageContent || ''
+              } else {
+                // Regular streaming: incremental chunks need accumulation
+                const newChunk = messageContent || ''
+                if (typeof msgContent === 'string' && newChunk) {
+                  msgContent = msgContent + newChunk
+                } else if (!msgContent) {
+                  msgContent = newChunk
+                }
               }
             }
 
