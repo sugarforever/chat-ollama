@@ -172,20 +172,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col my-2"
+  <div class="flex flex-col my-2 group"
        :class="{ 'items-end': message.role === 'user' }">
-    <div class="text-gray-500 dark:text-gray-400 p-1">
-      <Icon v-if="message.role === 'user'" name="i-material-symbols-account-circle" class="text-lg" />
-      <div v-else class="text-sm flex items-center">
-        <UTooltip :text="modelName.family" :popper="{ placement: 'top' }">
-          <span class="text-primary/80">{{ modelName.name }}</span>
-        </UTooltip>
-        <template v-if="timeUsed > 0">
-          <span class="mx-2 text-muted/20 text-xs">|</span>
-          <span class="text-gray-400 dark:text-gray-500 text-xs">{{ timeUsed }}s</span>
-        </template>
-      </div>
-    </div>
+    <MessageHeader 
+      :role="message.role" 
+      :model-name="modelName" 
+      :time-used="timeUsed" 
+    />
     <div class="leading-6 text-sm flex items-center max-w-full message-content"
          :class="{ 'text-gray-400 dark:text-gray-500': message.type === 'canceled', 'flex-row-reverse': !isModelMessage }">
       <div class="flex border border-primary/20 rounded-lg overflow-hidden box-border"
@@ -195,216 +188,60 @@ onUnmounted(() => {
         </div>
         <template v-else-if="isModelMessage">
           <div class="p-3 overflow-hidden w-full">
-            <!-- Tool Calls Display - moved to top -->
-            <div v-if="message.toolCalls && message.toolCalls.length > 0" class="tool-calls mb-3 space-y-3">
-              <div v-for="toolCall in message.toolCalls" :key="toolCall.id" class="tool-call">
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <!-- Tool Header -->
-                  <div class="flex items-center gap-2 mb-3">
-                    <UIcon name="i-heroicons-cog-6-tooth" class="text-blue-600 dark:text-blue-400" />
-                    <span class="font-semibold text-blue-700 dark:text-blue-300">{{ toolCall.name }}</span>
-                  </div>
-
-                  <!-- Tool Parameters -->
-                  <details class="mb-3">
-                    <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-                      View parameters
-                    </summary>
-                    <pre class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto">{{ JSON.stringify(toolCall.args, null, 2) }}</pre>
-                  </details>
-
-                  <!-- Tool Result -->
-                  <div v-if="message.toolResults && message.toolResults.find(r => r.tool_call_id === toolCall.id)"
-                       class="tool-result border-t border-blue-200 dark:border-blue-700 pt-3">
-                    <details>
-                      <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-2">
-                        <UIcon name="i-heroicons-check-circle" class="text-blue-600 dark:text-blue-400" />
-                        <span class="font-medium text-blue-700 dark:text-blue-300">View result</span>
-                      </summary>
-                      <div class="mt-2 text-sm bg-gray-50 dark:bg-gray-800/50 rounded p-2">
-                        <pre class="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{{message.toolResults.find(r => r.tool_call_id === toolCall.id)?.content}}</pre>
-                      </div>
-                    </details>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ToolCallDisplay 
+              :tool-calls="message.toolCalls || []" 
+              :tool-results="message.toolResults" 
+            />
 
             <!-- Text Content -->
             <div ref="messageContentRef" v-html="markdown.render(messageContent || '')" class="md-body" :class="{ 'line-clamp-3 max-h-[5rem]': !opened }" />
 
-            <!-- Image Gallery -->
-            <div v-if="messageImages.length > 0" class="image-gallery my-3 grid gap-2">
-              <img v-for="(url, index) in messageImages"
-                   :key="index"
-                   :src="url"
-                   class="rounded-lg max-h-64 object-contain"
-                   :alt="`Image ${index + 1}`" />
-            </div>
+            <MessageImages :images="messageImages" />
 
             <Sources v-show="opened" :relevant_documents="message?.relevantDocs || []" />
           </div>
           <div class="flex flex-col">
             <MessageToggleCollapseButton v-if="showToggleButton" :opened="opened" @click="opened = !opened" />
-            <UTooltip v-if="detectedArtifact"
-                      text="Preview"
-                      :popper="{ placement: 'left' }"
-                      class="artifact-tooltip">
-              <UButton icon="i-heroicons-eye-20-solid"
-                       color="primary"
-                       variant="ghost"
-                       size="xs"
-                       class="mt-1 artifact-btn group hover:scale-105 transition-all duration-200"
-                       @click="toggleArtifact" />
-            </UTooltip>
+            <ArtifactButton 
+              v-if="detectedArtifact"
+              class="artifact-btn"
+              @click="toggleArtifact" 
+            />
           </div>
         </template>
         <template v-else>
           <!-- User message with images -->
           <div class="p-3">
-            <div v-if="messageImages.length > 0" class="image-gallery mb-3 grid gap-2">
-              <img v-for="(url, index) in messageImages"
-                   :key="index"
-                   :src="url"
-                   class="rounded-lg max-h-64 object-contain"
-                   :alt="`Image ${index + 1}`" />
-            </div>
+            <MessageImages :images="messageImages" class="mb-3" />
             <pre v-if="messageContent" v-text="messageContent" class="whitespace-break-spaces" />
           </div>
         </template>
       </div>
     </div>
     
-    <!-- Action Bar at bottom of each message -->
-    <div v-if="!sending && message.type !== 'loading'" 
-         class="action-bar flex items-center justify-start gap-1 mt-2 opacity-0 transition-opacity duration-200"
-         :class="{ 'justify-end': message.role === 'user' }">
-      <!-- Copy Button -->
-      <UTooltip :text="$t('global.copy')" :popper="{ placement: 'top' }">
-        <UButton icon="i-material-symbols-content-copy-outline" 
-                 color="gray" 
-                 variant="ghost" 
-                 size="xs"
-                 @click="copyMessage" />
-      </UTooltip>
-      
-      <!-- Fork Button -->
-      <UTooltip :text="$t('chat.forkSession')" :popper="{ placement: 'top' }">
-        <UButton icon="i-heroicons-arrow-top-right-on-square" 
-                 color="gray" 
-                 variant="ghost" 
-                 size="xs"
-                 @click="emits('fork', message)" />
-      </UTooltip>
-      
-      <!-- Resend Button (only for user messages) -->
-      <UTooltip v-if="message.role === 'user'" :text="$t('chat.resend')" :popper="{ placement: 'top' }">
-        <UButton icon="i-material-symbols-sync" 
-                 color="gray" 
-                 variant="ghost" 
-                 size="xs"
-                 @click="emits('resend', message)" />
-      </UTooltip>
-      
-      <!-- Remove Button -->
-      <UTooltip :text="$t('global.remove')" :popper="{ placement: 'top' }">
-        <UButton icon="i-material-symbols-delete-outline-rounded" 
-                 color="red" 
-                 variant="ghost" 
-                 size="xs"
-                 @click="confirmDeleteMessage" />
-      </UTooltip>
-    </div>
+    <MessageActionBar 
+      :message="message" 
+      :sending="sending"
+      :align-right="message.role === 'user'"
+      @copy="copyMessage"
+      @fork="emits('fork', $event)"
+      @resend="emits('resend', $event)"
+      @remove="confirmDeleteMessage" 
+    />
   </div>
 </template>
 
-<style scoped lang="scss">
-.message-content {
-  .artifact-btn {
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    &:hover {
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-      transform: scale(1.05);
-    }
-  }
-
-  &:hover {
-    .artifact-btn {
-      opacity: 1;
-    }
-  }
-}
-
-// Show action bar on message hover
-.flex.flex-col:hover {
-  .action-bar {
-    opacity: 1;
-  }
+<style scoped>
+.message-content:hover .artifact-btn {
+  opacity: 1;
 }
 
 .preview-container {
-  border: 1px solid var(--color-gray-200);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  background: var(--color-gray-50);
-  min-height: 100px;
-
-  :deep() {
-    * {
-      margin: initial;
-      padding: initial;
-    }
-  }
+  @apply border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 min-h-[100px];
 }
 
-.dark {
-  .preview-container {
-    border-color: var(--color-gray-700);
-    background: var(--color-gray-800);
-  }
-}
-
-.image-gallery {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-
-  img {
-    width: 100%;
-    height: auto;
-    background: var(--color-gray-100);
-
-    &:hover {
-      cursor: pointer;
-      opacity: 0.9;
-    }
-  }
-}
-
-.dark {
-  .image-gallery img {
-    background: var(--color-gray-800);
-  }
-
-  .artifact-btn:hover {
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-  }
-}
-
-/* Custom artifact tooltip styling */
-:deep(.artifact-tooltip) {
-  .ui-tooltip {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    font-weight: 500;
-    font-size: 0.8rem;
-    padding: 8px 12px;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-
-    &::before {
-      border-left-color: #667eea;
-    }
-  }
+.preview-container :deep(*) {
+  margin: initial;
+  padding: initial;
 }
 </style>
