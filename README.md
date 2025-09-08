@@ -386,15 +386,20 @@ Enable voice conversations with Gemini 2.0 Flash:
 
 ### Knowledge Bases
 
-Create knowledge bases for RAG conversations:
+Create searchable document repositories for enhanced conversations using RAG (Retrieval Augmented Generation):
 
-1. **Create Knowledge Base** - Name and configure chunking parameters
-2. **Upload Documents** - PDF, DOCX, TXT files supported
-3. **Chat with Knowledge** - Reference your documents in conversations
+1. **Enable Feature**: Set `KNOWLEDGE_BASE_ENABLED=true`
+2. **Setup Dependencies**: Vector store (Chroma/Milvus) + Redis + Embedding models
+3. **Create & Upload**: Build knowledge bases with your documents
+4. **Chat Enhanced**: AI references your documents automatically
 
-**Supported Vector Databases:**
-- **ChromaDB** (default) - Lightweight, easy setup
-- **Milvus** - Production-scale vector database
+**📖 [Complete Configuration Guide →](docs/guide/knowledge-base-configuration.md)**
+
+Quick setup with Docker:
+```bash
+# All services included in docker-compose.yaml
+docker compose up
+```
 
 ### Data Storage
 
