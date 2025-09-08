@@ -28,6 +28,7 @@ const { t } = useI18n()
 const { chatModels } = useModels()
 const modal = useModal()
 const { onReceivedMessage, sendMessage } = useChatWorker()
+const { forkChatSession } = useForkChatSession()
 
 const sessionInfo = ref<ChatSession>()
 const knowledgeBases: KnowledgeBase[] = []
@@ -375,6 +376,12 @@ async function onRemove(data: ChatMessage) {
   emits('message', null)
 }
 
+async function onFork(data: ChatMessage) {
+  if (!props.sessionId || !data.id) return
+
+  await forkChatSession(props.sessionId, data.id)
+}
+
 async function initData(sessionId?: number) {
   if (typeof sessionId !== 'number') return
 
@@ -502,7 +509,7 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
       <div ref="messageListEl" class="flex-1 overflow-x-hidden overflow-y-auto px-4 min-h-0">
         <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
                          :message="message" :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
-                         class="my-2" @resend="onResend" @remove="onRemove" @artifact="onArtifactRequest" />
+                         class="my-2" @resend="onResend" @remove="onRemove" @artifact="onArtifactRequest" @fork="onFork" />
       </div>
 
       <!-- Input box - fixed at bottom -->

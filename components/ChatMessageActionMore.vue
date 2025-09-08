@@ -10,6 +10,7 @@ const props = defineProps<{
 const emits = defineEmits<{
   resend: []
   remove: []
+  fork: []
 }>()
 
 const { t } = useI18n()
@@ -28,6 +29,13 @@ const buttons = computed(() => {
         } else {
           toast.add({ title: t("global.copyFailed"), color: 'red' })
         }
+      }
+    },
+    {
+      label: t('chat.forkSession'),
+      icon: 'i-heroicons-arrow-top-right-on-square',
+      click: () => {
+        emits('fork')
       }
     },
     props.message.role === 'user'
