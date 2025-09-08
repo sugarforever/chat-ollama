@@ -11,8 +11,8 @@ export function useForkChatSession() {
       const originalSession = await clientDB.chatSessions.get(originalSessionId)
       if (!originalSession) {
         toast.add({ 
-          title: t('chat.fork.error'), 
-          description: t('chat.fork.sessionNotFound'), 
+          title: t('chat.forkError'), 
+          description: t('chat.forkSessionNotFound'), 
           color: 'red' 
         })
         return null
@@ -27,8 +27,8 @@ export function useForkChatSession() {
       const forkFromIndex = allMessages.findIndex(msg => msg.id === forkFromMessageId)
       if (forkFromIndex === -1) {
         toast.add({ 
-          title: t('chat.fork.error'), 
-          description: t('chat.fork.messageNotFound'), 
+          title: t('chat.forkError'), 
+          description: t('chat.forkMessageNotFound'), 
           color: 'red' 
         })
         return null
@@ -38,7 +38,7 @@ export function useForkChatSession() {
 
       // Create new session with forked data
       const newSessionData = {
-        title: `${originalSession.title || t('chat.fork.defaultTitle')} (${t('chat.fork.forkedSuffix')})`,
+        title: `${originalSession.title || t('chat.forkDefaultTitle')} (${t('chat.forkForkedSuffix')})`,
         createTime: Date.now(),
         updateTime: Date.now(),
         models: originalSession.models,
@@ -62,8 +62,8 @@ export function useForkChatSession() {
       await clientDB.chatHistories.bulkAdd(newMessages)
 
       toast.add({ 
-        title: t('chat.fork.success'), 
-        description: t('chat.fork.successDescription'), 
+        title: t('chat.forkSuccess'), 
+        description: t('chat.forkSuccessDescription'), 
         color: 'green' 
       })
 
@@ -74,8 +74,8 @@ export function useForkChatSession() {
     } catch (error) {
       console.error('Error forking chat session:', error)
       toast.add({ 
-        title: t('chat.fork.error'), 
-        description: t('chat.fork.genericError'), 
+        title: t('chat.forkError'), 
+        description: t('chat.forkGenericError'), 
         color: 'red' 
       })
       return null

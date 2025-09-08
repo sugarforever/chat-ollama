@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { ChatMessage } from '~/types/chat'
 import { useKatexClient } from '~/composables/useKatexClient'
+import { useClipboard } from '@vueuse/core'
 
 const props = defineProps<{
   message: ChatMessage
@@ -21,6 +22,35 @@ const markdown = useMarkdown()
 const { renderMermaidDiagrams } = useMermaidRenderer()
 // Initialize client-side KaTeX rendering
 useKatexClient()
+
+// Add clipboard functionality
+const { copy, isSupported } = useClipboard({ legacy: true })
+const toast = useToast()
+const { t } = useI18n()
+const confirm = useDialog('confirm')
+
+// Copy message content
+const copyMessage = () => {
+  if (isSupported.value) {
+    copy(messageContent.value)
+  } else {
+    toast.add({ title: t("global.copyFailed"), color: 'red' })
+  }
+}
+
+// Confirm and delete message
+const confirmDeleteMessage = async () => {
+  try {
+    await confirm('Are you sure you want to delete this message?', {
+      title: t('global.warning'),
+      confirmText: t('global.delete'),
+      cancelText: t('global.cancel')
+    })
+    emits('remove', props.message)
+  } catch (error) {
+    // User canceled - do nothing
+  }
+}
 
 // Ref for the message content container
 const messageContentRef = ref<HTMLElement>()
@@ -243,36 +273,53 @@ onUnmounted(() => {
           </div>
         </template>
       </div>
-      <ChatMessageActionMore :message="message"
-                             :disabled="sending"
-                             @resend="emits('resend', message)"
-                             @remove="emits('remove', message)"
-                             @fork="emits('fork', message)">
-        <UButton :class="{ invisible: sending }" icon="i-material-symbols-more-vert" color="gray"
-                 :variant="'link'"
-                 class="action-more">
-        </UButton>
-      </ChatMessageActionMore>
+    </div>
+    
+    <!-- Action Bar at bottom of each message -->
+    <div v-if="!sending && message.type !== 'loading'" 
+         class="action-bar flex items-center justify-start gap-1 mt-2 opacity-0 transition-opacity duration-200"
+         :class="{ 'justify-end': message.role === 'user' }">
+      <!-- Copy Button -->
+      <UTooltip :text="$t('global.copy')" :popper="{ placement: 'top' }">
+        <UButton icon="i-material-symbols-content-copy-outline" 
+                 color="gray" 
+                 variant="ghost" 
+                 size="xs"
+                 @click="copyMessage" />
+      </UTooltip>
+      
+      <!-- Fork Button -->
+      <UTooltip :text="$t('chat.forkSession')" :popper="{ placement: 'top' }">
+        <UButton icon="i-heroicons-arrow-top-right-on-square" 
+                 color="gray" 
+                 variant="ghost" 
+                 size="xs"
+                 @click="emits('fork', message)" />
+      </UTooltip>
+      
+      <!-- Resend Button (only for user messages) -->
+      <UTooltip v-if="message.role === 'user'" :text="$t('chat.resend')" :popper="{ placement: 'top' }">
+        <UButton icon="i-material-symbols-sync" 
+                 color="gray" 
+                 variant="ghost" 
+                 size="xs"
+                 @click="emits('resend', message)" />
+      </UTooltip>
+      
+      <!-- Remove Button -->
+      <UTooltip :text="$t('global.remove')" :popper="{ placement: 'top' }">
+        <UButton icon="i-material-symbols-delete-outline-rounded" 
+                 color="red" 
+                 variant="ghost" 
+                 size="xs"
+                 @click="confirmDeleteMessage" />
+      </UTooltip>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .message-content {
-  .action-more {
-    transform-origin: center center;
-    transition: all 0.3s;
-    transform: scale(0);
-    opacity: 0;
-  }
-
-  &:hover {
-    .action-more {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
   .artifact-btn {
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -287,6 +334,13 @@ onUnmounted(() => {
     .artifact-btn {
       opacity: 1;
     }
+  }
+}
+
+// Show action bar on message hover
+.flex.flex-col:hover {
+  .action-bar {
+    opacity: 1;
   }
 }
 

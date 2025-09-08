@@ -28,6 +28,7 @@ const { t } = useI18n()
 const { chatModels } = useModels()
 const modal = useModal()
 const { onReceivedMessage, sendMessage } = useChatWorker()
+const { forkChatSession } = useForkChatSession()
 
 const sessionInfo = ref<ChatSession>()
 const knowledgeBases: KnowledgeBase[] = []
@@ -378,7 +379,6 @@ async function onRemove(data: ChatMessage) {
 async function onFork(data: ChatMessage) {
   if (!props.sessionId || !data.id) return
 
-  const { forkChatSession } = useForkChatSession()
   await forkChatSession(props.sessionId, data.id)
 }
 
