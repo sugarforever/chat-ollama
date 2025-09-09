@@ -7,6 +7,8 @@ import { type ChatSessionSettings } from '~/pages/chat/index.vue'
 import { ChatSettings } from '#components'
 import type { ChatMessage } from '~/types/chat'
 import type { Artifact, ArtifactVersion } from '~/components/ArtifactPanel.vue'
+import { parseModelValue } from '~/composables/useModels'
+import { createAutoTitleGenerator } from '~/utils/autoTitleGeneration'
 
 type Instruction = Awaited<ReturnType<typeof loadOllamaInstructions>>[number]
 
@@ -22,6 +24,7 @@ const emits = defineEmits<{
   message: [data: ChatMessage | null]
   changeSettings: [data: ChatSessionSettings]
   'toggle-sidebar': []
+  'title-updated': [title: string]
 }>()
 
 const { t } = useI18n()
@@ -29,6 +32,14 @@ const { chatModels } = useModels()
 const modal = useModal()
 const { onReceivedMessage, sendMessage } = useChatWorker()
 const { forkChatSession } = useForkChatSession()
+
+// Initialize auto title generator
+const autoTitleGenerator = createAutoTitleGenerator.forFirstMessage((title) => {
+  if (sessionInfo.value) {
+    sessionInfo.value.title = title
+    emits('title-updated', title)
+  }
+})
 
 const sessionInfo = ref<ChatSession>()
 const knowledgeBases: KnowledgeBase[] = []
@@ -181,6 +192,22 @@ const onSend = async (data: ChatBoxFormData) => {
 
   emits('message', userMessage)
   messages.value.push(userMessage)
+
+  // Auto-generate title if conditions are met
+  if (sessionInfo.value && models.value.length > 0) {
+    const { family, name: model } = parseModelValue(models.value[0])
+    
+    autoTitleGenerator.attemptTitleGeneration(
+      {
+        messages: messages.value,
+        sessionTitle: sessionInfo.value.title,
+        messageContent: data.content
+      },
+      sessionInfo.value.id!,
+      model,
+      family
+    )
+  }
 
   // Reset input
   chatInputBoxRef.value?.reset()
