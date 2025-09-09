@@ -34,6 +34,10 @@ function onChangeSettings(data: ChatSessionSettings) {
   chatSessionListRef.value?.updateSessionInfo({ ...data, forceUpdateTitle: true })
 }
 
+function onTitleUpdated(title: string) {
+  chatSessionListRef.value?.updateSessionInfo({ title, forceUpdateTitle: true })
+}
+
 function onMessage(data: ChatMessage | null) {
   // remove a message if it's null
   if (data === null) {
@@ -103,7 +107,8 @@ provide('isSessionListVisible', isSessionListVisible)
             :session-id="sessionId"
             @change-settings="onChangeSettings"
             @message="onMessage"
-            @toggle-sidebar="toggleSidebar">
+            @toggle-sidebar="toggleSidebar"
+            @title-updated="onTitleUpdated">
         <template #left-menu-btn>
           <UButton :icon="isSessionListVisible ? 'i-material-symbols-lists-rounded' : 'i-heroicons-chevron-double-right'" 
                    color="gray" 
