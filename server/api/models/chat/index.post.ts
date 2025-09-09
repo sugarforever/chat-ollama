@@ -232,7 +232,7 @@ const handleMultiRoundToolCalls = async function* (
   } else {
     contentToStream = accumulatedTextContent
   }
-  
+
   // Stream initial tool results
   yield `${safeJsonStringify(createMessageResponse(contentToStream, accumulatedToolCalls, accumulatedToolResults))} \n\n`
 
@@ -317,7 +317,7 @@ const handleMultiRoundToolCalls = async function* (
       } else {
         contentToStream = accumulatedTextContent
       }
-      
+
       // Stream updated message with new tool calls and results
       yield `${safeJsonStringify(createMessageResponse(contentToStream, accumulatedToolCalls, accumulatedToolResults))} \n\n`
 
@@ -535,7 +535,6 @@ export default defineEventHandler(async (event) => {
 
       // Stream initial response and gather tool calls
       for await (const chunk of response) {
-        console.log("Streaming chunk: ", chunk)
         gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
 
         const { text, images } = extractContentFromChunk(chunk)
