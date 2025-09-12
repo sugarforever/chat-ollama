@@ -140,6 +140,17 @@
         "forkForkedSuffix": "分叉",
         "forkGenericError": "分叉对话会话失败"
     },
+    "quickChat": {
+        "title": "快速对话",
+        "selectedText": "选中文本",
+        "placeholder": "询问选中的内容...",
+        "shortcuts": "回车发送，ESC 关闭",
+        "send": "发送",
+        "sending": "发送中...",
+        "thinking": "思考中...",
+        "error": "处理您的请求时发生错误",
+        "noModelAvailable": "没有可用的AI模型。请先配置一个模型。"
+    },
     "settings": {
         "ollamaServer": "Ollama 服务",
         "userName": "用户名称",
