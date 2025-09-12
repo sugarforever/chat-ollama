@@ -58,6 +58,9 @@ const messageContentRef = ref<HTMLElement>()
 
 // Text selection for quick chat (only for assistant messages)
 const isAssistantMessage = computed(() => props.message.role === 'assistant')
+const showQuickChatButton = ref(false)
+const buttonPosition = ref({ x: 0, y: 0 })
+const selectedContent = ref('')
 
 onMounted(() => {
   if (isAssistantMessage.value && messageContentRef.value) {
@@ -82,12 +85,10 @@ onMounted(() => {
           y: rect.bottom + 10
         }
         
-        // Emit to parent with message context
-        emits('quick-chat', {
-          selectedContent: selectedText,
-          position,
-          messageId: props.message.id
-        })
+        // Show floating button instead of immediate dialog
+        selectedContent.value = selectedText
+        buttonPosition.value = position
+        showQuickChatButton.value = true
       }, 50)
     }
     
@@ -113,6 +114,22 @@ onMounted(() => {
     })
   }
 })
+
+// Handle quick chat button actions
+const handleQuickChatButtonClick = () => {
+  // Emit to parent with message context when button is clicked
+  emits('quick-chat', {
+    selectedContent: selectedContent.value,
+    position: buttonPosition.value,
+    messageId: props.message.id || ''
+  })
+  showQuickChatButton.value = false
+}
+
+const handleQuickChatButtonClose = () => {
+  showQuickChatButton.value = false
+  selectedContent.value = ''
+}
 
 const opened = ref(props.showToggleButton === true ? false : true)
 const isModelMessage = computed(() => props.message.role === 'assistant')
@@ -286,6 +303,14 @@ onUnmounted(() => {
       @fork="emits('fork', $event)"
       @resend="emits('resend', $event)"
       @remove="confirmDeleteMessage" 
+    />
+    
+    <!-- Quick Chat Button -->
+    <QuickChatButton
+      :show="showQuickChatButton"
+      :position="buttonPosition"
+      @click="handleQuickChatButtonClick"
+      @close="handleQuickChatButtonClose"
     />
   </div>
 </template>
