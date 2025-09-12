@@ -33,6 +33,19 @@ const modal = useModal()
 const { onReceivedMessage, sendMessage } = useChatWorker()
 const { forkChatSession } = useForkChatSession()
 
+// Quick chat functionality
+const {
+  isQuickChatVisible,
+  selectedContent,
+  dialogPosition,
+  hideQuickChat,
+  showQuickChat,
+  cleanup: cleanupTextSelection
+} = useTextSelection()
+
+// Current message context for quick chat
+const currentMessageId = ref<string | undefined>()
+
 // Initialize auto title generator
 const autoTitleGenerator = createAutoTitleGenerator.forFirstMessage((title) => {
   if (sessionInfo.value) {
@@ -196,7 +209,7 @@ const onSend = async (data: ChatBoxFormData) => {
   // Auto-generate title if conditions are met
   if (sessionInfo.value && models.value.length > 0) {
     const { family, name: model } = parseModelValue(models.value[0])
-    
+
     autoTitleGenerator.attemptTitleGeneration(
       {
         messages: messages.value,
@@ -342,7 +355,32 @@ onMounted(async () => {
       }
     })
   initData(props.sessionId)
+
+  // Text selection is now handled at the individual message level
 })
+
+// Handle quick chat events from individual messages
+const onQuickChat = (data: { selectedContent: string, position: { x: number, y: number }, messageId: string }) => {
+  currentMessageId.value = data.messageId
+
+  showQuickChat({
+    selectedText: data.selectedContent,
+    position: data.position,
+    element: null
+  })
+
+  // Focus input after a short delay to allow overlay to be created
+  nextTick(() => {
+    setTimeout(() => {
+      if (isQuickChatVisible.value) {
+        const dialog = document.querySelector('.quick-chat-dialog textarea')
+        if (dialog) {
+          (dialog as HTMLElement).focus({ preventScroll: true })
+        }
+      }
+    }, 100) // Reduced delay since we now have overlay
+  })
+}
 
 function updateMessage(data: WorkerSendMessage, newData: Partial<ChatMessage>) {
   const index = 'id' in data ? messages.value.findIndex(el => el.id === data.uid || el.id === data.id) : -1
@@ -513,6 +551,11 @@ const onVersionChange = (version: ArtifactVersion) => {
 
 // Add near the top of the script section
 const isSessionListVisible = inject('isSessionListVisible', ref(true))
+
+// Cleanup on unmount
+onUnmounted(() => {
+  cleanupTextSelection()
+})
 </script>
 
 <template>
@@ -536,7 +579,8 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
       <div ref="messageListEl" class="flex-1 overflow-x-hidden overflow-y-auto px-4 min-h-0">
         <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
                          :message="message" :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
-                         class="my-2" @resend="onResend" @remove="onRemove" @artifact="onArtifactRequest" @fork="onFork" />
+                         class="my-2" @resend="onResend" @remove="onRemove" @artifact="onArtifactRequest" @fork="onFork"
+                         @quick-chat="onQuickChat" />
       </div>
 
       <!-- Input box - fixed at bottom -->
@@ -582,5 +626,14 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
                    @share="onArtifactShare"
                    @version-change="onVersionChange"
                    @toggle-fullscreen="toggleFullscreen" />
+
+    <!-- Quick Chat Dialog -->
+    <QuickChat
+      v-model:show="isQuickChatVisible"
+      :selected-content="selectedContent"
+      :position="dialogPosition"
+      :current-models="models"
+      @close="hideQuickChat"
+    />
   </div>
 </template>

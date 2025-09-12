@@ -2,6 +2,7 @@
 import type { ChatMessage } from '~/types/chat'
 import { useKatexClient } from '~/composables/useKatexClient'
 import { useClipboard } from '@vueuse/core'
+import { useTextSelection } from '~/composables/useTextSelection'
 
 const props = defineProps<{
   message: ChatMessage
@@ -16,6 +17,7 @@ const emits = defineEmits<{
   remove: [message: ChatMessage]
   artifact: [artifact: Artifact]
   fork: [message: ChatMessage]
+  'quick-chat': [{ selectedContent: string, position: { x: number, y: number }, messageId: string }]
 }>()
 
 const markdown = useMarkdown()
@@ -54,6 +56,64 @@ const confirmDeleteMessage = async () => {
 
 // Ref for the message content container
 const messageContentRef = ref<HTMLElement>()
+
+// Text selection for quick chat (only for assistant messages)
+const isAssistantMessage = computed(() => props.message.role === 'assistant')
+
+onMounted(() => {
+  if (isAssistantMessage.value && messageContentRef.value) {
+    // Custom selection handler for this message
+    let cleanup: (() => void) | undefined
+    
+    const handleMouseUp = (event: MouseEvent) => {
+      setTimeout(() => {
+        const selection = window.getSelection()
+        if (!selection || selection.isCollapsed) return
+        
+        const selectedText = selection.toString().trim()
+        if (!selectedText || selectedText.length < 3) return
+        
+        // Check if selection is within this message
+        const range = selection.getRangeAt(0)
+        if (!messageContentRef.value?.contains(range.commonAncestorContainer)) return
+        
+        const rect = range.getBoundingClientRect()
+        const position = {
+          x: rect.right + 10,
+          y: rect.bottom + 10
+        }
+        
+        // Emit to parent with message context
+        emits('quick-chat', {
+          selectedContent: selectedText,
+          position,
+          messageId: props.message.id
+        })
+      }, 50)
+    }
+    
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        handleMouseUp(event as any)
+      }
+    }
+    
+    // Add listeners to this message's content
+    messageContentRef.value.addEventListener('mouseup', handleMouseUp)
+    messageContentRef.value.addEventListener('keyup', handleKeyUp)
+    
+    cleanup = () => {
+      if (messageContentRef.value) {
+        messageContentRef.value.removeEventListener('mouseup', handleMouseUp)
+        messageContentRef.value.removeEventListener('keyup', handleKeyUp)
+      }
+    }
+    
+    onUnmounted(() => {
+      cleanup?.()
+    })
+  }
+})
 
 const opened = ref(props.showToggleButton === true ? false : true)
 const isModelMessage = computed(() => props.message.role === 'assistant')

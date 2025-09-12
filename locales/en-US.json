@@ -140,6 +140,16 @@
         "forkForkedSuffix": "Fork",
         "forkGenericError": "Failed to fork chat session"
     },
+    "quickChat": {
+        "title": "Quick Chat",
+        "placeholder": "Ask about the selected content...",
+        "shortcuts": "Enter to send, Escape to close",
+        "send": "Send",
+        "sending": "Sending...",
+        "thinking": "Thinking...",
+        "error": "An error occurred while processing your request",
+        "noModelAvailable": "No AI model available. Please configure a model first."
+    },
     "settings": {
         "ollamaServer": "Ollama Server",
         "userName": "User Name",
