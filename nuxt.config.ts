@@ -39,7 +39,7 @@ export default defineNuxtConfig({
     '@nuxt/ui', '@vueuse/nuxt',
     ['@nuxtjs/google-fonts', {
       families: {
-        'Noto Sans': true,
+        'Geist': true,
         'Josefin+Sans': true,
         Lato: [100, 300],
         Raleway: {

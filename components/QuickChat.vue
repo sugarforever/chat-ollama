@@ -110,57 +110,58 @@ onMounted(() => {
 <template>
   <Teleport to="body">
     <Transition
-      enter-active-class="transition-all duration-200 ease-out"
-      enter-from-class="opacity-0 scale-95"
-      enter-to-class="opacity-100 scale-100"
-      leave-active-class="transition-all duration-200 ease-in"
-      leave-from-class="opacity-100 scale-100"
-      leave-to-class="opacity-0 scale-95"
-    >
+                enter-active-class="transition-all duration-200 ease-out"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition-all duration-200 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95">
       <div
-        v-if="show"
-        ref="dialogRef"
-        :style="dialogStyle"
-        class="quick-chat-dialog fixed z-[9999] max-w-[320px] w-[320px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl"
-        @keydown="handleKeydown"
-        @click="handleDialogClick"
-      >
+           v-if="show"
+           ref="dialogRef"
+           :style="dialogStyle"
+           class="quick-chat-dialog fixed z-[9999] max-w-[320px] w-[320px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl"
+           @keydown="handleKeydown"
+           @click="handleDialogClick">
         <!-- Header -->
-        <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
-          <h3 class="text-base font-medium text-gray-900 dark:text-gray-100">
-            {{ t('quickChat.title') }}
-          </h3>
+        <div class="flex items-center justify-between px-3 py-1 border-b border-gray-200 dark:border-gray-700">
+          <UIcon name="i-heroicons-bolt" class="text-sm text-primary-500" />
           <UButton
-            icon="i-heroicons-x-mark"
-            color="gray"
-            variant="ghost"
-            size="xs"
-            @click="handleClose"
-          />
+                   icon="i-heroicons-x-mark"
+                   color="gray"
+                   variant="ghost"
+                   size="xs"
+                   @click="handleClose" />
+        </div>
+
+        <!-- Selected Content Display -->
+        <div v-if="selectedContent" class="p-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+          <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{ t('quickChat.selectedText') }}:</div>
+          <div class="text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 p-2 rounded border max-h-20 overflow-y-auto">
+            {{ selectedContent }}
+          </div>
         </div>
 
         <!-- Input Area -->
         <div class="p-3">
           <textarea
-            ref="inputRef"
-            v-model="query"
-            class="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded resize-none focus:ring-1 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-            rows="2"
-            :placeholder="t('quickChat.placeholder')"
-            :disabled="isLoading"
-            @keydown="handleKeydown"
-          />
+                    ref="inputRef"
+                    v-model="query"
+                    class="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded resize-none focus:ring-1 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+                    rows="2"
+                    :placeholder="t('quickChat.placeholder')"
+                    :disabled="isLoading"
+                    @keydown="handleKeydown" />
 
           <div class="flex items-center justify-between mt-2">
             <div class="text-xs text-gray-400">
               {{ t('quickChat.shortcuts') }}
             </div>
             <UButton
-              size="xs"
-              :loading="isLoading"
-              :disabled="!query.trim() || isLoading"
-              @click="handleSubmit"
-            >
+                     size="xs"
+                     :loading="isLoading"
+                     :disabled="!query.trim() || isLoading"
+                     @click="handleSubmit">
               {{ isLoading ? t('quickChat.sending') : t('quickChat.send') }}
             </UButton>
           </div>
@@ -168,9 +169,8 @@ onMounted(() => {
 
         <!-- Response Area -->
         <div
-          v-if="response || error || isLoading"
-          class="p-3 border-t border-gray-200 dark:border-gray-700 max-h-40 overflow-y-auto"
-        >
+             v-if="response || error || isLoading"
+             class="p-3 border-t border-gray-200 dark:border-gray-700 max-h-40 overflow-y-auto">
           <!-- Loading State -->
           <div v-if="isLoading && !response" class="flex items-center text-gray-500 dark:text-gray-400 text-xs">
             <UIcon name="i-heroicons-arrow-path" class="animate-spin mr-2 text-xs" />
@@ -208,4 +208,3 @@ onMounted(() => {
   backdrop-filter: blur(10px);
 }
 </style>
-

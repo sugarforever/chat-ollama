@@ -142,6 +142,7 @@
     },
     "quickChat": {
         "title": "快速对话",
+        "selectedText": "选中文本",
         "placeholder": "询问选中的内容...",
         "shortcuts": "回车发送，ESC 关闭",
         "send": "发送",

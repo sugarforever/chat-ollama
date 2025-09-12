@@ -2,7 +2,6 @@
 import type { ChatMessage } from '~/types/chat'
 import { useKatexClient } from '~/composables/useKatexClient'
 import { useClipboard } from '@vueuse/core'
-import { useTextSelection } from '~/composables/useTextSelection'
 
 const props = defineProps<{
   message: ChatMessage

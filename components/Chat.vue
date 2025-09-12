@@ -34,17 +34,16 @@ const { onReceivedMessage, sendMessage } = useChatWorker()
 const { forkChatSession } = useForkChatSession()
 
 // Quick chat functionality
-const {
-  isQuickChatVisible,
-  selectedContent,
-  dialogPosition,
-  hideQuickChat,
-  showQuickChat,
-  cleanup: cleanupTextSelection
-} = useTextSelection()
-
-// Current message context for quick chat
+const isQuickChatVisible = ref(false)
+const selectedContent = ref('')
+const dialogPosition = ref({ x: 0, y: 0 })
 const currentMessageId = ref<string | undefined>()
+
+const hideQuickChat = () => {
+  isQuickChatVisible.value = false
+  selectedContent.value = ''
+  currentMessageId.value = undefined
+}
 
 // Initialize auto title generator
 const autoTitleGenerator = createAutoTitleGenerator.forFirstMessage((title) => {
@@ -362,24 +361,9 @@ onMounted(async () => {
 // Handle quick chat events from individual messages
 const onQuickChat = (data: { selectedContent: string, position: { x: number, y: number }, messageId: string }) => {
   currentMessageId.value = data.messageId
-
-  showQuickChat({
-    selectedText: data.selectedContent,
-    position: data.position,
-    element: null
-  })
-
-  // Focus input after a short delay to allow overlay to be created
-  nextTick(() => {
-    setTimeout(() => {
-      if (isQuickChatVisible.value) {
-        const dialog = document.querySelector('.quick-chat-dialog textarea')
-        if (dialog) {
-          (dialog as HTMLElement).focus({ preventScroll: true })
-        }
-      }
-    }, 100) // Reduced delay since we now have overlay
-  })
+  selectedContent.value = data.selectedContent
+  dialogPosition.value = data.position
+  isQuickChatVisible.value = true
 }
 
 function updateMessage(data: WorkerSendMessage, newData: Partial<ChatMessage>) {
@@ -552,10 +536,6 @@ const onVersionChange = (version: ArtifactVersion) => {
 // Add near the top of the script section
 const isSessionListVisible = inject('isSessionListVisible', ref(true))
 
-// Cleanup on unmount
-onUnmounted(() => {
-  cleanupTextSelection()
-})
 </script>
 
 <template>
