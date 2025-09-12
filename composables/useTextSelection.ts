@@ -168,16 +168,7 @@ export function useTextSelection() {
             // Create highlight elements for each range rectangle
             const rects = savedRange.value.getClientRects()
             const overlayContainer = document.createElement('div')
-            overlayContainer.className = 'text-selection-overlay-container'
-            overlayContainer.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-                z-index: 1;
-            `
+            overlayContainer.className = 'text-selection-overlay-container fixed inset-0 w-screen h-screen pointer-events-none z-[9998]'
 
             // Detect dark mode
             const isDarkMode = document.documentElement.classList.contains('dark') ||
@@ -193,14 +184,13 @@ export function useTextSelection() {
                     ? 'rgba(147, 197, 253, 0.3)' // Light blue for dark mode
                     : 'rgba(59, 130, 246, 0.25)'  // Blue for light mode
 
+                highlight.className += ` fixed pointer-events-none`
                 highlight.style.cssText = `
-                    position: absolute;
                     background-color: ${backgroundColor};
-                    top: ${rect.top + window.scrollY}px;
-                    left: ${rect.left + window.scrollX}px;
+                    top: ${rect.top}px;
+                    left: ${rect.left}px;
                     width: ${rect.width}px;
                     height: ${rect.height}px;
-                    pointer-events: none;
                 `
                 overlayContainer.appendChild(highlight)
             }

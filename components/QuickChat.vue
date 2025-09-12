@@ -8,11 +8,6 @@ interface Props {
   currentModels?: string[]
 }
 
-interface Emits {
-  close: []
-  'update:show': [value: boolean]
-}
-
 const props = withDefaults(defineProps<Props>(), {
   show: false,
   selectedContent: '',
@@ -20,7 +15,10 @@ const props = withDefaults(defineProps<Props>(), {
   currentModels: () => []
 })
 
-const emits = defineEmits<Emits>()
+const emits = defineEmits<{
+  (e: 'close'): void
+  (e: 'update:show', value: boolean): void
+}>()
 
 const { t } = useI18n()
 const quickChatOptions = computed(() => ({
@@ -42,12 +40,8 @@ const inputRef = ref<HTMLTextAreaElement>()
 const dialogStyle = computed(() => {
   const { x, y } = props.position
   return {
-    position: 'fixed',
     top: `${Math.min(y, window.innerHeight - 280)}px`,
-    left: `${Math.min(x, window.innerWidth - 320)}px`,
-    zIndex: 9999,
-    maxWidth: '320px',
-    width: '320px'
+    left: `${Math.min(x, window.innerWidth - 320)}px`
   }
 })
 
@@ -127,7 +121,7 @@ onMounted(() => {
         v-if="show"
         ref="dialogRef"
         :style="dialogStyle"
-        class="quick-chat-dialog bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl"
+        class="quick-chat-dialog fixed z-[9999] max-w-[320px] w-[320px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl"
         @keydown="handleKeydown"
         @click="handleDialogClick"
       >
@@ -198,8 +192,8 @@ onMounted(() => {
             <div v-if="isLoading" class="flex items-center mt-2 text-gray-500 dark:text-gray-400">
               <div class="flex space-x-1">
                 <div class="w-0.5 h-0.5 bg-current rounded-full animate-bounce"></div>
-                <div class="w-0.5 h-0.5 bg-current rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                <div class="w-0.5 h-0.5 bg-current rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                <div class="w-0.5 h-0.5 bg-current rounded-full animate-bounce [animation-delay:0.1s]"></div>
+                <div class="w-0.5 h-0.5 bg-current rounded-full animate-bounce [animation-delay:0.2s]"></div>
               </div>
             </div>
           </div>
