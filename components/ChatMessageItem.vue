@@ -16,6 +16,7 @@ const emits = defineEmits<{
   remove: [message: ChatMessage]
   artifact: [artifact: Artifact]
   fork: [message: ChatMessage]
+  'quick-chat': [{ selectedContent: string, position: { x: number, y: number }, messageId: string }]
 }>()
 
 const markdown = useMarkdown()
@@ -54,6 +55,81 @@ const confirmDeleteMessage = async () => {
 
 // Ref for the message content container
 const messageContentRef = ref<HTMLElement>()
+
+// Text selection for quick chat (only for assistant messages)
+const isAssistantMessage = computed(() => props.message.role === 'assistant')
+const showQuickChatButton = ref(false)
+const buttonPosition = ref({ x: 0, y: 0 })
+const selectedContent = ref('')
+
+onMounted(() => {
+  if (isAssistantMessage.value && messageContentRef.value) {
+    // Custom selection handler for this message
+    let cleanup: (() => void) | undefined
+    
+    const handleMouseUp = (event: MouseEvent) => {
+      setTimeout(() => {
+        const selection = window.getSelection()
+        if (!selection || selection.isCollapsed) return
+        
+        const selectedText = selection.toString().trim()
+        if (!selectedText || selectedText.length < 3) return
+        
+        // Check if selection is within this message
+        const range = selection.getRangeAt(0)
+        if (!messageContentRef.value?.contains(range.commonAncestorContainer)) return
+        
+        const rect = range.getBoundingClientRect()
+        const position = {
+          x: rect.right + 10,
+          y: rect.bottom + 10
+        }
+        
+        // Show floating button instead of immediate dialog
+        selectedContent.value = selectedText
+        buttonPosition.value = position
+        showQuickChatButton.value = true
+      }, 50)
+    }
+    
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        handleMouseUp(event as any)
+      }
+    }
+    
+    // Add listeners to this message's content
+    messageContentRef.value.addEventListener('mouseup', handleMouseUp)
+    messageContentRef.value.addEventListener('keyup', handleKeyUp)
+    
+    cleanup = () => {
+      if (messageContentRef.value) {
+        messageContentRef.value.removeEventListener('mouseup', handleMouseUp)
+        messageContentRef.value.removeEventListener('keyup', handleKeyUp)
+      }
+    }
+    
+    onUnmounted(() => {
+      cleanup?.()
+    })
+  }
+})
+
+// Handle quick chat button actions
+const handleQuickChatButtonClick = () => {
+  // Emit to parent with message context when button is clicked
+  emits('quick-chat', {
+    selectedContent: selectedContent.value,
+    position: buttonPosition.value,
+    messageId: props.message.id || ''
+  })
+  showQuickChatButton.value = false
+}
+
+const handleQuickChatButtonClose = () => {
+  showQuickChatButton.value = false
+  selectedContent.value = ''
+}
 
 const opened = ref(props.showToggleButton === true ? false : true)
 const isModelMessage = computed(() => props.message.role === 'assistant')
@@ -227,6 +303,14 @@ onUnmounted(() => {
       @fork="emits('fork', $event)"
       @resend="emits('resend', $event)"
       @remove="confirmDeleteMessage" 
+    />
+    
+    <!-- Quick Chat Button -->
+    <QuickChatButton
+      :show="showQuickChatButton"
+      :position="buttonPosition"
+      @click="handleQuickChatButtonClick"
+      @close="handleQuickChatButtonClose"
     />
   </div>
 </template>

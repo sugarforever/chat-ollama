@@ -83,7 +83,7 @@ provide('isSessionListVisible', isSessionListVisible)
 </script>
 
 <template>
-  <div class="h-full flex" style="--chat-side-width-expanded:280px;--chat-side-width-collapsed:60px">
+  <div class="h-full flex [--chat-side-width-expanded:280px] [--chat-side-width-collapsed:60px]">
     <ClientOnly>
       <!-- Expandable Sidebar with Caret Toggle -->
       <div class="relative hidden md:block">
@@ -92,11 +92,11 @@ provide('isSessionListVisible', isSessionListVisible)
                          :class="isSessionListVisible ? 'w-[var(--chat-side-width-expanded)]' : 'w-[var(--chat-side-width-collapsed)]'"
                          :is-collapsed="!isSessionListVisible"
                          @select="onChangeChatSession" />
-        
+
         <!-- Caret Toggle Button -->
         <button @click="toggleSidebar"
                 class="absolute top-1/2 -right-3 z-10 w-6 h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-          <UIcon :name="isSessionListVisible ? 'i-heroicons-chevron-left' : 'i-heroicons-chevron-right'" 
+          <UIcon :name="isSessionListVisible ? 'i-heroicons-chevron-left' : 'i-heroicons-chevron-right'"
                  class="w-3 h-3 text-gray-500 dark:text-gray-400" />
         </button>
       </div>
@@ -110,11 +110,11 @@ provide('isSessionListVisible', isSessionListVisible)
             @toggle-sidebar="toggleSidebar"
             @title-updated="onTitleUpdated">
         <template #left-menu-btn>
-          <UButton :icon="isSessionListVisible ? 'i-material-symbols-lists-rounded' : 'i-heroicons-chevron-double-right'" 
-                   color="gray" 
+          <UButton :icon="isSessionListVisible ? 'i-material-symbols-lists-rounded' : 'i-heroicons-chevron-double-right'"
+                   color="gray"
                    variant="ghost"
-                   class="mr-4 md:hidden" 
-                   :class="{ 'rotate-180': isSessionListVisible }" 
+                   class="mr-4 md:hidden"
+                   :class="{ 'rotate-180': isSessionListVisible }"
                    @click="onOpenSideMenu">
           </UButton>
         </template>
@@ -126,8 +126,8 @@ provide('isSessionListVisible', isSessionListVisible)
           </div>
           <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ t("chat.welcome") || "Welcome to Chat" }}</h2>
           <p class="text-gray-600 dark:text-gray-400 max-w-md">{{ t("chat.welcomeMessage") || "Start a new conversation to begin chatting with your AI assistant." }}</p>
-          <UButton icon="i-material-symbols-add" 
-                   color="primary" 
+          <UButton icon="i-material-symbols-add"
+                   color="primary"
                    size="lg"
                    @click="onNewChat">
             {{ t("chat.newChat") }}

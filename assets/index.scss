@@ -3,83 +3,83 @@
 @import './katex.scss';
 
 .dark {
-    @import 'highlight.js/scss/github-dark.scss';
+  @import 'highlight.js/scss/github-dark.scss';
 }
 
 html,
 body,
 #__nuxt {
-    height: 100%;
-    font-family: "Noto Sans", SF Pro SC, SF Pro Text, SF Pro Icons, PingFang SC, Helvetica Neue, Helvetica, Arial, sans-serif;
+  height: 100%;
+  font-family: "Inter", SF Pro SC, SF Pro Text, SF Pro Icons, PingFang SC, Helvetica Neue, Helvetica, Arial, sans-serif;
 }
 
 body {
 
-    code,
-    pre,
-    kbd,
-    samp {
-        font-family: inherit;
-    }
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: inherit;
+  }
 }
 
 .md-body {
-    --color-neutral-muted: rgb(var(--color-primary-400) / 0.1);
-    --color-canvas-subtle: rgb(var(--color-primary-50));
+  --color-neutral-muted: rgb(var(--color-primary-400) / 0.1);
+  --color-canvas-subtle: rgb(var(--color-primary-50));
 
+  background-color: transparent;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+
+  code {
+    white-space: pre-wrap;
+    margin: 0 0.4em;
+  }
+
+  .hljs {
     background-color: transparent;
-    font-size: 0.875rem;
-    line-height: 1.5rem;
+  }
 
-    code {
-        white-space: pre-wrap;
-        margin: 0 0.4em;
-    }
+  ol,
+  ul {
+    list-style: initial;
+  }
 
-    .hljs {
-        background-color: transparent;
-    }
-
-    ol,
-    ul {
-        list-style: initial;
-    }
-
-    li>p {
-        display: inline;
-    }
+  li>p {
+    display: inline;
+  }
 }
 
 .dark .md-body {
-    --color-neutral-muted: rgb(var(--color-primary-200) / 0.2);
-    --color-canvas-subtle: rgb(var(--color-gray-900));
+  --color-neutral-muted: rgb(var(--color-primary-200) / 0.2);
+  --color-canvas-subtle: rgb(var(--color-gray-900));
 }
 
 .table-list {
-    .action-btn {
-        visibility: hidden;
-        display: inline-flex;
-        transition: all 0.3s ease-in-out;
-        opacity: 0;
-        transform-origin: center;
-        transform: scale(0);
-    }
+  .action-btn {
+    visibility: hidden;
+    display: inline-flex;
+    transition: all 0.3s ease-in-out;
+    opacity: 0;
+    transform-origin: center;
+    transform: scale(0);
+  }
 
-    tr:hover {
-        .action-btn {
-            visibility: visible;
-            opacity: 1;
-            transform: scale(1);
-        }
+  tr:hover {
+    .action-btn {
+      visibility: visible;
+      opacity: 1;
+      transform: scale(1);
     }
+  }
 }
 
 @supports (-webkit-touch-callout: none) and (overflow: -webkit-paged-x) {
 
-    textarea:focus,
-    input[type="input"]:focus,
-    input[type="password"]:focus,
-    input[type="number"]:focus {
-        font-size: 16px !important;
-    }
+  textarea:focus,
+  input[type="input"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus {
+    font-size: 16px !important;
+  }
 }

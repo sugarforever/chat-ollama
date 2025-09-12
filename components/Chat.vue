@@ -33,6 +33,18 @@ const modal = useModal()
 const { onReceivedMessage, sendMessage } = useChatWorker()
 const { forkChatSession } = useForkChatSession()
 
+// Quick chat functionality
+const isQuickChatVisible = ref(false)
+const selectedContent = ref('')
+const dialogPosition = ref({ x: 0, y: 0 })
+const currentMessageId = ref<string | undefined>()
+
+const hideQuickChat = () => {
+  isQuickChatVisible.value = false
+  selectedContent.value = ''
+  currentMessageId.value = undefined
+}
+
 // Initialize auto title generator
 const autoTitleGenerator = createAutoTitleGenerator.forFirstMessage((title) => {
   if (sessionInfo.value) {
@@ -196,7 +208,7 @@ const onSend = async (data: ChatBoxFormData) => {
   // Auto-generate title if conditions are met
   if (sessionInfo.value && models.value.length > 0) {
     const { family, name: model } = parseModelValue(models.value[0])
-    
+
     autoTitleGenerator.attemptTitleGeneration(
       {
         messages: messages.value,
@@ -342,7 +354,17 @@ onMounted(async () => {
       }
     })
   initData(props.sessionId)
+
+  // Text selection is now handled at the individual message level
 })
+
+// Handle quick chat events from individual messages
+const onQuickChat = (data: { selectedContent: string, position: { x: number, y: number }, messageId: string }) => {
+  currentMessageId.value = data.messageId
+  selectedContent.value = data.selectedContent
+  dialogPosition.value = data.position
+  isQuickChatVisible.value = true
+}
 
 function updateMessage(data: WorkerSendMessage, newData: Partial<ChatMessage>) {
   const index = 'id' in data ? messages.value.findIndex(el => el.id === data.uid || el.id === data.id) : -1
@@ -513,6 +535,7 @@ const onVersionChange = (version: ArtifactVersion) => {
 
 // Add near the top of the script section
 const isSessionListVisible = inject('isSessionListVisible', ref(true))
+
 </script>
 
 <template>
@@ -536,7 +559,8 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
       <div ref="messageListEl" class="flex-1 overflow-x-hidden overflow-y-auto px-4 min-h-0">
         <ChatMessageItem v-for="message in visibleMessages" :key="message.id"
                          :message="message" :sending="sendingCount > 0" :show-toggle-button="models.length > 1"
-                         class="my-2" @resend="onResend" @remove="onRemove" @artifact="onArtifactRequest" @fork="onFork" />
+                         class="my-2" @resend="onResend" @remove="onRemove" @artifact="onArtifactRequest" @fork="onFork"
+                         @quick-chat="onQuickChat" />
       </div>
 
       <!-- Input box - fixed at bottom -->
@@ -582,5 +606,14 @@ const isSessionListVisible = inject('isSessionListVisible', ref(true))
                    @share="onArtifactShare"
                    @version-change="onVersionChange"
                    @toggle-fullscreen="toggleFullscreen" />
+
+    <!-- Quick Chat Dialog -->
+    <QuickChat
+      v-model:show="isQuickChatVisible"
+      :selected-content="selectedContent"
+      :position="dialogPosition"
+      :current-models="models"
+      @close="hideQuickChat"
+    />
   </div>
 </template>

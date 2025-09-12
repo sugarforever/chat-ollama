@@ -21,7 +21,7 @@ function onNewAgent() {
 </script>
 
 <template>
-  <div class="h-full flex" style="--chat-side-width:280px">
+  <div class="h-full flex [--chat-side-width:280px]">
     <ClientOnly>
       <AgentChat ref="agentChatRef"
                  class="flex-1 min-w-0 bg-white dark:bg-gray-800">
