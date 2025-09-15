@@ -289,7 +289,7 @@ onUnmounted(() => {
           <!-- User message with images -->
           <div class="p-3">
             <MessageImages :images="messageImages" class="mb-3" />
-            <pre v-if="messageContent" v-text="messageContent" class="whitespace-break-spaces" />
+            <ModelMentionText v-if="messageContent" :content="messageContent" class="whitespace-break-spaces" />
           </div>
         </template>
       </div>
