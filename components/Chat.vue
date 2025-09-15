@@ -168,12 +168,15 @@ const onSend = async (data: ChatBoxFormData) => {
     }
 
     // Validate content based on its type
-    const hasValidContent = Array.isArray(data.content)
-        ? data.content.some(item =>
+    const sanitizedContent = data.sanitizedContent ?? data.content
+    const hasValidContent = Array.isArray(sanitizedContent)
+        ? sanitizedContent.some(item =>
             (item.type === 'text' && item.text?.trim()) ||
             (item.type === 'image_url' && item.image_url?.url)
         )
-        : data.content.trim()
+        : typeof sanitizedContent === 'string'
+            ? sanitizedContent.trim()
+            : ''
 
     if (!hasValidContent) {
         return
@@ -205,6 +208,7 @@ const onSend = async (data: ChatBoxFormData) => {
         id,
         contentType: Array.isArray(data.content) ? 'array' : 'string',
         content: data.content,
+        sanitizedContent: data.sanitizedContent,
         startTime: timestamp,
         endTime: timestamp,
         model: targetModels.join(',') || '',
@@ -225,7 +229,7 @@ const onSend = async (data: ChatBoxFormData) => {
             {
                 messages: messages.value,
                 sessionTitle: sessionInfo.value.title,
-                messageContent: data.content
+                messageContent: sanitizedContent
             },
             sessionInfo.value.id!,
             model,
@@ -243,13 +247,22 @@ const onSend = async (data: ChatBoxFormData) => {
                     return false
                 return true
             })
-            .map(m => ({
-                ...m,
-                toolResult: false,
-                toolCallId: '',
-                toolCalls: m.toolCalls || [],
-                toolResults: m.toolResults || []
-            }))
+            .map(m => {
+                const outgoingContent = m.role === 'user' && m.sanitizedContent ? m.sanitizedContent : m.content
+                const outgoingContentType = m.role === 'user'
+                    ? (Array.isArray(outgoingContent) ? 'array' : 'string')
+                    : m.contentType
+
+                return {
+                    ...m,
+                    content: outgoingContent,
+                    contentType: outgoingContentType,
+                    toolResult: false,
+                    toolCallId: '',
+                    toolCalls: m.toolCalls || [],
+                    toolResults: m.toolResults || []
+                }
+            })
 
         if (instructionInfo.value) {
             chatMessages.unshift(createChatMessage({
@@ -428,7 +441,8 @@ async function onModelsChange(models: string[], modelsRaw?: ModelInfo[]) {
 }
 
 async function onResend(data: ChatMessage) {
-    onSend({ content: data.content })
+    const hijacked = data.model ? data.model.split(',').filter(Boolean) : undefined
+    onSend({ content: data.content, sanitizedContent: data.sanitizedContent, hijackedModels: hijacked })
 }
 
 async function onRemove(data: ChatMessage) {

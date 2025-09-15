@@ -104,12 +104,15 @@ const onSend = async (data: ChatBoxFormData) => {
   }
 
   // Validate content
-  const hasValidContent = Array.isArray(data.content)
-    ? data.content.some(item =>
+  const sanitizedContent = data.sanitizedContent ?? data.content
+  const hasValidContent = Array.isArray(sanitizedContent)
+    ? sanitizedContent.some(item =>
       (item.type === 'text' && item.text?.trim()) ||
       (item.type === 'image_url' && item.image_url?.url)
     )
-    : data.content.trim()
+    : typeof sanitizedContent === 'string'
+      ? sanitizedContent.trim()
+      : ''
 
   if (!hasValidContent) {
     return
@@ -126,6 +129,7 @@ const onSend = async (data: ChatBoxFormData) => {
     id: Math.random(),
     contentType: Array.isArray(data.content) ? 'array' : 'string',
     content: data.content,
+    sanitizedContent: data.sanitizedContent,
     startTime: timestamp,
     endTime: timestamp,
     model: 'user',
@@ -160,9 +164,9 @@ const onSend = async (data: ChatBoxFormData) => {
 
   try {
     // Extract text content from the user message
-    const promptText = Array.isArray(data.content)
-      ? data.content.find(item => item.type === 'text')?.text || ''
-      : data.content
+    const promptText = Array.isArray(sanitizedContent)
+      ? sanitizedContent.find(item => item.type === 'text')?.text || ''
+      : sanitizedContent as string
 
     sendMessage({
       type: 'request',
@@ -288,7 +292,7 @@ async function onAbortChat() {
 }
 
 async function onResend(data: ChatMessage) {
-  onSend({ content: data.content })
+  onSend({ content: data.content, sanitizedContent: data.sanitizedContent })
 }
 
 async function onRemove(data: ChatMessage) {

@@ -34,14 +34,17 @@ const renderContent = computed(() => {
         const modelPart = valueParts[valueParts.length - 1] // Get the last part (model name)
         return modelPart.toLowerCase() === modelName.toLowerCase()
       }
-      
+
       return false
     })
-    
-    const displayName = foundModel ? foundModel.label : modelName
-    const familyName = foundModel?.family || ''
-    
-    return `<span class="model-mention" data-model="${modelName}" data-family="${familyName}" data-label="${displayName}">@${displayName}</span>`
+
+    const fallbackParts = modelName.replace(/^\//, '').split('/')
+    const fallbackLabel = fallbackParts[fallbackParts.length - 1] || modelName
+    const displayName = foundModel ? foundModel.label : fallbackLabel
+    const familyName = foundModel?.family || (fallbackParts.length > 1 ? fallbackParts.slice(0, -1).join('/') : '')
+    const dataModelValue = foundModel ? foundModel.value : modelName
+
+    return `<span class="model-mention" data-model="${dataModelValue}" data-family="${familyName}" data-label="${displayName}">@${displayName}</span>`
   })
 })
 </script>
@@ -53,18 +56,12 @@ const renderContent = computed(() => {
 <style scoped>
 .model-mention-container :deep(.model-mention) {
   @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
-  @apply bg-primary-100 text-primary-800 border border-primary-200;
-  @apply dark:bg-primary-900/30 dark:text-primary-300 dark:border-primary-700;
+  @apply bg-gray-100 text-gray-700 border border-gray-300;
+  @apply dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-600;
   @apply transition-colors duration-150;
-  @apply relative;
 }
 
 .model-mention-container :deep(.model-mention:hover) {
-  @apply bg-primary-200 dark:bg-primary-900/50;
-}
-
-.model-mention-container :deep(.model-mention::before) {
-  content: '🤖';
-  @apply mr-1 text-xs opacity-70;
+  @apply bg-gray-200 dark:bg-gray-700/70;
 }
 </style>

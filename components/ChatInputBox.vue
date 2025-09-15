@@ -3,10 +3,13 @@ import { useStorage } from '@vueuse/core'
 import { type SubmitMode } from './TheTextarea.vue'
 import type { ModelInfo } from '~/composables/useModels'
 
+type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>
+
 export interface ChatBoxFormData {
-  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>
+  content: ChatContent
   images?: File[]
   hijackedModels?: string[] // Models hijacked by @model mentions
+  sanitizedContent?: ChatContent
 }
 
 const props = defineProps<{
@@ -116,6 +119,26 @@ const parseAtModelFromText = (text: string, cursorPosition: number) => {
   }
 
   return null
+}
+
+// Fallback matcher used if the tracked selection was cleared (e.g. focus lost)
+const findLastAtModelMatch = (text: string) => {
+  if (typeof text !== 'string') return null
+
+  const regex = /@([a-zA-Z0-9\-:._\/]*)/g
+  let match
+  let lastMatch: { startIndex: number; endIndex: number; query: string; model: ModelInfo | null } | null = null
+
+  while ((match = regex.exec(text)) !== null) {
+    lastMatch = {
+      startIndex: match.index,
+      endIndex: match.index + match[0].length,
+      query: match[1],
+      model: null
+    }
+  }
+
+  return lastMatch
 }
 
 // Extract completed @model mentions
@@ -346,9 +369,12 @@ const getSelectedSuggestion = (): ModelInfo | null => {
 
 // Apply model suggestion to text
 const applySuggestion = (model: ModelInfo, text: string): string => {
-  if (!currentAtModelMatch.value) return text
+  if (typeof text !== 'string') return text
 
-  const { startIndex, endIndex } = currentAtModelMatch.value
+  const activeMatch = currentAtModelMatch.value || findLastAtModelMatch(text)
+  if (!activeMatch) return text
+
+  const { startIndex, endIndex } = activeMatch
   const beforeMatch = text.substring(0, startIndex)
   const afterMatch = text.substring(endIndex)
 
@@ -396,6 +422,11 @@ watch(() => state.content, (newContent) => {
     if (typeof newContent === 'string' && textareaRef.value && !props.disabled) {
       const cursorPosition = textareaRef.value.getCursorPosition?.() || 0
       handleTextChange(newContent as string, cursorPosition)
+
+      const completed = extractCompletedAtModels(newContent)
+      state.hijackedModels = Array.from(new Set(completed.map(model => model.value)))
+    } else if (state.hijackedModels?.length) {
+      state.hijackedModels = []
     }
   } catch (error) {
     console.error('Error in content watcher:', error)
@@ -491,21 +522,33 @@ async function onSubmit() {
 
   // Extract @model mentions before processing
   let hijackedModels: string[] = []
-  let cleanContent = state.content
+  let sanitizedContent: ChatContent | undefined
 
   if (typeof state.content === 'string') {
     const mentionedModels = extractCompletedAtModels(state.content)
-    hijackedModels = mentionedModels.map(model => model.value)
-    cleanContent = removeAtModelMentions(state.content)
+    const mentionedValues = mentionedModels.map(model => model.value)
+    if (mentionedValues.length > 0) {
+      hijackedModels = Array.from(new Set(mentionedValues))
+    } else if (state.hijackedModels?.length) {
+      hijackedModels = Array.from(new Set(state.hijackedModels))
+    }
+    const stripped = removeAtModelMentions(state.content)
+    sanitizedContent = stripped
   }
 
   // If there are images, convert them to base64 and create content array
   if (state.images && state.images.length > 0) {
-    const content = []
+    const content: Exclude<ChatContent, string> = []
+    const sanitizedArray: Exclude<ChatContent, string> = []
 
     // Add text content if any
-    if (typeof cleanContent === 'string' && cleanContent.trim()) {
-      content.push({ type: "text", text: cleanContent.trim() })
+    if (typeof state.content === 'string' && state.content.trim()) {
+      content.push({ type: "text", text: state.content.trim() })
+
+      const sanitizedText = typeof sanitizedContent === 'string' ? sanitizedContent : removeAtModelMentions(state.content)
+      if (sanitizedText.trim()) {
+        sanitizedArray.push({ type: 'text', text: sanitizedText.trim() })
+      }
     }
 
     // Add each image as base64
@@ -517,12 +560,22 @@ async function onSubmit() {
           url: `data:${image.type};base64,${base64Image}`,
         },
       })
+
+      sanitizedArray.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${image.type};base64,${base64Image}`,
+        }
+      })
     }
 
-    emits('submit', { content, hijackedModels })
+    sanitizedContent = sanitizedArray.length > 0 ? sanitizedArray : sanitizedContent
+
+    emits('submit', { content, hijackedModels, sanitizedContent })
   } else {
     // If no images, just send text content as before
-    emits('submit', { content: cleanContent, hijackedModels })
+    const textContent = typeof state.content === 'string' ? state.content : ''
+    emits('submit', { content: textContent, hijackedModels, sanitizedContent })
   }
 }
 
