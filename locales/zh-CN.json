@@ -7,7 +7,8 @@
         "chat": "对话",
         "settings": "设置",
         "realtime": "实时语音",
-        "playground": "实验场"
+        "playground": "实验场",
+        "blog": "博客"
     },
     "colorMode": {
         "system": "自动",
@@ -271,5 +272,26 @@
         "selectModel": "选择模型",
         "selectModels": "选择模型",
         "invalidUrl": "无效的URL"
+    },
+    "blog": {
+        "title": "ChatOllama 博客",
+        "description": "关于AI、大语言模型和ChatOllama开发的见解、教程和更新",
+        "loading": "正在加载博客文章...",
+        "noPosts": "未找到博客文章",
+        "postNotFound": "博客文章未找到",
+        "backToBlog": "返回博客",
+        "allPosts": "所有文章",
+        "readMore": "阅读更多",
+        "readingTime": "{time} 分钟阅读",
+        "relatedPosts": "相关文章",
+        "by": "作者",
+        "share": "分享",
+        "filter": {
+            "tags": "按标签筛选："
+        }
+    },
+    "common": {
+        "previous": "上一页",
+        "next": "下一页"
     }
 }

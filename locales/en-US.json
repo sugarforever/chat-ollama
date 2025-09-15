@@ -7,6 +7,7 @@
         "chat": "Chat",
         "realtime": "Realtime Chat",
         "playground": "Playground",
+        "blog": "Blog",
         "settings": "Settings"
     },
     "colorMode": {
@@ -272,5 +273,26 @@
         "confirmTitle": "Confirm action",
         "add": "Add",
         "invalidUrl": "Invalid URL"
+    },
+    "blog": {
+        "title": "ChatOllama Blog",
+        "description": "Insights, tutorials, and updates about AI, LLMs, and ChatOllama development",
+        "loading": "Loading blog posts...",
+        "noPosts": "No blog posts found",
+        "postNotFound": "Blog post not found",
+        "backToBlog": "Back to Blog",
+        "allPosts": "All Posts",
+        "readMore": "Read more",
+        "readingTime": "{time} min read",
+        "relatedPosts": "Related Posts",
+        "by": "By",
+        "share": "Share",
+        "filter": {
+            "tags": "Filter by tags:"
+        }
+    },
+    "common": {
+        "previous": "Previous",
+        "next": "Next"
     }
 }
