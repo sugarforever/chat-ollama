@@ -83,3 +83,43 @@ body {
     font-size: 16px !important;
   }
 }
+
+/* Blog code block styling */
+.prose {
+
+  /* Inline code styling */
+  code:not(pre code) {
+    @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-sm font-mono;
+    font-size: 0.9em;
+  }
+
+  /* Code block styling */
+  pre {
+    @apply bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-x-auto;
+    font-size: 0.875rem;
+    line-height: 1.5;
+
+    code {
+      @apply bg-transparent text-gray-800 dark:text-gray-200 p-0;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+      font-size: inherit;
+      white-space: pre;
+    }
+  }
+
+  /* Syntax highlighting overrides for better contrast */
+  .hljs {
+    background: transparent !important;
+    color: inherit;
+  }
+
+  .dark & {
+    pre {
+      @apply bg-gray-900 border-gray-700;
+
+      code {
+        @apply text-gray-100;
+      }
+    }
+  }
+}

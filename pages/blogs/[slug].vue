@@ -15,30 +15,35 @@
             </div>
 
             <!-- Article Content -->
-            <article class="max-w-4xl mx-auto px-6 lg:px-8 py-16">
+            <article class="max-w-4xl mx-auto px-6 lg:px-8 py-12">
                 <!-- Article Header -->
-                <header class="mb-12 pb-12 border-b border-gray-100 dark:border-gray-800">
-                    <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-8 leading-tight tracking-tight">
+                <header class="mb-8 pb-8 border-b border-gray-100 dark:border-gray-800">
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 leading-tight tracking-tight">
                         {{ post.title }}
                     </h1>
 
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 text-gray-600 dark:text-gray-400">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 text-gray-600 dark:text-gray-400">
                         <time class="flex items-center text-sm font-medium uppercase tracking-wider">
-                            <UIcon name="i-heroicons-calendar-days-20-solid" class="w-5 h-5 mr-3" />
+                            <UIcon name="i-heroicons-calendar-days-20-solid" class="w-4 h-4 mr-2" />
                             {{ formatDate(post.date) }}
                         </time>
                         <div class="flex items-center text-sm font-medium uppercase tracking-wider">
-                            <UIcon name="i-heroicons-clock-20-solid" class="w-5 h-5 mr-3" />
+                            <UIcon name="i-heroicons-clock-20-solid" class="w-4 h-4 mr-2" />
                             {{ estimateReadingTime(post.content) }} min read
                         </div>
                     </div>
                 </header>
 
                 <!-- Article Body -->
-                <div class="prose prose-xl dark:prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-h1:text-4xl prose-h2:text-3xl prose-h3:text-2xl prose-p:leading-relaxed prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-a:text-gray-900 dark:prose-a:text-white prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-pre:bg-gray-900 dark:prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-700" v-html="post.content" />
+                <div class="prose prose-lg dark:prose-invert max-w-none
+                            prose-headings:font-bold prose-headings:tracking-tight
+                            prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base
+                            prose-p:leading-relaxed prose-p:text-gray-700 dark:prose-p:text-gray-300
+                            prose-a:text-gray-900 dark:prose-a:text-white prose-a:no-underline hover:prose-a:underline"
+                     v-html="processContent(post.content)" />
 
                 <!-- Article Footer -->
-                <footer class="mt-20 pt-12 border-t border-gray-100 dark:border-gray-800">
+                <footer class="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                         <NuxtLink
                                   to="/blogs"
@@ -111,6 +116,19 @@ if (post.value) {
         title: 'Post Not Found',
         description: 'The requested blog post could not be found.'
     })
+}
+
+function processContent(content) {
+    if (!content) return ''
+
+    // Remove the first H1 tag that matches the post title to avoid duplication
+    // This handles cases where the markdown file has its own title H1
+    let processedContent = content
+
+    // Remove the first H1 tag if it exists at the beginning of the content
+    processedContent = processedContent.replace(/^<h1[^>]*>.*?<\/h1>\s*/, '')
+
+    return processedContent
 }
 
 function formatDate(date) {
