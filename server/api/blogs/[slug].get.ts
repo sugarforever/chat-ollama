@@ -21,6 +21,9 @@ export default defineEventHandler(async (event) => {
             })
         }
 
+        // Set cache headers for Vercel
+        setHeader(event, 'Cache-Control', 's-maxage=600, stale-while-revalidate')
+
         return post
     } catch (error) {
         console.error(`Error fetching blog post ${getRouterParam(event, 'slug')}:`, error)

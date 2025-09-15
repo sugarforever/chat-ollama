@@ -1,0 +1,26 @@
+{
+  "builds": [
+    {
+      "src": "nuxt.config.ts",
+      "use": "@nuxtjs/vercel-builder",
+      "config": {
+        "includeFiles": [
+          "content/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/blogs/.*",
+      "headers": {
+        "Cache-Control": "s-maxage=300, stale-while-revalidate"
+      }
+    }
+  ],
+  "functions": {
+    ".output/server/index.mjs": {
+      "includeFiles": "content/**"
+    }
+  }
+}

@@ -63,7 +63,24 @@ export default defineNuxtConfig({
     experimental: {
       openAPI: true
     },
-    preset: 'vercel'
+    preset: 'vercel',
+    // Ensure content directory is available at runtime
+    storage: {
+      content: {
+        driver: 'fs',
+        base: './content'
+      }
+    },
+    // Include content files in serverless functions
+    bundledStorage: ['content'],
+    // Copy content files to output
+    publicAssets: [
+      {
+        baseURL: '/content',
+        dir: 'content',
+        maxAge: 60 * 60 * 24 * 7 // 7 days cache
+      }
+    ]
   },
   ui: {
     icons: ['heroicons', 'iconoir', 'material-symbols', 'mdi', 'svg-spinners']

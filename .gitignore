@@ -146,3 +146,6 @@ yarn.lock
 venv
 .cursor
 .claude
+
+# Vercel
+.vercel
