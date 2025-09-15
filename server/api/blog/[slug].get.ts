@@ -1,5 +1,3 @@
-import { getBlogPostBySlug } from '~/utils/blog'
-
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
   
@@ -11,7 +9,23 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const post = await getBlogPostBySlug(slug)
+    // Try to read from static JSON file first (production)
+    let posts = []
+    try {
+      const { readFile } = await import('fs/promises')
+      const { join } = await import('path')
+      const filePath = join(process.cwd(), 'public', 'blog-data.json')
+      const fileContent = await readFile(filePath, 'utf-8')
+      const blogData = JSON.parse(fileContent)
+      posts = blogData.posts || []
+    } catch (fsError) {
+      // Fallback for development - load from filesystem
+      console.warn('Static blog data not found, loading from filesystem:', fsError.message)
+      const { getBlogPostsData } = await import('./_posts.json')
+      posts = await getBlogPostsData()
+    }
+    
+    const post = posts.find((p: any) => p.slug === slug)
     
     if (!post) {
       throw createError({
