@@ -9,12 +9,15 @@ export interface ToolResult {
     content: string
 }
 
+export type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>
+
 export interface ChatMessage {
     id?: number
     role: 'system' | 'assistant' | 'user'
     model: string,
     contentType: 'string' | 'array' | 'tool',
-    content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>
+    content: ChatContent
+    sanitizedContent?: ChatContent
     type?: 'loading' | 'canceled' | 'error' | 'tool'
     startTime: number
     endTime: number
