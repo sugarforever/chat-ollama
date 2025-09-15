@@ -4,6 +4,7 @@ import svgLoader from 'vite-svg-loader'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  ssr: true,
   auth: {
     provider: {
       type: 'local',
@@ -61,7 +62,8 @@ export default defineNuxtConfig({
   nitro: {
     experimental: {
       openAPI: true
-    }
+    },
+    preset: 'vercel'
   },
   ui: {
     icons: ['heroicons', 'iconoir', 'material-symbols', 'mdi', 'svg-spinners']

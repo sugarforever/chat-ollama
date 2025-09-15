@@ -66,6 +66,7 @@
     "deepagents": "^0.0.1",
     "dexie": "^4.0.7",
     "eventemitter3": "^5.0.1",
+    "front-matter": "^4.0.2",
     "googleapis": "^155.0.1",
     "highlight.js": "^11.9.0",
     "html-to-text": "^9.0.5",
