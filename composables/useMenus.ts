@@ -34,6 +34,7 @@ export function useMenus() {
       menus.push({ label: t('menu.realtime'), icon: 'i-iconoir-microphone', to: '/realtime' })
     }
 
+    menus.push({ label: t('menu.blog'), icon: 'i-heroicons-document-text', to: '/blog' })
     menus.push({ label: t('menu.settings'), icon: 'i-heroicons-cog-6-tooth', to: '/settings' })
     menus.push({ label: 'GitHub', icon: 'i-mdi-github', to: 'https://github.com/sugarforever/chat-ollama', external: true })
 
