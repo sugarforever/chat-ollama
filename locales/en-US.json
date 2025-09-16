@@ -121,7 +121,7 @@
         "selectInstruction": "Select an Instruction",
         "resend": "Resend",
         "noModelFound": "No model found",
-        "noModelFoundDesc": "Please download a model first.",
+        "noModelFoundDesc": "Please configure a service provider with API keys in Settings first.",
         "clearBtn": "Clear history messages",
         "clearConfirmTip": "Are you sure you want to clear all history messages for this conversation?",
         "pin": "Pin",
