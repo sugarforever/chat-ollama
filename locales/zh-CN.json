@@ -7,7 +7,8 @@
         "chat": "对话",
         "settings": "设置",
         "realtime": "实时语音",
-        "playground": "实验场"
+        "playground": "实验场",
+        "blog": "博客"
     },
     "colorMode": {
         "system": "自动",
