@@ -13,3 +13,4 @@ declare module '*.svg?component' {
 
 
 
+

@@ -39,9 +39,68 @@ const inputRef = ref<HTMLTextAreaElement>()
 
 const dialogStyle = computed(() => {
   const { x, y } = props.position
+  
+  // Smart positioning constants
+  const DIALOG_WIDTH = 480  // Increased from 320px
+  const DIALOG_MIN_HEIGHT = 280
+  const DIALOG_MAX_HEIGHT = 600  // Maximum height when response is long
+  const VIEWPORT_PADDING = 20
+  const OFFSET_FROM_SELECTION = 10
+  
+  // Get viewport dimensions
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  
+  // Calculate dynamic height based on content
+  let estimatedHeight = DIALOG_MIN_HEIGHT
+  if (response.value) {
+    // Estimate height based on response length
+    const responseLines = Math.ceil(response.value.length / 60) // ~60 chars per line
+    const responseHeight = Math.min(responseLines * 20, 320) // Max 320px for response
+    estimatedHeight = DIALOG_MIN_HEIGHT + responseHeight
+  }
+  estimatedHeight = Math.min(estimatedHeight, DIALOG_MAX_HEIGHT)
+  
+  // Smart horizontal positioning
+  let left = x
+  
+  // Try to position to the right of selection first
+  if (x + DIALOG_WIDTH + VIEWPORT_PADDING <= viewportWidth) {
+    left = x + OFFSET_FROM_SELECTION
+  }
+  // If not enough space on right, try left
+  else if (x - DIALOG_WIDTH - OFFSET_FROM_SELECTION >= VIEWPORT_PADDING) {
+    left = x - DIALOG_WIDTH - OFFSET_FROM_SELECTION
+  }
+  // Center horizontally if neither side has enough space
+  else {
+    left = Math.max(VIEWPORT_PADDING, (viewportWidth - DIALOG_WIDTH) / 2)
+  }
+  
+  // Smart vertical positioning
+  let top = y
+  
+  // Try to position below selection first
+  if (y + estimatedHeight + VIEWPORT_PADDING <= viewportHeight) {
+    top = y + OFFSET_FROM_SELECTION
+  }
+  // If not enough space below, try above
+  else if (y - estimatedHeight - OFFSET_FROM_SELECTION >= VIEWPORT_PADDING) {
+    top = y - estimatedHeight - OFFSET_FROM_SELECTION
+  }
+  // Center vertically if neither position works
+  else {
+    top = Math.max(VIEWPORT_PADDING, (viewportHeight - estimatedHeight) / 2)
+  }
+  
+  // Ensure dialog stays within viewport bounds
+  left = Math.max(VIEWPORT_PADDING, Math.min(left, viewportWidth - DIALOG_WIDTH - VIEWPORT_PADDING))
+  top = Math.max(VIEWPORT_PADDING, Math.min(top, viewportHeight - estimatedHeight - VIEWPORT_PADDING))
+  
   return {
-    top: `${Math.min(y, window.innerHeight - 280)}px`,
-    left: `${Math.min(x, window.innerWidth - 320)}px`
+    top: `${top}px`,
+    left: `${left}px`,
+    maxHeight: `${DIALOG_MAX_HEIGHT}px`
   }
 })
 
@@ -120,7 +179,7 @@ onMounted(() => {
            v-if="show"
            ref="dialogRef"
            :style="dialogStyle"
-           class="quick-chat-dialog fixed z-[9999] max-w-[320px] w-[320px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl"
+           class="quick-chat-dialog fixed z-[9999] w-[480px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl"
            @keydown="handleKeydown"
            @click="handleDialogClick">
         <!-- Header -->
@@ -170,7 +229,7 @@ onMounted(() => {
         <!-- Response Area -->
         <div
              v-if="response || error || isLoading"
-             class="p-3 border-t border-gray-200 dark:border-gray-700 max-h-40 overflow-y-auto">
+             class="p-3 border-t border-gray-200 dark:border-gray-700 max-h-80 overflow-y-auto">
           <!-- Loading State -->
           <div v-if="isLoading && !response" class="flex items-center text-gray-500 dark:text-gray-400 text-xs">
             <UIcon name="i-heroicons-arrow-path" class="animate-spin mr-2 text-xs" />
@@ -185,7 +244,7 @@ onMounted(() => {
 
           <!-- Response -->
           <div v-else-if="response">
-            <div class="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+            <div class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
               {{ response }}
             </div>
             <!-- Typing indicator when still loading but has content -->
