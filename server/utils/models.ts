@@ -1,6 +1,7 @@
 import { Embeddings } from "@langchain/core/embeddings"
 import { ChatOpenAI, OpenAIEmbeddings } from "~/server/models/openai"
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai"
+import { MistralAIEmbeddings } from "@langchain/mistralai"
 import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { ChatAnthropic } from "@langchain/anthropic"
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama"
@@ -10,11 +11,11 @@ import { AzureChatOpenAI } from "@langchain/azure-openai"
 import { type H3Event } from 'h3'
 import { type Ollama } from 'ollama'
 import { proxyTokenGenerate } from '~/server/utils/proxyToken'
-import { ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, GEMINI_EMBEDDING_MODELS, GEMINI_MODELS, GROQ_MODELS, MODEL_FAMILIES, MOONSHOT_MODELS, OPENAI_EMBEDDING_MODELS } from '~/config/index'
+import { ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, GEMINI_EMBEDDING_MODELS, GEMINI_MODELS, GROQ_MODELS, MODEL_FAMILIES, MOONSHOT_MODELS, OPENAI_EMBEDDING_MODELS, MISTRAL_EMBEDDING_MODELS } from '~/config/index'
 import type { ContextKeys } from '~/server/middleware/keys'
 
 export function isApiEmbeddingModelExists(embeddingModelName: string) {
-  return [...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS].includes(embeddingModelName)
+  return [...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS, ...MISTRAL_EMBEDDING_MODELS].includes(embeddingModelName)
 }
 
 export async function isOllamaModelExists(ollama: Ollama, embeddingModelName: string) {
@@ -38,6 +39,12 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
     return new GoogleGenerativeAIEmbeddings({
       modelName: embeddingModelName,
       apiKey: keys.gemini.key,
+    })
+  } else if (MISTRAL_EMBEDDING_MODELS.includes(embeddingModelName)) {
+    console.log(`Creating embeddings for Mistral model: ${embeddingModelName}`)
+    return new MistralAIEmbeddings({
+      modelName: embeddingModelName,
+      apiKey: keys.mistral.key,
     })
   } else {
     console.log(`Creating embeddings for Ollama served model: ${embeddingModelName}`)

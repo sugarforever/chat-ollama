@@ -36,6 +36,11 @@ export interface ContextKeys {
     endpoint: string
     proxy: boolean
   },
+  mistral: {
+    key: string
+    endpoint: string
+    proxy: boolean
+  },
   /** custom model base on OpenAI API */
   custom: Array<{
     name: string

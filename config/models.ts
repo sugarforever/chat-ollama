@@ -4,7 +4,8 @@ export const MODEL_FAMILIES = {
   anthropic: 'Anthropic',
   moonshot: 'Moonshot',
   gemini: 'Gemini',
-  groq: 'Groq'
+  groq: 'Groq',
+  mistral: 'Mistral'
 }
 
 // OpenAI models will be loaded dynamically
@@ -31,6 +32,10 @@ export const OPENAI_EMBEDDING_MODELS = [
 
 export const GEMINI_EMBEDDING_MODELS = [
   "text-embedding-004"
+]
+
+export const MISTRAL_EMBEDDING_MODELS = [
+  "mistral-embed"
 ]
 
 export const ANTHROPIC_MODELS = [

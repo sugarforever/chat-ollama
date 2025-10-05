@@ -43,6 +43,11 @@ export const DEFAULT_KEYS_STORE: ContextKeys = {
     endpoint: getLocalValue('keys.groq_api_host'),
     proxy: false,
   },
+  mistral: {
+    key: getLocalValue('keys.mistral_api_key'),
+    endpoint: getLocalValue('keys.mistral_api_host'),
+    proxy: false,
+  },
   custom: []
 }
 

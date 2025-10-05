@@ -49,6 +49,7 @@
     "@langchain/google-genai": "^0.2.16",
     "@langchain/groq": "^0.2.3",
     "@langchain/mcp-adapters": "^0.6.0",
+    "@langchain/mistralai": "^0.2.3",
     "@langchain/ollama": "^0.2.3",
     "@modelcontextprotocol/sdk": "^1.17.2",
     "@nuxt/ui": "^2.17.0",

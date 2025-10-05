@@ -90,6 +90,15 @@ const LLMList = computed<LLMListItem[]>(() => {
         { label: t('settings.proxy'), value: 'groq.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },
       ]
     },
+    { 
+      key: 'mistral',  
+      title: 'Mistral AI',  
+      fields: [  
+        { label: t('settings.apiKey'), value: 'mistral.key', type: 'password', placeholder: t('settings.apiKey') },  
+        { label: t('settings.endpoint'), value: 'mistral.endpoint', type: 'input', placeholder: t('global.optional'), rule: 'url' },  
+        { label: t('settings.proxy'), value: 'mistral.proxy', type: 'checkbox', placeholder: t('settings.proxyTips') },  
+      ]  
+    },  
   ]
 })
 

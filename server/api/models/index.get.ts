@@ -1,5 +1,5 @@
 import { type ModelResponse, type ModelDetails } from 'ollama'
-import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS, GEMINI_MODELS, GROQ_MODELS } from '~/config/index'
+import { MODEL_FAMILIES, OPENAI_GPT_MODELS, ANTHROPIC_MODELS, AZURE_OPENAI_GPT_MODELS, MOONSHOT_MODELS, GEMINI_MODELS, GROQ_MODELS, MISTRAL_EMBEDDING_MODELS } from '~/config/index'
 import { getOllama } from '@/server/utils/ollama'
 
 export interface ModelItem extends Partial<Omit<ModelResponse, 'details'>> {
@@ -239,6 +239,17 @@ export default defineEventHandler(async (event) => {
         name: model,
         details: {
           family: MODEL_FAMILIES.groq
+        }
+      })
+    })
+  }
+
+  if (keys.mistral.key) {
+    MISTRAL_EMBEDDING_MODELS.forEach((model) => {
+      models.push({
+        name: model,
+        details: {
+          family: MODEL_FAMILIES.mistral
         }
       })
     })
