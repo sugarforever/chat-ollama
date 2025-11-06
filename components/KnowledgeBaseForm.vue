@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { KnowledgeBase } from '@prisma/client'
-import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS } from '~/config/index'
+import { OPENAI_EMBEDDING_MODELS, GEMINI_EMBEDDING_MODELS, MISTRAL_EMBEDDING_MODELS } from '~/config/index'
 import type { PageParser } from '@/server/types/index'
 
 type OperateType = 'create' | 'update'
@@ -49,12 +49,13 @@ const loading = ref(false)
 const isModify = computed(() => props.type === 'update')
 const embeddingList = computed(() => {
   const val = state.embedding.toLowerCase()
-  const getEmbeddingFromKnowledgeBaseList = props.embeddings.filter(e => ![...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS].includes(e))
+  const getEmbeddingFromKnowledgeBaseList = props.embeddings.filter(e => ![...OPENAI_EMBEDDING_MODELS, ...GEMINI_EMBEDDING_MODELS, ...MISTRAL_EMBEDDING_MODELS].includes(e))
   const ollamaEmbeddingList = [...new Set([...ollamaEmbeddingModels.value.map(e => e.value), ...getEmbeddingFromKnowledgeBaseList])]
   return [
     generateEmbeddingData('Ollama', ollamaEmbeddingList, 'group'),
     generateEmbeddingData('OpenAI', OPENAI_EMBEDDING_MODELS, 'group'),
     generateEmbeddingData('Gemini', GEMINI_EMBEDDING_MODELS, 'group'),
+    generateEmbeddingData('Mistral', MISTRAL_EMBEDDING_MODELS, 'group'),
   ].flatMap(items => {
     const arr = items.filter(el => 'slot' in el || el.value.toLowerCase().includes(val))
     return arr.length > 1 ? [arr] : []
