@@ -44,7 +44,7 @@ export const createEmbeddings = (embeddingModelName: string, event: H3Event): Em
     console.log(`Creating embeddings for Mistral model: ${embeddingModelName}`)
     return new MistralAIEmbeddings({
       modelName: embeddingModelName,
-      apiKey: keys.mistral.key,
+      apiKey: keys.mistral?.key || '',
     })
   } else {
     console.log(`Creating embeddings for Ollama served model: ${embeddingModelName}`)

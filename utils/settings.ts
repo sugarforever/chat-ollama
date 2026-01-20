@@ -51,7 +51,7 @@ export const DEFAULT_KEYS_STORE: ContextKeys = {
   custom: []
 }
 
-export const keysStore = useStorage<ContextKeys>('keys', DEFAULT_KEYS_STORE)
+export const keysStore = useStorage<ContextKeys>('keys', DEFAULT_KEYS_STORE, undefined, { mergeDefaults: true })
 
 export const getKeysHeader = () => ({ 'x-chat-ollama-keys': encodeURIComponent(JSON.stringify(keysStore.value)) })
 

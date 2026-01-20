@@ -1,7 +1,7 @@
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
 import { Embeddings } from "@langchain/core/embeddings"
 import { Document } from "@langchain/core/documents"
-import { ParentDocumentRetriever } from "langchain/retrievers/parent_document"
+import { ParentDocumentRetriever } from "@langchain/classic/retrievers/parent_document"
 import { RedisDocstore } from '@/server/docstore/redis'
 import { createVectorStore } from '@/server/utils/vectorstores'
 import { Chroma } from '@langchain/community/vectorstores/chroma'

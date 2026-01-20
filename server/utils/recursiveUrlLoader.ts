@@ -3,7 +3,7 @@
 import { JSDOM } from 'jsdom'
 import { Document } from '@langchain/core/documents'
 import { AsyncCaller } from '@langchain/core/utils/async_caller'
-import { BaseDocumentLoader, DocumentLoader } from 'langchain/document_loaders/base'
+import { BaseDocumentLoader, DocumentLoader } from '@langchain/core/document_loaders/base'
 import { urlGlob2Regexp } from '~/composables/utils'
 
 interface Metadata {

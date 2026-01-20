@@ -1,6 +1,11 @@
 import { Readable } from 'stream'
-import { formatDocumentsAsString } from "langchain/util/document"
+import { Document } from "@langchain/core/documents"
 import { PromptTemplate } from "@langchain/core/prompts"
+
+// Helper function to format documents as string (removed in langchain 1.x)
+const formatDocumentsAsString = (documents: Document[]): string => {
+  return documents.map((doc) => doc.pageContent).join("\n\n")
+}
 import { RunnableSequence } from "@langchain/core/runnables"
 // import { CohereRerank } from "@langchain/cohere"
 import { CohereRerank } from "@/server/rerank/cohere"

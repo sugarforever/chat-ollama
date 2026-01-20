@@ -1,9 +1,9 @@
 import { Document } from "@langchain/core/documents"
-import { PDFLoader } from "langchain/document_loaders/fs/pdf"
-import { TextLoader } from "langchain/document_loaders/fs/text"
-import { JSONLoader } from "langchain/document_loaders/fs/json"
-import { DocxLoader } from "langchain/document_loaders/fs/docx"
-import { CSVLoader } from "langchain/document_loaders/fs/csv"
+import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
+import { TextLoader } from "@langchain/classic/document_loaders/fs/text"
+import { JSONLoader } from "@langchain/classic/document_loaders/fs/json"
+import { DocxLoader } from "@langchain/community/document_loaders/fs/docx"
+import { CSVLoader } from "@langchain/community/document_loaders/fs/csv"
 import { compile } from "html-to-text"
 import { MultiPartData, H3Event } from 'h3'
 import { createRetriever } from '@/server/retriever'

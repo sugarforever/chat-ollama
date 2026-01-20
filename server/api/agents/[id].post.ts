@@ -1,14 +1,44 @@
 import { StructuredTool } from '@langchain/core/tools'
-import { createDeepAgent } from 'deepagents'
+import { createDeepAgent, FilesystemBackend } from 'deepagents'
 import { Readable } from 'stream'
 import { McpService } from '~/server/utils/mcp'
 import { createChatModel } from '~/server/utils/models'
 import { MODEL_FAMILY_SEPARATOR } from '~/config'
+import {
+  createUserSkillsMiddleware,
+  ensureSkillsDirExists,
+  getSkillsContext
+} from '~/server/utils/userSkills'
 
 const createAgent = (instruction: string, tools: StructuredTool[], model?: any) => {
+  // Ensure skills directory exists
+  ensureSkillsDirExists()
+
+  // Create skills middleware if skills directories exist
+  let middleware: any[] = []
+  try {
+    const skillsMiddleware = createUserSkillsMiddleware()
+    if (skillsMiddleware) {
+      middleware = [skillsMiddleware]
+      console.log('Skills middleware created successfully')
+    }
+  } catch (err) {
+    console.warn('Failed to create skills middleware:', err)
+  }
+
+  // Append skills context to instruction if skills are available
+  const skillsContext = getSkillsContext()
+  const enhancedInstruction = skillsContext
+    ? `${instruction}\n\n${skillsContext}`
+    : instruction
+
   const agentConfig: any = {
     tools: tools,
-    instructions: instruction,
+    instructions: enhancedInstruction,
+    middleware: middleware,
+    // Use FilesystemBackend to give agent access to actual filesystem
+    // Without this, deepagents uses StateBackend (in-memory) by default
+    backend: new FilesystemBackend({ rootDir: '/' }),
     // Increase recursion limit to prevent the error
     recursionLimit: 50
   }

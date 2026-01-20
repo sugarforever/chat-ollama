@@ -244,7 +244,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (keys.mistral.key) {
+  if (keys.mistral?.key) {
     MISTRAL_EMBEDDING_MODELS.forEach((model) => {
       models.push({
         name: model,
