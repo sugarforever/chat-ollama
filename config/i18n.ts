@@ -9,6 +9,7 @@ interface LanguageItem {
 export const LanguageList: LanguageItem[] = [
   { code: "en-US", file: "en-US.json", name: "English" },
   { code: "zh-CN", file: "zh-CN.json", name: "简体中文" },
+  { code: "fr-FR", file: "fr-FR.json", name: "Français" },
 ]
 export function findLanguageItemByLanguageName(Code: string): LanguageItem {
   for (const languageItem of LanguageList) {
