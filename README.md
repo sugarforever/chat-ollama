@@ -461,6 +461,17 @@ pnpm promote-super-admin --list            # List all super admins
 - **AI/ML:** LangChain, Ollama, OpenAI, Anthropic, Google AI
 - **Deployment:** Docker, Docker Compose
 
+## Complementary Projects
+
+ChatOllama is a full-featured GUI chat platform. These open-source projects pair well with it for different workflows:
+
+| Project | What it is | Best for |
+|---------|-----------|----------|
+| [ANARCHY](https://github.com/psfr4590-afk/ANARCHY) | Fully local AI shell with persistent memory (FAISS), multi-model routing, and skills/tool dispatch — no API keys required | Terminal power users; scripting and automation; air-gapped setups |
+| [Harmless-](https://github.com/psfr4590-afk/Harmless-) | AI-powered educational resource discovery app built on Ollama — finds and curates learning materials locally | Education-specific deployments; classroom or research use |
+
+ANARCHY's memory layer is also available as an MCP server, making it directly usable from ChatOllama's **Settings → MCP** panel — see [`docs/guide/anarchy-mcp-integration.md`](docs/guide/anarchy-mcp-integration.md) for setup.
+
 ## Join Our Community
 
 Join our Discord community for support, discussions, and updates:
