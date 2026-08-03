@@ -143,6 +143,7 @@ chroma_data
 yarn.lock
 
 .mcp-servers.json
+.agentpond/
 venv
 .cursor
 .claude

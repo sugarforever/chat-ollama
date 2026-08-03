@@ -173,6 +173,27 @@ NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
 COHERE_API_KEY=your_cohere_key
 ```
 
+### Optional AgentPond tracing
+
+ChatOllama can export server-side LangChain traces to a Files SDK store when
+`FILES_SDK_PROVIDER` is configured. Tracing is otherwise disabled. Prompt and
+response content is excluded; traces retain operational metadata such as model,
+timing, status, and token usage.
+
+For local development, create and select an ignored filesystem environment:
+
+```bash
+npx agentpond@0.11.0 env init local --provider fs \
+  --root "$PWD/.agentpond/envs/local/objects"
+npx agentpond@0.11.0 env use local
+eval "$(npx agentpond@0.11.0 env get local)"
+pnpm dev
+```
+
+Use a private production adapter from the
+[Files SDK provider catalog](https://files-sdk.dev/docs/providers) rather than
+the local filesystem adapter for deployed instances.
+
 ## Feature Flags (Docker and .env)
 
 You can enable or disable major product areas via feature flags. These can be set at build time using `.env`, or at runtime in Docker using `NUXT_`-prefixed variables.
