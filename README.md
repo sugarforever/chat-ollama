@@ -421,6 +421,7 @@ chatollama/
 ├── components/          # Vue components
 ├── pages/              # Nuxt pages (routing)
 ├── server/             # API routes and server logic
+├── packages/           # Standalone Agent Runtime and CLI packages
 ├── prisma/             # Database schema and migrations
 ├── locales/            # Internationalization files
 ├── config/             # Configuration files
@@ -435,6 +436,11 @@ pnpm dev                # Start development server
 pnpm build             # Build for production
 pnpm preview           # Preview production build
 
+# Agent Runtime
+pnpm agent:demo         # Run one scripted streaming conversation
+pnpm test:agent         # Test packages under packages/
+pnpm typecheck:agent    # Type-check packages under packages/
+
 # Database
 pnpm prisma-migrate    # Run database migrations
 pnpm prisma-generate   # Generate Prisma client
@@ -444,6 +450,8 @@ pnpm prisma-push       # Push schema changes
 pnpm promote-super-admin <username|email>  # Promote user to super admin
 pnpm promote-super-admin --list            # List all super admins
 ```
+
+The scripted demo is offline and does not require an API key. Enter one prompt and the CLI streams a deterministic response. See [`packages/agent-cli`](./packages/agent-cli/README.md) for the command and [`docs/agent-runtime-plan.md`](./docs/agent-runtime-plan.md) for the staged Runtime plan.
 
 ### Contributing
 

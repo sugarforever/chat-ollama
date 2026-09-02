@@ -413,6 +413,7 @@ chatollama/
 ├── components/          # Vue 组件
 ├── pages/              # Nuxt 页面（路由）
 ├── server/             # API 路由和服务器逻辑
+├── packages/           # 独立的 Agent Runtime 与 CLI 包
 ├── prisma/             # 数据库模式和迁移
 ├── locales/            # 国际化文件
 ├── config/             # 配置文件
@@ -427,6 +428,11 @@ pnpm dev                # 启动开发服务器
 pnpm build             # 构建生产版本
 pnpm preview           # 预览生产构建
 
+# Agent Runtime
+pnpm agent:demo         # 运行一次脚本模型流式对话
+pnpm test:agent         # 测试 packages/ 下的独立包
+pnpm typecheck:agent    # 检查 packages/ 下独立包的类型
+
 # 数据库
 pnpm prisma-migrate    # 运行数据库迁移
 pnpm prisma-generate   # 生成 Prisma 客户端
@@ -436,6 +442,8 @@ pnpm prisma-push       # 推送模式更改
 pnpm promote-super-admin <用户名|邮箱>  # 将用户提升为超级管理员
 pnpm promote-super-admin --list        # 列出所有超级管理员
 ```
+
+脚本演示完全离线，不需要 API key。输入一条消息后，CLI 会流式显示一段确定的回答。运行说明见 [`packages/agent-cli`](./packages/agent-cli/README.md)，分阶段规划见 [`docs/agent-runtime-plan.md`](./docs/agent-runtime-plan.md)。
 
 ### 贡献
 
