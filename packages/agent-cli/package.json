@@ -1,0 +1,17 @@
+{
+  "name": "@chat-ollama/agent-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@chat-ollama/agent-runtime": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
