@@ -1,9 +1,9 @@
 # ChatOllama Agent Runtime：目标、架构与开发路线图
 
-> 文档状态：Draft for implementation handoff  
-> 编写日期：2026-09-01  
-> 目标仓库：`sugarforever/chat-ollama`  
-> 当前分支基线：`main@c7cca20`  
+> 文档状态：Draft for implementation handoff
+> 编写日期：2026-09-01
+> 目标仓库：`sugarforever/chat-ollama`
+> 当前分支基线：`main@c7cca20`
 > 用途：作为后续新会话创建 Issues、分支和 Pull Requests 的共同依据
 
 ## 一、项目目标

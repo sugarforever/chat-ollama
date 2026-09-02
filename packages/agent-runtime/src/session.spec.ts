@@ -72,6 +72,65 @@ describe('Session', () => {
     ])
   })
 
+  it('stays cancelled when a provider ends without observing the abort signal', async () => {
+    const provider: ModelProvider = {
+      async *stream(): AsyncIterable<ModelEvent> {},
+    }
+    const session = new Session(provider)
+    const eventTypes: string[] = []
+    session.subscribe(event => {
+      eventTypes.push(event.type)
+      if (event.type === 'model.started') {
+        session.cancel()
+      }
+    })
+
+    await session.prompt('stop')
+
+    expect(eventTypes).toEqual([
+      'run.started',
+      'model.started',
+      'run.cancelled',
+    ])
+    expect(session.getHistory()).toEqual([
+      { role: 'user', content: 'stop' },
+    ])
+  })
+
+  it('rejects a concurrent prompt without replacing the active run', async () => {
+    const session = new Session(new ScriptedModelProvider({
+      chunks: ['first answer'],
+      delayMs: 10,
+    }))
+    const eventTypes: string[] = []
+    let markStarted: (() => void) | undefined
+    const started = new Promise<void>(resolve => {
+      markStarted = resolve
+    })
+    session.subscribe(event => {
+      eventTypes.push(event.type)
+      if (event.type === 'model.started') {
+        markStarted?.()
+      }
+    })
+
+    const firstPrompt = session.prompt('first')
+    await started
+    const secondPrompt = session.prompt('second')
+    session.cancel()
+    await firstPrompt
+
+    await expect(secondPrompt).rejects.toThrow('A run is already active')
+    expect(eventTypes).toEqual([
+      'run.started',
+      'model.started',
+      'run.cancelled',
+    ])
+    expect(session.getHistory()).toEqual([
+      { role: 'user', content: 'first' },
+    ])
+  })
+
   it('emits run.failed and rejects when the provider fails', async () => {
     const failure = new Error('script failed')
     const provider: ModelProvider = {

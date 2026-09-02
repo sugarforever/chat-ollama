@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - Runtime must not import Nuxt, Vue, LangChain, `deepagents`, OpenAI, or any concrete model SDK.
+- All new Agent production code must remain inside its dedicated `packages/agent-*` package; existing Web Agent directories stay untouched.
 - Scope is limited to `UserMessage`, `AssistantMessage`, one model step, typed in-process listeners, minimum cancellation, and a scripted provider.
 - Do not add tools, persistence, a continuous REPL, a full TUI, Web integration, replay, or future provider abstractions.
 - The CLI demo must run from a fresh install through one copyable root command.

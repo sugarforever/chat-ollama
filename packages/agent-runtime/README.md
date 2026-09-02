@@ -28,12 +28,14 @@ A successful prompt publishes events in this order:
 ```text
 run.started
 model.started
-model.delta (one or more)
+model.delta (zero or more)
 model.completed
 run.completed
 ```
 
 Cancellation ends with `run.cancelled` and does not append a partial assistant message. Provider failures publish `run.failed` and are rethrown to the caller.
+
+A Session accepts one active prompt at a time. A concurrent `prompt()` call rejects before it changes history or emits an event, so `cancel()` always targets the active run.
 
 ## Development
 

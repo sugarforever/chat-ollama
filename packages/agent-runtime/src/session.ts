@@ -24,22 +24,31 @@ export class Session implements AgentSession {
   }
 
   async prompt(input: string): Promise<void> {
+    if (this.#activeController !== undefined) {
+      throw new Error('A run is already active')
+    }
+
     const controller = new AbortController()
     this.#activeController = controller
     const userMessage = { role: 'user', content: input } as const
     this.#history.push(userMessage)
-    this.#emit({ type: 'run.started', input })
-    this.#emit({ type: 'model.started' })
 
     try {
+      this.#emit({ type: 'run.started', input })
+      controller.signal.throwIfAborted()
+      this.#emit({ type: 'model.started' })
+      controller.signal.throwIfAborted()
+
       let content = ''
       for await (const event of this.#provider.stream({
         items: this.getHistory(),
       }, controller.signal)) {
+        controller.signal.throwIfAborted()
         content += event.delta
         this.#emit({ type: 'model.delta', delta: event.delta })
         controller.signal.throwIfAborted()
       }
+      controller.signal.throwIfAborted()
 
       const assistantMessage = { role: 'assistant', content } as const
       this.#history.push(assistantMessage)
