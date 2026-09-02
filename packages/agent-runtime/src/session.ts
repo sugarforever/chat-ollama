@@ -9,6 +9,7 @@ export class Session implements AgentSession {
   readonly #history: AgentItem[] = []
   readonly #listeners = new Set<RuntimeEventListener>()
   readonly #provider: ModelProvider
+  #activeController: AbortController | undefined
 
   constructor(provider: ModelProvider) {
     this.#provider = provider
@@ -23,26 +24,50 @@ export class Session implements AgentSession {
   }
 
   async prompt(input: string): Promise<void> {
+    const controller = new AbortController()
+    this.#activeController = controller
     const userMessage = { role: 'user', content: input } as const
     this.#history.push(userMessage)
     this.#emit({ type: 'run.started', input })
     this.#emit({ type: 'model.started' })
 
-    let content = ''
-    for await (const event of this.#provider.stream({
-      items: this.getHistory(),
-    })) {
-      content += event.delta
-      this.#emit({ type: 'model.delta', delta: event.delta })
-    }
+    try {
+      let content = ''
+      for await (const event of this.#provider.stream({
+        items: this.getHistory(),
+      }, controller.signal)) {
+        content += event.delta
+        this.#emit({ type: 'model.delta', delta: event.delta })
+        controller.signal.throwIfAborted()
+      }
 
-    const assistantMessage = { role: 'assistant', content } as const
-    this.#history.push(assistantMessage)
-    this.#emit({ type: 'model.completed', message: assistantMessage })
-    this.#emit({ type: 'run.completed' })
+      const assistantMessage = { role: 'assistant', content } as const
+      this.#history.push(assistantMessage)
+      this.#emit({ type: 'model.completed', message: assistantMessage })
+      this.#emit({ type: 'run.completed' })
+    }
+    catch (error) {
+      if (controller.signal.aborted) {
+        this.#emit({ type: 'run.cancelled' })
+        return
+      }
+
+      this.#emit({
+        type: 'run.failed',
+        message: error instanceof Error ? error.message : String(error),
+      })
+      throw error
+    }
+    finally {
+      if (this.#activeController === controller) {
+        this.#activeController = undefined
+      }
+    }
   }
 
-  cancel(): void {}
+  cancel(): void {
+    this.#activeController?.abort()
+  }
 
   getHistory(): readonly AgentItem[] {
     return this.#history.slice()

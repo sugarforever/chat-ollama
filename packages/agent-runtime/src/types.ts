@@ -29,6 +29,8 @@ export type RuntimeEvent =
   | { readonly type: 'model.delta'; readonly delta: string }
   | { readonly type: 'model.completed'; readonly message: AssistantMessage }
   | { readonly type: 'run.completed' }
+  | { readonly type: 'run.cancelled' }
+  | { readonly type: 'run.failed'; readonly message: string }
 
 export type RuntimeEventListener = (event: RuntimeEvent) => void
 
