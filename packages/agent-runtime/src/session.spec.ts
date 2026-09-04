@@ -119,6 +119,53 @@ describe('AgentSession streaming', () => {
     expect(events).toEqual([]);
   });
 
+  it('isolates listener failures from the run and other subscribers', async () => {
+    const model = createTextModel(['Hello']);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(() => {
+      throw new Error('listener failed');
+    });
+    session.subscribe(event => events.push(event));
+
+    await session.prompt('Hello');
+
+    expect(events.map(event => event.type)).toEqual([
+      'run.started',
+      'model.started',
+      'model.delta',
+      'model.completed',
+      'run.completed',
+    ]);
+    expect(session.getSnapshot().messages).toEqual([
+      { role: 'user', content: 'Hello' },
+      { role: 'assistant', content: 'Hello' },
+    ]);
+  });
+
+  it('applies subscription changes after delivery of the current event', async () => {
+    const model = createTextModel(['Hello']);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+    });
+    const received: RuntimeEvent['type'][] = [];
+    let unsubscribeSecond = () => {};
+    session.subscribe(() => unsubscribeSecond());
+    unsubscribeSecond = session.subscribe(event => received.push(event.type));
+
+    await session.prompt('Hello');
+
+    expect(received).toEqual(['run.started']);
+  });
+
   it('publishes a sanitized failure and rejects with a stable error', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const model = new MockLanguageModelV3({

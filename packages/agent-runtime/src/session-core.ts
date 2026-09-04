@@ -133,8 +133,12 @@ class InMemoryAgentSession implements AgentSession {
   }
 
   #publish(event: RuntimeEvent): void {
-    for (const listener of this.#listeners) {
-      listener(event);
+    for (const listener of [...this.#listeners]) {
+      try {
+        listener(event);
+      } catch {
+        // Subscriber failures must not corrupt the active run.
+      }
     }
   }
 }

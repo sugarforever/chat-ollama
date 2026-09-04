@@ -135,6 +135,6 @@ pnpm agent:example
 git diff --check origin/main
 ```
 
-在 Node.js 20.20.2 下，当前 4 个测试文件中的 13 个测试通过，Runtime typecheck、完整 Nuxt build、离线示例和 diff check 也都通过。build 仍会显示仓库原有的 Browserslist、bundle size 与 import 警告，本次没有顺手修改这些不属于 Runtime 的问题。
+在 Node.js 20.20.2 下，当前 4 个测试文件中的 15 个测试通过，Runtime typecheck、完整 Nuxt build、离线示例和 diff check 也都通过。build 仍会显示仓库原有的 Browserslist、bundle size 与 import 警告，本次没有顺手修改这些不属于 Runtime 的问题。
 
 工具调用、ToolLoopAgent、CLI/TUI、持久化、Skills、compaction、MCP 与 Web 集成都没有进入这个 PR。下一步做客户端时，它只需要订阅这里的 RuntimeEvent，不需要了解 AI SDK 的 stream parts。
