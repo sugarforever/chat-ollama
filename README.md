@@ -73,6 +73,20 @@ For development or customization:
    pnpm dev
    ```
 
+### Agent Runtime development
+
+The standalone Agent Runtime can be tested and demonstrated without starting
+the Nuxt application or configuring an online model:
+
+```bash
+pnpm test:agent
+pnpm typecheck:agent
+pnpm agent:example
+```
+
+See [`packages/agent-runtime/README.md`](./packages/agent-runtime/README.md) for
+the public event API and OpenAI/Ollama smoke-test commands.
+
 ## Data Migration from SQLite to PostgreSQL
 
 If you're upgrading from a previous version that used SQLite, follow these steps to migrate your data:

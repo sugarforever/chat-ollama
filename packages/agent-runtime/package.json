@@ -1,0 +1,29 @@
+{
+  "name": "@chatollama/agent-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "example": "node --no-warnings --import tsx examples/stream.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "3.0.107",
+    "@ai-sdk/openai-compatible": "2.0.74",
+    "ai": "6.0.276",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.14",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
+  }
+}
