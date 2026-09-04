@@ -31,7 +31,7 @@ const LLMList = computed<LLMListItem[]>(() => {
       key: 'ollamaServer',
       title: t('settings.ollamaServer'),
       fields: [
-        { label: t('settings.endpoint'), value: 'ollama.endpoint', type: 'input', placeholder: '', rule: 'url' },
+        { label: t('settings.endpoint'), value: 'ollama.endpoint', type: 'input', placeholder: 'http://127.0.0.1:11434 (Ollama) / http://127.0.0.1:17434 (llmman)', rule: 'url' },
         { label: t('global.userName'), value: 'ollama.username', type: 'input', placeholder: t('global.optional') },
         { label: t('global.password'), value: 'ollama.password', type: 'password', placeholder: t('global.optional') }
       ]

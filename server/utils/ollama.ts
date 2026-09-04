@@ -24,7 +24,7 @@ async function pingOllama(endpoint: string) {
   if (res?.status !== 200) {
     const errMsg = [
       `ChatOllama is unable to establish a connection with ${endpoint}, please check:`,
-      '  1. Is Ollama server running ? (run `ollama serve` in terminal to start the server)',
+      '  1. Is Ollama server running ? (run `ollama serve` or `llmman serve` in terminal to start the server)',
       `  2. Can the server where ChatOllama is located connect to \`${endpoint}\` ?`
     ].join('\n')
 

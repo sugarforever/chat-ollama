@@ -18,6 +18,7 @@ English | [简体中文](README.zh-Hans.md)
 - **Groq**
 - **Moonshot**
 - **Ollama**
+- **llmman** (via the Ollama server setting, see [Using with llmman](#using-with-llmman))
 - **OpenAI API compatible service providers**
 
 ## Key Features
@@ -172,6 +173,18 @@ NUXT_MODEL_PROXY_URL=http://127.0.0.1:1080
 # Optional: Cohere for reranking
 COHERE_API_KEY=your_cohere_key
 ```
+
+### Using with llmman
+
+[llmman](https://github.com/llmmanorg/llmman) is a local model runner that serves the Ollama API (alongside OpenAI- and Anthropic-compatible ones) on port 17434, so ChatOllama can use it as a drop-in replacement for Ollama:
+
+1. Install and start llmman:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/llmmanorg/llmman/main/install.sh | sh
+   llmman serve
+   llmman pull gemma4   # or e.g. hf.co/unsloth/Qwen3.5-0.8B-GGUF
+   ```
+2. In ChatOllama go to **Settings → Servers → Ollama Server** and set the endpoint to `http://localhost:17434`.
 
 ## Feature Flags (Docker and .env)
 
