@@ -2,6 +2,9 @@
   "name": "chat-ollama",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "agent:example": "pnpm --filter @chatollama/agent-runtime example",
     "build": "nuxt build",
@@ -25,7 +28,7 @@
     "@types/jsdom": "^21.1.6",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/markdown-it": "^14.1.1",
-    "@types/node": "^20.14.9",
+    "@types/node": "24.13.3",
     "@types/ws": "^8.5.10",
     "h3": "^1.11.1",
     "nuxt": "^3.11.2",
@@ -64,7 +67,7 @@
     "@vueuse/core": "^10.11.0",
     "@vueuse/nuxt": "^10.11.0",
     "@zilliz/milvus2-sdk-node": "^2.3.5",
-    "ai": "6.0.276",
+    "ai": "7.0.93",
     "bcryptjs": "^3.0.2",
     "cheerio": "1.0.0-rc.12",
     "chromadb": "^2.2.1",

@@ -8,6 +8,11 @@ The package currently supports one tool-free streamed response through either
 OpenAI or an OpenAI-compatible endpoint. It does not contain a CLI/TUI, tools,
 persistence, Skills, compaction, MCP, or Web integration.
 
+## Requirements
+
+- Node.js 24 LTS (`>=24`)
+- pnpm
+
 ## Run the offline example
 
 From the repository root:

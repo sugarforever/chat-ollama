@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -15,13 +15,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/openai": "3.0.107",
-    "@ai-sdk/openai-compatible": "2.0.74",
-    "ai": "6.0.276",
+    "@ai-sdk/openai": "4.0.60",
+    "@ai-sdk/openai-compatible": "3.0.44",
+    "ai": "7.0.93",
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@types/node": "20.19.14",
+    "@types/node": "24.13.3",
     "tsx": "4.20.5",
     "typescript": "5.9.2",
     "vitest": "3.2.4"

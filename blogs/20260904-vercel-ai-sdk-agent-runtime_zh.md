@@ -9,23 +9,24 @@ date: 2026-09-04
 
 ChatOllama 已经支持很多模型，也有现成的 Web Agent 页面。但现有能力主要装配在 Nuxt API 和界面里，模型流、会话状态与客户端显示还没有一层可以单独使用的 Runtime。
 
-如果直接在新 CLI 里处理 AI SDK stream parts，CLI 很快就会知道 provider metadata、工具事件和 SDK 类型。以后再做 TUI 或 Web adapter，同样的转换还要重复一次。SDK 升级时，几个客户端也会一起变化。
+如果让 CLI 直接消费 AI SDK 的流式输出，它就会直接依赖 AI SDK 的消息结构和事件格式。以后增加 TUI 或 Web 客户端时，每个客户端都要重复做一遍转换；AI SDK 升级后，这些客户端也可能需要同时修改。
 
 这次先建立 `packages/agent-runtime`。AI SDK 可以留在包内，但包外只看到 ChatOllama 自己定义的消息、Session snapshot 和 RuntimeEvent。
 
 ## 版本选择
 
-仓库原来依赖 `ai@2.2.37`，业务源码里没有直接 import。升级看起来只是改一个版本号，实际还要同时考虑 Node.js 基线和 provider ABI。
+仓库原来依赖 `ai@2.2.37`，业务源码里没有直接 import。升级看起来只是改一个版本号，实际还要同时考虑 Node.js 基线和 Provider 包之间的兼容关系。
 
-开发时 npm registry 中最新的 AI SDK 7 要求 Node.js 22，而 ChatOllama 当前的 Runtime 目标是 Node.js 20。因此我没有直接追最新 major，而是锁定以下版本：
+[Node.js 发布计划](https://nodejs.org/en/about/previous-releases)显示，Node.js 20 已经结束维护，Node.js 24 是当前的 LTS 版本。最新稳定版 AI SDK 7 要求 Node.js 22 或更高版本。新的 Runtime 还没有正式客户端，此时升级的影响最小，因此这次把整个仓库的运行基线提升到 Node.js 24，并锁定以下版本：
 
 ```text
-ai@6.0.276
-@ai-sdk/openai@3.0.107
-@ai-sdk/openai-compatible@2.0.74
+Node.js 24.20.0
+ai@7.0.93
+@ai-sdk/openai@4.0.60
+@ai-sdk/openai-compatible@3.0.44
 ```
 
-这三个版本都支持 Node.js 20，并共同解析到 `@ai-sdk/provider@3.0.15`。`zod` 也升级到 provider packages 声明支持的 `3.25.76`。这样既完成了现代 AI SDK 的迁移，也没有悄悄抬高项目运行环境。
+三个 AI SDK 包共同解析到 `@ai-sdk/provider@4.0.10`，现有的 `zod@3.25.76` 也在它们声明支持的范围内。仓库根目录和 Runtime 包都声明 Node.js 24 为最低版本，Docker 镜像使用同一个 24.20.0 版本，避免开发环境与部署环境采用不同基线。
 
 ## 模型配置停在哪里
 
@@ -48,9 +49,11 @@ type ModelConfig =
     }
 ```
 
-内部 registry 分别调用 `createOpenAI` 与 `createOpenAICompatible`，返回 AI SDK 的 LanguageModel。这个返回类型没有从 package index 导出，AgentSession 也不接收 LanguageModel。正常调用者只需要 `createAgentSession({ model: config })`。
+这里采用的是“对内复用、对外自定义”的边界。内部 registry 分别调用 `createOpenAI` 与 `createOpenAICompatible`，返回 AI SDK 的 `LanguageModel`；Session 内部继续使用 `ModelMessage` 和 `streamText`，不重新实现 Provider 协议与流解析。`LanguageModel` 没有从 package index 导出，`AgentSession` 也不接收它。正常调用者只需要 `createAgentSession({ model: config })`。
 
 `model.started` 事件只保留 provider 与 model 两个字段。apiKey 和 baseURL 不会进入事件，也不会出现在 Session snapshot 里。
+
+对外的 `UserMessage`、`AssistantMessage` 和 `RuntimeEvent` 由 ChatOllama 定义，这样 CLI、TUI、Web 与存储层不会绑定某个 AI SDK 版本。当前消息的 `content` 只有字符串，因为这一阶段只处理纯文本问答；加入工具、图片或 `reasoning` 时，再根据 ChatOllama 的产品需要扩展消息 `parts`。
 
 ## streamText 之后的事件
 
@@ -135,6 +138,6 @@ pnpm agent:example
 git diff --check origin/main
 ```
 
-在 Node.js 20.20.2 下，当前 4 个测试文件中的 15 个测试通过，Runtime typecheck、完整 Nuxt build、离线示例和 diff check 也都通过。build 仍会显示仓库原有的 Browserslist、bundle size 与 import 警告，本次没有顺手修改这些不属于 Runtime 的问题。
+在 Node.js 24.20.0 下，当前 4 个测试文件中的 15 个测试通过，Runtime typecheck、完整 Nuxt build、离线示例和 diff check 也都通过。build 仍会显示仓库原有的 Browserslist、bundle size 与 import 警告；Node.js 24 还会指出现有 `nuxi@3.11.1` 使用了已弃用的 `fs.Stats` 构造器，但不会中断构建。本次没有升级这些不属于 Runtime 的工具链。
 
-工具调用、ToolLoopAgent、CLI/TUI、持久化、Skills、compaction、MCP 与 Web 集成都没有进入这个 PR。下一步做客户端时，它只需要订阅这里的 RuntimeEvent，不需要了解 AI SDK 的 stream parts。
+工具调用、ToolLoopAgent、CLI/TUI、持久化、Skills、compaction、MCP 与 Web 集成都没有进入这个 PR。下一步做客户端时，它只需要订阅这里的 `RuntimeEvent`，不需要了解 AI SDK 的流式事件格式。
