@@ -73,19 +73,6 @@ docker compose up
    pnpm dev
    ```
 
-### Agent Runtime 开发
-
-独立 Agent Runtime 不需要启动 Nuxt 应用，也不需要配置在线模型即可运行测试与示例：
-
-```bash
-pnpm test:agent
-pnpm typecheck:agent
-pnpm agent:example
-```
-
-公共事件 API、OpenAI 与 Ollama smoke test 命令见
-[`packages/agent-runtime/README.md`](./packages/agent-runtime/README.md)。
-
 ## 从 SQLite 迁移到 PostgreSQL
 
 如果您正在从使用 SQLite 的旧版本升级，请按照以下步骤迁移数据：
