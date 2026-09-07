@@ -6,7 +6,7 @@ import type {
   RuntimeEventListener,
   SessionMessage,
   SessionSnapshot,
-} from '@chatollama/agent-runtime';
+} from 'chatollama-agent-runtime';
 
 import { runCli } from '../src/cli.js';
 

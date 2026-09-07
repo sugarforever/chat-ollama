@@ -1,19 +1,39 @@
 {
-  "name": "@chatollama/agent-cli",
+  "name": "chatollama-agent",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "engines": {
     "node": ">=24"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sugarforever/chat-ollama.git",
+    "directory": "packages/agent-cli"
+  },
+  "bin": {
+    "chatollama-agent": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "types": "./dist/main.d.ts",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "demo": "node --no-warnings --import tsx examples/mock-runtime.ts",
-    "start": "node --no-warnings --import tsx src/main.ts",
+    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "dev": "node --no-warnings --import tsx src/main.ts",
+    "start": "node dist/main.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@chatollama/agent-runtime": "workspace:*"
+    "chatollama-agent-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.13.3",

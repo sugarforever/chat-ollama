@@ -1,4 +1,5 @@
-import { createAgentSession } from '@chatollama/agent-runtime';
+#!/usr/bin/env node
+import { createAgentSession } from 'chatollama-agent-runtime';
 
 import { runCli } from './cli.js';
 import { readModelConfig } from './config.js';

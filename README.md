@@ -10,6 +10,17 @@ English | [简体中文](README.zh-Hans.md)
 
 `ChatOllama` is an open source chatbot platform built with Nuxt 3, supporting a wide range of language models and advanced features including knowledge bases, realtime voice chat, and Model Context Protocol (MCP) integration.
 
+## Installable Agent CLI
+
+The standalone Agent CLI requires Node.js 24 or newer. Install one package and npm resolves the Runtime dependency:
+
+```bash
+npm install --global chatollama-agent
+chatollama-agent
+```
+
+See the [Agent CLI guide](./packages/agent-cli/README.md) for Ollama, OpenAI, local installation, and development commands.
+
 ## Supported Language Models
 
 - **OpenAI** / **Azure OpenAI**

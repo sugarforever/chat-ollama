@@ -1,103 +1,96 @@
 # ChatOllama Agent CLI
 
-`@chatollama/agent-cli` is the first terminal client for the ChatOllama Agent
-Runtime. It creates an `AgentSession`, sends terminal input through `prompt()`,
-and renders public `RuntimeEvent` values as they arrive.
+`chatollama-agent` is the installable terminal client for the ChatOllama Agent Runtime. It requires Node.js 24 or newer and talks to either a local Ollama server or OpenAI.
 
-The package uses Node.js `readline/promises`. It does not import Vercel AI SDK,
-Provider packages, or Provider stream types.
+## Install
 
-## Requirements
-
-- Node.js 24 LTS (`>=24`)
-- pnpm
-- Ollama or an OpenAI credential for the live CLI
-
-## Run the offline demo
-
-From the repository root:
+Install the CLI globally. npm installs its Runtime dependency automatically:
 
 ```bash
-pnpm install
-printf 'Hello\n/exit\n' | pnpm agent:cli:demo
+npm install --global chatollama-agent
+chatollama-agent
 ```
 
-The demo injects a mock implementation of the public `AgentSession` interface.
-It streams two `model.delta` events, makes no network request, and needs no
-credential.
+For a project-local installation:
 
-Example output:
-
-```text
-ChatOllama Agent CLI
-Type /exit to quit.
-
-You> Assistant (openai-compatible/mock-model)> Hello from the mock Runtime.
-You> Goodbye.
+```bash
+npm install chatollama-agent
+npx --no-install chatollama-agent
 ```
 
-Run state is written to stderr:
+Type `/exit` at the `You>` prompt to exit normally.
 
-```text
-[run demo-run-1] started
-[run demo-run-1] completed
+## Use Ollama
+
+Install and start [Ollama](https://ollama.com/download), then pull the default model:
+
+```bash
+ollama serve
 ```
 
-## Run with Ollama
-
-The live CLI defaults to Ollama's OpenAI-compatible endpoint and `qwen3:8b`:
+In another terminal:
 
 ```bash
 ollama pull qwen3:8b
-pnpm agent:cli
+chatollama-agent
 ```
 
-Override any model connection value when needed:
+The Ollama defaults are:
+
+- `AGENT_PROVIDER=ollama`
+- `AGENT_MODEL=qwen3:8b`
+- `AGENT_BASE_URL=http://localhost:11434/v1`
+- `AGENT_API_KEY=ollama`
+
+Override them when using another model or compatible endpoint:
 
 ```bash
 AGENT_PROVIDER=ollama \
 AGENT_MODEL='llama3.2' \
 AGENT_BASE_URL='http://localhost:11434/v1' \
 AGENT_API_KEY='ollama' \
-pnpm agent:cli
+chatollama-agent
 ```
 
-Ollama ignores the placeholder API key, but the OpenAI-compatible client accepts
-the connection in the same shape as other compatible endpoints.
+Ollama ignores the placeholder API key, but the OpenAI-compatible client requires a non-empty value.
 
-## Run with OpenAI
+## Use OpenAI
+
+Set the provider, model, and a valid API key:
 
 ```bash
 AGENT_PROVIDER=openai \
 AGENT_MODEL='gpt-5-mini' \
 OPENAI_API_KEY='replace-me' \
-pnpm agent:cli
+chatollama-agent
 ```
 
-`AGENT_API_KEY` can be used instead of `OPENAI_API_KEY`. `AGENT_BASE_URL` can
-override the OpenAI endpoint.
+`AGENT_API_KEY` can be used instead of `OPENAI_API_KEY`. `AGENT_BASE_URL` can override the default OpenAI endpoint.
 
-Type `/exit` at the `You>` prompt to close the client normally.
+The CLI rejects unsupported providers, empty model or base URL values, and a missing OpenAI API key. Error output never includes the configured secret.
 
-## Terminal event mapping
+## Runtime events
 
-- `run.started` and `run.completed` write run status to stderr.
-- `model.started` writes the assistant and model label.
-- Each `model.delta` is written to stdout immediately.
-- `run.failed` writes the Runtime's sanitized error to stderr.
-- `run.cancelled` writes cancellation status to stderr.
+The CLI creates an `AgentSession`, submits terminal input through `prompt()`, and renders public Runtime events as they arrive:
 
-The client does not parse Provider streams. It also does not add history
-persistence, `/new`, full Ctrl+C request cancellation, a full TUI, Tools,
-Skills, compaction, or Web integration.
+- `model.delta` text is streamed to stdout.
+- Run lifecycle and sanitized errors are written to stderr.
+- Provider streams are parsed only by the Runtime and its Vercel AI SDK dependencies.
 
-## Development checks
+This release does not add persistent or continuous sessions, `/new`, full Ctrl+C cancellation, a full TUI, Tools, Skills, compaction, or Web integration.
+
+## Repository development
+
+From the ChatOllama repository root:
 
 ```bash
+pnpm install --frozen-lockfile
+pnpm build:agent
+printf '/exit\n' | pnpm agent:cli
+printf 'Hello\n/exit\n' | pnpm agent:cli:demo
 pnpm test:agent
 pnpm typecheck:agent
-pnpm build
-printf 'Hello\n/exit\n' | pnpm agent:cli:demo
+pnpm test:agent:pack
 ```
 
-All CLI tests use a mock Runtime and run offline.
+The demo injects a mock implementation of the public `AgentSession` interface, makes no network request, and needs no credential. The package test builds real tarballs and installs them in a clean temporary directory.

@@ -1,0 +1,59 @@
+name: Publish Agent packages
+
+on:
+  push:
+    tags:
+      - 'agent-v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      NPM_CONFIG_PROVENANCE: 'true'
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install trusted-publishing npm CLI
+        run: npm install --global npm@11 && npm --version
+
+      - name: Test Agent packages
+        run: pnpm test:agent && pnpm test:agent:release
+
+      - name: Type-check Agent packages
+        run: pnpm typecheck:agent
+
+      - name: Build Agent packages
+        run: pnpm build:agent
+
+      - name: Test packed artifacts
+        run: pnpm test:agent:pack
+
+      - name: Verify release tag and package versions
+        run: node scripts/verify-agent-release-tag.mjs "$GITHUB_REF_NAME"
+
+      - name: Publish Runtime
+        run: pnpm --filter chatollama-agent-runtime publish --access public --provenance --no-git-checks
+
+      - name: Publish CLI
+        run: pnpm --filter chatollama-agent publish --access public --provenance --no-git-checks

@@ -6,15 +6,18 @@
     "node": ">=24"
   },
   "scripts": {
-    "agent:cli": "pnpm --filter @chatollama/agent-cli start",
-    "agent:cli:demo": "pnpm --filter @chatollama/agent-cli demo",
-    "agent:example": "pnpm --filter @chatollama/agent-runtime example",
-    "build": "nuxt build",
+    "agent:cli": "pnpm --filter chatollama-agent start",
+    "agent:cli:demo": "pnpm --filter chatollama-agent demo",
+    "agent:example": "pnpm --filter chatollama-agent-runtime example",
+    "build": "pnpm build:agent && nuxt build",
+    "build:agent": "pnpm --filter chatollama-agent-runtime build && pnpm --filter chatollama-agent build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test:agent": "pnpm --filter './packages/agent-*' test",
+    "test:agent": "pnpm --filter chatollama-agent-runtime build && pnpm --filter './packages/agent-*' test",
+    "test:agent:pack": "node scripts/test-agent-packages.mjs",
+    "test:agent:release": "node --test scripts/verify-agent-release-tag.spec.mjs",
     "typecheck:agent": "pnpm --filter './packages/agent-*' typecheck",
     "prisma-deploy": "prisma migrate deploy",
     "prisma-migrate": "prisma migrate dev",
@@ -42,6 +45,7 @@
     "vue": "^3.4.31",
     "vue-router": "^4.4.0"
   },
+  "packageManager": "pnpm@10.8.1",
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@iconify-json/heroicons": "^1.1.21",
