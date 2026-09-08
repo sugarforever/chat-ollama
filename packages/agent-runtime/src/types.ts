@@ -32,6 +32,38 @@ export interface OpenAICompatibleModelConfig {
 
 export type ModelConfig = OpenAIModelConfig | OpenAICompatibleModelConfig;
 
+export type ProviderId =
+  | 'ollama'
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'deepseek'
+  | 'openrouter';
+
+export interface AvailableModel {
+  readonly provider: ProviderId;
+  readonly model: string;
+  readonly baseURL?: string;
+}
+
+export interface DiscoveryWarning {
+  readonly provider: ProviderId;
+  readonly message: string;
+}
+
+export interface ModelDiscoveryResult {
+  readonly models: readonly AvailableModel[];
+  readonly warnings: readonly DiscoveryWarning[];
+}
+
+export interface DiscoverModelsOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly fetch?: typeof fetch;
+  readonly timeoutMs?: number;
+  readonly ollamaBaseURL?: string;
+  readonly openaiBaseURL?: string;
+}
+
 export interface CreateAgentSessionOptions {
   readonly id?: string;
   readonly model: ModelConfig;
