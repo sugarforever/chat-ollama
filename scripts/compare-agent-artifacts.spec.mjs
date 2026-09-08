@@ -1,9 +1,53 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { compareFileMaps } from './compare-agent-artifacts.mjs';
+import {
+  compareFileMaps,
+  retrySync,
+} from './compare-agent-artifacts.mjs';
 
 describe('published artifact comparison', () => {
+  it('retries a transient registry failure until the operation succeeds', () => {
+    let attempts = 0;
+
+    const result = retrySync(
+      () => {
+        attempts += 1;
+        if (attempts < 3) throw new Error('npm error code ETARGET');
+        return 'published';
+      },
+      {
+        attempts: 3,
+        delayMs: 0,
+        shouldRetry: error => error.message.includes('ETARGET'),
+      },
+    );
+
+    assert.equal(result, 'published');
+    assert.equal(attempts, 3);
+  });
+
+  it('does not retry a permanent artifact comparison failure', () => {
+    let attempts = 0;
+
+    assert.throws(
+      () =>
+        retrySync(
+          () => {
+            attempts += 1;
+            throw new Error('published bytes differ');
+          },
+          {
+            attempts: 3,
+            delayMs: 0,
+            shouldRetry: error => error.message.includes('ETARGET'),
+          },
+        ),
+      /published bytes differ/,
+    );
+    assert.equal(attempts, 1);
+  });
+
   it('accepts identical unpacked package files', () => {
     const files = new Map([
       ['package/package.json', Buffer.from('{"name":"example"}')],

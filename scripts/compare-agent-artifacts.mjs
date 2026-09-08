@@ -41,6 +41,24 @@ export function compareFileMaps(packageName, localFiles, publishedFiles) {
   }
 }
 
+export function retrySync(
+  operation,
+  { attempts, delayMs, shouldRetry, onRetry = () => {} },
+) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      if (attempt === attempts || !shouldRetry(error)) throw error;
+      onRetry(error, attempt);
+      if (delayMs > 0) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+      }
+    }
+  }
+  throw new Error('Retry operation exhausted unexpectedly');
+}
+
 function run(command, args, cwd) {
   const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
   if (result.status !== 0) {
@@ -85,10 +103,27 @@ function comparePackage(definition, version, temporaryDirectory) {
     ['pack', '--pack-destination', localPack],
     join(repositoryRoot, definition.directory),
   );
-  run(
-    'npm',
-    ['pack', `${definition.name}@${version}`, '--pack-destination', remotePack],
-    repositoryRoot,
+  retrySync(
+    () =>
+      run(
+        'npm',
+        [
+          'pack',
+          `${definition.name}@${version}`,
+          '--pack-destination',
+          remotePack,
+        ],
+        repositoryRoot,
+      ),
+    {
+      attempts: 13,
+      delayMs: 5_000,
+      shouldRetry: error => /\b(?:ETARGET|E404)\b/.test(error.message),
+      onRetry: (_error, attempt) =>
+        console.warn(
+          `${definition.name}@${version} is not visible yet; retrying npm pack (${attempt}/12).`,
+        ),
+    },
   );
   run('tar', ['-xzf', onlyTarball(localPack), '-C', localFiles], repositoryRoot);
   run('tar', ['-xzf', onlyTarball(remotePack), '-C', remoteFiles], repositoryRoot);
