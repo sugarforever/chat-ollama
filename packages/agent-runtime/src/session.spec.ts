@@ -25,6 +25,7 @@ describe('AgentSession streaming', () => {
     expect(session.getSnapshot()).toEqual({
       id: 'configured-session',
       messages: [],
+      model: { provider: 'openai-compatible', model: 'qwen3:8b' },
     });
     expect(JSON.stringify(session.getSnapshot())).not.toContain(
       'configuration-secret',
@@ -96,6 +97,7 @@ describe('AgentSession streaming', () => {
         { role: 'user', content: 'Say hello' },
         { role: 'assistant', content: 'Hello world' },
       ],
+      model: { provider: 'openai', model: 'mock-model' },
     });
     expect(model.doStreamCalls[0]?.prompt).toEqual([
       { role: 'user', content: [{ type: 'text', text: 'Say hello' }] },
@@ -255,6 +257,106 @@ describe('AgentSession streaming', () => {
       { role: 'user', content: 'First' },
     ]);
     expect(model.doStreamCalls).toHaveLength(1);
+  });
+
+  it('switches an idle session model, updates its snapshot, and publishes one typed change', () => {
+    const firstModel = createTextModel(['first answer']);
+    const secondModel = createTextModel(['second answer']);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first-model' },
+      createModel: config => {
+        if (config.model === 'second-model') {
+          return secondModel;
+        }
+        throw new Error(`Unexpected model: ${config.model}`);
+      },
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    session.setModel({ provider: 'openai', model: 'second-model' });
+
+    expect(session.getSnapshot()).toEqual({
+      id: 'session-1',
+      messages: [],
+      model: { provider: 'openai', model: 'second-model' },
+    });
+    expect(events).toEqual([
+      {
+        type: 'model.changed',
+        previous: { provider: 'openai', model: 'first-model' },
+        current: { provider: 'openai', model: 'second-model' },
+      },
+    ]);
+  });
+
+  it('uses the switched controlled model for the next prompt while retaining history', async () => {
+    const firstModel = createTextModel(['first answer']);
+    const secondModel = createTextModel(['second answer']);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first-model' },
+      createModel: config => {
+        if (config.model === 'second-model') {
+          return secondModel;
+        }
+        throw new Error(`Unexpected model: ${config.model}`);
+      },
+    });
+
+    await session.prompt('First prompt');
+    session.setModel({ provider: 'openai', model: 'second-model' });
+    await session.prompt('Second prompt');
+
+    expect(firstModel.doStreamCalls).toHaveLength(1);
+    expect(secondModel.doStreamCalls).toHaveLength(1);
+    expect(secondModel.doStreamCalls[0]?.prompt).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'First prompt' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'first answer' }] },
+      { role: 'user', content: [{ type: 'text', text: 'Second prompt' }] },
+    ]);
+    expect(session.getSnapshot().messages).toEqual([
+      { role: 'user', content: 'First prompt' },
+      { role: 'assistant', content: 'first answer' },
+      { role: 'user', content: 'Second prompt' },
+      { role: 'assistant', content: 'second answer' },
+    ]);
+  });
+
+  it('rejects model switching during an active stream without replacing the selected model', async () => {
+    const firstModel = createTextModel(['first answer'], 20);
+    const secondModel = createTextModel(['second answer']);
+    const createModel = vi.fn(() => secondModel);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first-model' },
+      createModel,
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    const prompt = session.prompt('First prompt');
+
+    expect(() =>
+      session.setModel({ provider: 'openai', model: 'second-model' }),
+    ).toThrow('Session has an active run');
+    expect(session.getSnapshot().model).toEqual({
+      provider: 'openai',
+      model: 'first-model',
+    });
+    expect(secondModel.doStreamCalls).toHaveLength(0);
+    expect(createModel).not.toHaveBeenCalled();
+    expect(events.some(event => event.type === 'model.changed')).toBe(false);
+
+    session.cancel();
+    await prompt;
+    session.setModel({ provider: 'openai', model: 'second-model' });
+    expect(createModel).toHaveBeenCalledExactlyOnceWith({ provider: 'openai', model: 'second-model' });
+    expect(session.getSnapshot().model).toEqual({ provider: 'openai', model: 'second-model' });
   });
 });
 

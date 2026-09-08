@@ -2,6 +2,8 @@ import { setTimeout } from 'node:timers/promises';
 
 import type {
   AgentSession,
+  ModelConfig,
+  ModelDescriptor,
   RuntimeEvent,
   RuntimeEventListener,
   SessionMessage,
@@ -14,17 +16,26 @@ class MockRuntime implements AgentSession {
   readonly #listeners = new Set<RuntimeEventListener>();
   readonly #messages: SessionMessage[] = [];
   #runNumber = 0;
+  #model: ModelDescriptor = {
+    provider: 'openai-compatible',
+    model: 'mock-model',
+  };
 
   getSnapshot(): SessionSnapshot {
     return {
       id: 'demo-session',
       messages: this.#messages.map(message => ({ ...message })),
+      model: { ...this.#model },
     };
   }
 
   subscribe(listener: RuntimeEventListener): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
+  }
+
+  setModel(config: ModelConfig): void {
+    this.#model = { provider: config.provider, model: config.model };
   }
 
   async prompt(input: string): Promise<void> {
@@ -34,7 +45,7 @@ class MockRuntime implements AgentSession {
     this.#publish({
       type: 'model.started',
       runId,
-      model: { provider: 'openai-compatible', model: 'mock-model' },
+      model: this.#model,
     });
 
     const deltas = ['Hello from ', 'the mock Runtime.'];

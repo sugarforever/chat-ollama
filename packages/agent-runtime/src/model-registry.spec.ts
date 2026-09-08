@@ -1,9 +1,113 @@
 import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createModelConfig } from './index.js';
 import { createLanguageModel, describeModel } from './model-registry.js';
+import type { AvailableModel, ModelConfig } from './types.js';
 
 describe('model registry', () => {
+  const providerCases = [
+    {
+      name: 'OpenAI',
+      selection: { provider: 'openai', model: 'gpt-test' },
+      env: { OPENAI_API_KEY: 'openai-secret' },
+      config: {
+        provider: 'openai',
+        model: 'gpt-test',
+        apiKey: 'openai-secret',
+      },
+      providerId: 'openai.responses',
+    },
+    {
+      name: 'Anthropic',
+      selection: { provider: 'anthropic', model: 'claude-test' },
+      env: { ANTHROPIC_API_KEY: 'anthropic-secret' },
+      config: {
+        provider: 'anthropic',
+        model: 'claude-test',
+        apiKey: 'anthropic-secret',
+      },
+      providerId: 'anthropic.messages',
+    },
+    {
+      name: 'Google',
+      selection: { provider: 'google', model: 'gemini-test' },
+      env: { GEMINI_API_KEY: 'google-secret' },
+      config: {
+        provider: 'google',
+        model: 'gemini-test',
+        apiKey: 'google-secret',
+      },
+      providerId: 'google.generative-ai',
+    },
+    {
+      name: 'Ollama',
+      selection: {
+        provider: 'ollama',
+        model: 'qwen3:8b',
+        baseURL: 'http://ollama.example.test/v1',
+      },
+      env: {},
+      config: {
+        provider: 'ollama',
+        name: 'ollama',
+        model: 'qwen3:8b',
+        baseURL: 'http://ollama.example.test/v1',
+        apiKey: 'ollama',
+      },
+      providerId: 'ollama.chat',
+    },
+    {
+      name: 'DeepSeek',
+      selection: { provider: 'deepseek', model: 'deepseek-chat' },
+      env: { DEEPSEEK_API_KEY: 'deepseek-secret' },
+      config: {
+        provider: 'deepseek',
+        name: 'deepseek',
+        model: 'deepseek-chat',
+        baseURL: 'https://api.deepseek.com/v1',
+        apiKey: 'deepseek-secret',
+      },
+      providerId: 'deepseek.chat',
+    },
+    {
+      name: 'OpenRouter',
+      selection: { provider: 'openrouter', model: 'openai/gpt-test' },
+      env: { OPENROUTER_API_KEY: 'openrouter-secret' },
+      config: {
+        provider: 'openrouter',
+        name: 'openrouter',
+        model: 'openai/gpt-test',
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: 'openrouter-secret',
+      },
+      providerId: 'openrouter.chat',
+    },
+  ] satisfies readonly {
+    readonly name: string;
+    readonly selection: AvailableModel;
+    readonly env: NodeJS.ProcessEnv;
+    readonly config: ModelConfig;
+    readonly providerId: string;
+  }[];
+
+  it.each(providerCases)('resolves and constructs the requested $name model', ({
+    selection,
+    env,
+    config,
+    providerId,
+  }) => {
+    const resolved = createModelConfig(selection, env);
+
+    expect(resolved).toEqual(config);
+    const model = createLanguageModel(resolved);
+    if (typeof model === 'string') {
+      throw new Error('Expected the registry to construct a model instance');
+    }
+    expect(model.provider).toBe(providerId);
+    expect(model.modelId).toBe(selection.model);
+  });
+
   it('creates the requested OpenAI model', () => {
     const model = createLanguageModel({
       provider: 'openai',
@@ -87,16 +191,15 @@ describe('model registry', () => {
   });
 
   it('describes a configured model without credentials or endpoint details', () => {
-    const descriptor = describeModel({
-      provider: 'openai-compatible',
-      name: 'private-endpoint',
-      model: 'model-1',
-      baseURL: 'https://models.example.test/v1?token=url-secret',
-      apiKey: 'api-secret',
-    });
+    const descriptor = describeModel(
+      createModelConfig(
+        { provider: 'deepseek', model: 'model-1' },
+        { DEEPSEEK_API_KEY: 'api-secret' },
+      ),
+    );
 
     expect(descriptor).toEqual({
-      provider: 'openai-compatible',
+      provider: 'deepseek',
       model: 'model-1',
     });
     expect(JSON.stringify(descriptor)).not.toContain('secret');

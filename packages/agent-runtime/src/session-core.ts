@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 
 import { streamText, type LanguageModel, type ModelMessage } from 'ai';
 
+import { createLanguageModel, describeModel } from './model-registry.js';
 import type {
   AgentSession,
   AssistantMessage,
   ModelDescriptor,
+  ModelConfig,
   RuntimeEvent,
   RuntimeEventListener,
   SessionMessage,
@@ -17,24 +19,33 @@ interface CreateAgentSessionWithModelOptions {
   readonly id: string;
   readonly model: LanguageModel;
   readonly descriptor: ModelDescriptor;
+  readonly createModel?: (config: ModelConfig) => LanguageModel;
   readonly generateId?: () => string;
+}
+
+interface CurrentModel {
+  readonly model: LanguageModel;
+  readonly descriptor: ModelDescriptor;
 }
 
 class InMemoryAgentSession implements AgentSession {
   readonly #id: string;
-  readonly #model: LanguageModel;
-  readonly #descriptor: ModelDescriptor;
+  readonly #createModel: (config: ModelConfig) => LanguageModel;
   readonly #generateId: () => string;
   readonly #listeners = new Set<RuntimeEventListener>();
   readonly #messages: SessionMessage[] = [];
+  #currentModel: CurrentModel;
   #activeRun:
     | { readonly runId: string; readonly controller: AbortController }
     | undefined;
 
   constructor(options: CreateAgentSessionWithModelOptions) {
     this.#id = options.id;
-    this.#model = options.model;
-    this.#descriptor = options.descriptor;
+    this.#currentModel = {
+      model: options.model,
+      descriptor: options.descriptor,
+    };
+    this.#createModel = options.createModel ?? createLanguageModel;
     this.#generateId = options.generateId ?? randomUUID;
   }
 
@@ -42,12 +53,31 @@ class InMemoryAgentSession implements AgentSession {
     return {
       id: this.#id,
       messages: this.#messages.map(message => ({ ...message })),
+      model: { ...this.#currentModel.descriptor },
     };
   }
 
   subscribe(listener: RuntimeEventListener): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
+  }
+
+  setModel(config: ModelConfig): void {
+    if (this.#activeRun !== undefined) {
+      throw new Error('Session has an active run');
+    }
+
+    const current: CurrentModel = {
+      model: this.#createModel(config),
+      descriptor: describeModel(config),
+    };
+    const previous = this.#currentModel.descriptor;
+    this.#currentModel = current;
+    this.#publish({
+      type: 'model.changed',
+      previous,
+      current: current.descriptor,
+    });
   }
 
   async prompt(input: string): Promise<void> {
@@ -65,7 +95,7 @@ class InMemoryAgentSession implements AgentSession {
     this.#publish({
       type: 'model.started',
       runId,
-      model: this.#descriptor,
+      model: this.#currentModel.descriptor,
     });
 
     const messages = this.#messages.map(message => ({
@@ -76,7 +106,7 @@ class InMemoryAgentSession implements AgentSession {
 
     try {
       const result = streamText({
-        model: this.#model,
+        model: this.#currentModel.model,
         messages,
         abortSignal: controller.signal,
         onError: ({ error }) => {

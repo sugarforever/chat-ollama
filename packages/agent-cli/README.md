@@ -1,28 +1,62 @@
 # ChatOllama Agent CLI
 
-`chatollama-agent` is the installable terminal client for the ChatOllama Agent Runtime. It requires Node.js 24 or newer and talks to either a local Ollama server or OpenAI.
+`chatollama-agent` is the installable terminal client for the ChatOllama Agent Runtime. It requires Node.js 24 or newer.
 
-## Install
-
-Install the CLI globally. npm installs its Runtime dependency automatically:
+## Install and run
 
 ```bash
 npm install --global chatollama-agent
 chatollama-agent
 ```
 
-For a project-local installation:
+For a project-local installation, run `npm install chatollama-agent`, then `npx --no-install chatollama-agent`.
 
-```bash
-npm install chatollama-agent
-npx --no-install chatollama-agent
+Both stdin and stdout must be TTYs to enable the pi-tui editor, slash-command completion, streaming transcript, and model picker. Type `/` for completion. `/models` opens a picker with the current model marked, ↑/↓ navigation, Enter to select, and Escape to cancel. `/exit` or Ctrl+C exits. Redirected input or output, or a truthy `CI` environment variable, uses plain line mode with no ANSI sequences. Empty, `false`, and `0` values of `CI` do not force plain mode (case and surrounding whitespace are ignored).
+
+In plain mode, `/models` prints models sorted by provider and model, marks the current selection, and accepts a listed number. An empty line cancels selection. Both modes accept `/model <provider>/<model-id>` directly; IDs may contain slashes, for example `/model openrouter/openai/gpt-5-mini`. Invalid selections leave the current model unchanged. Successful selections affect the next request, retain in-memory history, and save the next startup default. Switching during an active run is rejected.
+
+## Providers and credentials
+
+| Provider | Credential / availability |
+| --- | --- |
+| Ollama | Reachable local service; installed models from `/api/tags`; no secret required |
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google Gemini | `GEMINI_API_KEY`, then `GOOGLE_GENERATIVE_AI_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| OpenRouter | `OPENROUTER_API_KEY` |
+
+Blank credentials are ignored. Configured remote providers contribute a small built-in catalog. OpenAI also queries `/v1/models`, admitting only an explicit set of text Responses model families and their dated snapshots; image, embedding, audio, realtime, and unknown IDs are excluded from automatic discovery. `AGENT_MODEL` remains available for explicit model overrides. Ollama lists actual installed models. Catalog availability means a credential is configured, not that the account has been verified or can access every listed model.
+
+Each network discovery has a two-second timeout. A failed provider produces a sanitized warning while other providers and `/exit` remain usable; OpenAI's built-in catalog survives discovery failure. With no credentials and no Ollama server, startup still succeeds and `/models` explains that credentials are needed. The empty-list compatibility fallback is `ollama/qwen3:8b`; it is not represented as an installed model. Starting the CLI and selecting a model do not generate a paid model response.
+
+## Configuration precedence
+
+Explicit `AGENT_PROVIDER` or `AGENT_MODEL` selects the startup model ahead of a saved preference. Without either, a still-available saved selection wins; otherwise the first available model sorted by provider and model is used. An unavailable saved model produces a warning. With no available models, the legacy Ollama selection is retained so the command loop can start.
+
+`AGENT_PROVIDER` supports `ollama`, `openai`, `anthropic`, `google`, `deepseek`, and `openrouter`. An explicit provider without a model uses its default: respectively `qwen3:8b`, `gpt-5-mini`, `claude-sonnet-4-5`, `gemini-2.5-flash`, `deepseek-chat`, or `openai/gpt-5-mini`. `AGENT_MODEL` alone uses Ollama.
+
+`AGENT_BASE_URL` and `AGENT_API_KEY` override the endpoint and credential of the startup selection, including a restored selection. These two overrides alone do not replace its provider/model identity. Startup reads validated saved endpoint metadata before discovering Ollama or OpenAI models. `AGENT_BASE_URL` takes priority for discovery of the explicit provider, the saved provider when no provider/model override is set, or Ollama by default. For Ollama, `/v1` is removed before requesting `/api/tags`. `AGENT_API_KEY` does not enable a provider's discovery catalog; configure the provider's mapped credential for that. Later `/model` selections use their discovered endpoint and mapped provider credential. Secrets are never stored in preferences or exposed by Runtime events.
+
+## Saved model preference
+
+| Platform | File |
+| --- | --- |
+| macOS | `~/Library/Application Support/ChatOllama/agent.json` |
+| Linux / other Unix | `$XDG_CONFIG_HOME/ChatOllama/agent.json`, or `~/.config/ChatOllama/agent.json` |
+| Windows | `%APPDATA%\ChatOllama\agent.json`, or `%USERPROFILE%\AppData\Roaming\ChatOllama\agent.json` |
+
+The minimum schema is:
+
+```json
+{"provider":"ollama","model":"qwen3:8b","baseURL":"http://localhost:11434/v1"}
 ```
 
-Type `/exit` at the `You>` prompt to exit normally.
+`baseURL` is optional. Only HTTP(S) endpoints without credentials, query strings, or fragments are saved. No other fields, API keys, or conversations are persisted. Writes use a temporary file and atomic rename, with mode `0600` where supported. Missing files are normal; malformed, unreadable, or unsafe preferences produce a warning and are ignored. If saving fails, the new model remains active for this session and the CLI reports that it could not save the default.
 
-## Use Ollama
+## Ollama demo
 
-Install and start [Ollama](https://ollama.com/download), then pull the default model:
+Install [Ollama](https://ollama.com/download), then run its server in one terminal:
 
 ```bash
 ollama serve
@@ -32,65 +66,45 @@ In another terminal:
 
 ```bash
 ollama pull qwen3:8b
-chatollama-agent
+AGENT_PROVIDER=ollama AGENT_MODEL=qwen3:8b chatollama-agent
 ```
 
-The Ollama defaults are:
-
-- `AGENT_PROVIDER=ollama`
-- `AGENT_MODEL=qwen3:8b`
-- `AGENT_BASE_URL=http://localhost:11434/v1`
-- `AGENT_API_KEY=ollama`
-
-Override them when using another model or compatible endpoint:
+To exercise discovery and selection without requesting a response:
 
 ```bash
-AGENT_PROVIDER=ollama \
-AGENT_MODEL='llama3.2' \
-AGENT_BASE_URL='http://localhost:11434/v1' \
-AGENT_API_KEY='ollama' \
-chatollama-agent
+printf '/models\n/model ollama/qwen3:8b\n/exit\n' | chatollama-agent
 ```
 
-Ollama ignores the placeholder API key, but the OpenAI-compatible client requires a non-empty value.
+For a custom endpoint, set `AGENT_PROVIDER=ollama AGENT_BASE_URL=http://localhost:11434/v1`. Ollama uses the non-secret compatibility key `ollama` unless overridden.
 
-## Use OpenAI
-
-Set the provider, model, and a valid API key:
+## OpenAI demo
 
 ```bash
-AGENT_PROVIDER=openai \
-AGENT_MODEL='gpt-5-mini' \
-OPENAI_API_KEY='replace-me' \
-chatollama-agent
+export OPENAI_API_KEY='replace-me'
+AGENT_PROVIDER=openai AGENT_MODEL=gpt-5-mini chatollama-agent
 ```
 
-`AGENT_API_KEY` can be used instead of `OPENAI_API_KEY`. `AGENT_BASE_URL` can override the default OpenAI endpoint.
+Enter a prompt to request a streamed response, or use only commands to inspect and select:
 
-The CLI rejects unsupported providers before startup. Provider request failures are reported through a sanitized Runtime error and do not print the configured secret.
+```bash
+printf '/models\n/model openai/gpt-5-mini\n/exit\n' | chatollama-agent
+```
 
-## Runtime events
+Replace the placeholder with your key locally. Discovery can contact OpenAI's models endpoint; these command-only examples do not request model generation.
 
-The CLI creates an `AgentSession`, submits terminal input through `prompt()`, and renders public Runtime events as they arrive:
+## Runtime boundary and development
 
-- `model.delta` text is streamed to stdout.
-- Run lifecycle and sanitized errors are written to stderr.
-- Provider streams are parsed only by the Runtime and its Vercel AI SDK dependencies.
+The CLI consumes public `AgentSession` events and the Runtime's discovery/resolver API. Provider construction and stream parsing stay in the Runtime. pi-tui is imported only by the interactive adapter. Plain mode streams response text to stdout and lifecycle events, startup warnings, and sanitized request errors to stderr. Conversation history remains process-local; Tools, Skills, compaction, and Web integration are outside this feature.
 
-This release does not add persistent or continuous sessions, `/new`, full Ctrl+C cancellation, a full TUI, Tools, Skills, compaction, or Web integration.
-
-## Repository development
-
-From the ChatOllama repository root:
+From the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm build:agent
-printf '/exit\n' | pnpm agent:cli
-printf 'Hello\n/exit\n' | pnpm agent:cli:demo
 pnpm test:agent
 pnpm typecheck:agent
+pnpm build:agent
 pnpm test:agent:pack
+printf 'Hello\n/exit\n' | pnpm agent:cli:demo
 ```
 
-The demo injects a mock implementation of the public `AgentSession` interface, makes no network request, and needs no credential. The package test builds real tarballs and installs them in a clean temporary directory.
+Tests use fake transports and virtual terminals. The offline demo uses a mock public `AgentSession`. The package smoke test installs actual tarballs in a clean temporary project and exercises `/models`, numeric selection, `/model`, and `/exit` with fake discovery and no paid API calls.

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
@@ -32,6 +32,20 @@ function pack(packageDirectory) {
   const tarballName = readdirSync(temporaryDirectory).find(name => !before.has(name));
   assert.ok(tarballName, `pnpm pack did not create a tarball for ${packageDirectory}`);
   return join(temporaryDirectory, tarballName);
+}
+
+function runInstalledCli(command, args, options) {
+  const result = spawnSync(command, args, {
+    ...options,
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 10_000,
+  });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, 'Installed CLI must exit successfully');
+  assert.doesNotMatch(result.stdout, /\x1b|validation-placeholder/);
+  assert.doesNotMatch(result.stderr, /\x1b|validation-placeholder/);
+  return result;
 }
 
 function inspectTarball(tarball, expected) {
@@ -119,26 +133,49 @@ try {
     }
   }
 
+  const fakeDiscovery = `globalThis.fetch = async input => {
+    const url = String(input);
+    if (url === 'http://localhost:11434/api/tags') return Response.json({ models: [{ name: 'pack-model' }, { name: 'pack-second' }] });
+    if (url === 'https://api.openai.com/v1/models') return Response.json({ data: [{ id: 'gpt-5-nano' }, { id: 'text-embedding-3-small' }] });
+    throw new Error('Unexpected network request in artifact test');
+  };`;
   const environment = {
     ...process.env,
+    HOME: join(temporaryDirectory, 'home'),
+    USERPROFILE: join(temporaryDirectory, 'home'),
+    APPDATA: join(temporaryDirectory, 'config'),
+    XDG_CONFIG_HOME: join(temporaryDirectory, 'config'),
     AGENT_PROVIDER: 'ollama',
+    AGENT_MODEL: 'pack-model',
+    AGENT_BASE_URL: '',
+    AGENT_API_KEY: '',
+    OPENAI_API_KEY: '',
+    ANTHROPIC_API_KEY: '',
+    GEMINI_API_KEY: '',
+    GOOGLE_GENERATIVE_AI_API_KEY: '',
+    DEEPSEEK_API_KEY: '',
+    OPENROUTER_API_KEY: '',
+    NODE_OPTIONS: `--import=data:text/javascript,${encodeURIComponent(fakeDiscovery)}`,
     npm_config_cache: join(temporaryDirectory, 'npm-cache'),
   };
-  execFileSync(executable, [], {
+  const pipeResult = runInstalledCli(executable, [], {
     cwd: installDirectory,
     env: environment,
-    input: '/exit\n',
-    stdio: ['pipe', 'pipe', 'pipe'],
-    timeout: 10_000,
+    input: '/models\n2\n/models\n/exit\n',
   });
-  execFileSync('npx', ['--no-install', 'chatollama-agent'], {
+  assert.match(pipeResult.stdout, /1\. ollama\/pack-model \(current\)/);
+  assert.match(pipeResult.stdout, /Switched to ollama\/pack-second\./);
+  assert.match(pipeResult.stdout, /2\. ollama\/pack-second \(current\)/);
+  assert.match(pipeResult.stdout, /Goodbye\./);
+  assert.equal(pipeResult.stderr, '');
+  const npxResult = runInstalledCli('npx', ['--no-install', 'chatollama-agent'], {
     cwd: installDirectory,
     env: environment,
-    input: '/exit\n',
-    stdio: ['pipe', 'pipe', 'pipe'],
-    timeout: 10_000,
+    input: '/model ollama/pack-model\n/models\n/exit\n',
   });
-  execFileSync(executable, [], {
+  assert.match(npxResult.stdout, /Switched to ollama\/pack-model\./);
+  assert.match(npxResult.stdout, /ollama\/pack-model \(current\)/);
+  const remoteResult = runInstalledCli(executable, [], {
     cwd: installDirectory,
     env: {
       ...environment,
@@ -146,10 +183,12 @@ try {
       AGENT_MODEL: 'gpt-5-mini',
       OPENAI_API_KEY: 'validation-placeholder',
     },
-    input: '/exit\n',
-    stdio: ['pipe', 'pipe', 'pipe'],
-    timeout: 10_000,
+    input: '/models\n/model openai/gpt-5-nano\n/models\n/exit\n',
   });
+  assert.match(remoteResult.stdout, /Switched to openai\/gpt-5-nano\./);
+  assert.match(remoteResult.stdout, /openai\/gpt-5-nano \(current\)/);
+  assert.doesNotMatch(remoteResult.stdout, /text-embedding/);
+  assert.equal(remoteResult.stderr, '');
 
   completed = true;
   console.log('Agent package tarballs passed clean-install checks.');
