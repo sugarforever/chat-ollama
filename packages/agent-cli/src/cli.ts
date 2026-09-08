@@ -22,7 +22,7 @@ export interface RunCliOptions {
 
 export async function runCli(options: RunCliOptions): Promise<void> {
   const { session, input, output, error } = options;
-  const readline = createInterface({ input, output });
+  const readline = createInterface({ input, output, terminal: false });
   const handleCommand = createCommandHandler({
     session,
     availableModels: options.availableModels ?? [],
