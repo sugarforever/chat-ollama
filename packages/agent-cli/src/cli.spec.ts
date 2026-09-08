@@ -70,8 +70,24 @@ describe('Runtime event-driven CLI', () => {
     await cli;
 
     expect(runtime.inputs).toEqual([]);
+    expect(runtime.cancelCalls).toBe(1);
     expect(terminal.stdout()).toContain('Goodbye.\n');
     expect(runtime.listenerCount).toBe(0);
+  });
+
+  it('routes /new through the Runtime and keeps plain output free of ANSI', async () => {
+    const runtime = new ControlledRuntime();
+    const terminal = createTerminal();
+    const cli = runCli({ session: runtime, ...terminal.streams });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.end('/new\n/exit\n');
+    await cli;
+
+    expect(runtime.resetCalls).toBe(1);
+    expect(runtime.inputs).toEqual([]);
+    expect(terminal.stdout()).toContain('Conversation cleared.\n');
+    expect(`${terminal.stdout()}${terminal.stderr()}`).not.toContain('\x1b');
   });
 
   it('cleans up the Runtime subscription when terminal input closes', async () => {
@@ -320,6 +336,8 @@ const MODELS = [
 
 class ControlledRuntime implements AgentSession {
   readonly inputs: string[] = [];
+  cancelCalls = 0;
+  resetCalls = 0;
   readonly #listeners = new Set<RuntimeEventListener>();
   #resolvePrompt: (() => void) | undefined;
   #rejectPrompt: ((error: Error) => void) | undefined;
@@ -342,6 +360,10 @@ class ControlledRuntime implements AgentSession {
     this.#model = { provider: config.provider, model: config.model };
   }
 
+  reset(): void {
+    this.resetCalls += 1;
+  }
+
   prompt(input: string): Promise<void> {
     this.inputs.push(input);
     return new Promise((resolve, reject) => {
@@ -350,7 +372,7 @@ class ControlledRuntime implements AgentSession {
     });
   }
 
-  cancel(): void {}
+  cancel(): void { this.cancelCalls += 1; }
 
   emit(event: RuntimeEvent): void {
     for (const listener of this.#listeners) {

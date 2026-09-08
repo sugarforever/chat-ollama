@@ -11,9 +11,9 @@ chatollama-agent
 
 For a project-local installation, run `npm install chatollama-agent`, then `npx --no-install chatollama-agent`.
 
-Both stdin and stdout must be TTYs to enable the pi-tui editor, slash-command completion, streaming transcript, and model picker. Type `/` for completion. `/models` opens a picker with the current model marked, ↑/↓ navigation, Enter to select, and Escape to cancel. `/exit` or Ctrl+C exits. Redirected input or output, or a truthy `CI` environment variable, uses plain line mode with no ANSI sequences. Empty, `false`, and `0` values of `CI` do not force plain mode (case and surrounding whitespace are ignored).
+Both stdin and stdout must be TTYs to enable the pi-tui editor, slash-command completion, streaming transcript, and model picker. Type `/` for completion. `/models` opens a picker with the current model marked, ↑/↓ navigation, Enter to select, and Escape to cancel. `/new` clears process-local conversation history while preserving the selected model and non-secret configuration. `/exit` exits cleanly. Ctrl+C cancels an active model request and returns to the editor; Ctrl+C while idle exits. Redirected input or output, or a truthy `CI` environment variable, uses plain line mode with no ANSI sequences. Empty, `false`, and `0` values of `CI` do not force plain mode (case and surrounding whitespace are ignored).
 
-In plain mode, `/models` prints models sorted by provider and model, marks the current selection, and accepts a listed number. An empty line cancels selection. Both modes accept `/model <provider>/<model-id>` directly; IDs may contain slashes, for example `/model openrouter/openai/gpt-5-mini`. Invalid selections leave the current model unchanged. Successful selections affect the next request, retain in-memory history, and save the next startup default. Switching during an active run is rejected.
+In plain mode, `/models` prints models sorted by provider and model, marks the current selection, and accepts a listed number. An empty line cancels selection. `/new` and `/exit` have the same newline-delimited command behavior without ANSI output. Both modes accept `/model <provider>/<model-id>` directly; IDs may contain slashes, for example `/model openrouter/openai/gpt-5-mini`. Invalid selections leave the current model unchanged. Successful selections affect the next request, retain in-memory history, and save the next startup default. Model switching and conversation reset are both rejected during an active run, so neither can overwrite active-run state.
 
 ## Providers and credentials
 
@@ -94,7 +94,7 @@ Replace the placeholder with your key locally. Discovery can contact OpenAI's mo
 
 ## Runtime boundary and development
 
-The CLI consumes public `AgentSession` events and the Runtime's discovery/resolver API. Provider construction and stream parsing stay in the Runtime. pi-tui is imported only by the interactive adapter. Plain mode streams response text to stdout and lifecycle events, startup warnings, and sanitized request errors to stderr. Conversation history remains process-local; Tools, Skills, compaction, and Web integration are outside this feature.
+The CLI consumes public `AgentSession` events and the Runtime's discovery/resolver API. Provider construction, structured message history, and `AbortController` ownership stay in the Runtime. pi-tui is imported only by the interactive adapter. Plain mode streams response text to stdout and lifecycle events, startup warnings, and sanitized request errors to stderr. Cancelled and failed runs do not create a completed assistant message. Conversation history remains process-local; persistence, multiple Sessions, Tools, Skills, compaction, and Web integration are outside this feature.
 
 From the repository root:
 

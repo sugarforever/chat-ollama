@@ -57,6 +57,7 @@ unsubscribe();
 - `prompt(input)` for one active streamed run
 - `cancel()` for aborting the active run
 - `setModel(config)` for changing an idle Session's model while preserving history
+- `reset()` for clearing an idle Session's history while preserving its model
 
 The current event union contains:
 
@@ -65,6 +66,7 @@ The current event union contains:
 - `model.delta`
 - `model.completed`
 - `model.changed`
+- `session.reset`
 - `run.completed`
 - `run.failed`
 - `run.cancelled`
@@ -78,6 +80,10 @@ disabled so a provider error cannot copy a credential into Runtime logs.
 `setModel()` rejects a switch during an active run. A successful idle switch
 updates the snapshot and emits `model.changed`; subsequent requests use the
 new provider without replacing the Session's structured conversation history.
+`reset()` has the same active-run exclusion. An idle reset empties only the
+Runtime-owned messages, retains the current model configuration, and emits
+`session.reset`. Cancelled and failed runs never append a fabricated completed
+assistant message; all state remains process-local.
 
 ## Model discovery and resolution
 

@@ -35,6 +35,10 @@ describe('Runtime public contract', () => {
         previous: { provider: 'openai', model: 'gpt-5-mini' },
         current: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
       },
+      {
+        type: 'session.reset',
+        model: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+      },
       { type: 'run.completed', runId: 'run-1' },
       {
         type: 'run.failed',
@@ -58,6 +62,7 @@ describe('Runtime public contract', () => {
       'model.delta',
       'model.completed',
       'model.changed',
+      'session.reset',
       'run.completed',
       'run.failed',
       'run.cancelled',
@@ -68,6 +73,7 @@ describe('Runtime public contract', () => {
     expectTypeOf<AgentSession>().toHaveProperty('getSnapshot');
     expectTypeOf<AgentSession>().toHaveProperty('subscribe');
     expectTypeOf<AgentSession>().toHaveProperty('setModel');
+    expectTypeOf<AgentSession>().toHaveProperty('reset');
     expectTypeOf<AgentSession>().toHaveProperty('prompt');
     expectTypeOf<AgentSession>().toHaveProperty('cancel');
   });

@@ -31,7 +31,7 @@ ollama pull qwen3:8b
 AGENT_PROVIDER=ollama AGENT_MODEL=qwen3:8b chatollama-agent
 ```
 
-Enter a prompt and type `/exit` when you are finished. In a terminal, `/` offers command completion and `/models` opens an arrow-key picker; Enter selects and Escape cancels. In a pipe, `/models` prints a sorted numbered list with the current model marked; a number selects and an empty line cancels. `/model <provider>/<model-id>` works in both modes. A successful selection immediately affects future requests and becomes the next startup default.
+Enter prompts for a process-local multi-turn conversation. `/new` clears its history without changing the selected model, and `/exit` exits cleanly. In a terminal, Ctrl+C cancels an active model request but keeps the CLI open; Ctrl+C while idle exits. `/` offers command completion and `/models` opens an arrow-key picker; Enter selects and Escape cancels. In a pipe, `/models` prints a sorted numbered list with the current model marked; a number selects and an empty line cancels. `/model <provider>/<model-id>` works in both modes. A successful selection immediately affects future requests and becomes the next startup default.
 
 To use OpenAI instead:
 
@@ -64,7 +64,7 @@ Explicit `AGENT_PROVIDER` or `AGENT_MODEL` wins over a saved selection, which wi
 
 Preferences live at `~/Library/Application Support/ChatOllama/agent.json` on macOS, `$XDG_CONFIG_HOME/ChatOllama/agent.json` (default `~/.config/ChatOllama/agent.json`) on Linux, and `%APPDATA%\ChatOllama\agent.json` (default `%USERPROFILE%\AppData\Roaming\ChatOllama\agent.json`) on Windows. The JSON stores only `provider`, `model`, and optional non-secret `baseURL`, for example `{"provider":"ollama","model":"qwen3:8b"}`. API keys and conversations are never saved. Corrupt or unavailable selections warn and fall back; a failed save leaves the new model active for the current session.
 
-See the [Agent CLI guide](./packages/agent-cli/README.md) for installation and configuration details, and the [development article](./blogs/20260908-discover-and-switch-agent-models_zh.md) for the design tradeoffs.
+See the [Agent CLI guide](./packages/agent-cli/README.md) for installation and configuration details.
 
 ## Agent Runtime
 
@@ -77,6 +77,7 @@ Its current interface includes:
 - `prompt(input)` starts a streamed model run.
 - `cancel()` aborts the active run.
 - `setModel(config)` changes an idle session's model while preserving history and emits `model.changed`.
+- `reset()` clears history on an idle session while preserving its model and emits `session.reset`.
 
 See the [Agent Runtime guide](./packages/agent-runtime/README.md) for its architecture, complete event model, provider examples, and security boundary.
 
@@ -84,7 +85,7 @@ See the [Agent Runtime guide](./packages/agent-runtime/README.md) for its archit
 
 ChatOllama's Runtime keeps model-provider details behind a stable application boundary. The CLI receives ChatOllama messages, snapshots, and events instead of provider-specific stream parts. This separation lets ChatOllama evolve its interfaces without duplicating execution logic.
 
-The Runtime supports tool-free streaming through Ollama, OpenAI, Anthropic, Google Gemini, DeepSeek, and OpenRouter. The CLI adds provider discovery, model switching, saved model preferences, and a pi-tui interactive adapter while retaining stable plain output for pipes and CI. Persistent conversation sessions, tools, Skills, compaction, MCP, and Web integration remain outside this feature.
+The Runtime supports tool-free streaming through Ollama, OpenAI, Anthropic, Google Gemini, DeepSeek, and OpenRouter. The CLI adds process-local continuous conversations, cancellation, provider discovery, model switching, saved model preferences, and a pi-tui interactive adapter while retaining stable plain output for pipes and CI. Persistent sessions, multiple sessions, tools, Skills, compaction, MCP, and Web integration remain outside this feature.
 
 ## Develop the Agent packages
 
