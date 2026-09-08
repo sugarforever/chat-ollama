@@ -4,7 +4,7 @@ import type {
   AgentSession,
   RuntimeEvent,
   RuntimeEventListener,
-} from '@chatollama/agent-runtime';
+} from 'chatollama-agent-runtime';
 import { describe, expect, it, vi } from 'vitest';
 
 import { runCli } from './cli.js';

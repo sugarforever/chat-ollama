@@ -1,6 +1,6 @@
 # ChatOllama Agent Runtime
 
-`@chatollama/agent-runtime` is the first standalone Runtime increment for
+`chatollama-agent-runtime` is the standalone Runtime package for
 ChatOllama. It uses Vercel AI SDK internally and exposes ChatOllama-owned
 messages, snapshots, and process-local events.
 
@@ -29,7 +29,7 @@ request or require a credential.
 ## Public API
 
 ```ts
-import { createAgentSession } from '@chatollama/agent-runtime';
+import { createAgentSession } from 'chatollama-agent-runtime';
 
 const session = createAgentSession({
   model: {
@@ -114,7 +114,8 @@ for the local endpoint. See the official [Ollama OpenAI compatibility guide](htt
 ```bash
 pnpm test:agent
 pnpm typecheck:agent
-pnpm build
+pnpm build:agent
+pnpm test:agent:pack
 pnpm agent:example
 ```
 

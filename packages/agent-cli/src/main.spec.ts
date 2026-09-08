@@ -1,8 +1,23 @@
+import { readFile } from 'node:fs/promises';
+
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { runNodeCli } from '../test-utils/run-node-cli.js';
 
 describe('agent CLI entry point', () => {
+  it('preserves the Node shebang in the compiled executable', async () => {
+    const source = await readFile(new URL('./main.ts', import.meta.url), 'utf8');
+    const compiledEntry = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.NodeNext,
+        target: ts.ScriptTarget.ES2022,
+      },
+    }).outputText;
+
+    expect(compiledEntry.split('\n', 1)[0]).toBe('#!/usr/bin/env node');
+  });
+
   it('creates a real Runtime session and exits without making a model request', async () => {
     const result = await runNodeCli('src/main.ts', '/exit\n', {
       AGENT_PROVIDER: 'ollama',

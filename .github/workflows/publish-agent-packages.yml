@@ -1,0 +1,79 @@
+name: Publish Agent packages
+
+on:
+  push:
+    tags:
+      - 'agent-v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      NPM_CONFIG_PROVENANCE: 'true'
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install trusted-publishing npm CLI
+        run: npm install --global npm@11.6.2 && npm --version
+
+      - name: Test Agent packages
+        run: pnpm test:agent && pnpm test:agent:release
+
+      - name: Type-check Agent packages
+        run: pnpm typecheck:agent
+
+      - name: Build Agent packages
+        run: pnpm build:agent
+
+      - name: Test packed artifacts
+        run: pnpm test:agent:pack
+
+      - name: Verify release tag and package versions
+        run: node scripts/verify-agent-release-tag.mjs "$GITHUB_REF_NAME"
+
+      - name: Check public Registry
+        id: registry
+        run: node scripts/check-agent-registry.mjs "${GITHUB_REF_NAME#agent-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify recoverable Runtime artifact
+        if: steps.registry.outputs.state == 'recover-cli'
+        run: node scripts/compare-agent-artifacts.mjs "${{ steps.registry.outputs.version }}" runtime
+
+      - name: Publish Runtime
+        if: steps.registry.outputs.state == 'missing'
+        run: pnpm --filter chatollama-agent-runtime publish --access public --provenance --no-git-checks
+
+      - name: Publish CLI
+        if: steps.registry.outputs.state == 'missing' || steps.registry.outputs.state == 'recover-cli'
+        run: pnpm --filter chatollama-agent publish --access public --provenance --no-git-checks
+
+      - name: Verify published artifacts
+        run: node scripts/compare-agent-artifacts.mjs "${{ steps.registry.outputs.version }}"
+
+      - name: Verify public installation
+        run: |
+          SMOKE_DIR=$(mktemp -d)
+          trap 'rm -rf "$SMOKE_DIR"' EXIT
+          cd "$SMOKE_DIR"
+          npm init --yes
+          npm install "chatollama-agent@${{ steps.registry.outputs.version }}"
+          printf '/exit\n' | npx --no-install chatollama-agent

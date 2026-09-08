@@ -1,15 +1,35 @@
 {
-  "name": "@chatollama/agent-runtime",
+  "name": "chatollama-agent-runtime",
   "version": "0.1.0",
-  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
     "node": ">=24"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sugarforever/chat-ollama.git",
+    "directory": "packages/agent-runtime"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
+    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
     "example": "node --no-warnings --import tsx examples/stream.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

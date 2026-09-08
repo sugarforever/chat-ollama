@@ -1,4 +1,4 @@
-import type { ModelConfig } from '@chatollama/agent-runtime';
+import type { ModelConfig } from 'chatollama-agent-runtime';
 
 export function readModelConfig(env: NodeJS.ProcessEnv): ModelConfig {
   const provider = env.AGENT_PROVIDER ?? 'ollama';

@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline/promises';
 
-import type { AgentSession } from '@chatollama/agent-runtime';
+import type { AgentSession } from 'chatollama-agent-runtime';
 
 export interface RunCliOptions {
   readonly session: AgentSession;
