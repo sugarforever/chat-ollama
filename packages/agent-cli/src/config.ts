@@ -1,7 +1,8 @@
-import type {
-  AvailableModel,
-  ModelConfig,
-  ProviderId,
+import {
+  resolveModelConfig,
+  type AvailableModel,
+  type ModelConfig,
+  type ProviderId,
 } from 'chatollama-agent-runtime';
 
 import type { ModelPreference } from './preferences.js';
@@ -23,28 +24,7 @@ export function readModelConfig(
 ): ModelConfig {
   const provider = selected?.provider ?? parseProvider(env.AGENT_PROVIDER ?? 'ollama');
   const model = selected?.model ?? env.AGENT_MODEL ?? DEFAULT_MODELS[provider];
-  const baseURL = env.AGENT_BASE_URL ?? selected?.baseURL;
-  const apiKey = env.AGENT_API_KEY ?? providerCredential(provider, env);
-
-  if (provider === 'openai') {
-    return {
-      provider: 'openai',
-      model,
-      baseURL,
-      apiKey,
-    };
-  }
-
-  if (provider === 'ollama') {
-    return {
-      provider: 'ollama',
-      model,
-      baseURL: baseURL ?? 'http://localhost:11434/v1',
-      apiKey: apiKey ?? 'ollama',
-    };
-  }
-
-  return { provider, model, baseURL, apiKey };
+  return resolveModelConfig({ provider, model, baseURL: selected?.baseURL }, env);
 }
 
 interface ResolveStartupModelOptions {
@@ -108,18 +88,4 @@ function parseProvider(value: string): ProviderId {
     throw new Error(`Unsupported AGENT_PROVIDER: ${value}`);
   }
   return value as ProviderId;
-}
-
-function providerCredential(
-  provider: ProviderId,
-  env: NodeJS.ProcessEnv,
-): string | undefined {
-  switch (provider) {
-    case 'ollama': return undefined;
-    case 'openai': return env.OPENAI_API_KEY;
-    case 'anthropic': return env.ANTHROPIC_API_KEY;
-    case 'google': return env.GEMINI_API_KEY ?? env.GOOGLE_GENERATIVE_AI_API_KEY;
-    case 'deepseek': return env.DEEPSEEK_API_KEY;
-    case 'openrouter': return env.OPENROUTER_API_KEY;
-  }
 }

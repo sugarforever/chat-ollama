@@ -4,6 +4,7 @@ import type {
   DiscoverModelsOptions,
   DiscoveryWarning,
   ModelDiscoveryResult,
+  ModelConfig,
   ProviderId,
 } from './types.js';
 
@@ -41,7 +42,9 @@ async function discoverOllama(
   fetchImplementation: typeof fetch,
   timeoutMs: number,
 ): Promise<ModelDiscoveryResult> {
-  const configured = env.AGENT_BASE_URL;
+  const configured = env.AGENT_PROVIDER === undefined || env.AGENT_PROVIDER === 'ollama'
+    ? env.AGENT_BASE_URL
+    : undefined;
   const rootURL = configured
     ? configured.replace(/\/v1\/?$/, '').replace(/\/$/, '')
     : DEFAULT_OLLAMA_BASE_URL;
@@ -58,6 +61,26 @@ async function discoverOllama(
       baseURL,
     }));
   }, timeoutMs);
+}
+
+export function resolveModelConfig(
+  selection: AvailableModel,
+  env: NodeJS.ProcessEnv = process.env,
+): ModelConfig {
+  const baseURL = env.AGENT_BASE_URL ?? selection.baseURL;
+  const apiKey = env.AGENT_API_KEY ?? (
+    selection.provider === 'ollama'
+      ? 'ollama'
+      : credentialFor(selection.provider, env)
+  );
+  return {
+    provider: selection.provider,
+    model: selection.model,
+    baseURL: baseURL ?? (selection.provider === 'ollama'
+      ? 'http://localhost:11434/v1'
+      : undefined),
+    apiKey,
+  };
 }
 
 async function discoverOpenAI(

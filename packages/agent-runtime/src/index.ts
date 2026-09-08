@@ -1,5 +1,5 @@
 export { createAgentSession } from './session.js';
-export { discoverModels } from './discovery.js';
+export { discoverModels, resolveModelConfig } from './discovery.js';
 
 export type {
   AgentSession,

@@ -4,9 +4,11 @@
 ChatOllama. It uses Vercel AI SDK internally and exposes ChatOllama-owned
 messages, snapshots, and process-local events.
 
-The package currently supports one tool-free streamed response through either
-OpenAI or an OpenAI-compatible endpoint. It does not contain a CLI/TUI, tools,
-persistence, Skills, compaction, MCP, or Web integration.
+The package supports tool-free streamed responses through Ollama, OpenAI,
+Anthropic, Google Gemini, DeepSeek, and OpenRouter. It owns provider discovery,
+model construction, in-memory Session switching, and sanitized lifecycle
+events. It does not contain terminal presentation, preference persistence,
+tools, Skills, compaction, MCP, or Web integration.
 
 ## Requirements
 
@@ -55,6 +57,7 @@ unsubscribe();
 - `subscribe(listener)` for process-local events and its unsubscribe function
 - `prompt(input)` for one active streamed run
 - `cancel()` for aborting the active run
+- `setModel(model)` for switching an idle Session while retaining its messages
 
 The current event union contains:
 
@@ -65,6 +68,13 @@ The current event union contains:
 - `run.completed`
 - `run.failed`
 - `run.cancelled`
+- `model.changed`
+
+`discoverModels()` returns a small built-in catalog filtered by configured
+credentials and merges endpoint results where supported. Ollama models come
+from the local `/api/tags` endpoint. Each network discovery has a short timeout;
+a failed provider contributes a sanitized warning and does not remove models
+from other providers.
 
 These events contain strings and ChatOllama-owned objects. AI SDK UI messages,
 provider stream parts, provider metadata, endpoints, and credentials do not
@@ -122,6 +132,9 @@ pnpm agent:example
 The offline tests use the official AI SDK [`MockLanguageModelV3`, `mockValues`,
 and simulated stream helpers](https://ai-sdk.dev/docs/ai-sdk-core/testing). The
 Runtime itself delegates streaming to [`streamText`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text)
-and model protocol handling to the official [OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/openai)
-and [OpenAI-compatible](https://ai-sdk.dev/providers/openai-compatible-providers)
-providers.
+and model protocol handling to the official [OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/openai),
+[Anthropic](https://ai-sdk.dev/providers/ai-sdk-providers/anthropic), and
+[Google Generative AI](https://ai-sdk.dev/providers/ai-sdk-providers/google-generative-ai)
+providers. Ollama, DeepSeek, and OpenRouter use the AI SDK's
+[OpenAI-compatible adapter](https://ai-sdk.dev/providers/openai-compatible-providers)
+behind the same Runtime boundary.

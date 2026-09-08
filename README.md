@@ -18,7 +18,7 @@ npm install --global chatollama-agent
 chatollama-agent
 ```
 
-By default, ChatOllama connects to a local Ollama server and uses `qwen3:8b`:
+On startup, ChatOllama discovers locally installed Ollama models and remote providers with configured credentials. By default, it selects local `qwen3:8b` when no discovered or saved choice is available:
 
 ```bash
 ollama serve
@@ -26,7 +26,7 @@ ollama pull qwen3:8b
 chatollama-agent
 ```
 
-Enter a prompt at `You>` and type `/exit` when you are finished.
+Enter `/models` to list and select an available model, or use `/model openai/gpt-5-mini` to switch directly. The switch keeps the current in-memory conversation and becomes the default for the next launch. Type `/exit` when you are finished.
 
 To use OpenAI instead:
 
@@ -49,6 +49,7 @@ Its current interface includes:
 - `subscribe(listener)` streams process-local lifecycle and model events.
 - `prompt(input)` starts a streamed model run.
 - `cancel()` aborts the active run.
+- `setModel(model)` switches an idle Session without discarding its messages.
 
 See the [Agent Runtime guide](./packages/agent-runtime/README.md) for its architecture, complete event model, provider examples, and security boundary.
 
@@ -56,7 +57,7 @@ See the [Agent Runtime guide](./packages/agent-runtime/README.md) for its archit
 
 ChatOllama's Runtime keeps model-provider details behind a stable application boundary. The CLI receives ChatOllama messages, snapshots, and events instead of provider-specific stream parts. This separation lets ChatOllama evolve its interfaces without duplicating execution logic.
 
-Today, version `0.1.0` provides the foundation: one tool-free streamed response through OpenAI, Ollama, or another OpenAI-compatible endpoint. Persistent sessions, tools, Skills, compaction, MCP, web integration, and a full terminal UI are not part of this release yet.
+Today, version `0.1.0` provides the foundation: tool-free streamed responses through Ollama, OpenAI, Anthropic, Google Gemini, DeepSeek, and OpenRouter, with provider discovery and in-process model switching. Persistent conversation storage, tools, Skills, compaction, MCP, web integration, and a full terminal UI are not part of this release yet.
 
 ## Develop the Agent packages
 

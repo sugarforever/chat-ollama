@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { discoverModels } from './discovery.js';
+import { discoverModels, resolveModelConfig } from './discovery.js';
 
 describe('provider model discovery', () => {
   it.each([
@@ -118,5 +118,41 @@ describe('provider model discovery', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('keeps a provider-specific custom endpoint away from Ollama discovery', async () => {
+    const requested: string[] = [];
+    await discoverModels({
+      env: {
+        AGENT_PROVIDER: 'openai',
+        AGENT_BASE_URL: 'https://openai.example.test/v1',
+        OPENAI_API_KEY: 'secret',
+      },
+      fetch: vi.fn(async input => {
+        requested.push(String(input));
+        return new Response('', { status: 503 });
+      }),
+    });
+
+    expect(requested).toContain('http://localhost:11434/api/tags');
+    expect(requested).toContain('https://openai.example.test/v1/models');
+  });
+
+  it.each([
+    ['openai', 'OPENAI_API_KEY'],
+    ['anthropic', 'ANTHROPIC_API_KEY'],
+    ['google', 'GOOGLE_GENERATIVE_AI_API_KEY'],
+    ['deepseek', 'DEEPSEEK_API_KEY'],
+    ['openrouter', 'OPENROUTER_API_KEY'],
+  ] as const)('resolves %s credentials inside the Runtime boundary', (provider, envName) => {
+    expect(resolveModelConfig(
+      { provider, model: 'model-id' },
+      { [envName]: 'provider-secret' },
+    )).toEqual({
+      provider,
+      model: 'model-id',
+      baseURL: undefined,
+      apiKey: 'provider-secret',
+    });
   });
 });

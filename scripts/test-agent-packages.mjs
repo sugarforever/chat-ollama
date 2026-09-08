@@ -122,15 +122,25 @@ try {
   const environment = {
     ...process.env,
     AGENT_PROVIDER: 'ollama',
+    AGENT_BASE_URL: 'http://127.0.0.1:1/v1',
+    OPENAI_API_KEY: '',
+    ANTHROPIC_API_KEY: '',
+    GEMINI_API_KEY: '',
+    GOOGLE_GENERATIVE_AI_API_KEY: '',
+    DEEPSEEK_API_KEY: '',
+    OPENROUTER_API_KEY: '',
+    HOME: join(temporaryDirectory, 'home'),
     npm_config_cache: join(temporaryDirectory, 'npm-cache'),
   };
-  execFileSync(executable, [], {
+  const modelListOutput = execFileSync(executable, [], {
     cwd: installDirectory,
     env: environment,
-    input: '/exit\n',
+    input: '/models\n\n/exit\n',
     stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 10_000,
-  });
+  }).toString();
+  assert.match(modelListOutput, /No models available/);
+  assert.match(modelListOutput, /Goodbye\./);
   execFileSync('npx', ['--no-install', 'chatollama-agent'], {
     cwd: installDirectory,
     env: environment,
@@ -144,9 +154,10 @@ try {
       ...environment,
       AGENT_PROVIDER: 'openai',
       AGENT_MODEL: 'gpt-5-mini',
+      AGENT_BASE_URL: 'http://127.0.0.1:1/v1',
       OPENAI_API_KEY: 'validation-placeholder',
     },
-    input: '/exit\n',
+    input: '/models\n\n/model openai\/gpt-5-mini\n/exit\n',
     stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 10_000,
   });
