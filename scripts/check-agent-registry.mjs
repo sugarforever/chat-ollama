@@ -9,8 +9,11 @@ export function classifyRegistryState(expectedVersion, runtimeVersion, cliVersio
   if (runtimeVersion === expectedVersion && cliVersion === expectedVersion) {
     return 'published';
   }
-  if (runtimeVersion === null || cliVersion === null) {
-    throw new Error('Registry contains a partial release; refusing to continue');
+  if (runtimeVersion === expectedVersion && cliVersion === null) {
+    return 'recover-cli';
+  }
+  if (runtimeVersion === null && cliVersion === expectedVersion) {
+    throw new Error('Registry CLI exists without its Runtime; refusing to continue');
   }
   throw new Error('Registry returned an unexpected package version');
 }

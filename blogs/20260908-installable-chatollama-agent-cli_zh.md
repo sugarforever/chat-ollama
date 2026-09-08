@@ -58,7 +58,9 @@ npx --no-install chatollama-agent
 
 Runtime 发布成功以后，workflow 才会发布 CLI。第一次发布可以在本地命令行完成，不需要把长期 token 放进 GitHub。两个 package 出现在 npmjs 以后，再分别绑定这个 workflow，后续版本便通过 OIDC trusted publishing 发布并生成 provenance。
 
-workflow 在处理 tag 时会先查询公开 Registry。两个版本都不存在时进入发布；两个版本都存在时跳过重复 publish，直接安装公开 CLI 做 smoke test；只发布了其中一个 package 则立即失败。这样本地发布的 `0.1.0` 仍能用 `agent-v0.1.0` 记录 release marker，而不会尝试重复发布同一个 npm 版本。这个 tag 只会在 PR 合并并得到明确确认后创建。
+workflow 在处理 tag 时会先查询公开 Registry。两个版本都不存在时进入发布；两个版本都存在时跳过重复 publish；只有 Runtime 存在时，先确认它与 tag 构建的 tarball 完全一致，再恢复 CLI 发布；CLI 先于 Runtime 出现则立即失败。发布后，workflow 会解开本地与 Registry tarball，逐个比较文件路径和内容，最后再安装公开 CLI 做 smoke test。
+
+这样本地发布的 `0.1.0` 仍能用 `agent-v0.1.0` 记录 release marker，同时证明 npm 上的内容确实来自这个 tag，而不是仅凭相同版本号跳过发布。这个 tag 只会在 PR 合并并得到明确确认后创建。
 
 用户最终只需要：
 

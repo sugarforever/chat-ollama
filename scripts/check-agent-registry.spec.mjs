@@ -15,10 +15,17 @@ describe('agent registry state', () => {
     );
   });
 
-  it('rejects a partial release', () => {
+  it('recovers when Runtime exists and CLI is missing', () => {
+    assert.equal(
+      classifyRegistryState('0.1.0', '0.1.0', null),
+      'recover-cli',
+    );
+  });
+
+  it('rejects a CLI release without its Runtime', () => {
     assert.throws(
-      () => classifyRegistryState('0.1.0', '0.1.0', null),
-      /partial release/,
+      () => classifyRegistryState('0.1.0', null, '0.1.0'),
+      /CLI exists without its Runtime/,
     );
   });
 

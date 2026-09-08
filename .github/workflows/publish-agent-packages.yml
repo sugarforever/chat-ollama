@@ -54,13 +54,20 @@ jobs:
         id: registry
         run: node scripts/check-agent-registry.mjs "${GITHUB_REF_NAME#agent-v}" >> "$GITHUB_OUTPUT"
 
+      - name: Verify recoverable Runtime artifact
+        if: steps.registry.outputs.state == 'recover-cli'
+        run: node scripts/compare-agent-artifacts.mjs "${{ steps.registry.outputs.version }}" runtime
+
       - name: Publish Runtime
         if: steps.registry.outputs.state == 'missing'
         run: pnpm --filter chatollama-agent-runtime publish --access public --provenance --no-git-checks
 
       - name: Publish CLI
-        if: steps.registry.outputs.state == 'missing'
+        if: steps.registry.outputs.state == 'missing' || steps.registry.outputs.state == 'recover-cli'
         run: pnpm --filter chatollama-agent publish --access public --provenance --no-git-checks
+
+      - name: Verify published artifacts
+        run: node scripts/compare-agent-artifacts.mjs "${{ steps.registry.outputs.version }}"
 
       - name: Verify public installation
         run: |
