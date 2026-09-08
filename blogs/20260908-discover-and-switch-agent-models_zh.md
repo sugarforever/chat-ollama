@@ -61,7 +61,46 @@ stdin 和 stdout 都是 TTY 时，CLI 加载 `@earendil-works/pi-tui`。这里�
 
 管道和 CI 则继续使用 plain line mode。它把 `/models` 输出成带编号的列表，用户输入编号选择，空行取消。`/model` 和 `/exit` 的处理逻辑与交互模式相同，输出不包含 ANSI 控制序列。
 
-这次引入 pi-tui，是因为编辑器、选择器和增量渲染已经属于当前需求。继续自行实现这些交互会增加终端细节的维护工作；引入 React renderer 又会扩大当前没有 React 的 CLI 的依赖范围。保留两个 adapter 也有成本，需要分别验证渲染和输入，但 Runtime 与命令处理可以共用。
+把启动和切换过程连起来看，调用关系是这样的：
+
+```text
+启动
+  → 读取安全偏好
+  → 发现可用模型
+  → 按优先级选择默认模型
+  → 创建 AgentSession
+  → TTY 使用 pi-tui，pipe/CI 使用 plain mode
+
+/models
+  → command handler 校验选择
+  → AgentSession.setModel()
+  → 写入非秘密偏好
+  → 下一次 prompt 使用新模型
+```
+
+## 为什么这样选
+
+模型目录最先遇到的选择，是采用静态 catalog，还是每次都向 provider 请求完整列表。完全静态的实现容易测试，却无法反映 Ollama 实际安装了什么；完全动态又依赖各家是否提供稳定、语义一致的 models endpoint。首版采用“小型内置 catalog + 有选择的动态发现”：远程 provider 先通过凭证启用一组明确的文本模型，Ollama 必须查询 `/api/tags`，OpenAI 再通过 models endpoint 补充目录。这个方案没有假设所有 provider 都能用同一种方式枚举模型，也能在网络失败时保留确定的 fallback。
+
+provider adapter 也没有强行统一。OpenAI、Anthropic 和 Google 使用 Vercel AI SDK 7 的官方 package，让鉴权、请求格式和流式协议跟随各自实现。Ollama、DeepSeek 和 OpenRouter 的接口与 OpenAI 协议兼容，使用 `@ai-sdk/openai-compatible` 可以减少重复装配，但每个 provider 仍然保留自己的名称、endpoint 和凭证规则。这样统一的是 Runtime 公共接口，不是把厂商差异藏进一个无差别配置。
+
+终端框架比较过几条路径。Ink 需要引入 React renderer，而当前 CLI 没有 React；OpenTUI 当时要求 Node.js 26.4 以上，高于项目的 Node.js 24 基线，并带有 native runtime；Blessed 不适合作为这个新交互层的长期基础。如果继续用 readline 自己实现 Editor、命令补全、选择器和增量渲染，终端状态管理会逐渐成为另一套框架。`@earendil-works/pi-tui` 已经提供这些 primitives，也提供可替换的 Terminal abstraction，因此可以把它限制在 interactive adapter 内，不让 Runtime 跟着 TUI 设计变化。
+
+双 adapter 并不是为了保留两套命令。TTY 和 pipe 对输出有不同要求：前者需要差量渲染与键盘交互，后者需要可以被脚本消费的稳定文本。把解析和切换行为放在共享 command handler，pi-tui 与 readline 只负责输入输出，才能避免两个入口逐渐产生不同语义。
+
+## 这次用到的开发工具
+
+项目基线是 Node.js 24、TypeScript ESM 和 pnpm workspace。Runtime 使用 Vercel AI SDK 7，TTY 交互层锁定 `@earendil-works/pi-tui@0.85.1`，provider package 也锁定到与 AI SDK 兼容的具体版本。依赖版本在这里不只是安装细节：CLI 最终会发布成 npm tarball，Node.js engine、ESM import 和 workspace package 的解析方式都要在安装产物里重新验证。
+
+模型与 Session 测试使用 Vitest。网络发现通过注入 fake `fetch` 构造成功、HTTP 失败、超时、响应 body 挂起和 provider 部分失败，不连接真实付费 API。Session 测试使用 AI SDK 提供的可控模型和数据流，检查切换后的下一次请求确实使用新模型，同时仍然带着之前的结构化历史。
+
+TTY 测试使用 `@xterm/headless@5.5.0` 实现 VirtualTerminal。这里验证的不是某个组件函数有没有被调用，而是屏幕和按键行为：输入 `/` 是否出现三个命令，上下键是否移动选择，Enter 是否确认，Escape 是否取消，模型流式输出时尚未提交的 Editor 内容是否还在。Terminal abstraction 让这些交互可以在测试进程中重复执行。
+
+实现过程参考了本地 `pi-mono` 中的 ModelRegistry、`AgentSession.setModel()`、model listing 和 pi-tui 代码。参考重点是职责边界与已经验证过的交互 primitives，没有把 `pi-ai`、pi agent runtime 或完整生成模型库作为依赖带进项目。
+
+开发按测试驱动方式推进。每一组行为先写失败测试，再补最小实现；完整功能通过以后，再从 npm tarball 安装到临时项目，分别调用实际 bin 和 `npx --no-install`。这一层测试可以发现源码测试看不到的问题，例如构建产物缺文件、workspace 源码被意外引用、pipe 输出混入 ANSI，以及可执行入口没有带上新命令。
+
+这次开发也使用 Codex 组织任务。我先把 Issue 和参考实现整理成 repo-local 实施计划，再按模型发现、Session 切换、配置持久化、命令层和 TTY adapter 拆成可以独立验证的改动。每个阶段完成后由另一个 agent 只读检查 diff，最终再做一次全分支审查。这个过程找出了几个单元测试最初没有覆盖的问题，包括响应 body 挂起没有受到超时约束、保存 endpoint 与显式环境配置的优先级不一致，以及 TTY 列表没有标记当前模型。它们都先补回归测试，再进入最终提交。
 
 ## 从安装产物运行
 
