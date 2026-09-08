@@ -1,11 +1,11 @@
 # ChatOllama
 
-ChatOllama is an open source agentic app for building and running AI agents across local and hosted models.
+ChatOllama is an open source agentic app for running AI agents across local and hosted models.
 
 The project is now centered on two first-class packages:
 
 - [`chatollama-agent`](https://www.npmjs.com/package/chatollama-agent), an installable command-line interface for running an agent from your terminal.
-- [`chatollama-agent-runtime`](https://www.npmjs.com/package/chatollama-agent-runtime), a standalone TypeScript runtime for embedding ChatOllama agents in other applications.
+- [`chatollama-agent-runtime`](https://www.npmjs.com/package/chatollama-agent-runtime), the standalone execution layer that powers ChatOllama agents.
 
 The existing web chatbot and knowledge-base platform remains available while it is separated from the new Agent architecture. Its setup and feature documentation has moved to the [Web chatbot and knowledge-base guide](./CHATBOT.md).
 
@@ -39,47 +39,22 @@ chatollama-agent
 
 See the [Agent CLI guide](./packages/agent-cli/README.md) for local installation, provider configuration, and development commands.
 
-## Build with the Agent Runtime
+## Agent Runtime
 
-Install the Runtime directly when you want to own the interface and consume ChatOllama's session state and events in your application:
+The Agent Runtime is ChatOllama's execution layer. It manages model runs, in-memory session state, streaming, cancellation, and lifecycle events while keeping provider-specific details behind a stable boundary. The CLI installs and uses it automatically.
 
-```bash
-npm install chatollama-agent-runtime
-```
-
-```ts
-import { createAgentSession } from 'chatollama-agent-runtime';
-
-const session = createAgentSession({
-  model: {
-    provider: 'openai',
-    model: 'gpt-5-mini',
-    apiKey: process.env.OPENAI_API_KEY,
-  },
-});
-
-const unsubscribe = session.subscribe(event => {
-  if (event.type === 'model.delta') {
-    process.stdout.write(event.delta);
-  }
-});
-
-await session.prompt('Explain why the sky is blue.');
-unsubscribe();
-```
-
-The Runtime exposes a small ChatOllama-owned API:
+Its current interface includes:
 
 - `getSnapshot()` returns an immutable copy of the in-memory messages.
 - `subscribe(listener)` streams process-local lifecycle and model events.
 - `prompt(input)` starts a streamed model run.
 - `cancel()` aborts the active run.
 
-See the [Agent Runtime guide](./packages/agent-runtime/README.md) for the complete event model, provider examples, and security boundary.
+See the [Agent Runtime guide](./packages/agent-runtime/README.md) for its architecture, complete event model, provider examples, and security boundary.
 
 ## Why a separate Runtime?
 
-ChatOllama's Runtime keeps model-provider details behind a stable application boundary. Consumers receive ChatOllama messages, snapshots, and events instead of provider-specific stream parts. The CLI is the first interface built on that boundary; future interfaces can share the same agent behavior without duplicating orchestration logic.
+ChatOllama's Runtime keeps model-provider details behind a stable application boundary. The CLI receives ChatOllama messages, snapshots, and events instead of provider-specific stream parts. This separation lets ChatOllama evolve its interfaces without duplicating execution logic.
 
 Today, version `0.1.0` provides the foundation: one tool-free streamed response through OpenAI, Ollama, or another OpenAI-compatible endpoint. Persistent sessions, tools, Skills, compaction, MCP, web integration, and a full terminal UI are not part of this release yet.
 
