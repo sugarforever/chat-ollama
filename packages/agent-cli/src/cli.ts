@@ -121,6 +121,12 @@ export async function runCli(options: RunCliOptions): Promise<void> {
         continue;
       }
 
+      if (prompt === '/model') {
+        error.write('[error] Usage: /model <provider>/<model-id>\n');
+        output.write('You> ');
+        continue;
+      }
+
       if (prompt.startsWith('/model ')) {
         const requested = prompt.slice('/model '.length).trim();
         const selected = models.find(model =>

@@ -21,10 +21,15 @@ const PROVIDERS = new Set(Object.keys(DEFAULT_MODELS));
 export function readModelConfig(
   env: NodeJS.ProcessEnv,
   selected?: AvailableModel,
+  useAgentOverrides = true,
 ): ModelConfig {
   const provider = selected?.provider ?? parseProvider(env.AGENT_PROVIDER ?? 'ollama');
   const model = selected?.model ?? env.AGENT_MODEL ?? DEFAULT_MODELS[provider];
-  return resolveModelConfig({ provider, model, baseURL: selected?.baseURL }, env);
+  return resolveModelConfig(
+    { provider, model, baseURL: selected?.baseURL },
+    env,
+    { useAgentOverrides },
+  );
 }
 
 interface ResolveStartupModelOptions {

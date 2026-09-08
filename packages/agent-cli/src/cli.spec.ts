@@ -300,6 +300,20 @@ describe('Runtime event-driven CLI', () => {
     expect(saveModel).not.toHaveBeenCalled();
     expect(runtime.model.model).toBe('mock-model');
   });
+
+  it('reports bare /model as invalid syntax without making a model request', async () => {
+    const runtime = new ControlledRuntime();
+    const terminal = createTerminal();
+    const cli = runCli({ session: runtime, ...terminal.streams });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.write('/model\n');
+    await vi.waitFor(() => expect(terminal.stderr()).toContain('Usage: /model'));
+    terminal.input.write('/exit\n');
+    await cli;
+
+    expect(runtime.inputs).toEqual([]);
+  });
 });
 
 class ControlledRuntime implements AgentSession {

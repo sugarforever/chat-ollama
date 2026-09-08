@@ -38,6 +38,7 @@ export interface DiscoverModelsOptions {
   readonly env?: NodeJS.ProcessEnv;
   readonly fetch?: typeof fetch;
   readonly timeoutMs?: number;
+  readonly ollamaBaseURL?: string;
 }
 
 export interface SessionSnapshot {

@@ -155,4 +155,43 @@ describe('provider model discovery', () => {
       apiKey: 'provider-secret',
     });
   });
+
+  it('does not reuse generic startup overrides after switching providers', () => {
+    expect(resolveModelConfig(
+      { provider: 'anthropic', model: 'claude-test' },
+      {
+        AGENT_API_KEY: 'ollama-secret',
+        AGENT_BASE_URL: 'http://ollama.example.test/v1',
+        ANTHROPIC_API_KEY: 'anthropic-secret',
+      },
+      { useAgentOverrides: false },
+    )).toEqual({
+      provider: 'anthropic',
+      model: 'claude-test',
+      baseURL: undefined,
+      apiKey: 'anthropic-secret',
+    });
+  });
+
+  it('discovers Ollama at a saved non-default endpoint', async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({
+      models: [{ name: 'saved-model' }],
+    })));
+
+    const result = await discoverModels({
+      env: {},
+      ollamaBaseURL: 'http://saved.example.test:11434/v1',
+      fetch,
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://saved.example.test:11434/api/tags',
+      expect.any(Object),
+    );
+    expect(result.models).toContainEqual({
+      provider: 'ollama',
+      model: 'saved-model',
+      baseURL: 'http://saved.example.test:11434/v1',
+    });
+  });
 });

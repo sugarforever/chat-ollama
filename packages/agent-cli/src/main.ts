@@ -13,14 +13,18 @@ async function main(): Promise<void> {
   if (process.env.AGENT_PROVIDER !== undefined) {
     readModelConfig(process.env);
   }
-  const discovery = await discoverModels({ env: process.env });
-  for (const warning of discovery.warnings) {
-    process.stderr.write(`[warning] ${warning.provider}: ${warning.message}\n`);
-  }
-
   const preferencesPath = getPreferencesPath();
   const saved = await readModelPreference(preferencesPath);
   if (saved.warning) process.stderr.write(`[warning] ${saved.warning}\n`);
+  const discovery = await discoverModels({
+    env: process.env,
+    ollamaBaseURL: saved.preference?.provider === 'ollama'
+      ? saved.preference.baseURL
+      : undefined,
+  });
+  for (const warning of discovery.warnings) {
+    process.stderr.write(`[warning] ${warning.provider}: ${warning.message}\n`);
+  }
   const resolution = resolveStartupModel({
     env: process.env,
     saved: saved.preference,
@@ -36,7 +40,7 @@ async function main(): Promise<void> {
   await runCli({
     session,
     models: discovery.models,
-    resolveModel: model => readModelConfig(process.env, model),
+    resolveModel: model => readModelConfig(process.env, model, false),
     saveModel: model => writeModelPreference(preferencesPath, model),
     input: process.stdin,
     output: process.stdout,

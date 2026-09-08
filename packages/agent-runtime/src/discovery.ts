@@ -22,7 +22,7 @@ export async function discoverModels(
   );
 
   const discoveries = await Promise.all([
-    discoverOllama(env, fetchImplementation, timeoutMs),
+    discoverOllama(env, fetchImplementation, timeoutMs, options.ollamaBaseURL),
     credentialFor('openai', env)
       ? discoverOpenAI(env, fetchImplementation, timeoutMs)
       : Promise.resolve({ models: [], warnings: [] }),
@@ -41,12 +41,13 @@ async function discoverOllama(
   env: NodeJS.ProcessEnv,
   fetchImplementation: typeof fetch,
   timeoutMs: number,
+  savedBaseURL?: string,
 ): Promise<ModelDiscoveryResult> {
   const configured = env.AGENT_PROVIDER === undefined || env.AGENT_PROVIDER === 'ollama'
     ? env.AGENT_BASE_URL
     : undefined;
-  const rootURL = configured
-    ? configured.replace(/\/v1\/?$/, '').replace(/\/$/, '')
+  const rootURL = configured || savedBaseURL
+    ? (configured ?? savedBaseURL)!.replace(/\/v1\/?$/, '').replace(/\/$/, '')
     : DEFAULT_OLLAMA_BASE_URL;
   const baseURL = `${rootURL}/v1`;
 
@@ -66,9 +67,11 @@ async function discoverOllama(
 export function resolveModelConfig(
   selection: AvailableModel,
   env: NodeJS.ProcessEnv = process.env,
+  options: { readonly useAgentOverrides?: boolean } = {},
 ): ModelConfig {
-  const baseURL = env.AGENT_BASE_URL ?? selection.baseURL;
-  const apiKey = env.AGENT_API_KEY ?? (
+  const useAgentOverrides = options.useAgentOverrides ?? true;
+  const baseURL = (useAgentOverrides ? env.AGENT_BASE_URL : undefined) ?? selection.baseURL;
+  const apiKey = (useAgentOverrides ? env.AGENT_API_KEY : undefined) ?? (
     selection.provider === 'ollama'
       ? 'ollama'
       : credentialFor(selection.provider, env)

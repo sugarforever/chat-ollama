@@ -73,6 +73,26 @@ describe('agent CLI entry point', () => {
     expect(result.stdout).toContain('Goodbye.\n');
     expect(result.stderr).toBe('[warning] ollama: Model discovery failed\n');
   });
+
+  it('restores a selected model from its saved custom Ollama endpoint', async () => {
+    const ollama = await startFakeOllama();
+    const home = await mkdtemp(join(tmpdir(), 'chatollama-saved-endpoint-'));
+    const first = await runNodeCli('src/main.ts', '/models\n2\n/exit\n', await cleanEnv({
+      HOME: home,
+      AGENT_BASE_URL: `${ollama.url}/v1`,
+    }));
+    expect(first.exitCode).toBe(0);
+    expect(first.stdout).toContain('Switched to ollama/qwen3:8b');
+
+    const second = await runNodeCli('src/main.ts', '/models\n\n/exit\n', await cleanEnv({
+      HOME: home,
+    }));
+    await ollama.close();
+
+    expect(second.exitCode).toBe(0);
+    expect(second.stdout).toContain('2. ollama/qwen3:8b *');
+    expect(second.stderr).toBe('');
+  });
 });
 
 async function cleanEnv(overrides: NodeJS.ProcessEnv = {}): Promise<NodeJS.ProcessEnv> {

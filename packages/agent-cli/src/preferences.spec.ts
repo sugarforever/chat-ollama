@@ -85,5 +85,15 @@ describe('model preferences', () => {
       provider: 'ollama',
       model: 'qwen3:8b',
     });
+
+    await writeModelPreference(filePath, {
+      provider: 'ollama',
+      model: 'qwen3:8b',
+      baseURL: 'https://example.test/token-secret/v1',
+    });
+    expect(JSON.parse(await readFile(filePath, 'utf8'))).toEqual({
+      provider: 'ollama',
+      model: 'qwen3:8b',
+    });
   });
 });

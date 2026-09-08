@@ -101,7 +101,8 @@ function isSafeEndpoint(value: string): boolean {
       url.username === '' &&
       url.password === '' &&
       url.search === '' &&
-      url.hash === ''
+      url.hash === '' &&
+      (url.pathname === '/v1' || url.pathname === '/v1/')
     );
   } catch {
     return false;
