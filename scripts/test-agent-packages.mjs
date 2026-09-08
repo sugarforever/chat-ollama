@@ -119,26 +119,54 @@ try {
     }
   }
 
+  const fakeDiscovery = `globalThis.fetch = async input => {
+    const url = String(input);
+    if (url === 'http://localhost:11434/api/tags') return Response.json({ models: [{ name: 'pack-model' }] });
+    if (url === 'https://api.openai.com/v1/models') return Response.json({ data: [{ id: 'pack-remote' }] });
+    throw new Error('Unexpected network request in artifact test');
+  };`;
   const environment = {
     ...process.env,
+    HOME: join(temporaryDirectory, 'home'),
+    USERPROFILE: join(temporaryDirectory, 'home'),
+    APPDATA: join(temporaryDirectory, 'config'),
+    XDG_CONFIG_HOME: join(temporaryDirectory, 'config'),
     AGENT_PROVIDER: 'ollama',
+    AGENT_MODEL: 'pack-model',
+    AGENT_BASE_URL: '',
+    AGENT_API_KEY: '',
+    OPENAI_API_KEY: '',
+    ANTHROPIC_API_KEY: '',
+    GEMINI_API_KEY: '',
+    GOOGLE_GENERATIVE_AI_API_KEY: '',
+    DEEPSEEK_API_KEY: '',
+    OPENROUTER_API_KEY: '',
+    NODE_OPTIONS: `--import=data:text/javascript,${encodeURIComponent(fakeDiscovery)}`,
     npm_config_cache: join(temporaryDirectory, 'npm-cache'),
   };
-  execFileSync(executable, [], {
+  const pipeOutput = execFileSync(executable, [], {
     cwd: installDirectory,
     env: environment,
-    input: '/exit\n',
+    input: '/models\n1\n/model ollama/pack-model\n/exit\n',
+    encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 10_000,
   });
-  execFileSync('npx', ['--no-install', 'chatollama-agent'], {
+  assert.match(pipeOutput, /ollama\/pack-model \(current\)/);
+  assert.match(pipeOutput, /Switched to ollama\/pack-model\./);
+  assert.match(pipeOutput, /Goodbye\./);
+  assert.doesNotMatch(pipeOutput, /\x1b/);
+  const npxOutput = execFileSync('npx', ['--no-install', 'chatollama-agent'], {
     cwd: installDirectory,
     env: environment,
-    input: '/exit\n',
+    input: '/models\n/exit\n',
+    encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 10_000,
   });
-  execFileSync(executable, [], {
+  assert.match(npxOutput, /ollama\/pack-model/);
+  assert.doesNotMatch(npxOutput, /\x1b/);
+  const remoteOutput = execFileSync(executable, [], {
     cwd: installDirectory,
     env: {
       ...environment,
@@ -146,10 +174,14 @@ try {
       AGENT_MODEL: 'gpt-5-mini',
       OPENAI_API_KEY: 'validation-placeholder',
     },
-    input: '/exit\n',
+    input: '/models\n/model openai/pack-remote\n/exit\n',
+    encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 10_000,
   });
+  assert.match(remoteOutput, /openai\/pack-remote/);
+  assert.match(remoteOutput, /Switched to openai\/pack-remote\./);
+  assert.doesNotMatch(remoteOutput, /\x1b|validation-placeholder/);
 
   completed = true;
   console.log('Agent package tarballs passed clean-install checks.');

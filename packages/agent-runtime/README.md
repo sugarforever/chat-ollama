@@ -4,8 +4,9 @@
 ChatOllama. It uses Vercel AI SDK internally and exposes ChatOllama-owned
 messages, snapshots, and process-local events.
 
-The package currently supports one tool-free streamed response through either
-OpenAI or an OpenAI-compatible endpoint. It does not contain a CLI/TUI, tools,
+The package supports tool-free streaming through Ollama, OpenAI, Anthropic,
+Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
+safe Session model switching. It does not contain a CLI/TUI, tools, preference
 persistence, Skills, compaction, MCP, or Web integration.
 
 ## Requirements
@@ -55,6 +56,7 @@ unsubscribe();
 - `subscribe(listener)` for process-local events and its unsubscribe function
 - `prompt(input)` for one active streamed run
 - `cancel()` for aborting the active run
+- `setModel(config)` for changing an idle Session's model while preserving history
 
 The current event union contains:
 
@@ -62,6 +64,7 @@ The current event union contains:
 - `model.started`
 - `model.delta`
 - `model.completed`
+- `model.changed`
 - `run.completed`
 - `run.failed`
 - `run.cancelled`
@@ -71,6 +74,62 @@ provider stream parts, provider metadata, endpoints, and credentials do not
 cross the public Runtime boundary. Provider failures are reported as the stable
 message `Model request failed`; the AI SDK default streaming error logger is
 disabled so a provider error cannot copy a credential into Runtime logs.
+
+`setModel()` rejects a switch during an active run. A successful idle switch
+updates the snapshot and emits `model.changed`; subsequent requests use the
+new provider without replacing the Session's structured conversation history.
+
+## Model discovery and resolution
+
+```ts
+import { createAgentSession, createModelConfig, discoverModels } from 'chatollama-agent-runtime';
+
+const env = process.env;
+const { models, warnings } = await discoverModels({ env });
+for (const warning of warnings) {
+  console.error(`${warning.provider}: ${warning.message}`);
+}
+const selected = models[0];
+if (selected) {
+  const session = createAgentSession({ model: createModelConfig(selected, env) });
+  // Subscribe and prompt, or call session.setModel(createModelConfig(other, env)).
+}
+```
+
+| Provider | Credential / availability |
+| --- | --- |
+| Ollama | Local `/api/tags` lists installed models; no secret required |
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google Gemini | `GEMINI_API_KEY`, then `GOOGLE_GENERATIVE_AI_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| OpenRouter | `OPENROUTER_API_KEY` |
+
+Blank credentials are ignored. Configured remote providers contribute a small
+built-in catalog; OpenAI's models endpoint augments it. Credential presence
+does not prove account access to every listed model. Each network discovery
+has a two-second timeout by default, and one provider's failure yields a
+sanitized warning without removing other providers or its built-in catalog.
+With no remote credentials and unreachable Ollama, the result is an empty
+model list with a warning, not a startup exception.
+
+`discoverModels` accepts injected `fetch`, `timeoutMs`, `ollamaBaseURL`, and
+`openaiBaseURL` options. Tests use fake transports for success, timeout, and
+failure; no paid model requests are needed. `createModelConfig` resolves
+credentials privately from the environment. Public discovery results contain
+provider/model identity and optional non-secret endpoint metadata, never keys.
+
+OpenAI, Anthropic, and Google use their official AI SDK provider adapters.
+Ollama, DeepSeek, and OpenRouter use the OpenAI-compatible adapter with
+provider-specific configuration. The Runtime has no pi-tui or pi-ai dependency.
+
+Startup precedence and user preference files belong to the CLI. Its explicit
+`AGENT_PROVIDER`/`AGENT_MODEL` selection overrides a saved choice, then a
+deterministic available fallback; `AGENT_BASE_URL`/`AGENT_API_KEY` override the
+startup endpoint/key. `/models` and `/model <provider>/<model-id>` use these
+public Runtime APIs. See the [CLI guide](https://github.com/sugarforever/chat-ollama/blob/main/packages/agent-cli/README.md#saved-model-preference)
+for platform preference paths and the minimal `provider`, `model`, optional
+`baseURL` JSON schema. Credentials and conversation history are not persisted.
 
 ## OpenAI smoke test
 
