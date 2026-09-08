@@ -2,6 +2,7 @@ import { setTimeout } from 'node:timers/promises';
 
 import type {
   AgentSession,
+  ModelConfig,
   RuntimeEvent,
   RuntimeEventListener,
   SessionMessage,
@@ -18,6 +19,7 @@ class MockRuntime implements AgentSession {
   getSnapshot(): SessionSnapshot {
     return {
       id: 'demo-session',
+      model: { provider: 'openai', model: 'mock-model' },
       messages: this.#messages.map(message => ({ ...message })),
     };
   }
@@ -52,6 +54,8 @@ class MockRuntime implements AgentSession {
   }
 
   cancel(): void {}
+
+  setModel(_model: ModelConfig): void {}
 
   #publish(event: RuntimeEvent): void {
     for (const listener of this.#listeners) {

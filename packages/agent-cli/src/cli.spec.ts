@@ -2,6 +2,8 @@ import { PassThrough } from 'node:stream';
 
 import type {
   AgentSession,
+  AvailableModel,
+  ModelConfig,
   RuntimeEvent,
   RuntimeEventListener,
 } from 'chatollama-agent-runtime';
@@ -180,6 +182,124 @@ describe('Runtime event-driven CLI', () => {
       '[run run-1] started\n[run run-1] cancelled\n',
     );
   });
+
+  it('lists sorted available models and marks the current selection', async () => {
+    const runtime = new ControlledRuntime();
+    const terminal = createTerminal();
+    const cli = runCli({
+      session: runtime,
+      models: [
+        { provider: 'openai', model: 'z-model' },
+        { provider: 'anthropic', model: 'a-model' },
+        { provider: 'openai', model: 'mock-model' },
+      ],
+      ...terminal.streams,
+    });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.write('/models\n');
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('Select model number'));
+    terminal.input.write('\n/exit\n');
+    await cli;
+
+    expect(terminal.stdout()).toContain(
+      'Available models:\n1. anthropic/a-model\n2. openai/mock-model *\n3. openai/z-model\n',
+    );
+    expect(runtime.model.model).toBe('mock-model');
+  });
+
+  it('selects by number, persists after switching, and uses the new model next', async () => {
+    const runtime = new ControlledRuntime();
+    const terminal = createTerminal();
+    const saved: AvailableModel[] = [];
+    const models = [
+      { provider: 'anthropic' as const, model: 'a-model' },
+      { provider: 'openai' as const, model: 'mock-model' },
+    ];
+    const cli = runCli({
+      session: runtime,
+      models,
+      resolveModel: model => ({ ...model, apiKey: 'in-memory-secret' }),
+      saveModel: async model => { saved.push(model); },
+      ...terminal.streams,
+    });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.write('/models\n');
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('Select model number'));
+    terminal.input.write('1\n');
+    await vi.waitFor(() => expect(saved).toEqual([models[0]]));
+    terminal.input.write('Hello\n');
+    await vi.waitFor(() => expect(runtime.inputs).toEqual(['Hello']));
+    expect(runtime.model).toEqual({ provider: 'anthropic', model: 'a-model' });
+    runtime.completePrompt();
+    await vi.waitFor(() => expect(terminal.stdout().match(/You> /g)?.length).toBeGreaterThan(1));
+    terminal.input.write('/exit\n');
+    await cli;
+
+    expect(terminal.stdout()).toContain('Switched to anthropic/a-model\n');
+  });
+
+  it('supports direct selection and leaves the model unchanged for invalid input', async () => {
+    const runtime = new ControlledRuntime();
+    const terminal = createTerminal();
+    const saveModel = vi.fn(async () => {});
+    const cli = runCli({
+      session: runtime,
+      models: [{ provider: 'openrouter', model: 'openai/gpt-test' }],
+      resolveModel: model => model,
+      saveModel,
+      ...terminal.streams,
+    });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.write('/model missing/nope\n');
+    await vi.waitFor(() => expect(terminal.stderr()).toContain('Model not available'));
+    expect(runtime.model.model).toBe('mock-model');
+    terminal.input.write('/model openrouter/openai/gpt-test\n');
+    await vi.waitFor(() => expect(saveModel).toHaveBeenCalledOnce());
+    terminal.input.write('/exit\n');
+    await cli;
+
+    expect(runtime.model).toEqual({ provider: 'openrouter', model: 'openai/gpt-test' });
+  });
+
+  it('explains an empty catalog and keeps /exit available', async () => {
+    const runtime = new ControlledRuntime();
+    const terminal = createTerminal();
+    const cli = runCli({ session: runtime, models: [], ...terminal.streams });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.write('/models\n/exit\n');
+    await cli;
+
+    expect(terminal.stdout()).toContain(
+      'No models available. Start Ollama or configure a supported API key.\n',
+    );
+  });
+
+  it('reports a rejected model switch without persisting it', async () => {
+    const runtime = new ControlledRuntime();
+    runtime.switchError = new Error('Session has an active run');
+    const terminal = createTerminal();
+    const saveModel = vi.fn(async () => {});
+    const cli = runCli({
+      session: runtime,
+      models: [{ provider: 'anthropic', model: 'a-model' }],
+      resolveModel: model => model,
+      saveModel,
+      ...terminal.streams,
+    });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.write('/model anthropic/a-model\n');
+    await vi.waitFor(() => expect(terminal.stderr()).toContain('Session has an active run'));
+    terminal.input.write('/exit\n');
+    await cli;
+
+    expect(saveModel).not.toHaveBeenCalled();
+    expect(runtime.model.model).toBe('mock-model');
+  });
 });
 
 class ControlledRuntime implements AgentSession {
@@ -187,13 +307,18 @@ class ControlledRuntime implements AgentSession {
   readonly #listeners = new Set<RuntimeEventListener>();
   #resolvePrompt: (() => void) | undefined;
   #rejectPrompt: ((error: Error) => void) | undefined;
+  model: { provider: AvailableModel['provider']; model: string } = {
+    provider: 'openai',
+    model: 'mock-model',
+  };
+  switchError: Error | undefined;
 
   get listenerCount(): number {
     return this.#listeners.size;
   }
 
   getSnapshot() {
-    return { id: 'mock-session', messages: [] };
+    return { id: 'mock-session', model: this.model, messages: [] };
   }
 
   subscribe(listener: RuntimeEventListener): () => void {
@@ -210,6 +335,14 @@ class ControlledRuntime implements AgentSession {
   }
 
   cancel(): void {}
+
+  setModel(config: ModelConfig): void {
+    if (this.switchError) throw this.switchError;
+    this.model = {
+      provider: config.provider === 'openai-compatible' ? 'ollama' : config.provider,
+      model: config.model,
+    };
+  }
 
   emit(event: RuntimeEvent): void {
     for (const listener of this.#listeners) {

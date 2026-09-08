@@ -63,7 +63,12 @@ export function resolveStartupModel(
   options: ResolveStartupModelOptions,
 ): StartupModelResolution {
   const notices: string[] = [];
-  if (options.env.AGENT_PROVIDER !== undefined || options.env.AGENT_MODEL !== undefined) {
+  if (
+    options.env.AGENT_PROVIDER !== undefined ||
+    options.env.AGENT_MODEL !== undefined ||
+    options.env.AGENT_BASE_URL !== undefined ||
+    options.env.AGENT_API_KEY !== undefined
+  ) {
     const provider = parseProvider(options.env.AGENT_PROVIDER ?? 'ollama');
     return {
       selection: {
