@@ -13,10 +13,25 @@ export type SessionMessage = UserMessage | AssistantMessage;
 export interface SessionSnapshot {
   readonly id: string;
   readonly messages: readonly SessionMessage[];
+  readonly model: ModelDescriptor;
 }
 
 export interface OpenAIModelConfig {
   readonly provider: 'openai';
+  readonly model: string;
+  readonly apiKey?: string;
+  readonly baseURL?: string;
+}
+
+export interface AnthropicModelConfig {
+  readonly provider: 'anthropic';
+  readonly model: string;
+  readonly apiKey?: string;
+  readonly baseURL?: string;
+}
+
+export interface GoogleModelConfig {
+  readonly provider: 'google';
   readonly model: string;
   readonly apiKey?: string;
   readonly baseURL?: string;
@@ -30,7 +45,20 @@ export interface OpenAICompatibleModelConfig {
   readonly baseURL: string;
 }
 
-export type ModelConfig = OpenAIModelConfig | OpenAICompatibleModelConfig;
+export interface CompatibleProviderModelConfig {
+  readonly provider: 'ollama' | 'deepseek' | 'openrouter';
+  readonly name: 'ollama' | 'deepseek' | 'openrouter';
+  readonly model: string;
+  readonly apiKey?: string;
+  readonly baseURL: string;
+}
+
+export type ModelConfig =
+  | OpenAIModelConfig
+  | AnthropicModelConfig
+  | GoogleModelConfig
+  | OpenAICompatibleModelConfig
+  | CompatibleProviderModelConfig;
 
 export type ProviderId =
   | 'ollama'
@@ -96,6 +124,11 @@ export type RuntimeEvent =
       readonly message: AssistantMessage;
     }
   | {
+      readonly type: 'model.changed';
+      readonly previous: ModelDescriptor;
+      readonly current: ModelDescriptor;
+    }
+  | {
       readonly type: 'run.completed';
       readonly runId: string;
     }
@@ -114,6 +147,7 @@ export type RuntimeEventListener = (event: RuntimeEvent) => void;
 export interface AgentSession {
   getSnapshot(): SessionSnapshot;
   subscribe(listener: RuntimeEventListener): () => void;
+  setModel(config: ModelConfig): void;
   prompt(input: string): Promise<void>;
   cancel(): void;
 }

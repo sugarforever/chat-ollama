@@ -18,6 +18,7 @@ describe('Runtime public contract', () => {
     const snapshot = {
       id: 'session-1',
       messages: [user, assistant],
+      model: { provider: 'openai', model: 'gpt-5-mini' },
     } satisfies SessionSnapshot;
 
     const events = [
@@ -29,6 +30,11 @@ describe('Runtime public contract', () => {
       },
       { type: 'model.delta', runId: 'run-1', delta: 'Hi' },
       { type: 'model.completed', runId: 'run-1', message: assistant },
+      {
+        type: 'model.changed',
+        previous: { provider: 'openai', model: 'gpt-5-mini' },
+        current: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+      },
       { type: 'run.completed', runId: 'run-1' },
       {
         type: 'run.failed',
@@ -44,12 +50,14 @@ describe('Runtime public contract', () => {
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi' },
       ],
+      model: { provider: 'openai', model: 'gpt-5-mini' },
     });
     expect(events.map(event => event.type)).toEqual([
       'run.started',
       'model.started',
       'model.delta',
       'model.completed',
+      'model.changed',
       'run.completed',
       'run.failed',
       'run.cancelled',
@@ -59,6 +67,7 @@ describe('Runtime public contract', () => {
   it('keeps the Session surface limited to state and run control', () => {
     expectTypeOf<AgentSession>().toHaveProperty('getSnapshot');
     expectTypeOf<AgentSession>().toHaveProperty('subscribe');
+    expectTypeOf<AgentSession>().toHaveProperty('setModel');
     expectTypeOf<AgentSession>().toHaveProperty('prompt');
     expectTypeOf<AgentSession>().toHaveProperty('cancel');
   });
