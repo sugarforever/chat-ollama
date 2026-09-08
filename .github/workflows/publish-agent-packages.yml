@@ -6,7 +6,7 @@ on:
       - 'agent-v*'
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -77,3 +77,22 @@ jobs:
           npm init --yes
           npm install "chatollama-agent@${{ steps.registry.outputs.version }}"
           printf '/exit\n' | npx --no-install chatollama-agent
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.registry.outputs.version }}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub Release $GITHUB_REF_NAME already exists"
+            exit 0
+          fi
+
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "ChatOllama Agent v${VERSION}" \
+            --generate-notes \
+            --notes "Published npm packages:
+
+          - [chatollama-agent@${VERSION}](https://www.npmjs.com/package/chatollama-agent/v/${VERSION})
+          - [chatollama-agent-runtime@${VERSION}](https://www.npmjs.com/package/chatollama-agent-runtime/v/${VERSION})"
