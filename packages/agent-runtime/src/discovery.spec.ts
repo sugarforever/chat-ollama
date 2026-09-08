@@ -180,6 +180,41 @@ describe('isolated network model discovery', () => {
     expect(JSON.stringify(result)).not.toContain('ollama-secret');
   });
 
+  it('aborts a timed-out OpenAI /models request while preserving Ollama and curated models', async () => {
+    let wasAborted = false;
+    const result = await discoverModels({
+      env: { OPENAI_API_KEY: 'openai-test-key' },
+      timeoutMs: 1,
+      fetch: async (input, init) => {
+        if (String(input).endsWith('/api/tags')) {
+          return new Response(
+            JSON.stringify({ models: [{ name: 'qwen3:8b' }] }),
+            { status: 200 },
+          );
+        }
+
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            wasAborted = true;
+            reject(new DOMException('openai-timeout-secret', 'AbortError'));
+          });
+        });
+      },
+    });
+
+    expect(wasAborted).toBe(true);
+    expect(result).toEqual({
+      models: [
+        { provider: 'ollama', model: 'qwen3:8b', baseURL: 'http://localhost:11434/v1' },
+        { provider: 'openai', model: 'gpt-5' },
+        { provider: 'openai', model: 'gpt-5-mini' },
+      ],
+      warnings: [{ provider: 'openai', message: 'Model discovery timed out.' }],
+    });
+    expect(JSON.stringify(result)).not.toContain('openai-timeout-secret');
+    expect(JSON.stringify(result)).not.toContain('openai-test-key');
+  });
+
   it('keeps built-in models while reporting HTTP and malformed-data discovery failures', async () => {
     const result = await discoverModels({
       env: { OPENAI_API_KEY: 'openai-test-key' },
@@ -201,6 +236,33 @@ describe('isolated network model discovery', () => {
       { provider: 'openai', message: 'Model discovery returned invalid data.' },
     ]);
     expect(JSON.stringify(result)).not.toContain('ollama-secret');
+    expect(JSON.stringify(result)).not.toContain('openai-test-key');
+  });
+
+  it('keeps curated OpenAI models when its /models endpoint returns a non-2xx response', async () => {
+    const result = await discoverModels({
+      env: { OPENAI_API_KEY: 'openai-test-key' },
+      fetch: async (input) => {
+        if (String(input).endsWith('/api/tags')) {
+          return new Response(
+            JSON.stringify({ models: [{ name: 'qwen3:8b' }] }),
+            { status: 200 },
+          );
+        }
+
+        return new Response('openai-http-secret', { status: 429 });
+      },
+    });
+
+    expect(result).toEqual({
+      models: [
+        { provider: 'ollama', model: 'qwen3:8b', baseURL: 'http://localhost:11434/v1' },
+        { provider: 'openai', model: 'gpt-5' },
+        { provider: 'openai', model: 'gpt-5-mini' },
+      ],
+      warnings: [{ provider: 'openai', message: 'Model discovery failed.' }],
+    });
+    expect(JSON.stringify(result)).not.toContain('openai-http-secret');
     expect(JSON.stringify(result)).not.toContain('openai-test-key');
   });
 
