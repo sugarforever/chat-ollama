@@ -56,7 +56,9 @@ npx --no-install chatollama-agent
 
 发布 workflow 只响应 `agent-v*` tag，与 Nuxt 应用自己的版本节奏分开。它会重新安装锁定依赖，依次执行测试、类型检查、构建和 tarball 安装测试，再确认 tag、Runtime 与 CLI 三处版本完全一致。
 
-Runtime 发布成功以后，workflow 才会发布 CLI。发布命令启用 npm provenance。由于两个 fallback 包尚未创建，第一次发布需要先配置仓库的 `NPM_TOKEN` secret；包创建后可以在 npm 侧绑定这个 workflow，再迁移到 OIDC trusted publishing。首个 release marker 是 `agent-v0.1.0`，但这个 tag 只会在 PR 合并并得到明确确认后创建。
+Runtime 发布成功以后，workflow 才会发布 CLI。第一次发布可以在本地命令行完成，不需要把长期 token 放进 GitHub。两个 package 出现在 npmjs 以后，再分别绑定这个 workflow，后续版本便通过 OIDC trusted publishing 发布并生成 provenance。
+
+workflow 在处理 tag 时会先查询公开 Registry。两个版本都不存在时进入发布；两个版本都存在时跳过重复 publish，直接安装公开 CLI 做 smoke test；只发布了其中一个 package 则立即失败。这样本地发布的 `0.1.0` 仍能用 `agent-v0.1.0` 记录 release marker，而不会尝试重复发布同一个 npm 版本。这个 tag 只会在 PR 合并并得到明确确认后创建。
 
 用户最终只需要：
 

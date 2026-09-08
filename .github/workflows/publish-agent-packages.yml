@@ -50,17 +50,23 @@ jobs:
       - name: Verify release tag and package versions
         run: node scripts/verify-agent-release-tag.mjs "$GITHUB_REF_NAME"
 
-      - name: Verify first-publish credentials
-        run: test -n "$NODE_AUTH_TOKEN" || { echo '::error::Configure the NPM_TOKEN repository secret before publishing the first release.'; exit 1; }
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Check public Registry
+        id: registry
+        run: node scripts/check-agent-registry.mjs "${GITHUB_REF_NAME#agent-v}" >> "$GITHUB_OUTPUT"
 
       - name: Publish Runtime
+        if: steps.registry.outputs.state == 'missing'
         run: pnpm --filter chatollama-agent-runtime publish --access public --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish CLI
+        if: steps.registry.outputs.state == 'missing'
         run: pnpm --filter chatollama-agent publish --access public --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify public installation
+        run: |
+          SMOKE_DIR=$(mktemp -d)
+          trap 'rm -rf "$SMOKE_DIR"' EXIT
+          cd "$SMOKE_DIR"
+          npm init --yes
+          npm install "chatollama-agent@${{ steps.registry.outputs.version }}"
+          printf '/exit\n' | npx --no-install chatollama-agent

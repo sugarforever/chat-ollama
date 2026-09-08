@@ -21,8 +21,7 @@
   ],
   "types": "./dist/main.d.ts",
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "demo": "node --no-warnings --import tsx examples/mock-runtime.ts",
