@@ -10,6 +10,36 @@ export interface AssistantMessage {
 
 export type SessionMessage = UserMessage | AssistantMessage;
 
+export type ProviderId =
+  | 'ollama'
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'deepseek'
+  | 'openrouter';
+
+export interface AvailableModel {
+  readonly provider: ProviderId;
+  readonly model: string;
+  readonly baseURL?: string;
+}
+
+export interface DiscoveryWarning {
+  readonly provider: ProviderId;
+  readonly message: 'Model discovery failed' | 'Model discovery timed out';
+}
+
+export interface ModelDiscoveryResult {
+  readonly models: AvailableModel[];
+  readonly warnings: DiscoveryWarning[];
+}
+
+export interface DiscoverModelsOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly fetch?: typeof fetch;
+  readonly timeoutMs?: number;
+}
+
 export interface SessionSnapshot {
   readonly id: string;
   readonly messages: readonly SessionMessage[];
