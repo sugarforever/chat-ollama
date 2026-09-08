@@ -65,7 +65,9 @@ export async function writeModelPreference(
   const content: ModelPreference = {
     provider: preference.provider,
     model: preference.model,
-    ...(preference.baseURL ? { baseURL: preference.baseURL } : {}),
+    ...(preference.baseURL && isSafeEndpoint(preference.baseURL)
+      ? { baseURL: preference.baseURL }
+      : {}),
   };
   await mkdir(dirname(filePath), { recursive: true });
   const temporaryPath = `${filePath}.${process.pid}.tmp`;
@@ -86,8 +88,24 @@ function isModelPreference(value: unknown): value is ModelPreference {
     PROVIDERS.has(record.provider as ProviderId) &&
     typeof record.model === 'string' &&
     record.model.length > 0 &&
-    (record.baseURL === undefined || typeof record.baseURL === 'string')
+    (record.baseURL === undefined ||
+      (typeof record.baseURL === 'string' && isSafeEndpoint(record.baseURL)))
   );
+}
+
+function isSafeEndpoint(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.username === '' &&
+      url.password === '' &&
+      url.search === '' &&
+      url.hash === ''
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isNotFound(error: unknown): boolean {

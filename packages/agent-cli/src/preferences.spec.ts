@@ -63,4 +63,27 @@ describe('model preferences', () => {
       warning: 'Saved model preference is invalid and was ignored',
     });
   });
+
+  it('rejects endpoint metadata that can contain credentials', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'chatollama-preferences-'));
+    const filePath = join(directory, 'agent.json');
+    await writeFile(filePath, JSON.stringify({
+      provider: 'ollama',
+      model: 'qwen3:8b',
+      baseURL: 'https://user:password@example.test/v1?token=secret',
+    }), 'utf8');
+
+    expect(await readModelPreference(filePath)).toEqual({
+      warning: 'Saved model preference is invalid and was ignored',
+    });
+    await writeModelPreference(filePath, {
+      provider: 'ollama',
+      model: 'qwen3:8b',
+      baseURL: 'https://example.test/v1?token=secret',
+    });
+    expect(JSON.parse(await readFile(filePath, 'utf8'))).toEqual({
+      provider: 'ollama',
+      model: 'qwen3:8b',
+    });
+  });
 });
