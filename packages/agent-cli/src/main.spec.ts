@@ -86,6 +86,29 @@ describe('agent CLI entry point', () => {
     expect(result.stderr).toBe('');
   });
 
+  it.each([
+    { name: 'provider only', env: { AGENT_PROVIDER: 'ollama' }, model: 'qwen3:8b' },
+    { name: 'model only', env: { AGENT_MODEL: 'explicit-model' }, model: 'explicit-model' },
+    { name: 'provider and model', env: { AGENT_PROVIDER: 'ollama', AGENT_MODEL: 'explicit-model' }, model: 'explicit-model' },
+  ])('ignores saved endpoint metadata for an explicit $name selection', async ({ env, model }) => {
+    const requests: string[] = [];
+    const result = await runPiped({
+      env,
+      preferencesPath: await preferencePath('{"provider":"ollama","model":"explicit-model","baseURL":"http://saved.test:1234/v1"}'),
+      fetch: async input => {
+        requests.push(String(input));
+        return Response.json({ models: String(input) === 'http://localhost:11434/api/tags'
+          ? [{ name: 'qwen3:8b' }, { name: 'explicit-model' }]
+          : [{ name: 'saved-endpoint-only' }] });
+      },
+    });
+
+    expect(requests).toEqual(['http://localhost:11434/api/tags']);
+    expect(result.stdout).toContain(`ollama/${model} (current)`);
+    expect(result.stdout).not.toContain('saved-endpoint-only');
+    expect(result.stderr).toBe('');
+  });
+
   it('excludes incompatible inventory models from listing, direct selection, and saved fallback', async () => {
     const result = await runPiped({
       env: { OPENAI_API_KEY: 'mixed-inventory-secret' },

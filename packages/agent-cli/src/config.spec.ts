@@ -137,6 +137,22 @@ describe('CLI model configuration', () => {
     });
   });
 
+  it.each([
+    { name: 'provider only', env: { AGENT_PROVIDER: 'ollama' }, model: 'qwen3:8b' },
+    { name: 'model only', env: { AGENT_MODEL: 'explicit-model' }, model: 'explicit-model' },
+    { name: 'provider and model', env: { AGENT_PROVIDER: 'ollama', AGENT_MODEL: 'explicit-model' }, model: 'explicit-model' },
+  ])('constructs the default endpoint for an explicit $name selection despite a saved endpoint', ({ env, model }) => {
+    const saved = { provider: 'ollama' as const, model: 'explicit-model', baseURL: 'http://saved.test:1234/v1' };
+    const resolved = resolveStartupModel({ env, saved, available: [saved] });
+
+    expect(resolved.source).toBe('environment');
+    expect(readModelConfig(env, resolved.selection)).toMatchObject({
+      provider: 'ollama',
+      model,
+      baseURL: 'http://localhost:11434/v1',
+    });
+  });
+
   it('reports a stale saved choice and uses legacy Ollama when nothing is available', () => {
     expect(
       resolveStartupModel({

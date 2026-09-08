@@ -24,20 +24,18 @@ export async function runMain(options: RunMainOptions = {}): Promise<void> {
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
   // Validate explicit provider/model overrides before any network work.
-  resolveStartupModel({ env, available: [] });
+  const initial = resolveStartupModel({ env, available: [] });
   const preferencesPath = options.preferencesPath ?? getPreferencesPath({ env });
   const saved = await readModelPreference(preferencesPath);
-  const endpointProvider = env.AGENT_PROVIDER ??
-    (env.AGENT_MODEL !== undefined ? 'ollama' : saved.preference?.provider) ?? 'ollama';
+  // Explicit selections replace the entire saved selection, including its endpoint.
+  const discoverySelection = initial.source === 'environment' ? initial.selection : saved.preference;
+  const endpointProvider = discoverySelection?.provider ?? 'ollama';
+  const discoveryBaseURL = env.AGENT_BASE_URL || discoverySelection?.baseURL;
   const discovery = await discoverModels({
     env,
     fetch: options.fetch,
-    ollamaBaseURL: endpointProvider === 'ollama' && env.AGENT_BASE_URL
-      ? env.AGENT_BASE_URL
-      : saved.preference?.provider === 'ollama' ? saved.preference.baseURL : undefined,
-    openaiBaseURL: endpointProvider === 'openai' && env.AGENT_BASE_URL
-      ? env.AGENT_BASE_URL
-      : saved.preference?.provider === 'openai' ? saved.preference.baseURL : undefined,
+    ollamaBaseURL: endpointProvider === 'ollama' ? discoveryBaseURL : undefined,
+    openaiBaseURL: endpointProvider === 'openai' ? discoveryBaseURL : undefined,
   });
   const resolved = resolveStartupModel({ env, saved: saved.preference, available: discovery.models });
   const session = createAgentSession({ model: readModelConfig(env, resolved.selection) });
