@@ -40,6 +40,7 @@ function inspectTarball(tarball, expected) {
 
   assert.equal(manifest.name, expected.name);
   assert.equal(manifest.private, undefined, `${expected.name} must be publishable`);
+  assert.equal(manifest.license, 'SEE LICENSE IN LICENSE');
   assert.equal(manifest.engines?.node, '>=24');
   assert.equal(
     manifest.repository?.url,
@@ -103,14 +104,19 @@ try {
   run('npm', ['install', '--ignore-scripts', cliTarball], { cwd: installDirectory });
 
   rmSync(runtimeTarball);
-  const installedPackage = join(installDirectory, 'node_modules', 'chatollama-agent');
+  const installedPackages = [
+    join(installDirectory, 'node_modules', 'chatollama-agent-runtime'),
+    join(installDirectory, 'node_modules', 'chatollama-agent'),
+  ];
   const executable = join(installDirectory, 'node_modules', '.bin', 'chatollama-agent');
   assert.ok(statSync(executable).isFile(), 'local chatollama-agent bin is missing');
 
-  for (const file of walkFiles(installedPackage).filter(path => path.endsWith('.js'))) {
-    const source = readFileSync(file, 'utf8');
-    assert.doesNotMatch(source, /(?:from\s+|import\()['"](?:\.\.\/)*src\//);
-    assert.doesNotMatch(source, /(?:--import\s+|from\s+['"]|import\(['"])tsx/);
+  for (const installedPackage of installedPackages) {
+    for (const file of walkFiles(installedPackage).filter(path => path.endsWith('.js'))) {
+      const source = readFileSync(file, 'utf8');
+      assert.doesNotMatch(source, /(?:from\s+|import\()['"](?:\.\.\/)*src\//);
+      assert.doesNotMatch(source, /(?:--import\s+|from\s+['"]|import\(['"])tsx/);
+    }
   }
 
   const environment = {
@@ -123,12 +129,14 @@ try {
     env: environment,
     input: '/exit\n',
     stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 10_000,
   });
   execFileSync('npx', ['--no-install', 'chatollama-agent'], {
     cwd: installDirectory,
     env: environment,
     input: '/exit\n',
     stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 10_000,
   });
   execFileSync(executable, [], {
     cwd: installDirectory,
@@ -140,6 +148,7 @@ try {
     },
     input: '/exit\n',
     stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 10_000,
   });
 
   completed = true;

@@ -67,7 +67,7 @@ chatollama-agent
 
 `AGENT_API_KEY` can be used instead of `OPENAI_API_KEY`. `AGENT_BASE_URL` can override the default OpenAI endpoint.
 
-The CLI rejects unsupported providers, empty model or base URL values, and a missing OpenAI API key. Error output never includes the configured secret.
+The CLI rejects unsupported providers before startup. Provider request failures are reported through a sanitized Runtime error and do not print the configured secret.
 
 ## Runtime events
 

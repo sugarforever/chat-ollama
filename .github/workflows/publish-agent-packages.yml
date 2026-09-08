@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NPM_CONFIG_PROVENANCE: 'true'
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v4
@@ -25,17 +24,16 @@ jobs:
           run_install: false
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install trusted-publishing npm CLI
-        run: npm install --global npm@11 && npm --version
+        run: npm install --global npm@11.6.2 && npm --version
 
       - name: Test Agent packages
         run: pnpm test:agent && pnpm test:agent:release
@@ -54,6 +52,10 @@ jobs:
 
       - name: Publish Runtime
         run: pnpm --filter chatollama-agent-runtime publish --access public --provenance --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish CLI
         run: pnpm --filter chatollama-agent publish --access public --provenance --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
