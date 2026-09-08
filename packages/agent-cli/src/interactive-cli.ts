@@ -29,7 +29,7 @@ export async function runInteractiveCli(
 ): Promise<void> {
   const terminal = options.terminal ?? new ProcessTerminal();
   const tui: TUI = new TuiMainScreen(terminal, true);
-  let text = 'ChatOllama Agent CLI\nType / for commands. Ctrl+C to quit.';
+  let text = 'ChatOllama Agent CLI\nType / for commands. Ctrl+C cancels a run or quits when idle.';
   const transcript = new Text(text, 0, 0);
   const status = new Text('', 0, 0);
   const identity = (text: string) => text;
@@ -48,6 +48,7 @@ export async function runInteractiveCli(
     new CombinedAutocompleteProvider([
       { name: 'models', description: 'Choose an available model' },
       { name: 'model', description: 'Switch provider/model-id' },
+      { name: 'new', description: 'Clear conversation history' },
       { name: 'exit', description: 'Quit' },
     ], process.cwd()),
   );
@@ -65,6 +66,7 @@ export async function runInteractiveCli(
   let picker: SelectList | undefined;
   let closed = false;
   let runStatus = '';
+  let runActive = false;
   let failureReported = false;
   let finish!: () => void;
   const done = new Promise<void>(resolve => {
@@ -158,6 +160,10 @@ export async function runInteractiveCli(
   };
   tui.addInputListener(data => {
     if (matchesKey(data, 'ctrl+c')) {
+      if (runActive) {
+        options.session.cancel();
+        return { consume: true };
+      }
       finish();
       return { consume: true };
     }
@@ -166,6 +172,7 @@ export async function runInteractiveCli(
     if (closed) return;
     switch (event.type) {
       case 'run.started':
+        runActive = true;
         runStatus = `[run ${event.runId}] started`;
         break;
       case 'model.started':
@@ -179,17 +186,21 @@ export async function runInteractiveCli(
       case 'model.completed':
         break;
       case 'run.completed':
+        runActive = false;
         runStatus = `[run ${event.runId}] completed`;
         break;
       case 'run.failed':
+        runActive = false;
         append(`[error] ${event.error.message}`);
         failureReported = true;
         runStatus = `[run ${event.runId}] failed`;
         break;
       case 'run.cancelled':
+        runActive = false;
         runStatus = `[run ${event.runId}] cancelled`;
         break;
       case 'model.changed':
+      case 'session.reset':
         break;
     }
     if (!picker) updateStatus();

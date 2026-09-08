@@ -69,6 +69,7 @@ export async function runCli(options: RunCliOptions): Promise<void> {
         error.write(`[run ${event.runId}] cancelled\n`);
         break;
       case 'model.changed':
+      case 'session.reset':
         break;
     }
   });
@@ -113,6 +114,7 @@ export async function runCli(options: RunCliOptions): Promise<void> {
     }
   } finally {
     unsubscribe();
+    session.cancel();
     readline.close();
   }
 }

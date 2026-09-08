@@ -80,6 +80,18 @@ class InMemoryAgentSession implements AgentSession {
     });
   }
 
+  reset(): void {
+    if (this.#activeRun !== undefined) {
+      throw new Error('Session has an active run');
+    }
+
+    this.#messages.splice(0);
+    this.#publish({
+      type: 'session.reset',
+      model: this.#currentModel.descriptor,
+    });
+  }
+
   async prompt(input: string): Promise<void> {
     if (this.#activeRun !== undefined) {
       throw new Error('Session already has an active run');

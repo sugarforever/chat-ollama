@@ -38,6 +38,11 @@ class MockRuntime implements AgentSession {
     this.#model = { provider: config.provider, model: config.model };
   }
 
+  reset(): void {
+    this.#messages.splice(0);
+    this.#publish({ type: 'session.reset', model: this.#model });
+  }
+
   async prompt(input: string): Promise<void> {
     const runId = `demo-run-${++this.#runNumber}`;
     this.#messages.push({ role: 'user', content: input });

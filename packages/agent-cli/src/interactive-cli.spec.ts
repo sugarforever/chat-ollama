@@ -71,18 +71,22 @@ describe('pi-tui interactive CLI', () => {
     expect(screen).toContain('anthropic/claude-sonnet-4-5 (current)');
   });
 
-  it('offers /models, /model, and /exit when the editor receives /', async () => {
-    const { terminal } = startCli();
+  it('offers and routes /models, /model, /new, and /exit through the editor', async () => {
+    const runtime = new ControlledRuntime();
+    const { terminal } = startCli(runtime);
     await terminal.screen();
     terminal.type('/');
     const screen = await terminal.screen();
     // pi-tui displays command names without their leading slash.
     expect(screen).toMatch(/^→ models\s+/m);
     expect(screen).toMatch(/^\s+model\s+/m);
+    expect(screen).toMatch(/^\s+new\s+/m);
     expect(screen).toMatch(/^\s+exit\s+/m);
-    terminal.sendInput('\t');
+    terminal.sendInput('\x1b');
+    terminal.type('new');
     terminal.sendInput('\r');
-    expect(await terminal.screen()).toContain('→ anthropic/claude-sonnet-4-5');
+    expect(await terminal.screen()).toContain('Conversation cleared.');
+    expect(runtime.resetCalls).toBe(1);
   });
 
   it('moves the model picker with Down and Up, then commits Enter through the command handler', async () => {
@@ -170,18 +174,31 @@ describe('pi-tui interactive CLI', () => {
     runtime.completePrompt();
   });
 
-  it('cancels an active run and releases the terminal and subscription on Ctrl+C', async () => {
+  it('cancels an active run on Ctrl+C, accepts another prompt, then exits when idle', async () => {
     const runtime = new ControlledRuntime();
     const { terminal, done } = startCli(runtime);
     await terminal.screen();
     terminal.type('Hello');
     terminal.sendInput('\r');
     await vi.waitFor(() => expect(runtime.inputs).toEqual(['Hello']));
+    runtime.emit({ type: 'run.started', runId: 'run-1', input: 'Hello' });
     expect(runtime.listenerCount).toBe(1);
     terminal.sendInput('\x03');
+    await vi.waitFor(() => expect(runtime.cancelCalls).toBe(1));
+    expect(terminal.stopped).toBe(false);
+    expect(runtime.listenerCount).toBe(1);
+
+    runtime.emit({ type: 'run.cancelled', runId: 'run-1' });
+    terminal.type('After cancel');
+    terminal.sendInput('\r');
+    await vi.waitFor(() => expect(runtime.inputs).toEqual(['Hello', 'After cancel']));
+    runtime.emit({ type: 'run.completed', runId: 'run-2' });
+    runtime.completePrompt();
+    terminal.sendInput('\x03');
+
     await done;
     expect(terminal.stopped).toBe(true);
-    expect(runtime.cancelled).toBe(true);
+    expect(runtime.cancelCalls).toBe(2);
     expect(runtime.listenerCount).toBe(0);
   });
 });
@@ -191,7 +208,8 @@ class ControlledRuntime implements AgentSession {
   readonly #listeners = new Set<RuntimeEventListener>();
   #resolve?: () => void;
   #reject?: (error: Error) => void;
-  cancelled = false;
+  cancelCalls = 0;
+  resetCalls = 0;
 
   get listenerCount(): number { return this.#listeners.size; }
   getSnapshot(): SessionSnapshot {
@@ -204,6 +222,7 @@ class ControlledRuntime implements AgentSession {
   setModel(_config: ModelConfig): void {
     throw new Error('Session has an active run');
   }
+  reset(): void { this.resetCalls += 1; }
   prompt(input: string): Promise<void> {
     this.inputs.push(input);
     return new Promise((resolve, reject) => { this.#resolve = resolve; this.#reject = reject; });
@@ -213,5 +232,5 @@ class ControlledRuntime implements AgentSession {
   }
   completePrompt(): void { this.#resolve?.(); }
   failPrompt(): void { this.#reject?.(new Error('Model request failed')); }
-  cancel(): void { this.cancelled = true; this.completePrompt(); }
+  cancel(): void { this.cancelCalls += 1; this.completePrompt(); }
 }

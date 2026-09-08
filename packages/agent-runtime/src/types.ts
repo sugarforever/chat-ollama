@@ -129,6 +129,10 @@ export type RuntimeEvent =
       readonly current: ModelDescriptor;
     }
   | {
+      readonly type: 'session.reset';
+      readonly model: ModelDescriptor;
+    }
+  | {
       readonly type: 'run.completed';
       readonly runId: string;
     }
@@ -148,6 +152,7 @@ export interface AgentSession {
   getSnapshot(): SessionSnapshot;
   subscribe(listener: RuntimeEventListener): () => void;
   setModel(config: ModelConfig): void;
+  reset(): void;
   prompt(input: string): Promise<void>;
   cancel(): void;
 }

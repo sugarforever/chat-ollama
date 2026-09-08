@@ -48,8 +48,9 @@ describe('command parsing', () => {
     });
   });
 
-  it('parses renderer-independent list and exit commands', () => {
+  it('parses renderer-independent list, reset, and exit commands', () => {
     expect(parseCommandInput('/models')).toEqual({ type: 'show-models' });
+    expect(parseCommandInput('/new')).toEqual({ type: 'new-session' });
     expect(parseCommandInput('/exit')).toEqual({ type: 'exit' });
   });
 
@@ -292,6 +293,52 @@ describe('command handling', () => {
     });
   });
 
+  it('clears the Runtime conversation without changing or persisting the model', async () => {
+    const session = new CommandRuntime({ provider: 'openai', model: 'gpt-5-mini' });
+    const written: AvailableModel[] = [];
+    const handler = createCommandHandler({
+      session,
+      availableModels: AVAILABLE_MODELS,
+      env: {},
+      writePreference: async selection => { written.push(selection); },
+    });
+
+    await expect(handler({ type: 'new-session' })).resolves.toEqual({
+      type: 'continue',
+      inputMode: 'prompt',
+      lines: ['Conversation cleared.'],
+    });
+    expect(session.resetCalls).toBe(1);
+    expect(session.getSnapshot().model).toEqual({ provider: 'openai', model: 'gpt-5-mini' });
+    expect(written).toEqual([]);
+  });
+
+  it('reports active-run reset exclusion and sanitizes unexpected reset errors', async () => {
+    const session = new CommandRuntime();
+    const handler = createCommandHandler({
+      session,
+      availableModels: AVAILABLE_MODELS,
+      env: {},
+      writePreference: async () => {},
+    });
+    session.active = true;
+    await expect(handler({ type: 'new-session' })).resolves.toEqual({
+      type: 'continue',
+      inputMode: 'prompt',
+      lines: ['Could not clear conversation: Session has an active run'],
+    });
+
+    session.active = false;
+    session.resetError = new Error('secret storage detail');
+    const result = await handler({ type: 'new-session' });
+    expect(result).toEqual({
+      type: 'continue',
+      inputMode: 'prompt',
+      lines: ['Could not clear conversation: Conversation reset failed'],
+    });
+    expect(JSON.stringify(result)).not.toContain('secret');
+  });
+
   it('handles cancellation and exit without mutating the Runtime', async () => {
     const session = new CommandRuntime();
     const handler = createCommandHandler({
@@ -316,6 +363,8 @@ describe('command handling', () => {
 
 class CommandRuntime implements AgentSession {
   active = false;
+  resetCalls = 0;
+  resetError: Error | undefined;
   setModelError: Error | undefined;
   onSetModel: ((model: ModelConfig) => void) | undefined;
   #model: ModelDescriptor;
@@ -343,6 +392,12 @@ class CommandRuntime implements AgentSession {
     }
     this.#model = { provider: config.provider, model: config.model };
     this.onSetModel?.(config);
+  }
+
+  reset(): void {
+    if (this.active) throw new Error('Session has an active run');
+    if (this.resetError) throw this.resetError;
+    this.resetCalls += 1;
   }
 
   async prompt(_input: string): Promise<void> {}

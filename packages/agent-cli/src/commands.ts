@@ -15,6 +15,7 @@ export type ParsedCommand =
     }
   | { readonly type: 'select-model-number'; readonly number: number }
   | { readonly type: 'cancel-model-selection' }
+  | { readonly type: 'new-session' }
   | { readonly type: 'exit' }
   | { readonly type: 'prompt'; readonly input: string }
   | {
@@ -62,6 +63,9 @@ export function parseCommandInput(
 
   if (value === '/models') {
     return { type: 'show-models' };
+  }
+  if (value === '/new') {
+    return { type: 'new-session' };
   }
   if (value === '/exit') {
     return { type: 'exit' };
@@ -126,6 +130,8 @@ export function createCommandHandler(
       }
       case 'cancel-model-selection':
         return continueWith('prompt', 'Model selection cancelled.');
+      case 'new-session':
+        return resetSession(options.session);
       case 'invalid':
         return continueWith(command.inputMode ?? 'prompt', command.message);
       case 'prompt':
@@ -134,6 +140,19 @@ export function createCommandHandler(
         return { type: 'exit' };
     }
   };
+}
+
+function resetSession(session: AgentSession): CommandResult {
+  try {
+    session.reset();
+    return continueWith('prompt', 'Conversation cleared.');
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message === 'Session has an active run'
+        ? error.message
+        : 'Conversation reset failed';
+    return continueWith('prompt', `Could not clear conversation: ${message}`);
+  }
 }
 
 function listModels(

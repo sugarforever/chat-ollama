@@ -326,6 +326,57 @@ describe('AgentSession streaming', () => {
     ]);
   });
 
+  it('resets completed history while retaining the selected model', async () => {
+    const firstModel = createTextModel(['first answer']);
+    const secondModel = createTextModel(['second answer']);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first-model' },
+      createModel: config => {
+        if (config.model === 'second-model') return secondModel;
+        throw new Error(`Unexpected model: ${config.model}`);
+      },
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+    await session.prompt('Remember this');
+    session.setModel({ provider: 'openai', model: 'second-model' });
+
+    session.reset();
+
+    expect(session.getSnapshot()).toEqual({
+      id: 'session-1',
+      messages: [],
+      model: { provider: 'openai', model: 'second-model' },
+    });
+    expect(events.at(-1)).toEqual({
+      type: 'session.reset',
+      model: { provider: 'openai', model: 'second-model' },
+    });
+  });
+
+  it('rejects reset during an active run without changing history or model', async () => {
+    const model = createTextModel(['answer'], 20);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+    });
+    const prompt = session.prompt('Keep this pending');
+
+    expect(() => session.reset()).toThrow('Session has an active run');
+    expect(session.getSnapshot()).toEqual({
+      id: 'session-1',
+      messages: [{ role: 'user', content: 'Keep this pending' }],
+      model: { provider: 'openai', model: 'mock-model' },
+    });
+
+    session.cancel();
+    await prompt;
+  });
+
   it('rejects model switching during an active stream without replacing the selected model', async () => {
     const firstModel = createTextModel(['first answer'], 20);
     const secondModel = createTextModel(['second answer']);
