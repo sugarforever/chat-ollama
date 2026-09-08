@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { readModelConfig, resolveStartupModel } from './config.js';
+import {
+  readModelConfig,
+  resolveInteractiveModel,
+  resolveStartupModel,
+} from './config.js';
 
 describe('CLI model configuration', () => {
   it('defaults to the local Ollama OpenAI-compatible endpoint', () => {
@@ -112,6 +116,37 @@ describe('CLI model configuration', () => {
       notices: [
         'Saved model openai/missing is unavailable; using ollama/qwen3:8b',
       ],
+    });
+  });
+
+  it('keeps generic overrides only for switches within the explicit startup provider', () => {
+    const env = {
+      AGENT_PROVIDER: 'ollama',
+      AGENT_BASE_URL: 'https://ollama.example.test/v1',
+      AGENT_API_KEY: 'ollama-secret',
+      ANTHROPIC_API_KEY: 'anthropic-secret',
+    };
+    const startup = resolveStartupModel({ env, available: [] });
+
+    expect(resolveInteractiveModel(
+      env,
+      { provider: 'ollama', model: 'other-local-model' },
+      startup,
+    )).toEqual({
+      provider: 'ollama',
+      model: 'other-local-model',
+      baseURL: 'https://ollama.example.test/v1',
+      apiKey: 'ollama-secret',
+    });
+    expect(resolveInteractiveModel(
+      env,
+      { provider: 'anthropic', model: 'claude-test' },
+      startup,
+    )).toEqual({
+      provider: 'anthropic',
+      model: 'claude-test',
+      baseURL: undefined,
+      apiKey: 'anthropic-secret',
     });
   });
 });

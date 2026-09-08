@@ -44,6 +44,17 @@ export interface StartupModelResolution {
   readonly notices: string[];
 }
 
+export function resolveInteractiveModel(
+  env: NodeJS.ProcessEnv,
+  selected: AvailableModel,
+  startup: StartupModelResolution,
+): ModelConfig {
+  const useAgentOverrides =
+    startup.source === 'environment' &&
+    startup.selection.provider === selected.provider;
+  return readModelConfig(env, selected, useAgentOverrides);
+}
+
 export function resolveStartupModel(
   options: ResolveStartupModelOptions,
 ): StartupModelResolution {

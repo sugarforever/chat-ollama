@@ -2,7 +2,11 @@
 import { createAgentSession, discoverModels } from 'chatollama-agent-runtime';
 
 import { runCli } from './cli.js';
-import { readModelConfig, resolveStartupModel } from './config.js';
+import {
+  readModelConfig,
+  resolveInteractiveModel,
+  resolveStartupModel,
+} from './config.js';
 import {
   getPreferencesPath,
   readModelPreference,
@@ -40,7 +44,7 @@ async function main(): Promise<void> {
   await runCli({
     session,
     models: discovery.models,
-    resolveModel: model => readModelConfig(process.env, model, false),
+    resolveModel: model => resolveInteractiveModel(process.env, model, resolution),
     saveModel: model => writeModelPreference(preferencesPath, model),
     input: process.stdin,
     output: process.stdout,
