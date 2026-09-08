@@ -22,6 +22,9 @@ const LEGACY_OLLAMA_SELECTION: AvailableModel = {
   baseURL: 'http://localhost:11434/v1',
 };
 
+const STALE_PREFERENCE_NOTICE =
+  'Saved model preference is unavailable; using a fallback model';
+
 export interface ResolveStartupModelOptions {
   readonly env: NodeJS.ProcessEnv;
   readonly saved?: ModelPreference;
@@ -76,9 +79,7 @@ export function resolveStartupModel(
 
   const fallback = [...available].sort(compareModels)[0] ?? LEGACY_OLLAMA_SELECTION;
   const notices = saved
-    ? [
-        `Saved model ${saved.provider}/${saved.model} is unavailable; using ${fallback.provider}/${fallback.model}`,
-      ]
+    ? [STALE_PREFERENCE_NOTICE]
     : [];
   return { selection: fallback, source: 'fallback', notices };
 }
@@ -101,7 +102,12 @@ function isProviderId(value: string): value is ProviderId {
 }
 
 function compareModels(left: AvailableModel, right: AvailableModel): number {
-  return (
-    left.provider.localeCompare(right.provider) || left.model.localeCompare(right.model)
-  );
+  return compareCodeUnits(left.provider, right.provider) ||
+    compareCodeUnits(left.model, right.model);
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }

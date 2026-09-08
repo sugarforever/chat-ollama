@@ -19,3 +19,13 @@ Verification:
 - `pnpm --filter chatollama-agent test` passed: 5 files, 28 tests.
 - `pnpm --filter chatollama-agent build` passed.
 - `pnpm --filter chatollama-agent typecheck` remains blocked by existing runtime-interface drift outside this task: `examples/mock-runtime.ts` and `src/cli.spec.ts` lack the Runtime Task 2 `AgentSession.setModel` and `SessionSnapshot.model` members. The changed production sources are typechecked by the successful build.
+
+## Fix round 1
+
+- Replaced stale-preference notices with fixed text, so no persisted provider/model/base URL value can be echoed at startup.
+- Replaced locale-sensitive fallback ordering with explicit code-unit comparison for provider and model strings.
+- RED: `pnpm --filter chatollama-agent exec vitest run src/config.spec.ts` failed three assertions: stale values appeared in notices and locale sorting selected `apple` before `Zebra`.
+- GREEN: `pnpm --filter chatollama-agent exec vitest run src/preferences.spec.ts src/config.spec.ts` passed: 19 tests.
+- `pnpm --filter chatollama-agent test` passed: 5 files, 30 tests.
+- `pnpm --filter chatollama-agent build` passed.
+- `pnpm --filter chatollama-agent typecheck` still reports only the pre-existing Runtime Task 2 interface drift in `examples/mock-runtime.ts` and `src/cli.spec.ts` (missing `setModel` and snapshot `model`).

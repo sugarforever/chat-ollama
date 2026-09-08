@@ -152,8 +152,35 @@ describe('CLI model configuration', () => {
       },
       source: 'fallback',
       notices: [
-        'Saved model openai/missing is unavailable; using ollama/qwen3:8b',
+        'Saved model preference is unavailable; using a fallback model',
       ],
     });
+  });
+
+  it('never includes stale preference values in a startup notice', () => {
+    const secret = 'saved-model-secret';
+
+    const result = resolveStartupModel({
+      env: {},
+      saved: { provider: 'openai', model: secret },
+      available: [],
+    });
+
+    expect(result.notices).toEqual([
+      'Saved model preference is unavailable; using a fallback model',
+    ]);
+    expect(JSON.stringify(result.notices)).not.toContain(secret);
+  });
+
+  it('uses code-unit lexical ordering for fallback models', () => {
+    const result = resolveStartupModel({
+      env: {},
+      available: [
+        { provider: 'ollama', model: 'Zebra' },
+        { provider: 'ollama', model: 'apple' },
+      ],
+    });
+
+    expect(result.selection).toEqual({ provider: 'ollama', model: 'Zebra' });
   });
 });
