@@ -11,7 +11,7 @@ chatollama-agent
 
 For a project-local installation, run `npm install chatollama-agent`, then `npx --no-install chatollama-agent`.
 
-Both stdin and stdout must be TTYs to enable the pi-tui editor, slash-command completion, streaming transcript, and model picker. Type `/` for completion. `/models` opens a picker with ↑/↓ navigation, Enter to select, and Escape to cancel. `/exit` or Ctrl+C exits. Redirected input or output uses plain line mode with no ANSI sequences.
+Both stdin and stdout must be TTYs to enable the pi-tui editor, slash-command completion, streaming transcript, and model picker. Type `/` for completion. `/models` opens a picker with the current model marked, ↑/↓ navigation, Enter to select, and Escape to cancel. `/exit` or Ctrl+C exits. Redirected input or output, or a truthy `CI` environment variable, uses plain line mode with no ANSI sequences. Empty, `false`, and `0` values of `CI` do not force plain mode (case and surrounding whitespace are ignored).
 
 In plain mode, `/models` prints models sorted by provider and model, marks the current selection, and accepts a listed number. An empty line cancels selection. Both modes accept `/model <provider>/<model-id>` directly; IDs may contain slashes, for example `/model openrouter/openai/gpt-5-mini`. Invalid selections leave the current model unchanged. Successful selections affect the next request, retain in-memory history, and save the next startup default. Switching during an active run is rejected.
 
@@ -26,7 +26,7 @@ In plain mode, `/models` prints models sorted by provider and model, marks the c
 | DeepSeek | `DEEPSEEK_API_KEY` |
 | OpenRouter | `OPENROUTER_API_KEY` |
 
-Blank credentials are ignored. Configured remote providers contribute a small built-in catalog. OpenAI also queries `/v1/models`; Ollama lists actual installed models. Catalog availability means a credential is configured, not that the account has been verified or can access every listed model.
+Blank credentials are ignored. Configured remote providers contribute a small built-in catalog. OpenAI also queries `/v1/models`, admitting only an explicit set of text Responses model families and their dated snapshots; image, embedding, audio, realtime, and unknown IDs are excluded from automatic discovery. `AGENT_MODEL` remains available for explicit model overrides. Ollama lists actual installed models. Catalog availability means a credential is configured, not that the account has been verified or can access every listed model.
 
 Each network discovery has a two-second timeout. A failed provider produces a sanitized warning while other providers and `/exit` remain usable; OpenAI's built-in catalog survives discovery failure. With no credentials and no Ollama server, startup still succeeds and `/models` explains that credentials are needed. The empty-list compatibility fallback is `ollama/qwen3:8b`; it is not represented as an installed model. Starting the CLI and selecting a model do not generate a paid model response.
 
@@ -36,7 +36,7 @@ Explicit `AGENT_PROVIDER` or `AGENT_MODEL` selects the startup model ahead of a 
 
 `AGENT_PROVIDER` supports `ollama`, `openai`, `anthropic`, `google`, `deepseek`, and `openrouter`. An explicit provider without a model uses its default: respectively `qwen3:8b`, `gpt-5-mini`, `claude-sonnet-4-5`, `gemini-2.5-flash`, `deepseek-chat`, or `openai/gpt-5-mini`. `AGENT_MODEL` alone uses Ollama.
 
-`AGENT_BASE_URL` and `AGENT_API_KEY` override the endpoint and credential of the startup selection, including a restored selection. These two overrides alone do not replace its provider/model identity. When `AGENT_PROVIDER` explicitly names Ollama or OpenAI, `AGENT_BASE_URL` also redirects that provider's discovery. For Ollama, `/v1` is removed before requesting `/api/tags`. `AGENT_API_KEY` does not enable a provider's discovery catalog; configure the provider's mapped credential for that. Later `/model` selections use their discovered endpoint and mapped provider credential. Secrets are never stored in preferences or exposed by Runtime events.
+`AGENT_BASE_URL` and `AGENT_API_KEY` override the endpoint and credential of the startup selection, including a restored selection. These two overrides alone do not replace its provider/model identity. Startup reads validated saved endpoint metadata before discovering Ollama or OpenAI models. `AGENT_BASE_URL` takes priority for discovery of the explicit provider, the saved provider when no provider/model override is set, or Ollama by default. For Ollama, `/v1` is removed before requesting `/api/tags`. `AGENT_API_KEY` does not enable a provider's discovery catalog; configure the provider's mapped credential for that. Later `/model` selections use their discovered endpoint and mapped provider credential. Secrets are never stored in preferences or exposed by Runtime events.
 
 ## Saved model preference
 

@@ -52,6 +52,25 @@ async function openPicker(terminal: VirtualTerminal): Promise<string> {
 }
 
 describe('pi-tui interactive CLI', () => {
+  it('marks the current Session model independently of picker focus before and after switching', async () => {
+    const { terminal } = startCli();
+    await terminal.screen();
+    let screen = await openPicker(terminal);
+    expect(screen).toContain('→ anthropic/claude-sonnet-4-5');
+    expect(screen).toContain('ollama/qwen3:8b (current)');
+    expect(screen).not.toContain('anthropic/claude-sonnet-4-5 (current)');
+
+    terminal.sendInput('\r');
+    expect(await terminal.screen()).toContain('Switched to anthropic/claude-sonnet-4-5.');
+    screen = await openPicker(terminal);
+    expect(screen).toContain('anthropic/claude-sonnet-4-5 (current)');
+    expect(screen).not.toContain('ollama/qwen3:8b (current)');
+    terminal.sendInput('\x1b[B');
+    screen = await terminal.screen();
+    expect(screen).toContain('→ ollama/qwen3:8b');
+    expect(screen).toContain('anthropic/claude-sonnet-4-5 (current)');
+  });
+
   it('offers /models, /model, and /exit when the editor receives /', async () => {
     const { terminal } = startCli();
     await terminal.screen();

@@ -329,17 +329,15 @@ describe('AgentSession streaming', () => {
   it('rejects model switching during an active stream without replacing the selected model', async () => {
     const firstModel = createTextModel(['first answer'], 20);
     const secondModel = createTextModel(['second answer']);
+    const createModel = vi.fn(() => secondModel);
     const session = createAgentSessionWithModel({
       id: 'session-1',
       model: firstModel,
       descriptor: { provider: 'openai', model: 'first-model' },
-      createModel: config => {
-        if (config.model === 'second-model') {
-          return secondModel;
-        }
-        throw new Error(`Unexpected model: ${config.model}`);
-      },
+      createModel,
     });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
 
     const prompt = session.prompt('First prompt');
 
@@ -351,9 +349,14 @@ describe('AgentSession streaming', () => {
       model: 'first-model',
     });
     expect(secondModel.doStreamCalls).toHaveLength(0);
+    expect(createModel).not.toHaveBeenCalled();
+    expect(events.some(event => event.type === 'model.changed')).toBe(false);
 
     session.cancel();
     await prompt;
+    session.setModel({ provider: 'openai', model: 'second-model' });
+    expect(createModel).toHaveBeenCalledExactlyOnceWith({ provider: 'openai', model: 'second-model' });
+    expect(session.getSnapshot().model).toEqual({ provider: 'openai', model: 'second-model' });
   });
 });
 

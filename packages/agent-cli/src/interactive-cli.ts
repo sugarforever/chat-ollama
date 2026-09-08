@@ -91,6 +91,7 @@ export async function runInteractiveCli(
     updateStatus();
   };
   const showPicker = () => {
+    const current = options.session.getSnapshot().model;
     tui.removeChild(editor);
     status.setText(
       'Available models: ↑/↓ to move, Enter to select, Escape to cancel',
@@ -98,7 +99,9 @@ export async function runInteractiveCli(
     picker = new SelectList(
       models.map(model => ({
         value: `${model.provider}/${model.model}`,
-        label: `${model.provider}/${model.model}`,
+        label: `${model.provider}/${model.model}${
+          model.provider === current.provider && model.model === current.model ? ' (current)' : ''
+        }`,
       })),
       8,
       selectTheme,

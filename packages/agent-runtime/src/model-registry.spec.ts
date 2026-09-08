@@ -1,18 +1,9 @@
 import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 
-import * as registry from './model-registry.js';
+import { createModelConfig } from './index.js';
 import { createLanguageModel, describeModel } from './model-registry.js';
 import type { AvailableModel, ModelConfig } from './types.js';
-
-type ModelConfigResolver = (
-  selection: AvailableModel,
-  env: NodeJS.ProcessEnv,
-) => ModelConfig;
-
-const createModelConfig = (registry as typeof registry & {
-  createModelConfig: ModelConfigResolver;
-}).createModelConfig;
 
 describe('model registry', () => {
   const providerCases = [

@@ -55,6 +55,53 @@ describe('agent CLI entry point', () => {
     expect(result.stdout).not.toContain('ollama/a-model (current)');
   });
 
+  it('discovers the saved safe Ollama endpoint before restoring its custom model', async () => {
+    const requests: string[] = [];
+    const result = await runPiped({
+      preferencesPath: await preferencePath('{"provider":"ollama","model":"custom-model","baseURL":"http://custom.test:1234/v1"}'),
+      fetch: async input => {
+        requests.push(String(input));
+        if (String(input) === 'http://custom.test:1234/api/tags') {
+          return Response.json({ models: [{ name: 'custom-model' }] });
+        }
+        throw new Error('Default Ollama is unavailable');
+      },
+    });
+    expect(requests).toEqual(['http://custom.test:1234/api/tags']);
+    expect(result.stdout).toContain('ollama/custom-model (current)');
+    expect(result.stderr).toBe('');
+  });
+
+  it.each([undefined, 'ollama'])('lets AGENT_BASE_URL override the saved endpoint with provider=%s', async provider => {
+    const requests: string[] = [];
+    const result = await runPiped({
+      env: { AGENT_PROVIDER: provider, AGENT_BASE_URL: 'http://explicit.test:4321/v1' },
+      preferencesPath: await preferencePath('{"provider":"ollama","model":"custom-model","baseURL":"http://custom.test:1234/v1"}'),
+      fetch: async input => {
+        requests.push(String(input));
+        return Response.json({ models: [{ name: 'custom-model' }] });
+      },
+    });
+    expect(requests).toEqual(['http://explicit.test:4321/api/tags']);
+    expect(result.stderr).toBe('');
+  });
+
+  it('excludes incompatible inventory models from listing, direct selection, and saved fallback', async () => {
+    const result = await runPiped({
+      env: { OPENAI_API_KEY: 'mixed-inventory-secret' },
+      preferencesPath: await preferencePath('{"provider":"openai","model":"dall-e-3"}'),
+      fetch: async input => String(input).endsWith('/api/tags')
+        ? Response.json({ models: [] })
+        : Response.json({ data: [{ id: 'dall-e-3' }, { id: 'gpt-4.1' }, { id: 'text-embedding-3-small' }] }),
+    }, '/models\n\n/model openai/text-embedding-3-small\n/models\n/exit\n');
+    expect(result.stdout).not.toMatch(/\d+\. openai\/(?:dall-e|text-embedding)/);
+    expect(result.stdout.match(/openai\/gpt-4.1 \(current\)/g)).toHaveLength(2);
+    expect(result.stdout).toContain('Unknown model: openai/text-embedding-3-small');
+    expect(result.stdout).not.toContain('Switched to');
+    expect(result.stderr).toContain('Saved model preference is unavailable');
+    expect(result.stdout + result.stderr).not.toMatch(/mixed-inventory-secret|\x1b/);
+  });
+
   it('prefers an explicit environment selection to the saved model', async () => {
     const result = await runPiped({ env: { AGENT_PROVIDER: 'ollama', AGENT_MODEL: 'a-model' }, fetch: ollamaFetch, preferencesPath: await preferencePath('{"provider":"ollama","model":"z-model"}') });
     expect(result.stdout).toContain('ollama/a-model (current)');
@@ -152,5 +199,39 @@ describe('agent CLI entry point', () => {
 
     expect(stdout).toContain('You> Goodbye.\n');
     expect(stdout).not.toContain('\x1b');
+  });
+
+  it.each([
+    { ci: 'true', plain: true }, { ci: '1', plain: true },
+    { ci: 'yes', plain: true }, { ci: 'TRUE', plain: true },
+    { ci: 'false', plain: false }, { ci: '0', plain: false },
+    { ci: '', plain: false }, { ci: undefined, plain: false },
+  ])('selects the correct TTY mode for CI=$ci', async ({ ci, plain }) => {
+    const input = Object.assign(new PassThrough(), { isTTY: true });
+    const output = Object.assign(new PassThrough(), { isTTY: true });
+    const error = new PassThrough();
+    const terminal = new VirtualTerminal();
+    let stdout = '';
+    let stderr = '';
+    output.on('data', chunk => { stdout += chunk; });
+    error.on('data', chunk => { stderr += chunk; });
+    input.end('/exit\n');
+    const done = runMain({ env: { CI: ci }, input, output, error, terminal, fetch: ollamaFetch, preferencesPath: await preferencePath() });
+    try {
+      await vi.waitFor(async () => {
+        if (plain) expect(stdout).toContain('Goodbye.');
+        else expect(await terminal.screen()).toContain('Model: ollama/a-model');
+      });
+      if (plain) {
+        expect(terminal.writes).toEqual([]);
+        expect(stdout + stderr).not.toContain('\x1b');
+      } else {
+        expect(stdout).toBe('');
+      }
+    } finally {
+      terminal.sendInput('\x03');
+      await done;
+      terminal.dispose();
+    }
   });
 });

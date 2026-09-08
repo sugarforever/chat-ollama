@@ -26,19 +26,19 @@ export async function runMain(options: RunMainOptions = {}): Promise<void> {
   // Validate explicit provider/model overrides before any network work.
   resolveStartupModel({ env, available: [] });
   const preferencesPath = options.preferencesPath ?? getPreferencesPath({ env });
-  const [discovery, saved] = await Promise.all([
-    discoverModels({
-      env,
-      fetch: options.fetch,
-      ...(env.AGENT_PROVIDER === 'ollama' && env.AGENT_BASE_URL
-        ? { ollamaBaseURL: env.AGENT_BASE_URL }
-        : {}),
-      ...(env.AGENT_PROVIDER === 'openai' && env.AGENT_BASE_URL
-        ? { openaiBaseURL: env.AGENT_BASE_URL }
-        : {}),
-    }),
-    readModelPreference(preferencesPath),
-  ]);
+  const saved = await readModelPreference(preferencesPath);
+  const endpointProvider = env.AGENT_PROVIDER ??
+    (env.AGENT_MODEL !== undefined ? 'ollama' : saved.preference?.provider) ?? 'ollama';
+  const discovery = await discoverModels({
+    env,
+    fetch: options.fetch,
+    ollamaBaseURL: endpointProvider === 'ollama' && env.AGENT_BASE_URL
+      ? env.AGENT_BASE_URL
+      : saved.preference?.provider === 'ollama' ? saved.preference.baseURL : undefined,
+    openaiBaseURL: endpointProvider === 'openai' && env.AGENT_BASE_URL
+      ? env.AGENT_BASE_URL
+      : saved.preference?.provider === 'openai' ? saved.preference.baseURL : undefined,
+  });
   const resolved = resolveStartupModel({ env, saved: saved.preference, available: discovery.models });
   const session = createAgentSession({ model: readModelConfig(env, resolved.selection) });
   const shared = {
@@ -54,7 +54,9 @@ export async function runMain(options: RunMainOptions = {}): Promise<void> {
     ],
   };
 
-  if (input.isTTY && output.isTTY) {
+  const ci = env.CI?.trim().toLowerCase();
+  const isCI = Boolean(ci && ci !== 'false' && ci !== '0');
+  if (input.isTTY && output.isTTY && !isCI) {
     const { runInteractiveCli } = await import('./interactive-cli.js');
     await runInteractiveCli({ ...shared, terminal: options.terminal });
     return;

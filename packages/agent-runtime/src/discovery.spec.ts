@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { discoverModels } from './discovery.js';
 
@@ -102,6 +102,78 @@ describe('model discovery credential catalog', () => {
 });
 
 describe('isolated network model discovery', () => {
+  it.each([true, false])('bounds a hanging response body (honors abort: %s)', async honorsAbort => {
+    vi.useFakeTimers();
+    let wasAborted = false;
+    let settled: Awaited<ReturnType<typeof discoverModels>> | undefined;
+    try {
+      const pending = discoverModels({
+        env: { OPENAI_API_KEY: 'body-test-secret' },
+        timeoutMs: 10,
+        fetch: async (input, init) => {
+          if (String(input).endsWith('/api/tags')) {
+            return Response.json({ models: [{ name: 'local-model' }] });
+          }
+          return new Response(new ReadableStream({
+            start(controller) {
+              init?.signal?.addEventListener('abort', () => {
+                wasAborted = true;
+                if (honorsAbort) controller.error(new DOMException('body-secret', 'AbortError'));
+              });
+            },
+          }));
+        },
+      }).then(result => { settled = result; });
+
+      await vi.advanceTimersByTimeAsync(20);
+
+      expect(wasAborted).toBe(true);
+      expect(settled).toEqual({
+        models: [
+          { provider: 'ollama', model: 'local-model', baseURL: 'http://localhost:11434/v1' },
+          { provider: 'openai', model: 'gpt-5' },
+          { provider: 'openai', model: 'gpt-5-mini' },
+        ],
+        warnings: [{ provider: 'openai', message: 'Model discovery timed out.' }],
+      });
+      expect(JSON.stringify(settled)).not.toContain('secret');
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('excludes incompatible and unknown OpenAI inventory IDs from the available text models', async () => {
+    const result = await discoverModels({
+      env: { OPENAI_API_KEY: 'inventory-test-secret' },
+      fetch: async input => String(input).endsWith('/api/tags')
+        ? Response.json({ models: [] })
+        : Response.json({ data: [
+          { id: 'gpt-4.1-mini-2025-04-14' }, { id: 'gpt-5' }, { id: 'gpt-4.1' },
+          { id: 'text-embedding-3-small' }, { id: 'dall-e-3' }, { id: 'gpt-image-1' },
+          { id: 'whisper-1' }, { id: 'tts-1' }, { id: 'omni-moderation-latest' },
+          { id: 'gpt-4o-realtime-preview' }, { id: 'gpt-4o-audio-preview' },
+          { id: 'gpt-4o-mini-transcribe' }, { id: 'gpt-3.5-turbo-instruct' },
+          { id: 'unknown-future-model' },
+        ] }),
+    });
+
+    expect(result.models.map(({ model }) => model)).toEqual([
+      'gpt-4.1', 'gpt-4.1-mini-2025-04-14', 'gpt-5', 'gpt-5-mini',
+    ]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('sorts discovered IDs in locale-independent code-unit order', async () => {
+    const result = await discoverModels({
+      env: {},
+      fetch: async () => Response.json({ models: [
+        { name: 'a-model' }, { name: 'Z-model' }, { name: 'ä-model' }, { name: '_model' },
+      ] }),
+    });
+    expect(result.models.map(({ model }) => model)).toEqual(['Z-model', '_model', 'a-model', 'ä-model']);
+  });
+
   it('merges multiple Ollama tags and OpenAI /models results without duplicates', async () => {
     const requests: Array<{ url: string; authorization: string | null }> = [];
     const result = await discoverModels({
@@ -122,7 +194,7 @@ describe('isolated network model discovery', () => {
         }
 
         return new Response(
-          JSON.stringify({ data: [{ id: 'gpt-5-mini' }, { id: 'remote-model' }] }),
+          JSON.stringify({ data: [{ id: 'gpt-5-mini' }, { id: 'gpt-5-nano' }] }),
           { status: 200 },
         );
       },
@@ -144,7 +216,7 @@ describe('isolated network model discovery', () => {
         },
         {
           provider: 'openai',
-          model: 'remote-model',
+          model: 'gpt-5-nano',
           baseURL: 'https://openai.example.test/v1',
         },
       ],
@@ -168,12 +240,12 @@ describe('isolated network model discovery', () => {
           });
         }
 
-        return new Response(JSON.stringify({ data: [{ id: 'remote-model' }] }), { status: 200 });
+        return new Response(JSON.stringify({ data: [{ id: 'gpt-5-nano' }] }), { status: 200 });
       },
     });
 
     expect(wasAborted).toBe(true);
-    expect(result.models).toContainEqual({ provider: 'openai', model: 'remote-model', baseURL: 'https://api.openai.com/v1' });
+    expect(result.models).toContainEqual({ provider: 'openai', model: 'gpt-5-nano', baseURL: 'https://api.openai.com/v1' });
     expect(result.warnings).toEqual([
       { provider: 'ollama', message: 'Model discovery timed out.' },
     ]);
@@ -292,13 +364,13 @@ describe('isolated network model discovery', () => {
           throw new Error('Ollama rejected Bearer ollama-secret');
         }
 
-        return new Response(JSON.stringify({ data: [{ id: 'remote-model' }] }), { status: 200 });
+        return new Response(JSON.stringify({ data: [{ id: 'gpt-5-nano' }] }), { status: 200 });
       },
     });
 
     expect(result.models).toContainEqual({
       provider: 'openai',
-      model: 'remote-model',
+      model: 'gpt-5-nano',
       baseURL: 'https://api.openai.com/v1',
     });
     expect(result.warnings).toEqual([

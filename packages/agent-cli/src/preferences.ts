@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -28,6 +29,7 @@ export interface PreferenceFileOperations {
   readonly mkdir: typeof mkdir;
   readonly writeFile: typeof writeFile;
   readonly rename: typeof rename;
+  readonly rm: typeof rm;
 }
 
 export interface PreferencesReadResult {
@@ -68,7 +70,7 @@ export async function readModelPreference(
   try {
     content = await readFile(filePath, 'utf8');
   } catch (error) {
-    if (isNotFound(error)) {
+    if (hasErrorCode(error, 'ENOENT')) {
       return {};
     }
     return { warning: INVALID_PREFERENCE_WARNING };
@@ -87,7 +89,7 @@ export async function readModelPreference(
 export async function writeModelPreference(
   filePath: string,
   preference: ModelPreference,
-  operations: PreferenceFileOperations = { mkdir, writeFile, rename },
+  operations: PreferenceFileOperations = { mkdir, writeFile, rename, rm },
 ): Promise<void> {
   const content: ModelPreference = {
     provider: preference.provider,
@@ -96,14 +98,25 @@ export async function writeModelPreference(
       ? { baseURL: preference.baseURL }
       : {}),
   };
-  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+  const temporaryPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
 
   await operations.mkdir(dirname(filePath), { recursive: true });
-  await operations.writeFile(temporaryPath, JSON.stringify(content), {
-    encoding: 'utf8',
-    mode: 0o600,
-  });
-  await operations.rename(temporaryPath, filePath);
+  let created = false;
+  try {
+    await operations.writeFile(temporaryPath, JSON.stringify(content), {
+      encoding: 'utf8',
+      mode: 0o600,
+      flag: 'wx',
+    });
+    created = true;
+    await operations.rename(temporaryPath, filePath);
+  } catch (error) {
+    // An exclusive-create collision belongs to somebody else; leave it alone.
+    if (created || !hasErrorCode(error, 'EEXIST')) {
+      await operations.rm(temporaryPath, { force: true }).catch(() => {});
+    }
+    throw error;
+  }
 }
 
 function isModelPreference(value: unknown): value is ModelPreference {
@@ -142,11 +155,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isNotFound(error: unknown): error is { readonly code: 'ENOENT' } {
+function hasErrorCode(error: unknown, code: string): boolean {
   return (
     typeof error === 'object' &&
     error !== null &&
     'code' in error &&
-    error.code === 'ENOENT'
+    error.code === code
   );
 }

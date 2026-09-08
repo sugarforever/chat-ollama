@@ -96,7 +96,9 @@ async function discoverOpenAI(
       }
 
       return {
-        models: data.data.map(({ id }) => ({ provider: 'openai', model: id, baseURL })),
+        models: data.data
+          .filter(({ id }) => isOpenAITextModel(id))
+          .map(({ id }) => ({ provider: 'openai', model: id, baseURL })),
       };
     },
   );
@@ -133,24 +135,29 @@ async function requestJson(
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    const response = await new Promise<Response>((resolve, reject) => {
+    return await new Promise<unknown>((resolve, reject) => {
       timeout = setTimeout(() => {
-        controller.abort();
-        reject(new DiscoveryTimeoutError());
+        const error = new DiscoveryTimeoutError();
+        // Settle the deadline before native fetch/body abort handlers can reject.
+        reject(error);
+        controller.abort(error);
       }, Math.max(1, timeoutMs));
       void Promise.resolve()
-        .then(() => fetcher(url, { ...init, signal: controller.signal }))
+        .then(async () => {
+          const response = await fetcher(url, { ...init, signal: controller.signal });
+          if (!response.ok) {
+            throw new Error('Model discovery request failed');
+          }
+
+          try {
+            return await response.json();
+          } catch {
+            if (controller.signal.aborted) throw new DiscoveryTimeoutError();
+            throw new InvalidDiscoveryDataError();
+          }
+        })
         .then(resolve, reject);
     });
-    if (!response.ok) {
-      throw new Error('Model discovery request failed');
-    }
-
-    try {
-      return await response.json();
-    } catch {
-      throw new InvalidDiscoveryDataError();
-    }
   } finally {
     if (timeout) {
       clearTimeout(timeout);
@@ -196,6 +203,14 @@ function isOpenAIResponse(value: unknown): value is { data: Array<{ id: string }
   );
 }
 
+function isOpenAITextModel(id: string): boolean {
+  // /models is an inventory, without endpoint capability flags. Our OpenAI
+  // adapter uses text Responses, so admit these explicit text families and
+  // their dated snapshots only. Audio, realtime, image, embedding, and unknown
+  // IDs stay out of automatic discovery; AGENT_MODEL remains an explicit opt-in.
+  return /^(?:gpt-5(?:-mini|-nano)?|gpt-4\.1(?:-mini|-nano)?|gpt-4o(?:-mini)?|o3(?:-mini)?|o4-mini)(?:-\d{4}-\d{2}-\d{2})?$/.test(id);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -215,6 +230,10 @@ function deduplicateAndSort(models: AvailableModel[]): AvailableModel[] {
 
   return [...deduplicated.values()].sort(
     (left, right) =>
-      left.provider.localeCompare(right.provider) || left.model.localeCompare(right.model),
+      compareCodeUnits(left.provider, right.provider) || compareCodeUnits(left.model, right.model),
   );
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
