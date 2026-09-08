@@ -24,6 +24,7 @@ describe('AgentSession streaming', () => {
 
     expect(session.getSnapshot()).toEqual({
       id: 'configured-session',
+      model: { provider: 'ollama', model: 'qwen3:8b' },
       messages: [],
     });
     expect(JSON.stringify(session.getSnapshot())).not.toContain(
@@ -92,6 +93,7 @@ describe('AgentSession streaming', () => {
     ]);
     expect(session.getSnapshot()).toEqual({
       id: 'session-1',
+      model: { provider: 'openai', model: 'mock-model' },
       messages: [
         { role: 'user', content: 'Say hello' },
         { role: 'assistant', content: 'Hello world' },
@@ -255,6 +257,75 @@ describe('AgentSession streaming', () => {
       { role: 'user', content: 'First' },
     ]);
     expect(model.doStreamCalls).toHaveLength(1);
+  });
+
+  it('switches the next request model while preserving structured history', async () => {
+    const firstModel = createTextModel(['First answer']);
+    const secondModel = createTextModel(['Second answer']);
+    const models = new Map([
+      ['first', firstModel],
+      ['second', secondModel],
+    ]);
+    let run = 0;
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first' },
+      generateId: () => `run-${++run}`,
+      createModel: config => models.get(config.model)!,
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await session.prompt('First question');
+    session.setModel({ provider: 'anthropic', model: 'second', apiKey: 'secret' });
+    await session.prompt('Second question');
+
+    expect(session.getSnapshot()).toEqual({
+      id: 'session-1',
+      model: { provider: 'anthropic', model: 'second' },
+      messages: [
+        { role: 'user', content: 'First question' },
+        { role: 'assistant', content: 'First answer' },
+        { role: 'user', content: 'Second question' },
+        { role: 'assistant', content: 'Second answer' },
+      ],
+    });
+    expect(secondModel.doStreamCalls[0]?.prompt).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'First question' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'First answer' }] },
+      { role: 'user', content: [{ type: 'text', text: 'Second question' }] },
+    ]);
+    expect(events).toContainEqual({
+      type: 'model.changed',
+      previous: { provider: 'openai', model: 'first' },
+      model: { provider: 'anthropic', model: 'second' },
+    });
+  });
+
+  it('rejects model switching during an active run without changing the model', async () => {
+    const firstModel = createTextModel(['answer'], 20);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first' },
+      createModel: () => createTextModel(['other']),
+    });
+
+    const prompt = session.prompt('Question');
+    expect(() =>
+      session.setModel({
+        provider: 'anthropic',
+        model: 'second',
+        apiKey: 'secret',
+      }),
+    ).toThrow('Session has an active run');
+    expect(session.getSnapshot().model).toEqual({
+      provider: 'openai',
+      model: 'first',
+    });
+    session.cancel();
+    await prompt;
   });
 });
 

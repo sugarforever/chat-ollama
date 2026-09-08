@@ -34,6 +34,29 @@ describe('model registry', () => {
     expect(model.modelId).toBe('qwen3:8b');
   });
 
+  it.each([
+    ['anthropic', 'claude-test', 'anthropic.messages'],
+    ['google', 'gemini-test', 'google.generative-ai'],
+    ['deepseek', 'deepseek-test', 'deepseek.chat'],
+    ['openrouter', 'openai/gpt-test', 'openrouter.chat'],
+    ['ollama', 'qwen-test', 'ollama.chat'],
+  ] as const)(
+    'constructs the named %s provider behind the Runtime boundary',
+    (provider, modelId, expectedProvider) => {
+      const model = createLanguageModel({
+        provider,
+        model: modelId,
+        apiKey: 'provider-secret',
+      });
+
+      if (typeof model === 'string') {
+        throw new Error('Expected the registry to construct a model instance');
+      }
+      expect(model.provider).toBe(expectedProvider);
+      expect(model.modelId).toBe(modelId);
+    },
+  );
+
   it('sends compatible requests to the configured base URL with its API key', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
@@ -99,6 +122,17 @@ describe('model registry', () => {
       provider: 'openai-compatible',
       model: 'model-1',
     });
+    expect(JSON.stringify(descriptor)).not.toContain('secret');
+  });
+
+  it('describes a named provider without credentials', () => {
+    const descriptor = describeModel({
+      provider: 'anthropic',
+      model: 'claude-test',
+      apiKey: 'anthropic-secret',
+    });
+
+    expect(descriptor).toEqual({ provider: 'anthropic', model: 'claude-test' });
     expect(JSON.stringify(descriptor)).not.toContain('secret');
   });
 });

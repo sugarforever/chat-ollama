@@ -42,6 +42,7 @@ export interface DiscoverModelsOptions {
 
 export interface SessionSnapshot {
   readonly id: string;
+  readonly model: ModelDescriptor;
   readonly messages: readonly SessionMessage[];
 }
 
@@ -60,7 +61,33 @@ export interface OpenAICompatibleModelConfig {
   readonly baseURL: string;
 }
 
-export type ModelConfig = OpenAIModelConfig | OpenAICompatibleModelConfig;
+export interface AnthropicModelConfig {
+  readonly provider: 'anthropic';
+  readonly model: string;
+  readonly apiKey?: string;
+  readonly baseURL?: string;
+}
+
+export interface GoogleModelConfig {
+  readonly provider: 'google';
+  readonly model: string;
+  readonly apiKey?: string;
+  readonly baseURL?: string;
+}
+
+export interface CompatibleProviderModelConfig {
+  readonly provider: 'ollama' | 'deepseek' | 'openrouter';
+  readonly model: string;
+  readonly apiKey?: string;
+  readonly baseURL?: string;
+}
+
+export type ModelConfig =
+  | OpenAIModelConfig
+  | OpenAICompatibleModelConfig
+  | AnthropicModelConfig
+  | GoogleModelConfig
+  | CompatibleProviderModelConfig;
 
 export interface CreateAgentSessionOptions {
   readonly id?: string;
@@ -68,7 +95,7 @@ export interface CreateAgentSessionOptions {
 }
 
 export interface ModelDescriptor {
-  readonly provider: ModelConfig['provider'];
+  readonly provider: ProviderId | 'openai-compatible';
   readonly model: string;
 }
 
@@ -105,6 +132,11 @@ export type RuntimeEvent =
   | {
       readonly type: 'run.cancelled';
       readonly runId: string;
+    }
+  | {
+      readonly type: 'model.changed';
+      readonly previous: ModelDescriptor;
+      readonly model: ModelDescriptor;
     };
 
 export type RuntimeEventListener = (event: RuntimeEvent) => void;
@@ -114,4 +146,5 @@ export interface AgentSession {
   subscribe(listener: RuntimeEventListener): () => void;
   prompt(input: string): Promise<void>;
   cancel(): void;
+  setModel(model: ModelConfig): void;
 }

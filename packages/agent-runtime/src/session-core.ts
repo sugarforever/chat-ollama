@@ -2,10 +2,13 @@ import { randomUUID } from 'node:crypto';
 
 import { streamText, type LanguageModel, type ModelMessage } from 'ai';
 
+import { createLanguageModel, describeModel } from './model-registry.js';
+
 import type {
   AgentSession,
   AssistantMessage,
   ModelDescriptor,
+  ModelConfig,
   RuntimeEvent,
   RuntimeEventListener,
   SessionMessage,
@@ -18,12 +21,14 @@ interface CreateAgentSessionWithModelOptions {
   readonly model: LanguageModel;
   readonly descriptor: ModelDescriptor;
   readonly generateId?: () => string;
+  readonly createModel?: (config: ModelConfig) => LanguageModel;
 }
 
 class InMemoryAgentSession implements AgentSession {
   readonly #id: string;
-  readonly #model: LanguageModel;
-  readonly #descriptor: ModelDescriptor;
+  #model: LanguageModel;
+  #descriptor: ModelDescriptor;
+  readonly #createModel: (config: ModelConfig) => LanguageModel;
   readonly #generateId: () => string;
   readonly #listeners = new Set<RuntimeEventListener>();
   readonly #messages: SessionMessage[] = [];
@@ -35,12 +40,14 @@ class InMemoryAgentSession implements AgentSession {
     this.#id = options.id;
     this.#model = options.model;
     this.#descriptor = options.descriptor;
+    this.#createModel = options.createModel ?? createLanguageModel;
     this.#generateId = options.generateId ?? randomUUID;
   }
 
   getSnapshot(): SessionSnapshot {
     return {
       id: this.#id,
+      model: { ...this.#descriptor },
       messages: this.#messages.map(message => ({ ...message })),
     };
   }
@@ -130,6 +137,19 @@ class InMemoryAgentSession implements AgentSession {
 
   cancel(): void {
     this.#activeRun?.controller.abort();
+  }
+
+  setModel(config: ModelConfig): void {
+    if (this.#activeRun !== undefined) {
+      throw new Error('Session has an active run');
+    }
+
+    const model = this.#createModel(config);
+    const descriptor = describeModel(config);
+    const previous = this.#descriptor;
+    this.#model = model;
+    this.#descriptor = descriptor;
+    this.#publish({ type: 'model.changed', previous, model: descriptor });
   }
 
   #publish(event: RuntimeEvent): void {

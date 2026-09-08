@@ -17,6 +17,7 @@ describe('Runtime public contract', () => {
     } satisfies AssistantMessage;
     const snapshot = {
       id: 'session-1',
+      model: { provider: 'openai', model: 'gpt-5-mini' },
       messages: [user, assistant],
     } satisfies SessionSnapshot;
 
@@ -36,10 +37,16 @@ describe('Runtime public contract', () => {
         error: { message: 'Model request failed' },
       },
       { type: 'run.cancelled', runId: 'run-1' },
+      {
+        type: 'model.changed',
+        previous: { provider: 'openai', model: 'gpt-5-mini' },
+        model: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+      },
     ] satisfies RuntimeEvent[];
 
     expect(snapshot).toEqual({
       id: 'session-1',
+      model: { provider: 'openai', model: 'gpt-5-mini' },
       messages: [
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi' },
@@ -53,6 +60,7 @@ describe('Runtime public contract', () => {
       'run.completed',
       'run.failed',
       'run.cancelled',
+      'model.changed',
     ]);
   });
 
@@ -61,5 +69,6 @@ describe('Runtime public contract', () => {
     expectTypeOf<AgentSession>().toHaveProperty('subscribe');
     expectTypeOf<AgentSession>().toHaveProperty('prompt');
     expectTypeOf<AgentSession>().toHaveProperty('cancel');
+    expectTypeOf<AgentSession>().toHaveProperty('setModel');
   });
 });

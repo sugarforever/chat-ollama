@@ -3,11 +3,14 @@ export { discoverModels } from './discovery.js';
 
 export type {
   AgentSession,
+  AnthropicModelConfig,
   AssistantMessage,
   AvailableModel,
+  CompatibleProviderModelConfig,
   CreateAgentSessionOptions,
   DiscoverModelsOptions,
   DiscoveryWarning,
+  GoogleModelConfig,
   ModelConfig,
   ModelDescriptor,
   ModelDiscoveryResult,
