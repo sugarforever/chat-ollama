@@ -1,0 +1,50 @@
+name: Authentication security
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/auth-security.yml'
+      - 'package.json'
+      - 'server/api/auth/**'
+      - 'server/plugins/validate-auth-config.ts'
+      - 'server/utils/auth.ts'
+      - 'server/utils/jwt.ts'
+      - 'tests/server/utils/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/auth-security.yml'
+      - 'package.json'
+      - 'server/api/auth/**'
+      - 'server/plugins/validate-auth-config.ts'
+      - 'server/utils/auth.ts'
+      - 'server/utils/jwt.ts'
+      - 'tests/server/utils/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test authentication security
+        run: pnpm test:auth
