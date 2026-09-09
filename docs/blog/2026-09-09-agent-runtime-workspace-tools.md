@@ -19,7 +19,7 @@ date: 2026-09-09
 
 ## 搜索不是 shell
 
-`grep` 和 `find_files` 复用机器上的 `ripgrep`，但模型没有机会拼接命令行。Runtime 固定选择 `rg` 可执行文件，用字符串数组传递参数，并明确设置 `shell: false`。
+`grep` 和 `find_files` 使用 Runtime 生产依赖 `@vscode/ripgrep` 提供的当前平台 `rg` 二进制，不要求机器预先安装 `ripgrep`，也不依赖 `PATH`。Runtime 用字符串数组传递参数，并明确设置 `shell: false`，模型没有机会拼接命令行。
 
 搜索文本和 glob 都只是数组里的单个元素。`--` 把搜索文本与选项分开，因此像 `needle; touch /tmp/injected` 这样的内容不会获得 shell 语义，也不能变成额外参数。
 

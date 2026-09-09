@@ -102,6 +102,11 @@ try {
   assert.equal(runtimeManifest.main, './dist/index.js');
   assert.equal(runtimeManifest.types, './dist/index.d.ts');
   assert.equal(runtimeManifest.repository?.directory, 'packages/agent-runtime');
+  assert.match(
+    runtimeManifest.dependencies?.['@vscode/ripgrep'] ?? '',
+    /^\^?\d+\.\d+\.\d+$/,
+    'Runtime must publish @vscode/ripgrep as a production dependency',
+  );
   assert.equal(cliManifest.bin?.['chatollama-agent'], './dist/main.js');
   assert.equal(cliManifest.types, './dist/main.d.ts');
   assert.equal(cliManifest.repository?.directory, 'packages/agent-cli');
@@ -124,6 +129,13 @@ try {
   ];
   const executable = join(installDirectory, 'node_modules', '.bin', 'chatollama-agent');
   assert.ok(statSync(executable).isFile(), 'local chatollama-agent bin is missing');
+
+  const ripgrepVersion = run('node', [
+    '--input-type=module',
+    '--eval',
+    "import { execFileSync } from 'node:child_process'; import { rgPath } from '@vscode/ripgrep'; process.stdout.write(execFileSync(rgPath, ['--version'], { encoding: 'utf8' }));",
+  ], { cwd: installDirectory });
+  assert.match(ripgrepVersion, /^ripgrep \d+\.\d+\.\d+/);
 
   for (const installedPackage of installedPackages) {
     for (const file of walkFiles(installedPackage).filter(path => path.endsWith('.js'))) {

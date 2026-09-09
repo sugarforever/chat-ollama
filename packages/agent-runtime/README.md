@@ -74,9 +74,11 @@ Workspace output limits are part of the tool results:
 Every successful result contains `truncated`; a true value means the model saw
 only the bounded prefix. Expected failures return `ok: false` with a stable
 code and message. The tools observe the active run's `AbortSignal`; cancellation
-returns `CANCELLED`. `grep` and `find_files` execute the fixed `rg` binary with
-Runtime-owned argv arrays and `shell: false`. Model text occupies one argument
-and cannot inject a flag or command.
+returns `CANCELLED`. `grep` and `find_files` execute the platform-specific `rg`
+binary supplied by the Runtime's `@vscode/ripgrep` production dependency, with
+Runtime-owned argv arrays and `shell: false`. They do not require `rg` on the
+host's `PATH`. Model text occupies one argument and cannot inject a flag or
+command.
 
 This confinement boundary treats model-provided paths and search text as
 untrusted. It is not an OS sandbox against a separate hostile process running

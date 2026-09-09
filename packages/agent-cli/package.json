@@ -1,6 +1,6 @@
 {
   "name": "chatollama-agent",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {

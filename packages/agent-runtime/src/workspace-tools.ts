@@ -5,6 +5,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 
 import { tool, type ToolSet } from 'ai';
+import { rgPath } from '@vscode/ripgrep';
 import { z } from 'zod';
 
 const MAX_OUTPUT_BYTES = 65_536;
@@ -377,7 +378,7 @@ async function runRipgrep(options: {
   return new Promise((resolvePromise, reject) => {
     let child: ChildProcessWithoutNullStreams;
     try {
-      child = options.spawn('rg', options.args, {
+      child = options.spawn(rgPath, options.args, {
         cwd: options.workspaceRoot,
         shell: false,
         stdio: ['ignore', 'pipe', 'pipe'],
