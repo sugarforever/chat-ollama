@@ -2,6 +2,7 @@ import { spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from 'node:ch
 import { realpathSync } from 'node:fs';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 
 import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
@@ -166,37 +167,38 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         if (!stats.isFile() && !stats.isDirectory()) {
           throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'grep requires a regular file or directory.');
         }
-        const result = await runRipgrep({
+        const matches: Array<{ path: string; line: number; text: string }> = [];
+        let outputBytes = 0;
+        let truncated = false;
+        const processResult = await runRipgrep({
           spawn,
           workspaceRoot,
           args: ['--json', '--fixed-strings', '--color', 'never', '--max-count', String(MAX_GREP_MATCHES + 1), '--', input.query, target],
           abortSignal: execution.abortSignal,
+          onLine: line => {
+            let record: RipgrepJson;
+            try {
+              record = JSON.parse(line) as RipgrepJson;
+            } catch {
+              throw new WorkspaceToolError('SEARCH_FAILED', errorMessages.SEARCH_FAILED);
+            }
+            if (record.type !== 'match' || !record.data?.path?.text || !record.data.lines?.text || !record.data.line_number) return true;
+            const item = {
+              path: toWorkspacePath(workspaceRoot, record.data.path.text),
+              line: record.data.line_number,
+              text: record.data.lines.text.replace(/\r?\n$/, ''),
+            };
+            const itemBytes = Buffer.byteLength(JSON.stringify(item));
+            if (matches.length >= MAX_GREP_MATCHES || outputBytes + itemBytes > MAX_OUTPUT_BYTES) {
+              truncated = true;
+              return false;
+            }
+            matches.push(item);
+            outputBytes += itemBytes;
+            return true;
+          },
         });
-        const matches: Array<{ path: string; line: number; text: string }> = [];
-        let outputBytes = 0;
-        let truncated = false;
-        for (const line of result.stdout.split('\n')) {
-          if (!line) continue;
-          let record: RipgrepJson;
-          try {
-            record = JSON.parse(line) as RipgrepJson;
-          } catch {
-            throw new WorkspaceToolError('SEARCH_FAILED', errorMessages.SEARCH_FAILED);
-          }
-          if (record.type !== 'match' || !record.data?.path?.text || !record.data.lines?.text || !record.data.line_number) continue;
-          const item = {
-            path: toWorkspacePath(workspaceRoot, record.data.path.text),
-            line: record.data.line_number,
-            text: record.data.lines.text.replace(/\r?\n$/, ''),
-          };
-          const itemBytes = Buffer.byteLength(JSON.stringify(item));
-          if (matches.length >= MAX_GREP_MATCHES || outputBytes + itemBytes > MAX_OUTPUT_BYTES) {
-            truncated = true;
-            break;
-          }
-          matches.push(item);
-          outputBytes += itemBytes;
-        }
+        truncated ||= processResult.truncated;
         matches.sort((left, right) => left.path.localeCompare(right.path, 'en') || left.line - right.line);
         return {
           ok: true as const,
@@ -219,26 +221,27 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         if (!stats.isDirectory()) {
           throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'find_files requires a directory.');
         }
-        const result = await runRipgrep({
+        const files: string[] = [];
+        let outputBytes = 0;
+        let truncated = false;
+        const processResult = await runRipgrep({
           spawn,
           workspaceRoot,
           args: ['--files', '--hidden', '--glob', input.pattern, '--', target],
           abortSignal: execution.abortSignal,
+          onLine: line => {
+            const path = toWorkspacePath(workspaceRoot, line);
+            const itemBytes = Buffer.byteLength(path);
+            if (files.length >= MAX_FOUND_FILES || outputBytes + itemBytes > MAX_OUTPUT_BYTES) {
+              truncated = true;
+              return false;
+            }
+            files.push(path);
+            outputBytes += itemBytes;
+            return true;
+          },
         });
-        const files: string[] = [];
-        let outputBytes = 0;
-        let truncated = false;
-        for (const line of result.stdout.split(/\r?\n/)) {
-          if (!line) continue;
-          const path = toWorkspacePath(workspaceRoot, line);
-          const itemBytes = Buffer.byteLength(path);
-          if (files.length >= MAX_FOUND_FILES || outputBytes + itemBytes > MAX_OUTPUT_BYTES) {
-            truncated = true;
-            break;
-          }
-          files.push(path);
-          outputBytes += itemBytes;
-        }
+        truncated ||= processResult.truncated;
         files.sort((left, right) => left.localeCompare(right, 'en'));
         return {
           ok: true as const,
@@ -356,7 +359,8 @@ async function runRipgrep(options: {
   readonly workspaceRoot: string;
   readonly args: readonly string[];
   readonly abortSignal?: AbortSignal;
-}): Promise<{ stdout: string }> {
+  readonly onLine: (line: string) => boolean;
+}): Promise<{ truncated: boolean }> {
   throwIfAborted(options.abortSignal);
   return new Promise((resolvePromise, reject) => {
     let child: ChildProcessWithoutNullStreams;
@@ -370,8 +374,10 @@ async function runRipgrep(options: {
       reject(new WorkspaceToolError('SEARCH_FAILED', errorMessages.SEARCH_FAILED));
       return;
     }
-    const stdout: Buffer[] = [];
-    let stdoutBytes = 0;
+    const decoder = new StringDecoder('utf8');
+    let pending = '';
+    let truncated = false;
+    let stoppedForLimit = false;
     let settled = false;
     const finish = (operation: () => void) => {
       if (settled) return;
@@ -385,13 +391,50 @@ async function runRipgrep(options: {
     };
     options.abortSignal?.addEventListener('abort', onAbort, { once: true });
     child.stdout.on('data', (chunk: Buffer) => {
-      stdoutBytes += chunk.length;
-      if (stdoutBytes <= MAX_OUTPUT_BYTES * 4) stdout.push(chunk);
+      if (stoppedForLimit || settled) return;
+      pending += decoder.write(chunk);
+      if (Buffer.byteLength(pending) > MAX_OUTPUT_BYTES * 2 && !pending.includes('\n')) {
+        truncated = true;
+        stoppedForLimit = true;
+        void child.kill('SIGTERM');
+        return;
+      }
+      let newline = pending.indexOf('\n');
+      while (newline >= 0) {
+        const line = pending.slice(0, newline).replace(/\r$/, '');
+        pending = pending.slice(newline + 1);
+        try {
+          if (line && !options.onLine(line)) {
+            truncated = true;
+            stoppedForLimit = true;
+            void child.kill('SIGTERM');
+            return;
+          }
+        } catch (error) {
+          void child.kill('SIGTERM');
+          finish(() => reject(error));
+          return;
+        }
+        newline = pending.indexOf('\n');
+      }
+    });
+    child.stderr.on('data', () => {
+      // Always drain diagnostics so the child cannot block on a full pipe.
     });
     child.on('error', () => finish(() => reject(new WorkspaceToolError('SEARCH_FAILED', errorMessages.SEARCH_FAILED))));
     child.on('close', code => finish(() => {
-      if (code === 0 || code === 1) {
-        resolvePromise({ stdout: Buffer.concat(stdout).toString('utf8') });
+      if (!stoppedForLimit) {
+        pending += decoder.end();
+        const line = pending.replace(/\r$/, '');
+        try {
+          if (line && !options.onLine(line)) truncated = true;
+        } catch (error) {
+          reject(error);
+          return;
+        }
+      }
+      if (code === 0 || code === 1 || stoppedForLimit) {
+        resolvePromise({ truncated });
       } else {
         reject(new WorkspaceToolError('SEARCH_FAILED', errorMessages.SEARCH_FAILED));
       }

@@ -227,6 +227,49 @@ describe('workspace tools', () => {
     expect(options).toMatchObject({ shell: false });
   });
 
+  it('passes a model glob as one argv value and never enables a shell', async () => {
+    const root = await workspace();
+    const child = fakeChild('', 1);
+    const spawn = vi.fn((..._args: [string, readonly string[], { shell: false }]) => child as never);
+    const tools = await createWorkspaceTools({ workspaceRoot: root, spawn });
+    const pattern = '*.ts; touch /tmp/injected';
+
+    await execute(tools, 'find_files', { pattern });
+
+    const [executable, argv, options] = spawn.mock.calls[0]!;
+    expect(executable).toBe('rg');
+    expect(argv.filter((value: string) => value === pattern)).toHaveLength(1);
+    expect(argv[argv.indexOf('--glob') + 1]).toBe(pattern);
+    expect(options).toMatchObject({ shell: false });
+  });
+
+  it('terminates ripgrep and reports truncation for an oversized incomplete record', async () => {
+    const root = await workspace();
+    const child = fakeChild('x'.repeat(140_000), 0);
+    const tools = await createWorkspaceTools({
+      workspaceRoot: root,
+      spawn: vi.fn((..._args: [string, readonly string[], { shell: false }]) => child as never),
+    });
+
+    await expect(execute(tools, 'grep', { query: 'needle' })).resolves.toMatchObject({
+      ok: true, matches: [], truncated: true,
+    });
+    expect(child.kill).toHaveBeenCalledOnce();
+  });
+
+  it('drains ripgrep stderr so diagnostics cannot block completion', async () => {
+    const root = await workspace();
+    const child = fakeChild('', 1, 'diagnostic\n'.repeat(20_000));
+    const tools = await createWorkspaceTools({
+      workspaceRoot: root,
+      spawn: vi.fn((..._args: [string, readonly string[], { shell: false }]) => child as never),
+    });
+
+    await expect(execute(tools, 'grep', { query: 'needle' })).resolves.toMatchObject({
+      ok: true, matches: [], truncated: false,
+    });
+  });
+
   it('kills ripgrep and returns CANCELLED when the run is aborted', async () => {
     const root = await workspace();
     const child = fakeChild('', null);
@@ -245,7 +288,7 @@ describe('workspace tools', () => {
   });
 });
 
-function fakeChild(stdout: string, exitCode: number | null) {
+function fakeChild(stdout: string, exitCode: number | null, stderr = '') {
   const child = new EventEmitter() as EventEmitter & {
     stdout: PassThrough;
     stderr: PassThrough;
@@ -263,7 +306,7 @@ function fakeChild(stdout: string, exitCode: number | null) {
     completionScheduled = true;
     queueMicrotask(() => {
       child.stdout.end(stdout);
-      child.stderr.end();
+      child.stderr.end(stderr);
       child.emit('close', exitCode, null);
     });
   });

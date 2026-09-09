@@ -78,6 +78,11 @@ returns `CANCELLED`. `grep` and `find_files` execute the fixed `rg` binary with
 Runtime-owned argv arrays and `shell: false`. Model text occupies one argument
 and cannot inject a flag or command.
 
+This confinement boundary treats model-provided paths and search text as
+untrusted. It is not an OS sandbox against a separate hostile process running
+as the same user and concurrently replacing workspace entries; command
+execution and operating-system sandboxing remain outside this Runtime layer.
+
 `AgentSession` exposes only:
 
 - `getSnapshot()` for an immutable copy of in-memory messages
