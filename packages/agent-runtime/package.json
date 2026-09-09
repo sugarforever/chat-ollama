@@ -1,6 +1,6 @@
 {
   "name": "chatollama-agent-runtime",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
@@ -39,6 +39,7 @@
     "@ai-sdk/google": "4.0.64",
     "@ai-sdk/openai": "4.0.60",
     "@ai-sdk/openai-compatible": "3.0.44",
+    "@vscode/ripgrep": "1.18.0",
     "ai": "7.0.93",
     "zod": "3.25.76"
   },

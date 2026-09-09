@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
+import { rgPath } from '@vscode/ripgrep';
 import type { ToolSet } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -236,7 +237,7 @@ describe('workspace tools', () => {
 
     expect(spawn).toHaveBeenCalledOnce();
     const [executable, argv, options] = spawn.mock.calls[0]!;
-    expect(executable).toBe('rg');
+    expect(executable).toBe(rgPath);
     expect(argv.filter((value: string) => value === query)).toHaveLength(1);
     expect(argv).toContain('--');
     expect(options).toMatchObject({ shell: false });
@@ -252,7 +253,7 @@ describe('workspace tools', () => {
     await execute(tools, 'find_files', { pattern });
 
     const [executable, argv, options] = spawn.mock.calls[0]!;
-    expect(executable).toBe('rg');
+    expect(executable).toBe(rgPath);
     expect(argv.filter((value: string) => value === pattern)).toHaveLength(1);
     expect(argv[argv.indexOf('--glob') + 1]).toBe(pattern);
     expect(options).toMatchObject({ shell: false });
