@@ -1,7 +1,6 @@
 import type { H3Event } from 'h3'
-import jwt from 'jsonwebtoken'
+import { verifyAuthToken } from './jwt'
 
-export const SECRET = process.env.SECRET || 'changeit'
 export const TOKEN_TYPE = 'Bearer'
 
 /**
@@ -45,7 +44,7 @@ export const parseAuthUser = (event: H3Event): AuthUser | null => {
     if (authHeaderValue != null) {
         const extractedToken = extractToken(authHeaderValue)
         try {
-            return jwt.verify(extractedToken, SECRET) as AuthUser
+            return verifyAuthToken<AuthUser>(extractedToken)
         } catch (error) {
             console.log('Invalid token from Authorization header.')
         }
@@ -54,7 +53,7 @@ export const parseAuthUser = (event: H3Event): AuthUser | null => {
     // Fall back to cookie token
     if (cookieToken) {
         try {
-            return jwt.verify(cookieToken, SECRET) as AuthUser
+            return verifyAuthToken<AuthUser>(cookieToken)
         } catch (error) {
             console.log('Invalid token from cookie.')
         }

@@ -1,8 +1,7 @@
 import { google } from 'googleapis'
 import { createError } from 'h3'
 import prisma from '@/server/utils/prisma'
-import jwt from 'jsonwebtoken'
-import { SECRET } from '../login.post'
+import { signAuthToken } from '@/server/utils/jwt'
 import { Role } from '../signup.post'
 
 const oauth2Client = new google.auth.OAuth2(
@@ -129,7 +128,7 @@ export default defineEventHandler(async (event) => {
       role: role
     }
 
-    const accessToken = jwt.sign({ ...userPayload, scope: ['test', 'user'] }, SECRET, { expiresIn })
+    const accessToken = signAuthToken({ ...userPayload, scope: ['test', 'user'] }, expiresIn)
 
     // Set JWT token in cookie and redirect to main app
     setCookie(event, 'auth-token', accessToken, {

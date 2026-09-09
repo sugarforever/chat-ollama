@@ -1,11 +1,10 @@
 import { createError, eventHandler, readBody } from 'h3'
 import prisma from "@/server/utils/prisma"
-import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
 import { Role } from './signup.post'
+import { signAuthToken } from '@/server/utils/jwt'
 
 const refreshTokens: Record<number, Record<string, any>> = {}
-export const SECRET = process.env.SECRET || 'changeit'
 
 const validate = async (name: string, password: string) => {
   if (!name || !password) {
@@ -72,7 +71,7 @@ export default eventHandler(async (event) => {
     role: role
   }
 
-  const accessToken = jwt.sign({ ...user, scope: ['test', 'user'] }, SECRET, { expiresIn })
+  const accessToken = signAuthToken({ ...user, scope: ['test', 'user'] }, expiresIn)
   refreshTokens[refreshToken] = {
     accessToken,
     user

@@ -43,6 +43,7 @@ services:
 
   chatollama:
     environment:
+      - SECRET=${SECRET:?Set SECRET to a random value of at least 32 characters}
       # Access Control Settings
       - ACL_ENABLED=false  # Set to 'true' to enable admin-only MCP management
       # Feature Flags - Use NUXT_ prefix for runtime configuration
