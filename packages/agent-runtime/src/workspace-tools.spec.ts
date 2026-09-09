@@ -75,8 +75,20 @@ describe('workspace tools', () => {
 
     const result = await execute(tools, 'read_file', { path: 'wide.txt' });
     expect(result).toMatchObject({ ok: true, truncated: true });
-    expect(Buffer.byteLength(String(result.content))).toBeLessThanOrEqual(65_536);
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(65_536);
     expect(String(result.content)).not.toContain('\uFFFD');
+  });
+
+  it('reports the last line actually included when byte truncation stops a multi-line read', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'wide-lines.txt'), `first\n${'x'.repeat(70_000)}\nthird\n`);
+    const tools = await createWorkspaceTools({ workspaceRoot: root });
+
+    const result = await execute(tools, 'read_file', { path: 'wide-lines.txt' });
+    expect(result).toMatchObject({
+      ok: true, truncated: true, startLine: 1, endLine: 2,
+    });
+    expect(String(result.content)).toContain('2: xxx');
   });
 
   it('returns stable errors for missing paths and unsupported types', async () => {
@@ -200,14 +212,17 @@ describe('workspace tools', () => {
     const listing = await execute(tools, 'list_directory', { path: 'many' });
     expect(listing).toMatchObject({ ok: true, truncated: true });
     expect(listing.entries).toHaveLength(1_000);
+    expect(Buffer.byteLength(JSON.stringify(listing))).toBeLessThanOrEqual(65_536);
 
     const matches = await execute(tools, 'grep', { query: 'needle', path: 'many' });
     expect(matches).toMatchObject({ ok: true, truncated: true });
     expect(matches.matches).toHaveLength(100);
+    expect(Buffer.byteLength(JSON.stringify(matches))).toBeLessThanOrEqual(65_536);
 
     const files = await execute(tools, 'find_files', { pattern: '*.txt', path: 'many' });
     expect(files).toMatchObject({ ok: true, truncated: true });
     expect(files.files).toHaveLength(1_000);
+    expect(Buffer.byteLength(JSON.stringify(files))).toBeLessThanOrEqual(65_536);
   });
 
   it('passes model search text as one argv value and never enables a shell', async () => {

@@ -8,6 +8,7 @@ import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 
 const MAX_OUTPUT_BYTES = 65_536;
+const MAX_RESULT_DATA_BYTES = 64_000;
 const MAX_READ_LINES = 2_000;
 const MAX_DIRECTORY_ENTRIES = 1_000;
 const MAX_GREP_MATCHES = 100;
@@ -98,17 +99,17 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         const selected = lines.slice(start - 1, start - 1 + requestedLimit);
         const numbered = selected.map((line, index) => `${start + index}: ${line}`);
         const hasMoreLines = start - 1 + selected.length < lines.length;
-        const bounded = boundStrings(numbered, MAX_OUTPUT_BYTES, '\n', '[truncated: read_file limit reached]');
+        const bounded = boundStrings(numbered, MAX_RESULT_DATA_BYTES, '\n', '[truncated: read_file limit reached]');
         const truncated = hasMoreLines || bounded.truncated;
         const content = truncated && !bounded.value.endsWith('[truncated: read_file limit reached]')
-          ? appendMarker(bounded.value, '[truncated: read_file limit reached]', MAX_OUTPUT_BYTES)
+          ? appendMarker(bounded.value, '[truncated: read_file limit reached]', MAX_RESULT_DATA_BYTES)
           : bounded.value;
         return {
           ok: true as const,
           content,
           truncated,
           startLine: selected.length === 0 ? 0 : start,
-          endLine: selected.length === 0 ? 0 : start + selected.length - 1,
+          endLine: bounded.includedValues === 0 ? 0 : start + bounded.includedValues - 1,
           limits: readLimits(),
         };
       }),
@@ -139,12 +140,13 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
                 : entry.isSymbolicLink() ? 'symlink' as const : 'other' as const,
           };
           const itemBytes = Buffer.byteLength(JSON.stringify(item));
-          if (entries.length >= MAX_DIRECTORY_ENTRIES || bytes + itemBytes > MAX_OUTPUT_BYTES) {
+          const separatorBytes = entries.length === 0 ? 0 : 1;
+          if (entries.length >= MAX_DIRECTORY_ENTRIES || bytes + separatorBytes + itemBytes > MAX_RESULT_DATA_BYTES) {
             truncated = true;
             break;
           }
           entries.push(item);
-          bytes += itemBytes;
+          bytes += separatorBytes + itemBytes;
         }
         return {
           ok: true as const,
@@ -189,12 +191,13 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
               text: record.data.lines.text.replace(/\r?\n$/, ''),
             };
             const itemBytes = Buffer.byteLength(JSON.stringify(item));
-            if (matches.length >= MAX_GREP_MATCHES || outputBytes + itemBytes > MAX_OUTPUT_BYTES) {
+            const separatorBytes = matches.length === 0 ? 0 : 1;
+            if (matches.length >= MAX_GREP_MATCHES || outputBytes + separatorBytes + itemBytes > MAX_RESULT_DATA_BYTES) {
               truncated = true;
               return false;
             }
             matches.push(item);
-            outputBytes += itemBytes;
+            outputBytes += separatorBytes + itemBytes;
             return true;
           },
         });
@@ -231,13 +234,14 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
           abortSignal: execution.abortSignal,
           onLine: line => {
             const path = toWorkspacePath(workspaceRoot, line);
-            const itemBytes = Buffer.byteLength(path);
-            if (files.length >= MAX_FOUND_FILES || outputBytes + itemBytes > MAX_OUTPUT_BYTES) {
+            const itemBytes = Buffer.byteLength(JSON.stringify(path));
+            const separatorBytes = files.length === 0 ? 0 : 1;
+            if (files.length >= MAX_FOUND_FILES || outputBytes + separatorBytes + itemBytes > MAX_RESULT_DATA_BYTES) {
               truncated = true;
               return false;
             }
             files.push(path);
-            outputBytes += itemBytes;
+            outputBytes += separatorBytes + itemBytes;
             return true;
           },
         });
@@ -316,14 +320,22 @@ function readLimits() {
 
 function boundStrings(values: readonly string[], maxBytes: number, separator: string, marker: string) {
   let value = '';
-  for (const item of values) {
+  for (const [index, item] of values.entries()) {
     const candidate = value ? `${value}${separator}${item}` : item;
     if (Buffer.byteLength(candidate) > maxBytes) {
-      return { value: appendMarker(value, marker, maxBytes), truncated: true };
+      const suffix = candidate ? `\n${marker}` : marker;
+      const availableValueBytes = Math.max(0, maxBytes - Buffer.byteLength(suffix));
+      const currentValuePrefix = value ? `${value}${separator}` : '';
+      const includesCurrentValue = Buffer.byteLength(currentValuePrefix) < availableValueBytes;
+      return {
+        value: appendMarker(candidate, marker, maxBytes),
+        truncated: true,
+        includedValues: index + (includesCurrentValue ? 1 : 0),
+      };
     }
     value = candidate;
   }
-  return { value, truncated: false };
+  return { value, truncated: false, includedValues: values.length };
 }
 
 function appendMarker(value: string, marker: string, maxBytes: number): string {
