@@ -42,6 +42,7 @@ The CLI also recognizes these explicit startup overrides:
 | `AGENT_MODEL`    | Select the model ID                                                           |
 | `AGENT_BASE_URL` | Override the selected provider's API endpoint                                 |
 | `AGENT_API_KEY`  | Override the selected provider's credential                                   |
+| `AGENT_MAX_STEPS` | Set the positive-integer step budget for each prompt (default: `4`)          |
 
 Use provider and model overrides together when you want a specific startup
 model:

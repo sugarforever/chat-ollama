@@ -40,6 +40,7 @@ const session = createAgentSession({
     model: 'gpt-5-mini',
     apiKey: process.env.OPENAI_API_KEY,
   },
+  maxSteps: 128,
 });
 
 const unsubscribe = session.subscribe(event => {
@@ -92,8 +93,9 @@ new provider without replacing the Session's structured conversation history.
 Runtime-owned messages, retains the current model configuration, and emits
 `session.reset`. Tool calls and results are Runtime-owned Session items linked
 by stable `callId` and `toolName` strings. Unknown tools, invalid input, and
-execution errors terminate with sanitized failures. Reaching the four-step
-`stepCountIs(4)` limit emits `run.stopped` with reason `step-limit`. Cancelled,
+execution errors terminate with sanitized failures. `maxSteps` configures the
+positive-integer step budget for each `prompt()` and defaults to `4`. Reaching
+that limit emits `run.stopped` with reason `step-limit`. Cancelled,
 stopped, and failed runs never append a fabricated completed assistant message;
 all state remains process-local.
 

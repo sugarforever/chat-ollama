@@ -1,8 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
-import { readModelConfig, resolveStartupModel } from './config.js';
+import { readMaxSteps, readModelConfig, resolveStartupModel } from './config.js';
 
 describe('CLI model configuration', () => {
+  it('reads a positive integer step budget and defaults to four', () => {
+    expect(readMaxSteps({})).toBe(4);
+    expect(readMaxSteps({ AGENT_MAX_STEPS: '128' })).toBe(128);
+  });
+
+  it.each(['0', '-1', '1.5', 'Infinity', 'many'])(
+    'rejects invalid AGENT_MAX_STEPS value %s',
+    value => {
+      expect(() => readMaxSteps({ AGENT_MAX_STEPS: value })).toThrow(
+        'AGENT_MAX_STEPS must be a positive safe integer',
+      );
+    },
+  );
+
   it('defaults to the local Ollama OpenAI-compatible endpoint', () => {
     expect(readModelConfig({})).toEqual({
       provider: 'ollama',

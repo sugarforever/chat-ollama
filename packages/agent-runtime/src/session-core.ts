@@ -23,6 +23,7 @@ interface CreateAgentSessionWithModelOptions {
   readonly createModel?: (config: ModelConfig) => LanguageModel;
   readonly generateId?: () => string;
   readonly now?: () => Date;
+  readonly maxSteps?: number;
 }
 
 interface CurrentModel {
@@ -38,12 +39,18 @@ class InMemoryAgentSession implements AgentSession {
   readonly #messages: SessionMessage[] = [];
   readonly #modelMessages: ModelMessage[] = [];
   readonly #now: () => Date;
+  readonly #maxSteps: number;
   #currentModel: CurrentModel;
   #activeRun:
     | { readonly runId: string; readonly controller: AbortController }
     | undefined;
 
   constructor(options: CreateAgentSessionWithModelOptions) {
+    const maxSteps = options.maxSteps ?? 4;
+    if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) {
+      throw new Error('maxSteps must be a positive safe integer');
+    }
+
     this.#id = options.id;
     this.#currentModel = {
       model: options.model,
@@ -52,6 +59,7 @@ class InMemoryAgentSession implements AgentSession {
     this.#createModel = options.createModel ?? createLanguageModel;
     this.#generateId = options.generateId ?? randomUUID;
     this.#now = options.now ?? (() => new Date());
+    this.#maxSteps = maxSteps;
   }
 
   getSnapshot(): SessionSnapshot {
@@ -125,7 +133,7 @@ class InMemoryAgentSession implements AgentSession {
       const agent = new ToolLoopAgent({
         model: this.#currentModel.model,
         tools: createDemoTools(this.#now),
-        stopWhen: stepCountIs(4),
+        stopWhen: stepCountIs(this.#maxSteps),
         prepareCall: options => ({ ...options, onError: () => {} }),
       });
       const result = await agent.stream({
@@ -213,7 +221,7 @@ class InMemoryAgentSession implements AgentSession {
         return;
       }
 
-      if (step >= 4 && finalReason === 'tool-calls') {
+      if (step >= this.#maxSteps && finalReason === 'tool-calls') {
         this.#modelMessages.push(...await result.responseMessages);
         this.#publish({ type: 'run.stopped', runId, reason: 'step-limit' });
         return;

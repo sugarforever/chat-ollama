@@ -114,6 +114,7 @@ export interface DiscoverModelsOptions {
 export interface CreateAgentSessionOptions {
   readonly id?: string;
   readonly model: ModelConfig;
+  readonly maxSteps?: number;
 }
 
 export interface ModelDescriptor {

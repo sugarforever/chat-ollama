@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   AgentSession,
   AssistantMessage,
+  CreateAgentSessionOptions,
   RuntimeEvent,
   SessionSnapshot,
   ToolCallItem,
@@ -101,5 +102,6 @@ describe('Runtime public contract', () => {
     expectTypeOf<AgentSession>().toHaveProperty('reset');
     expectTypeOf<AgentSession>().toHaveProperty('prompt');
     expectTypeOf<AgentSession>().toHaveProperty('cancel');
+    expectTypeOf<CreateAgentSessionOptions['maxSteps']>().toEqualTypeOf<number | undefined>();
   });
 });

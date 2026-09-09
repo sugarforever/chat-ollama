@@ -40,6 +40,21 @@ async function runPiped(options: RunMainOptions, commands = '/models\n/exit\n') 
 }
 
 describe('agent CLI entry point', () => {
+  it('rejects invalid AGENT_MAX_STEPS before model discovery', async () => {
+    let fetchCalled = false;
+
+    await expect(runPiped({
+      env: { AGENT_MAX_STEPS: '0' },
+      fetch: async () => {
+        fetchCalled = true;
+        return Response.json({ models: [] });
+      },
+      preferencesPath: await preferencePath(),
+    })).rejects.toThrow('AGENT_MAX_STEPS must be a positive safe integer');
+
+    expect(fetchCalled).toBe(false);
+  });
+
   it('starts without credentials or Ollama and delivers sanitized discovery warnings', async () => {
     const result = await runPiped({ fetch: offlineFetch, preferencesPath: await preferencePath() });
     expect(result.stdout).toContain('No models are available');

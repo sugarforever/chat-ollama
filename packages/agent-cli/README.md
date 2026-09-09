@@ -40,6 +40,8 @@ Explicit `AGENT_PROVIDER` or `AGENT_MODEL` selects the startup model ahead of a 
 
 `AGENT_BASE_URL` and `AGENT_API_KEY` override the endpoint and credential of the startup selection, including a restored selection. These two overrides alone do not replace its provider/model identity. Startup reads validated saved endpoint metadata before discovering Ollama or OpenAI models. `AGENT_BASE_URL` takes priority for discovery of the explicit provider, the saved provider when no provider/model override is set, or Ollama by default. For Ollama, `/v1` is removed before requesting `/api/tags`. `AGENT_API_KEY` does not enable a provider's discovery catalog; configure the provider's mapped credential for that. Later `/model` selections use their discovered endpoint and mapped provider credential. Secrets are never stored in preferences or exposed by Runtime events.
 
+`AGENT_MAX_STEPS` sets the positive-integer tool-loop budget for each prompt and defaults to `4`. A run that exhausts this budget stops with `step-limit`; a later prompt can continue from the preserved Session history. Increasing this value permits longer runs but does not add persistence or process recovery.
+
 ## Saved model preference
 
 | Platform | File |

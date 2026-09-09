@@ -221,6 +221,47 @@ describe('AgentSession streaming', () => {
     expect(session.getSnapshot().messages.some(message => 'role' in message && message.role === 'assistant')).toBe(false);
   });
 
+  it('stops at the configured per-run step limit', async () => {
+    const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+      createToolCallStream('call-1', 'getCurrentUtcTime', { timezone: 'UTC' }),
+      createToolCallStream('call-2', 'getCurrentUtcTime', { timezone: 'UTC' }),
+    );
+    const model = new MockLanguageModelV3({ doStream: async () => nextStream() });
+    const options = {
+      id: 'session-1', model,
+      descriptor: { provider: 'openai' as const, model: 'mock-model' },
+      generateId: () => 'run-1',
+      now: () => new Date('2026-09-09T12:00:00.000Z'),
+      maxSteps: 2,
+    };
+    const session = createAgentSessionWithModel(options);
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await session.prompt('Stop sooner');
+
+    expect(model.doStreamCalls).toHaveLength(2);
+    expect(events.at(-1)).toEqual({
+      type: 'run.stopped', runId: 'run-1', reason: 'step-limit',
+    });
+  });
+
+  it.each([0, -1, 1.5, Number.POSITIVE_INFINITY])(
+    'rejects invalid maxSteps value %s',
+    maxSteps => {
+      const model = createTextModel(['unused']);
+      const options = {
+        id: 'session-1', model,
+        descriptor: { provider: 'openai' as const, model: 'mock-model' },
+        maxSteps,
+      };
+
+      expect(() => createAgentSessionWithModel(options)).toThrow(
+        'maxSteps must be a positive safe integer',
+      );
+    },
+  );
+
   it('creates a public Session from model configuration without exposing secrets', () => {
     const session = createAgentSession({
       id: 'configured-session',
