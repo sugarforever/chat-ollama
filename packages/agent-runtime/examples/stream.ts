@@ -86,6 +86,7 @@ function createExampleSession(): AgentSession {
     }
 
     return createAgentSession({
+      workspaceRoot: process.cwd(),
       model: {
         provider: 'openai',
         model: process.env.AGENT_MODEL ?? 'gpt-5-mini',
@@ -96,6 +97,7 @@ function createExampleSession(): AgentSession {
 
   if (provider === 'ollama') {
     return createAgentSession({
+      workspaceRoot: process.cwd(),
       model: {
         provider: 'openai-compatible',
         name: 'ollama',

@@ -115,6 +115,7 @@ export interface CreateAgentSessionOptions {
   readonly id?: string;
   readonly model: ModelConfig;
   readonly maxSteps?: number;
+  readonly workspaceRoot: string;
 }
 
 export interface ModelDescriptor {

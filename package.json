@@ -10,6 +10,7 @@
     "agent:cli:demo": "pnpm --filter chatollama-agent demo",
     "agent:example": "pnpm --filter chatollama-agent-runtime example",
     "agent:tool-loop-demo": "pnpm --filter chatollama-agent tool-loop-demo",
+    "agent:workspace-tools-demo": "pnpm --filter chatollama-agent workspace-tools-demo",
     "build": "pnpm build:agent && nuxt build",
     "build:agent": "pnpm --filter chatollama-agent-runtime build && pnpm --filter chatollama-agent build",
     "dev": "nuxt dev",

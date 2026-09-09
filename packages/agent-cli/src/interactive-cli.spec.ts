@@ -24,6 +24,7 @@ afterEach(async () => {
 });
 
 function startCli(session: AgentSession = createAgentSession({
+  workspaceRoot: process.cwd(),
   model: { provider: 'ollama', name: 'ollama', model: 'qwen3:8b', baseURL: 'http://localhost:11434/v1' },
 })) {
   const terminal = new VirtualTerminal();

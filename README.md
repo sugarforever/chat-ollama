@@ -75,9 +75,9 @@ At the prompt:
 
 - Enter a message and press Return. Follow-up messages continue the same
   in-memory conversation.
-- The Runtime may call the built-in `getCurrentUtcTime` demo tool. Both terminal
-  modes show its validated input, execution status, and result before the final
-  streamed answer.
+- The Runtime may call `read_file`, `list_directory`, `grep`, and `find_files`
+  to inspect the directory where the CLI was started. Both terminal modes show
+  each tool's validated input, execution status, and bounded result.
 - Enter `/models` to view available models and choose one. In an interactive
   terminal, use the arrow keys and Return; press Escape to cancel.
 - Enter `/model <provider>/<model-id>` to switch directly, for example
@@ -108,6 +108,18 @@ pnpm agent:tool-loop-demo
 The demo performs two real model steps with AI SDK `MockLanguageModelV3`: the
 first requests the safe UTC-time tool, and the second receives its result and
 streams the final answer.
+
+To exercise all four workspace tools without a provider or network request:
+
+```bash
+pnpm agent:workspace-tools-demo
+```
+
+The CLI startup directory is the workspace root. Tool paths must be relative to
+that root; absolute paths, `..` escapes, prefix-confusion paths, and symlinks
+that resolve outside it are rejected. Results are capped and report
+truncation. Workspace tools are read-only: they do not expose writes or shell
+commands.
 
 For configuration precedence, saved preference locations, plain-mode behavior,
 and provider-specific examples, see the

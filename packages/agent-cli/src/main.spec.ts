@@ -40,6 +40,17 @@ async function runPiped(options: RunMainOptions, commands = '/models\n/exit\n') 
 }
 
 describe('agent CLI entry point', () => {
+  it('uses the supplied startup directory as the Runtime workspace root', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'agent-workspace-root-'));
+    temporaryDirectories.push(parent);
+
+    await expect(runPiped({
+      cwd: join(parent, 'missing-workspace'),
+      fetch: ollamaFetch,
+      preferencesPath: await preferencePath(),
+    }, '/exit\n')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('rejects invalid AGENT_MAX_STEPS before model discovery', async () => {
     let fetchCalled = false;
 

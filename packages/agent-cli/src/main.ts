@@ -17,6 +17,7 @@ export interface RunMainOptions {
   readonly terminal?: InteractiveTerminal;
   readonly fetch?: typeof fetch;
   readonly preferencesPath?: string;
+  readonly cwd?: string;
 }
 
 export async function runMain(options: RunMainOptions = {}): Promise<void> {
@@ -42,6 +43,7 @@ export async function runMain(options: RunMainOptions = {}): Promise<void> {
   const session = createAgentSession({
     model: readModelConfig(env, resolved.selection),
     maxSteps,
+    workspaceRoot: options.cwd ?? process.cwd(),
   });
   const shared = {
     session,
