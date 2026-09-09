@@ -116,10 +116,8 @@ class InMemoryAgentSession implements AgentSession {
       model: this.#currentModel.descriptor,
     });
 
-    const messages: ModelMessage[] = [
-      ...this.#modelMessages,
-      { role: 'user', content: input },
-    ];
+    this.#modelMessages.push({ role: 'user', content: input });
+    const messages: ModelMessage[] = [...this.#modelMessages];
     let streamError: unknown;
     let streamFailed = false;
 
@@ -216,6 +214,7 @@ class InMemoryAgentSession implements AgentSession {
       }
 
       if (step >= 4 && finalReason === 'tool-calls') {
+        this.#modelMessages.push(...await result.responseMessages);
         this.#publish({ type: 'run.stopped', runId, reason: 'step-limit' });
         return;
       }
@@ -225,9 +224,7 @@ class InMemoryAgentSession implements AgentSession {
         content,
       };
       this.#messages.push(assistantMessage);
-      this.#modelMessages.push(...messages.slice(this.#modelMessages.length));
-      const response = await result.response;
-      this.#modelMessages.push(...response.messages);
+      this.#modelMessages.push(...await result.responseMessages);
       this.#publish({
         type: 'model.completed',
         runId,

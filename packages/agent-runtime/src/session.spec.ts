@@ -98,6 +98,7 @@ describe('AgentSession streaming', () => {
   });
 
   it('sanitizes a demo tool execution failure and records its call association', async () => {
+    const recoveryModel = createTextModel(['Recovered']);
     const model = new MockLanguageModelV3({
       doStream: async () => createToolCallStream('call-1', 'getCurrentUtcTime', { timezone: 'UTC' }),
     });
@@ -107,6 +108,7 @@ describe('AgentSession streaming', () => {
       descriptor: { provider: 'openai', model: 'mock-model' },
       generateId: () => 'run-1',
       now: () => { throw new Error('private tool detail'); },
+      createModel: () => recoveryModel,
     });
     const events: RuntimeEvent[] = [];
     session.subscribe(event => events.push(event));
@@ -126,6 +128,15 @@ describe('AgentSession streaming', () => {
     expect(session.getSnapshot().messages.at(-1)).toEqual({
       type: 'tool-result', callId: 'call-1', toolName: 'getCurrentUtcTime', status: 'error', output: 'Tool execution failed',
     });
+
+    session.setModel({ provider: 'openai', model: 'recovery-model' });
+    await session.prompt('Try safely');
+
+    expect(recoveryModel.doStreamCalls[0]?.prompt).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Get time' }] },
+      { role: 'user', content: [{ type: 'text', text: 'Try safely' }] },
+    ]);
+    expect(JSON.stringify(recoveryModel.doStreamCalls[0]?.prompt)).not.toContain('private tool detail');
   });
 
   it('treats an undefined thrown by the tool as a failed run', async () => {
@@ -151,10 +162,11 @@ describe('AgentSession streaming', () => {
     });
   });
 
-  it('stops after four tool steps without appending an assistant message', async () => {
+  it('stops after four tool steps and keeps their context for the next prompt', async () => {
     const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
       ...Array.from({ length: 4 }, (_, index) =>
         createToolCallStream(`call-${index + 1}`, 'getCurrentUtcTime', { timezone: 'UTC' })),
+      createTextStream(['Recovered']),
     );
     const model = new MockLanguageModelV3({ doStream: async () => nextStream() });
     const session = createAgentSessionWithModel({
@@ -172,6 +184,17 @@ describe('AgentSession streaming', () => {
     expect(events.at(-1)).toEqual({ type: 'run.stopped', runId: 'run-1', reason: 'step-limit' });
     expect(events.filter(event => event.type === 'step.completed')).toHaveLength(4);
     expect(session.getSnapshot().messages.some(message => 'role' in message && message.role === 'assistant')).toBe(false);
+
+    await session.prompt('Recover now');
+
+    const recoveryPrompt = model.doStreamCalls[4]?.prompt;
+    expect(recoveryPrompt?.at(0)).toEqual({
+      role: 'user', content: [{ type: 'text', text: 'Keep calling' }],
+    });
+    expect(recoveryPrompt?.at(-1)).toEqual({
+      role: 'user', content: [{ type: 'text', text: 'Recover now' }],
+    });
+    expect(recoveryPrompt?.filter(message => message.role === 'tool')).toHaveLength(4);
   });
 
   it('stops at the step limit even when tool-calling steps include text', async () => {
@@ -426,6 +449,30 @@ describe('AgentSession streaming', () => {
     ]);
     expect(session.getSnapshot().messages).toEqual([
       { role: 'user', content: 'Hello' },
+    ]);
+  });
+
+  it('keeps a cancelled user turn in model history for the next prompt', async () => {
+    const firstModel = createTextModel(['partial'], 20);
+    const secondModel = createTextModel(['recovered']);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first-model' },
+      createModel: () => secondModel,
+      generateId: () => 'run-1',
+    });
+
+    const cancelled = session.prompt('Keep this question');
+    await vi.waitFor(() => expect(firstModel.doStreamCalls).toHaveLength(1));
+    session.cancel();
+    await cancelled;
+    session.setModel({ provider: 'openai', model: 'second-model' });
+    await session.prompt('Try again');
+
+    expect(secondModel.doStreamCalls[0]?.prompt).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Keep this question' }] },
+      { role: 'user', content: [{ type: 'text', text: 'Try again' }] },
     ]);
   });
 
