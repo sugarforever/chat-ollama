@@ -16,6 +16,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test:agent": "pnpm --filter chatollama-agent-runtime build && pnpm --filter './packages/agent-*' test",
+    "test:auth": "node --import tsx --test tests/server/utils/jwt.test.ts",
     "test:agent:pack": "node scripts/test-agent-packages.mjs",
     "test:agent:release": "node --test scripts/verify-agent-release-tag.spec.mjs scripts/check-agent-registry.spec.mjs scripts/compare-agent-artifacts.spec.mjs",
     "typecheck:agent": "pnpm --filter './packages/agent-*' typecheck",
