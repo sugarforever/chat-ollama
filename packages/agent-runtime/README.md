@@ -75,8 +75,8 @@ Workspace output limits are part of the tool results:
 | `write_file` | 1,048,576 content bytes; creates missing parent directories and atomically creates or replaces the file |
 | `edit_file` | 1,048,576 resulting content bytes; requires one exact literal match in an existing UTF-8 file |
 
-Every successful result contains `truncated`; a true value means the model saw
-only the bounded prefix. Expected failures return `ok: false` with a stable
+Every successful read/search result contains `truncated`; a true value means
+the model saw only the bounded prefix. Expected failures return `ok: false` with a stable
 code and message. The tools observe the active run's `AbortSignal`; cancellation
 returns `CANCELLED`. `grep` and `find_files` execute the platform-specific `rg`
 binary supplied by the Runtime's `@vscode/ripgrep` production dependency, with

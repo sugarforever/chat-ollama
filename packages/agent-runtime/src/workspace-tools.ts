@@ -154,7 +154,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
           }
           const first = content.indexOf(input.oldText);
           if (first < 0) throw new WorkspaceToolError('EDIT_NOT_FOUND', errorMessages.EDIT_NOT_FOUND);
-          if (content.indexOf(input.oldText, first + input.oldText.length) >= 0) {
+          if (content.indexOf(input.oldText, first + 1) >= 0) {
             throw new WorkspaceToolError('EDIT_NOT_UNIQUE', errorMessages.EDIT_NOT_UNIQUE);
           }
           const updated = `${content.slice(0, first)}${input.newText}${content.slice(first + input.oldText.length)}`;
@@ -374,7 +374,7 @@ interface PreparedWritePath {
 }
 
 function writeLockKey(workspaceRoot: string, requestedPath: string): string {
-  if (isAbsolute(requestedPath)) {
+  if (isAbsolute(requestedPath) || requestedPath.split(/[\\/]/).includes('..')) {
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
   const target = resolve(workspaceRoot, requestedPath);
@@ -420,7 +420,7 @@ async function prepareWritePath(
     const canonicalTarget = await fileSystem.realpath(target);
     assertWithin(workspaceRoot, canonicalTarget);
     const stats = await fileSystem.lstat(target);
-    if (!stats.isFile() && !stats.isSymbolicLink()) {
+    if (!stats.isFile()) {
       throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'File tools require a regular file.');
     }
   } catch (error) {
@@ -475,12 +475,12 @@ async function atomicWrite(
     handle = undefined;
     throwIfAborted(abortSignal);
 
+    await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem);
     const currentParent = await fileSystem.realpath(destination.parent);
     assertWithin(workspaceRoot, currentParent);
     if (currentParent !== destination.canonicalParent) {
       throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
     }
-    await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem);
     throwIfAborted(abortSignal);
     await fileSystem.rename(temporary, destination.target);
     temporaryExists = false;
@@ -499,7 +499,7 @@ async function validateExistingWriteTarget(
     const canonical = await fileSystem.realpath(target);
     assertWithin(workspaceRoot, canonical);
     const stats = await fileSystem.lstat(target);
-    if (!stats.isFile() && !stats.isSymbolicLink()) {
+    if (!stats.isFile()) {
       throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'File tools require a regular file.');
     }
   } catch (error) {

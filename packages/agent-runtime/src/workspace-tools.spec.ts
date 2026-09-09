@@ -61,6 +61,7 @@ describe('workspace tools', () => {
     await writeFile(join(root, 'unique.txt'), 'before needle after');
     await writeFile(join(root, 'zero.txt'), 'unchanged');
     await writeFile(join(root, 'multiple.txt'), 'needle and needle');
+    await writeFile(join(root, 'overlap.txt'), 'aaa');
     const tools = createWorkspaceTools({ workspaceRoot: root });
 
     await expect(execute(tools, 'edit_file', {
@@ -77,6 +78,11 @@ describe('workspace tools', () => {
     });
     await expect(execute(tools, 'edit_file', {
       path: 'multiple.txt', oldText: 'needle', newText: 'replacement',
+    })).resolves.toEqual({
+      ok: false, error: { code: 'EDIT_NOT_UNIQUE', message: 'Exact text occurs more than once in the file.' },
+    });
+    await expect(execute(tools, 'edit_file', {
+      path: 'overlap.txt', oldText: 'aa', newText: 'replacement',
     })).resolves.toEqual({
       ok: false, error: { code: 'EDIT_NOT_UNIQUE', message: 'Exact text occurs more than once in the file.' },
     });
@@ -154,6 +160,40 @@ describe('workspace tools', () => {
       });
     }
     await expect(readFile(join(outside, 'outside.txt'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('rejects every parent traversal component even when normalization stays in the workspace', async () => {
+    const root = await workspace();
+    await mkdir(join(root, 'folder'));
+    await writeFile(join(root, 'target.txt'), 'needle');
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    for (const [name, input] of [
+      ['write_file', { path: 'folder/../new.txt', content: 'blocked' }],
+      ['edit_file', { path: 'folder/../target.txt', oldText: 'needle', newText: 'blocked' }],
+    ] as const) {
+      await expect(execute(tools, name, input)).resolves.toEqual({
+        ok: false, error: { code: 'PATH_OUTSIDE_WORKSPACE', message: 'Path must stay within the workspace.' },
+      });
+    }
+    await expect(readFile(join(root, 'target.txt'), 'utf8')).resolves.toBe('needle');
+  });
+
+  it('rejects final symlinks instead of replacing the link after reading its referent', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'target.txt'), 'needle');
+    await symlink('target.txt', join(root, 'link.txt'));
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    for (const [name, input] of [
+      ['write_file', { path: 'link.txt', content: 'blocked' }],
+      ['edit_file', { path: 'link.txt', oldText: 'needle', newText: 'blocked' }],
+    ] as const) {
+      await expect(execute(tools, name, input)).resolves.toEqual({
+        ok: false, error: { code: 'UNSUPPORTED_TYPE', message: 'File tools require a regular file.' },
+      });
+    }
+    await expect(readFile(join(root, 'target.txt'), 'utf8')).resolves.toBe('needle');
   });
 
   it('revalidates the parent immediately before commit and blocks a changed symlink path', async () => {
