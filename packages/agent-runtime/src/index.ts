@@ -22,5 +22,7 @@ export type {
   RuntimeEventListener,
   SessionMessage,
   SessionSnapshot,
+  ToolCallItem,
+  ToolResultItem,
   UserMessage,
 } from './types.js';

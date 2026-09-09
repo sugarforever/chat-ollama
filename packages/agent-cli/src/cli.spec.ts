@@ -14,6 +14,44 @@ import { describe, expect, it, vi } from 'vitest';
 import { runCli } from './cli.js';
 
 describe('Runtime event-driven CLI', () => {
+  it('renders tool lifecycle and a deterministic step-limit stop in plain mode', async () => {
+    const runtime = new ControlledRuntime();
+    const terminal = createTerminal();
+    const cli = runCli({ session: runtime, ...terminal.streams });
+
+    await vi.waitFor(() => expect(terminal.stdout()).toContain('You> '));
+    terminal.input.write('time\n');
+    await vi.waitFor(() => expect(runtime.inputs).toEqual(['time']));
+    runtime.emit({ type: 'run.started', runId: 'run-1', input: 'time' });
+    runtime.emit({ type: 'model.started', runId: 'run-1', model: { provider: 'openai', model: 'mock-model' } });
+    runtime.emit({ type: 'step.started', runId: 'run-1', step: 1 });
+    runtime.emit({
+      type: 'tool.started', runId: 'run-1',
+      call: { type: 'tool-call', callId: 'call-1', toolName: 'getCurrentUtcTime', input: '{"timezone":"UTC"}' },
+    });
+    runtime.emit({
+      type: 'tool.completed', runId: 'run-1',
+      result: { type: 'tool-result', callId: 'call-1', toolName: 'getCurrentUtcTime', status: 'success', output: '2026-09-09T12:00:00.000Z' },
+    });
+    runtime.emit({ type: 'step.completed', runId: 'run-1', step: 1, reason: 'tool-calls' });
+    runtime.emit({ type: 'step.started', runId: 'run-1', step: 2 });
+    runtime.emit({ type: 'model.delta', runId: 'run-1', delta: 'done' });
+    runtime.emit({ type: 'step.completed', runId: 'run-1', step: 2, reason: 'stop' });
+    runtime.emit({ type: 'model.completed', runId: 'run-1', message: { role: 'assistant', content: 'done' } });
+    runtime.emit({ type: 'run.completed', runId: 'run-1' });
+    runtime.completePrompt();
+    await vi.waitFor(() => expect(terminal.stdout().match(/You> /g)).toHaveLength(2));
+    terminal.input.end('/exit\n');
+    await cli;
+
+    expect(terminal.stderr()).toContain('[step 1] started\n');
+    expect(terminal.stderr()).toContain('[tool getCurrentUtcTime] running {"timezone":"UTC"}\n');
+    expect(terminal.stderr()).toContain('[tool getCurrentUtcTime] completed 2026-09-09T12:00:00.000Z\n');
+    expect(terminal.stdout()).toContain('Assistant (openai/mock-model)> done\n');
+    expect(terminal.stdout()).not.toContain('Assistant (openai/mock-model)> [step');
+    expect(`${terminal.stdout()}${terminal.stderr()}`).not.toContain('\x1b');
+  });
+
   it('submits terminal input and writes model deltas before the run completes', async () => {
     const runtime = new ControlledRuntime();
     const terminal = createTerminal();
@@ -166,7 +204,7 @@ describe('Runtime event-driven CLI', () => {
     terminal.input.write('/exit\n');
     await cli;
 
-    expect(terminal.stdout()).toContain('Assistant (openai/gpt-test)> \n');
+    expect(terminal.stdout()).not.toContain('Assistant (openai/gpt-test)>');
     expect(terminal.stderr()).toBe(
       '[run run-1] started\n[error] Model request failed\n',
     );
@@ -195,7 +233,7 @@ describe('Runtime event-driven CLI', () => {
     terminal.input.write('/exit\n');
     await cli;
 
-    expect(terminal.stdout()).toContain('Assistant (openai/gpt-test)> \n');
+    expect(terminal.stdout()).not.toContain('Assistant (openai/gpt-test)>');
     expect(terminal.stderr()).toBe(
       '[run run-1] started\n[run run-1] cancelled\n',
     );

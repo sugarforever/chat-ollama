@@ -14,5 +14,6 @@ export function createAgentSession(
     id: options.id ?? randomUUID(),
     model: createLanguageModel(options.model),
     descriptor: describeModel(options.model),
+    maxSteps: options.maxSteps,
   });
 }

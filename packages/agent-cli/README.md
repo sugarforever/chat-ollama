@@ -13,6 +13,8 @@ For a project-local installation, run `npm install chatollama-agent`, then `npx 
 
 Both stdin and stdout must be TTYs to enable the pi-tui editor, slash-command completion, streaming transcript, and model picker. Type `/` for completion. `/models` opens a picker with the current model marked, ↑/↓ navigation, Enter to select, and Escape to cancel. `/new` clears process-local conversation history while preserving the selected model and non-secret configuration. `/exit` exits cleanly. Ctrl+C cancels an active model request and returns to the editor; Ctrl+C while idle exits. Redirected input or output, or a truthy `CI` environment variable, uses plain line mode with no ANSI sequences. Empty, `false`, and `0` values of `CI` do not force plain mode (case and surrounding whitespace are ignored).
 
+Both modes render agent steps and the built-in `getCurrentUtcTime` tool with its name, running/completed/failed status, and a safe input or result summary. pi-tui adds these records through its transcript component, so streamed model text and tool events do not replace unfinished editor input or move focus.
+
 In plain mode, `/models` prints models sorted by provider and model, marks the current selection, and accepts a listed number. An empty line cancels selection. `/new` and `/exit` have the same newline-delimited command behavior without ANSI output. Both modes accept `/model <provider>/<model-id>` directly; IDs may contain slashes, for example `/model openrouter/openai/gpt-5-mini`. Invalid selections leave the current model unchanged. Successful selections affect the next request, retain in-memory history, and save the next startup default. Model switching and conversation reset are both rejected during an active run, so neither can overwrite active-run state.
 
 ## Providers and credentials
@@ -37,6 +39,8 @@ Explicit `AGENT_PROVIDER` or `AGENT_MODEL` selects the startup model ahead of a 
 `AGENT_PROVIDER` supports `ollama`, `openai`, `anthropic`, `google`, `deepseek`, and `openrouter`. An explicit provider without a model uses its default: respectively `qwen3:8b`, `gpt-5-mini`, `claude-sonnet-4-5`, `gemini-2.5-flash`, `deepseek-chat`, or `openai/gpt-5-mini`. `AGENT_MODEL` alone uses Ollama.
 
 `AGENT_BASE_URL` and `AGENT_API_KEY` override the endpoint and credential of the startup selection, including a restored selection. These two overrides alone do not replace its provider/model identity. Startup reads validated saved endpoint metadata before discovering Ollama or OpenAI models. `AGENT_BASE_URL` takes priority for discovery of the explicit provider, the saved provider when no provider/model override is set, or Ollama by default. For Ollama, `/v1` is removed before requesting `/api/tags`. `AGENT_API_KEY` does not enable a provider's discovery catalog; configure the provider's mapped credential for that. Later `/model` selections use their discovered endpoint and mapped provider credential. Secrets are never stored in preferences or exposed by Runtime events.
+
+`AGENT_MAX_STEPS` sets the positive-integer tool-loop budget for each prompt and defaults to `4`. A run that exhausts this budget stops with `step-limit`; a later prompt can continue from the preserved Session history. Increasing this value permits longer runs but does not add persistence or process recovery.
 
 ## Saved model preference
 
@@ -94,7 +98,7 @@ Replace the placeholder with your key locally. Discovery can contact OpenAI's mo
 
 ## Runtime boundary and development
 
-The CLI consumes public `AgentSession` events and the Runtime's discovery/resolver API. Provider construction, structured message history, and `AbortController` ownership stay in the Runtime. pi-tui is imported only by the interactive adapter. Plain mode streams response text to stdout and lifecycle events, startup warnings, and sanitized request errors to stderr. Cancelled and failed runs do not create a completed assistant message. Conversation history remains process-local; persistence, multiple Sessions, Tools, Skills, compaction, and Web integration are outside this feature.
+The CLI consumes public `AgentSession` events and the Runtime's discovery/resolver API. Provider construction, structured message history, and `AbortController` ownership stay in the Runtime. pi-tui is imported only by the interactive adapter. Plain mode streams response text to stdout and lifecycle events, startup warnings, and sanitized request errors to stderr. Cancelled, stopped, and failed runs do not create a completed assistant message. Tool call/result Session items use Runtime-owned types, not AI SDK stream parts. Conversation history remains process-local; persistence, multiple Sessions, custom tools, Skills, compaction, MCP, approvals, and Web integration are outside this feature.
 
 From the repository root:
 
@@ -105,6 +109,7 @@ pnpm typecheck:agent
 pnpm build:agent
 pnpm test:agent:pack
 printf 'Hello\n/exit\n' | pnpm agent:cli:demo
+pnpm agent:tool-loop-demo
 ```
 
-Tests use fake transports and virtual terminals. The offline demo uses a mock public `AgentSession`. The package smoke test installs actual tarballs in a clean temporary project and exercises `/models`, numeric selection, `/model`, and `/exit` with fake discovery and no paid API calls.
+Tests use fake transports and virtual terminals. `agent:cli:demo` uses a small mock public `AgentSession`; `agent:tool-loop-demo` connects the real Runtime and plain CLI around `MockLanguageModelV3`. The package smoke test installs actual tarballs in a clean temporary project and exercises `/models`, numeric selection, `/model`, and `/exit` with fake discovery and no paid API calls.

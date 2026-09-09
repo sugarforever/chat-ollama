@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { createAgentSession, discoverModels } from 'chatollama-agent-runtime';
 
 import { runCli } from './cli.js';
-import { readModelConfig, resolveStartupModel } from './config.js';
+import { readMaxSteps, readModelConfig, resolveStartupModel } from './config.js';
 import type { InteractiveTerminal } from './interactive-cli.js';
 import { getPreferencesPath, readModelPreference, writeModelPreference } from './preferences.js';
 
@@ -23,7 +23,8 @@ export async function runMain(options: RunMainOptions = {}): Promise<void> {
   const env = options.env ?? process.env;
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
-  // Validate explicit provider/model overrides before any network work.
+  // Validate explicit startup overrides before any network work.
+  const maxSteps = readMaxSteps(env);
   const initial = resolveStartupModel({ env, available: [] });
   const preferencesPath = options.preferencesPath ?? getPreferencesPath({ env });
   const saved = await readModelPreference(preferencesPath);
@@ -38,7 +39,10 @@ export async function runMain(options: RunMainOptions = {}): Promise<void> {
     openaiBaseURL: endpointProvider === 'openai' ? discoveryBaseURL : undefined,
   });
   const resolved = resolveStartupModel({ env, saved: saved.preference, available: discovery.models });
-  const session = createAgentSession({ model: readModelConfig(env, resolved.selection) });
+  const session = createAgentSession({
+    model: readModelConfig(env, resolved.selection),
+    maxSteps,
+  });
   const shared = {
     session,
     env,

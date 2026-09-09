@@ -31,41 +31,73 @@ export async function runCli(options: RunCliOptions): Promise<void> {
   });
   let inputMode: CommandInputMode = 'prompt';
   let responseOpen = false;
+  let responseStarted = false;
+  let assistantLabel = 'Assistant> ';
   let failureReported = false;
+  const closeResponse = () => {
+    if (!responseOpen) return;
+    output.write('\n');
+    responseOpen = false;
+  };
   const unsubscribe = session.subscribe(event => {
     switch (event.type) {
       case 'run.started':
+        responseStarted = false;
         error.write(`[run ${event.runId}] started\n`);
         break;
-      case 'model.started':
-        output.write(
-          `Assistant (${event.model.provider}/${event.model.model})> `,
+      case 'step.started':
+        error.write(`[step ${event.step}] started\n`);
+        break;
+      case 'step.completed':
+        closeResponse();
+        error.write(`[step ${event.step}] completed: ${event.reason}\n`);
+        break;
+      case 'tool.started':
+        closeResponse();
+        error.write(
+          `[tool ${event.call.toolName}] running ${event.call.input}\n`,
         );
-        responseOpen = true;
+        break;
+      case 'tool.completed':
+        closeResponse();
+        error.write(
+          `[tool ${event.result.toolName}] completed ${event.result.output}\n`,
+        );
+        break;
+      case 'tool.failed':
+        closeResponse();
+        error.write(
+          `[tool ${event.result.toolName}] failed ${event.result.output}\n`,
+        );
+        break;
+      case 'model.started':
+        assistantLabel = `Assistant (${event.model.provider}/${event.model.model})> `;
         break;
       case 'model.delta':
+        if (!responseOpen) {
+          output.write(assistantLabel);
+          responseOpen = true;
+          responseStarted = true;
+        }
         output.write(event.delta);
         break;
       case 'model.completed':
-        output.write('\n');
-        responseOpen = false;
+        if (responseOpen) closeResponse();
+        else if (!responseStarted) output.write(`${assistantLabel}\n`);
         break;
       case 'run.completed':
         error.write(`[run ${event.runId}] completed\n`);
         break;
+      case 'run.stopped':
+        error.write(`[run ${event.runId}] stopped: step limit reached\n`);
+        break;
       case 'run.failed':
-        if (responseOpen) {
-          output.write('\n');
-          responseOpen = false;
-        }
+        closeResponse();
         error.write(`[error] ${event.error.message}\n`);
         failureReported = true;
         break;
       case 'run.cancelled':
-        if (responseOpen) {
-          output.write('\n');
-          responseOpen = false;
-        }
+        closeResponse();
         error.write(`[run ${event.runId}] cancelled\n`);
         break;
       case 'model.changed':

@@ -10,11 +10,36 @@ import type { AgentSession } from '../src/types.js';
 
 async function main(): Promise<void> {
   const session = createExampleSession();
+  let textOpen = false;
   session.subscribe(event => {
-    if (event.type === 'model.delta') {
-      process.stdout.write(event.delta);
-    } else if (event.type === 'model.completed') {
-      process.stdout.write('\n');
+    switch (event.type) {
+      case 'step.started':
+        process.stdout.write(`[step ${event.step}] started\n`);
+        break;
+      case 'step.completed':
+        if (textOpen) {
+          process.stdout.write('\n');
+          textOpen = false;
+        }
+        process.stdout.write(`[step ${event.step}] completed: ${event.reason}\n`);
+        break;
+      case 'tool.started':
+        process.stdout.write(`[tool ${event.call.toolName}] running ${event.call.input}\n`);
+        break;
+      case 'tool.completed':
+        process.stdout.write(`[tool ${event.result.toolName}] completed ${event.result.output}\n`);
+        break;
+      case 'tool.failed':
+        process.stdout.write(`[tool ${event.result.toolName}] failed ${event.result.output}\n`);
+        break;
+      case 'model.delta':
+        textOpen = true;
+        process.stdout.write(event.delta);
+        break;
+      case 'model.completed':
+        if (textOpen) process.stdout.write('\n');
+        textOpen = false;
+        break;
     }
   });
 
@@ -27,40 +52,21 @@ function createExampleSession(): AgentSession {
   const provider = process.env.AGENT_PROVIDER ?? 'mock';
 
   if (provider === 'mock') {
-    const streamResult = {
-      stream: simulateReadableStream({
-        chunks: [
-          { type: 'stream-start', warnings: [] },
-          { type: 'text-start', id: 'text-1' },
-          {
-            type: 'text-delta',
-            id: 'text-1',
-            delta: 'Hello from ',
-          },
-          {
-            type: 'text-delta',
-            id: 'text-1',
-            delta: 'the mock model.',
-          },
-          { type: 'text-end', id: 'text-1' },
-          {
-            type: 'finish',
-            finishReason: { unified: 'stop', raw: 'stop' },
-            usage: {
-              inputTokens: {
-                total: 1,
-                noCache: 1,
-                cacheRead: 0,
-                cacheWrite: 0,
-              },
-              outputTokens: { total: 5, text: 5, reasoning: 0 },
-            },
-          },
-        ],
-        chunkDelayInMs: 10,
-      }),
-    } satisfies Awaited<ReturnType<MockLanguageModelV3['doStream']>>;
-    const nextStream = mockValues(streamResult);
+    const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+      mockStream([
+        { type: 'stream-start', warnings: [] },
+        { type: 'tool-call', toolCallId: 'demo-call-1', toolName: 'getCurrentUtcTime', input: '{"timezone":"UTC"}' },
+        { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool-calls' }, usage: usage(1) },
+      ]),
+      mockStream([
+        { type: 'stream-start', warnings: [] },
+        { type: 'text-start', id: 'text-1' },
+        { type: 'text-delta', id: 'text-1', delta: 'The current UTC time is ' },
+        { type: 'text-delta', id: 'text-1', delta: '2026-09-09T12:00:00.000Z.' },
+        { type: 'text-end', id: 'text-1' },
+        { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: usage(2) },
+      ]),
+    );
     const model = new MockLanguageModelV3({
       doStream: async () => nextStream(),
     });
@@ -69,6 +75,7 @@ function createExampleSession(): AgentSession {
       id: 'example-session',
       model,
       descriptor: { provider: 'openai-compatible', model: 'mock-model' },
+      now: () => new Date('2026-09-09T12:00:00.000Z'),
     });
   }
 
@@ -101,6 +108,19 @@ function createExampleSession(): AgentSession {
   }
 
   throw new Error(`Unsupported AGENT_PROVIDER: ${provider}`);
+}
+
+function mockStream(
+  chunks: Parameters<typeof simulateReadableStream>[0]['chunks'],
+): Awaited<ReturnType<MockLanguageModelV3['doStream']>> {
+  return { stream: simulateReadableStream({ chunks, chunkDelayInMs: 10 }) } as Awaited<ReturnType<MockLanguageModelV3['doStream']>>;
+}
+
+function usage(outputTokens: number) {
+  return {
+    inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+    outputTokens: { total: outputTokens, text: outputTokens, reasoning: 0 },
+  };
 }
 
 await main().catch(error => {

@@ -3,8 +3,11 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   AgentSession,
   AssistantMessage,
+  CreateAgentSessionOptions,
   RuntimeEvent,
   SessionSnapshot,
+  ToolCallItem,
+  ToolResultItem,
   UserMessage,
 } from './types.js';
 
@@ -15,6 +18,19 @@ describe('Runtime public contract', () => {
       role: 'assistant',
       content: 'Hi',
     } satisfies AssistantMessage;
+    const call = {
+      type: 'tool-call',
+      callId: 'call-1',
+      toolName: 'getCurrentUtcTime',
+      input: '{"timezone":"UTC"}',
+    } satisfies ToolCallItem;
+    const result = {
+      type: 'tool-result',
+      callId: 'call-1',
+      toolName: 'getCurrentUtcTime',
+      status: 'success',
+      output: '2026-09-09T12:00:00.000Z',
+    } satisfies ToolResultItem;
     const snapshot = {
       id: 'session-1',
       messages: [user, assistant],
@@ -23,6 +39,10 @@ describe('Runtime public contract', () => {
 
     const events = [
       { type: 'run.started', runId: 'run-1', input: 'Hello' },
+      { type: 'step.started', runId: 'run-1', step: 1 },
+      { type: 'tool.started', runId: 'run-1', call },
+      { type: 'tool.completed', runId: 'run-1', result },
+      { type: 'step.completed', runId: 'run-1', step: 1, reason: 'tool-calls' },
       {
         type: 'model.started',
         runId: 'run-1',
@@ -40,6 +60,7 @@ describe('Runtime public contract', () => {
         model: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
       },
       { type: 'run.completed', runId: 'run-1' },
+      { type: 'run.stopped', runId: 'run-2', reason: 'step-limit' },
       {
         type: 'run.failed',
         runId: 'run-1',
@@ -58,12 +79,17 @@ describe('Runtime public contract', () => {
     });
     expect(events.map(event => event.type)).toEqual([
       'run.started',
+      'step.started',
+      'tool.started',
+      'tool.completed',
+      'step.completed',
       'model.started',
       'model.delta',
       'model.completed',
       'model.changed',
       'session.reset',
       'run.completed',
+      'run.stopped',
       'run.failed',
       'run.cancelled',
     ]);
@@ -76,5 +102,6 @@ describe('Runtime public contract', () => {
     expectTypeOf<AgentSession>().toHaveProperty('reset');
     expectTypeOf<AgentSession>().toHaveProperty('prompt');
     expectTypeOf<AgentSession>().toHaveProperty('cancel');
+    expectTypeOf<CreateAgentSessionOptions['maxSteps']>().toEqualTypeOf<number | undefined>();
   });
 });

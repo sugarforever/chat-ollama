@@ -25,6 +25,7 @@
   },
   "scripts": {
     "demo": "node --no-warnings --import tsx examples/mock-runtime.ts",
+    "tool-loop-demo": "node --no-warnings --import tsx examples/tool-loop-demo.ts",
     "build": "pnpm clean && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "dev": "node --no-warnings --import tsx src/main.ts",
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@types/node": "24.13.3",
+    "ai": "7.0.93",
     "@xterm/headless": "5.5.0",
     "tsx": "4.20.5",
     "typescript": "5.9.2",

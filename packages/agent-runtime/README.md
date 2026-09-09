@@ -4,10 +4,11 @@
 ChatOllama. It uses Vercel AI SDK internally and exposes ChatOllama-owned
 messages, snapshots, and process-local events.
 
-The package supports tool-free streaming through Ollama, OpenAI, Anthropic,
+The package supports streamed agent loops through Ollama, OpenAI, Anthropic,
 Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
-safe Session model switching. It does not contain a CLI/TUI, tools, preference
-persistence, Skills, compaction, MCP, or Web integration.
+safe Session model switching. Its first built-in tool returns the current UTC
+time after schema validation. It does not contain a CLI/TUI, preference
+persistence, Skills, compaction, MCP, file, shell, or network tools.
 
 ## Requirements
 
@@ -20,12 +21,13 @@ From the repository root:
 
 ```bash
 pnpm install
-pnpm agent:example
+pnpm agent:tool-loop-demo
 ```
 
-The default example uses `MockLanguageModelV3`, subscribes to Runtime events,
-and prints the two `model.delta` values as one line. It does not make a network
-request or require a credential.
+The CLI demo uses two `MockLanguageModelV3` responses. It requests
+`getCurrentUtcTime`, executes the real Runtime tool with a fixed clock, returns
+the result to the second model step, and streams the final answer. It does not
+make a network request or require a credential.
 
 ## Public API
 
@@ -38,6 +40,7 @@ const session = createAgentSession({
     model: 'gpt-5-mini',
     apiKey: process.env.OPENAI_API_KEY,
   },
+  maxSteps: 128,
 });
 
 const unsubscribe = session.subscribe(event => {
@@ -63,11 +66,17 @@ The current event union contains:
 
 - `run.started`
 - `model.started`
+- `step.started`
+- `tool.started`
+- `tool.completed`
+- `tool.failed`
+- `step.completed`
 - `model.delta`
 - `model.completed`
 - `model.changed`
 - `session.reset`
 - `run.completed`
+- `run.stopped`
 - `run.failed`
 - `run.cancelled`
 
@@ -82,8 +91,13 @@ updates the snapshot and emits `model.changed`; subsequent requests use the
 new provider without replacing the Session's structured conversation history.
 `reset()` has the same active-run exclusion. An idle reset empties only the
 Runtime-owned messages, retains the current model configuration, and emits
-`session.reset`. Cancelled and failed runs never append a fabricated completed
-assistant message; all state remains process-local.
+`session.reset`. Tool calls and results are Runtime-owned Session items linked
+by stable `callId` and `toolName` strings. Unknown tools, invalid input, and
+execution errors terminate with sanitized failures. `maxSteps` configures the
+positive-integer step budget for each `prompt()` and defaults to `4`. Reaching
+that limit emits `run.stopped` with reason `step-limit`. Cancelled,
+stopped, and failed runs never append a fabricated completed assistant message;
+all state remains process-local.
 
 ## Model discovery and resolution
 
@@ -186,7 +200,8 @@ pnpm agent:example
 
 The offline tests use the official AI SDK [`MockLanguageModelV3`, `mockValues`,
 and simulated stream helpers](https://ai-sdk.dev/docs/ai-sdk-core/testing). The
-Runtime itself delegates streaming to [`streamText`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text)
+Runtime itself delegates the loop to [`ToolLoopAgent`](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent)
+with [`stepCountIs`](https://ai-sdk.dev/docs/reference/ai-sdk-core/step-count-is)
 and model protocol handling to the official [OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/openai)
 and [OpenAI-compatible](https://ai-sdk.dev/providers/openai-compatible-providers)
 providers.

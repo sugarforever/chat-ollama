@@ -42,6 +42,7 @@ The CLI also recognizes these explicit startup overrides:
 | `AGENT_MODEL`    | Select the model ID                                                           |
 | `AGENT_BASE_URL` | Override the selected provider's API endpoint                                 |
 | `AGENT_API_KEY`  | Override the selected provider's credential                                   |
+| `AGENT_MAX_STEPS` | Set the positive-integer step budget for each prompt (default: `4`)          |
 
 Use provider and model overrides together when you want a specific startup
 model:
@@ -74,6 +75,9 @@ At the prompt:
 
 - Enter a message and press Return. Follow-up messages continue the same
   in-memory conversation.
+- The Runtime may call the built-in `getCurrentUtcTime` demo tool. Both terminal
+  modes show its validated input, execution status, and result before the final
+  streamed answer.
 - Enter `/models` to view available models and choose one. In an interactive
   terminal, use the arrow keys and Return; press Escape to cancel.
 - Enter `/model <provider>/<model-id>` to switch directly, for example
@@ -92,6 +96,18 @@ interactive picker:
 ```bash
 printf '/models\n/exit\n' | chatollama-agent
 ```
+
+To run a deterministic tool loop without a provider, network request, or paid
+API key:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm agent:tool-loop-demo
+```
+
+The demo performs two real model steps with AI SDK `MockLanguageModelV3`: the
+first requests the safe UTC-time tool, and the second receives its result and
+streams the final answer.
 
 For configuration precedence, saved preference locations, plain-mode behavior,
 and provider-specific examples, see the

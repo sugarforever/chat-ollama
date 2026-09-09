@@ -37,6 +37,16 @@ export interface StartupModelResolution {
   readonly notices: readonly string[];
 }
 
+export function readMaxSteps(env: NodeJS.ProcessEnv): number {
+  const maxSteps = env.AGENT_MAX_STEPS === undefined
+    ? 4
+    : Number(env.AGENT_MAX_STEPS);
+  if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) {
+    throw new Error('AGENT_MAX_STEPS must be a positive safe integer');
+  }
+  return maxSteps;
+}
+
 export function readModelConfig(
   env: NodeJS.ProcessEnv,
   selected?: AvailableModel,

@@ -10,6 +10,258 @@ import { createAgentSessionWithModel } from './session-core.js';
 import type { RuntimeEvent } from './types.js';
 
 describe('AgentSession streaming', () => {
+  it('runs a tool call through ToolLoopAgent before streaming the final answer', async () => {
+    const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+      createToolCallStream('call-1', 'getCurrentUtcTime', { timezone: 'UTC' }),
+      createTextStream(['The time is ', '2026-09-09T12:00:00.000Z.']),
+    );
+    const model = new MockLanguageModelV3({
+      provider: 'mock',
+      modelId: 'mock-model',
+      doStream: async () => nextStream(),
+    });
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+      now: () => new Date('2026-09-09T12:00:00.000Z'),
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await session.prompt('What time is it?');
+
+    expect(events).toEqual([
+      { type: 'run.started', runId: 'run-1', input: 'What time is it?' },
+      { type: 'model.started', runId: 'run-1', model: { provider: 'openai', model: 'mock-model' } },
+      { type: 'step.started', runId: 'run-1', step: 1 },
+      {
+        type: 'tool.started',
+        runId: 'run-1',
+        call: { type: 'tool-call', callId: 'call-1', toolName: 'getCurrentUtcTime', input: '{"timezone":"UTC"}' },
+      },
+      {
+        type: 'tool.completed',
+        runId: 'run-1',
+        result: { type: 'tool-result', callId: 'call-1', toolName: 'getCurrentUtcTime', status: 'success', output: '2026-09-09T12:00:00.000Z' },
+      },
+      { type: 'step.completed', runId: 'run-1', step: 1, reason: 'tool-calls' },
+      { type: 'step.started', runId: 'run-1', step: 2 },
+      { type: 'model.delta', runId: 'run-1', delta: 'The time is ' },
+      { type: 'model.delta', runId: 'run-1', delta: '2026-09-09T12:00:00.000Z.' },
+      { type: 'step.completed', runId: 'run-1', step: 2, reason: 'stop' },
+      { type: 'model.completed', runId: 'run-1', message: { role: 'assistant', content: 'The time is 2026-09-09T12:00:00.000Z.' } },
+      { type: 'run.completed', runId: 'run-1' },
+    ]);
+    expect(session.getSnapshot().messages).toEqual([
+      { role: 'user', content: 'What time is it?' },
+      { type: 'tool-call', callId: 'call-1', toolName: 'getCurrentUtcTime', input: '{"timezone":"UTC"}' },
+      { type: 'tool-result', callId: 'call-1', toolName: 'getCurrentUtcTime', status: 'success', output: '2026-09-09T12:00:00.000Z' },
+      { role: 'assistant', content: 'The time is 2026-09-09T12:00:00.000Z.' },
+    ]);
+    expect(model.doStreamCalls).toHaveLength(2);
+    expect(model.doStreamCalls[1]?.prompt).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'What time is it?' }] },
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'call-1', toolName: 'getCurrentUtcTime', input: { timezone: 'UTC' } }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'call-1', toolName: 'getCurrentUtcTime', output: { type: 'text', value: '2026-09-09T12:00:00.000Z' } }] },
+    ]);
+  });
+
+  it.each([
+    ['unknown tool', 'missingTool', { timezone: 'UTC' }],
+    ['invalid tool input', 'getCurrentUtcTime', { timezone: 'Europe/Dublin' }],
+  ])('terminates a %s with a sanitized failure and no assistant message', async (_case, toolName, input) => {
+    const model = new MockLanguageModelV3({
+      doStream: async () => createToolCallStream('bad-call', toolName, input),
+    });
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await expect(session.prompt('Use a bad tool')).rejects.toThrow('Model request failed');
+
+    expect(events.at(-1)).toEqual({
+      type: 'run.failed',
+      runId: 'run-1',
+      error: { message: 'Model request failed' },
+    });
+    expect(events.filter(event => event.type === 'run.failed')).toHaveLength(1);
+    expect(model.doStreamCalls).toHaveLength(1);
+    expect(events.some(event => event.type === 'model.delta')).toBe(false);
+    expect(session.getSnapshot().messages.some(message => 'role' in message && message.role === 'assistant')).toBe(false);
+  });
+
+  it('sanitizes a demo tool execution failure and records its call association', async () => {
+    const recoveryModel = createTextModel(['Recovered']);
+    const model = new MockLanguageModelV3({
+      doStream: async () => createToolCallStream('call-1', 'getCurrentUtcTime', { timezone: 'UTC' }),
+    });
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+      now: () => { throw new Error('private tool detail'); },
+      createModel: () => recoveryModel,
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await expect(session.prompt('Get time')).rejects.toThrow('Model request failed');
+
+    expect(events).toContainEqual({
+      type: 'tool.failed',
+      runId: 'run-1',
+      result: { type: 'tool-result', callId: 'call-1', toolName: 'getCurrentUtcTime', status: 'error', output: 'Tool execution failed' },
+    });
+    expect(events).toContainEqual({
+      type: 'step.completed', runId: 'run-1', step: 1, reason: 'error',
+    });
+    expect(JSON.stringify(events)).not.toContain('private tool detail');
+    expect(model.doStreamCalls).toHaveLength(1);
+    expect(session.getSnapshot().messages.at(-1)).toEqual({
+      type: 'tool-result', callId: 'call-1', toolName: 'getCurrentUtcTime', status: 'error', output: 'Tool execution failed',
+    });
+
+    session.setModel({ provider: 'openai', model: 'recovery-model' });
+    await session.prompt('Try safely');
+
+    expect(recoveryModel.doStreamCalls[0]?.prompt).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Get time' }] },
+      { role: 'user', content: [{ type: 'text', text: 'Try safely' }] },
+    ]);
+    expect(JSON.stringify(recoveryModel.doStreamCalls[0]?.prompt)).not.toContain('private tool detail');
+  });
+
+  it('treats an undefined thrown by the tool as a failed run', async () => {
+    const model = new MockLanguageModelV3({
+      doStream: async () => createToolCallStream('call-1', 'getCurrentUtcTime', { timezone: 'UTC' }),
+    });
+    const session = createAgentSessionWithModel({
+      id: 'session-1', model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+      now: () => { throw undefined; },
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await expect(session.prompt('Get time')).rejects.toThrow('Model request failed');
+
+    expect(events.at(-1)).toEqual({
+      type: 'run.failed', runId: 'run-1', error: { message: 'Model request failed' },
+    });
+    expect(events).toContainEqual({
+      type: 'step.completed', runId: 'run-1', step: 1, reason: 'error',
+    });
+  });
+
+  it('stops after four tool steps and keeps their context for the next prompt', async () => {
+    const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+      ...Array.from({ length: 4 }, (_, index) =>
+        createToolCallStream(`call-${index + 1}`, 'getCurrentUtcTime', { timezone: 'UTC' })),
+      createTextStream(['Recovered']),
+    );
+    const model = new MockLanguageModelV3({ doStream: async () => nextStream() });
+    const session = createAgentSessionWithModel({
+      id: 'session-1', model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+      now: () => new Date('2026-09-09T12:00:00.000Z'),
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await session.prompt('Keep calling');
+
+    expect(model.doStreamCalls).toHaveLength(4);
+    expect(events.at(-1)).toEqual({ type: 'run.stopped', runId: 'run-1', reason: 'step-limit' });
+    expect(events.filter(event => event.type === 'step.completed')).toHaveLength(4);
+    expect(session.getSnapshot().messages.some(message => 'role' in message && message.role === 'assistant')).toBe(false);
+
+    await session.prompt('Recover now');
+
+    const recoveryPrompt = model.doStreamCalls[4]?.prompt;
+    expect(recoveryPrompt?.at(0)).toEqual({
+      role: 'user', content: [{ type: 'text', text: 'Keep calling' }],
+    });
+    expect(recoveryPrompt?.at(-1)).toEqual({
+      role: 'user', content: [{ type: 'text', text: 'Recover now' }],
+    });
+    expect(recoveryPrompt?.filter(message => message.role === 'tool')).toHaveLength(4);
+  });
+
+  it('stops at the step limit even when tool-calling steps include text', async () => {
+    const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+      ...Array.from({ length: 4 }, (_, index) =>
+        createTextAndToolCallStream(
+          `before-${index + 1} `,
+          `call-${index + 1}`,
+        )),
+    );
+    const model = new MockLanguageModelV3({ doStream: async () => nextStream() });
+    const session = createAgentSessionWithModel({
+      id: 'session-1', model,
+      descriptor: { provider: 'openai', model: 'mock-model' },
+      generateId: () => 'run-1',
+      now: () => new Date('2026-09-09T12:00:00.000Z'),
+    });
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await session.prompt('Keep calling with preambles');
+
+    expect(events.at(-1)).toEqual({ type: 'run.stopped', runId: 'run-1', reason: 'step-limit' });
+    expect(session.getSnapshot().messages.some(message => 'role' in message && message.role === 'assistant')).toBe(false);
+  });
+
+  it('stops at the configured per-run step limit', async () => {
+    const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+      createToolCallStream('call-1', 'getCurrentUtcTime', { timezone: 'UTC' }),
+      createToolCallStream('call-2', 'getCurrentUtcTime', { timezone: 'UTC' }),
+    );
+    const model = new MockLanguageModelV3({ doStream: async () => nextStream() });
+    const options = {
+      id: 'session-1', model,
+      descriptor: { provider: 'openai' as const, model: 'mock-model' },
+      generateId: () => 'run-1',
+      now: () => new Date('2026-09-09T12:00:00.000Z'),
+      maxSteps: 2,
+    };
+    const session = createAgentSessionWithModel(options);
+    const events: RuntimeEvent[] = [];
+    session.subscribe(event => events.push(event));
+
+    await session.prompt('Stop sooner');
+
+    expect(model.doStreamCalls).toHaveLength(2);
+    expect(events.at(-1)).toEqual({
+      type: 'run.stopped', runId: 'run-1', reason: 'step-limit',
+    });
+  });
+
+  it.each([0, -1, 1.5, Number.POSITIVE_INFINITY])(
+    'rejects invalid maxSteps value %s',
+    maxSteps => {
+      const model = createTextModel(['unused']);
+      const options = {
+        id: 'session-1', model,
+        descriptor: { provider: 'openai' as const, model: 'mock-model' },
+        maxSteps,
+      };
+
+      expect(() => createAgentSessionWithModel(options)).toThrow(
+        'maxSteps must be a positive safe integer',
+      );
+    },
+  );
+
   it('creates a public Session from model configuration without exposing secrets', () => {
     const session = createAgentSession({
       id: 'configured-session',
@@ -82,8 +334,10 @@ describe('AgentSession streaming', () => {
         runId: 'run-1',
         model: { provider: 'openai', model: 'mock-model' },
       },
+      { type: 'step.started', runId: 'run-1', step: 1 },
       { type: 'model.delta', runId: 'run-1', delta: 'Hello' },
       { type: 'model.delta', runId: 'run-1', delta: ' world' },
+      { type: 'step.completed', runId: 'run-1', step: 1, reason: 'stop' },
       {
         type: 'model.completed',
         runId: 'run-1',
@@ -140,7 +394,9 @@ describe('AgentSession streaming', () => {
     expect(events.map(event => event.type)).toEqual([
       'run.started',
       'model.started',
+      'step.started',
       'model.delta',
+      'step.completed',
       'model.completed',
       'run.completed',
     ]);
@@ -237,6 +493,30 @@ describe('AgentSession streaming', () => {
     ]);
   });
 
+  it('keeps a cancelled user turn in model history for the next prompt', async () => {
+    const firstModel = createTextModel(['partial'], 20);
+    const secondModel = createTextModel(['recovered']);
+    const session = createAgentSessionWithModel({
+      id: 'session-1',
+      model: firstModel,
+      descriptor: { provider: 'openai', model: 'first-model' },
+      createModel: () => secondModel,
+      generateId: () => 'run-1',
+    });
+
+    const cancelled = session.prompt('Keep this question');
+    await vi.waitFor(() => expect(firstModel.doStreamCalls).toHaveLength(1));
+    session.cancel();
+    await cancelled;
+    session.setModel({ provider: 'openai', model: 'second-model' });
+    await session.prompt('Try again');
+
+    expect(secondModel.doStreamCalls[0]?.prompt).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Keep this question' }] },
+      { role: 'user', content: [{ type: 'text', text: 'Try again' }] },
+    ]);
+  });
+
   it('rejects a concurrent prompt without replacing the active run', async () => {
     const model = createTextModel(['first answer'], 20);
     const session = createAgentSessionWithModel({
@@ -250,6 +530,7 @@ describe('AgentSession streaming', () => {
     await expect(session.prompt('Second')).rejects.toThrow(
       'Session already has an active run',
     );
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1));
     session.cancel();
     await firstPrompt;
 
@@ -449,4 +730,64 @@ function createTextModel(
   } satisfies Awaited<ReturnType<MockLanguageModelV3['doStream']>>;
 
   return new MockLanguageModelV3({ doStream: async () => streamResult });
+}
+
+function createToolCallStream(
+  toolCallId: string,
+  toolName: string,
+  input: unknown,
+): Awaited<ReturnType<MockLanguageModelV3['doStream']>> {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: 'stream-start' as const, warnings: [] },
+        { type: 'tool-call' as const, toolCallId, toolName, input: JSON.stringify(input) },
+        { type: 'finish' as const, finishReason: { unified: 'tool-calls' as const, raw: 'tool-calls' }, usage: usage(1) },
+      ],
+      chunkDelayInMs: null,
+    }),
+  } satisfies Awaited<ReturnType<MockLanguageModelV3['doStream']>>;
+}
+
+function createTextStream(
+  deltas: string[],
+): Awaited<ReturnType<MockLanguageModelV3['doStream']>> {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: 'stream-start' as const, warnings: [] },
+        { type: 'text-start' as const, id: 'text-final' },
+        ...deltas.map(delta => ({ type: 'text-delta' as const, id: 'text-final', delta })),
+        { type: 'text-end' as const, id: 'text-final' },
+        { type: 'finish' as const, finishReason: { unified: 'stop' as const, raw: 'stop' }, usage: usage(deltas.length) },
+      ],
+      chunkDelayInMs: null,
+    }),
+  } satisfies Awaited<ReturnType<MockLanguageModelV3['doStream']>>;
+}
+
+function createTextAndToolCallStream(
+  text: string,
+  toolCallId: string,
+): Awaited<ReturnType<MockLanguageModelV3['doStream']>> {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: 'stream-start', warnings: [] },
+        { type: 'text-start', id: `text-${toolCallId}` },
+        { type: 'text-delta', id: `text-${toolCallId}`, delta: text },
+        { type: 'text-end', id: `text-${toolCallId}` },
+        { type: 'tool-call', toolCallId, toolName: 'getCurrentUtcTime', input: '{"timezone":"UTC"}' },
+        { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool-calls' }, usage: usage(1) },
+      ],
+      chunkDelayInMs: null,
+    }),
+  };
+}
+
+function usage(outputTokens: number) {
+  return {
+    inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+    outputTokens: { total: outputTokens, text: outputTokens, reasoning: 0 },
+  };
 }

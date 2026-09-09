@@ -67,6 +67,8 @@ export async function runInteractiveCli(
   let closed = false;
   let runStatus = '';
   let runActive = false;
+  let responseOpen = false;
+  let assistantLabel = 'Assistant> ';
   let failureReported = false;
   let finish!: () => void;
   const done = new Promise<void>(resolve => {
@@ -175,28 +177,62 @@ export async function runInteractiveCli(
         runActive = true;
         runStatus = `[run ${event.runId}] started`;
         break;
+      case 'step.started':
+        runStatus = `[step ${event.step}] started`;
+        break;
+      case 'step.completed':
+        if (event.reason === 'tool-calls') responseOpen = false;
+        runStatus = `[step ${event.step}] completed: ${event.reason}`;
+        break;
+      case 'tool.started':
+        responseOpen = false;
+        append(`[tool ${event.call.toolName}] running ${event.call.input}`);
+        break;
+      case 'tool.completed':
+        responseOpen = false;
+        append(
+          `[tool ${event.result.toolName}] completed ${event.result.output}`,
+        );
+        break;
+      case 'tool.failed':
+        responseOpen = false;
+        append(`[tool ${event.result.toolName}] failed ${event.result.output}`);
+        break;
       case 'model.started':
-        append(`Assistant (${event.model.provider}/${event.model.model})> `);
+        assistantLabel = `Assistant (${event.model.provider}/${event.model.model})> `;
         break;
       case 'model.delta':
+        if (!responseOpen) {
+          append(assistantLabel);
+          responseOpen = true;
+        }
         text += event.delta;
         transcript.setText(text);
         tui.requestRender();
         break;
       case 'model.completed':
+        responseOpen = false;
         break;
       case 'run.completed':
         runActive = false;
+        responseOpen = false;
         runStatus = `[run ${event.runId}] completed`;
+        break;
+      case 'run.stopped':
+        runActive = false;
+        responseOpen = false;
+        runStatus = `[run ${event.runId}] stopped: step limit reached`;
         break;
       case 'run.failed':
         runActive = false;
+        responseOpen = false;
         append(`[error] ${event.error.message}`);
         failureReported = true;
         runStatus = `[run ${event.runId}] failed`;
         break;
       case 'run.cancelled':
         runActive = false;
+        responseOpen = false;
         runStatus = `[run ${event.runId}] cancelled`;
         break;
       case 'model.changed':
