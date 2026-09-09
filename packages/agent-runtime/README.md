@@ -1,0 +1,192 @@
+# ChatOllama Agent Runtime
+
+`chatollama-agent-runtime` is the standalone Runtime package for
+ChatOllama. It uses Vercel AI SDK internally and exposes ChatOllama-owned
+messages, snapshots, and process-local events.
+
+The package supports tool-free streaming through Ollama, OpenAI, Anthropic,
+Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
+safe Session model switching. It does not contain a CLI/TUI, tools, preference
+persistence, Skills, compaction, MCP, or Web integration.
+
+## Requirements
+
+- Node.js 24 LTS (`>=24`)
+- pnpm
+
+## Run the offline example
+
+From the repository root:
+
+```bash
+pnpm install
+pnpm agent:example
+```
+
+The default example uses `MockLanguageModelV3`, subscribes to Runtime events,
+and prints the two `model.delta` values as one line. It does not make a network
+request or require a credential.
+
+## Public API
+
+```ts
+import { createAgentSession } from 'chatollama-agent-runtime';
+
+const session = createAgentSession({
+  model: {
+    provider: 'openai',
+    model: 'gpt-5-mini',
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+});
+
+const unsubscribe = session.subscribe(event => {
+  if (event.type === 'model.delta') {
+    process.stdout.write(event.delta);
+  }
+});
+
+await session.prompt('Say hello in one sentence.');
+unsubscribe();
+```
+
+`AgentSession` exposes only:
+
+- `getSnapshot()` for an immutable copy of in-memory messages
+- `subscribe(listener)` for process-local events and its unsubscribe function
+- `prompt(input)` for one active streamed run
+- `cancel()` for aborting the active run
+- `setModel(config)` for changing an idle Session's model while preserving history
+- `reset()` for clearing an idle Session's history while preserving its model
+
+The current event union contains:
+
+- `run.started`
+- `model.started`
+- `model.delta`
+- `model.completed`
+- `model.changed`
+- `session.reset`
+- `run.completed`
+- `run.failed`
+- `run.cancelled`
+
+These events contain strings and ChatOllama-owned objects. AI SDK UI messages,
+provider stream parts, provider metadata, endpoints, and credentials do not
+cross the public Runtime boundary. Provider failures are reported as the stable
+message `Model request failed`; the AI SDK default streaming error logger is
+disabled so a provider error cannot copy a credential into Runtime logs.
+
+`setModel()` rejects a switch during an active run. A successful idle switch
+updates the snapshot and emits `model.changed`; subsequent requests use the
+new provider without replacing the Session's structured conversation history.
+`reset()` has the same active-run exclusion. An idle reset empties only the
+Runtime-owned messages, retains the current model configuration, and emits
+`session.reset`. Cancelled and failed runs never append a fabricated completed
+assistant message; all state remains process-local.
+
+## Model discovery and resolution
+
+```ts
+import { createAgentSession, createModelConfig, discoverModels } from 'chatollama-agent-runtime';
+
+const env = process.env;
+const { models, warnings } = await discoverModels({ env });
+for (const warning of warnings) {
+  console.error(`${warning.provider}: ${warning.message}`);
+}
+const selected = models[0];
+if (selected) {
+  const session = createAgentSession({ model: createModelConfig(selected, env) });
+  // Subscribe and prompt, or call session.setModel(createModelConfig(other, env)).
+}
+```
+
+| Provider | Credential / availability |
+| --- | --- |
+| Ollama | Local `/api/tags` lists installed models; no secret required |
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Google Gemini | `GEMINI_API_KEY`, then `GOOGLE_GENERATIVE_AI_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| OpenRouter | `OPENROUTER_API_KEY` |
+
+Blank credentials are ignored. Configured remote providers contribute a small
+built-in catalog; OpenAI's models endpoint augments it. Credential presence
+does not prove account access to every listed model. Each network discovery
+has a two-second timeout by default, and one provider's failure yields a
+sanitized warning without removing other providers or its built-in catalog.
+With no remote credentials and unreachable Ollama, the result is an empty
+model list with a warning, not a startup exception.
+
+`discoverModels` accepts injected `fetch`, `timeoutMs`, `ollamaBaseURL`, and
+`openaiBaseURL` options. Tests use fake transports for success, timeout, and
+failure; no paid model requests are needed. `createModelConfig` resolves
+credentials privately from the environment. Public discovery results contain
+provider/model identity and optional non-secret endpoint metadata, never keys.
+
+OpenAI, Anthropic, and Google use their official AI SDK provider adapters.
+Ollama, DeepSeek, and OpenRouter use the OpenAI-compatible adapter with
+provider-specific configuration. The Runtime has no pi-tui or pi-ai dependency.
+
+Startup precedence and user preference files belong to the CLI. Its explicit
+`AGENT_PROVIDER`/`AGENT_MODEL` selection overrides a saved choice, then a
+deterministic available fallback; `AGENT_BASE_URL`/`AGENT_API_KEY` override the
+startup endpoint/key. `/models` and `/model <provider>/<model-id>` use these
+public Runtime APIs. See the [CLI guide](https://github.com/sugarforever/chat-ollama/blob/main/packages/agent-cli/README.md#saved-model-preference)
+for platform preference paths and the minimal `provider`, `model`, optional
+`baseURL` JSON schema. Credentials and conversation history are not persisted.
+
+## OpenAI smoke test
+
+Use a valid credential and choose any text model available to the account:
+
+```bash
+AGENT_PROVIDER=openai \
+OPENAI_API_KEY='replace-me' \
+AGENT_MODEL='gpt-5-mini' \
+AGENT_PROMPT='Reply with exactly: OpenAI smoke test passed.' \
+pnpm agent:example
+```
+
+The OpenAI provider defaults to `https://api.openai.com/v1`. The example never
+prints the credential or the model configuration.
+
+## Ollama OpenAI-compatible smoke test
+
+Pull the selected model and run Ollama first:
+
+```bash
+ollama pull qwen3:8b
+```
+
+Then point the same Runtime at Ollama's OpenAI-compatible `/v1` endpoint:
+
+```bash
+AGENT_PROVIDER=ollama \
+AGENT_BASE_URL='http://localhost:11434/v1' \
+AGENT_API_KEY='ollama' \
+AGENT_MODEL='qwen3:8b' \
+AGENT_PROMPT='Reply with exactly: Ollama smoke test passed.' \
+pnpm agent:example
+```
+
+Ollama requires an API-key value for OpenAI client compatibility but ignores it
+for the local endpoint. See the official [Ollama OpenAI compatibility guide](https://docs.ollama.com/api/openai-compatibility).
+
+## Development checks
+
+```bash
+pnpm test:agent
+pnpm typecheck:agent
+pnpm build:agent
+pnpm test:agent:pack
+pnpm agent:example
+```
+
+The offline tests use the official AI SDK [`MockLanguageModelV3`, `mockValues`,
+and simulated stream helpers](https://ai-sdk.dev/docs/ai-sdk-core/testing). The
+Runtime itself delegates streaming to [`streamText`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text)
+and model protocol handling to the official [OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/openai)
+and [OpenAI-compatible](https://ai-sdk.dev/providers/openai-compatible-providers)
+providers.

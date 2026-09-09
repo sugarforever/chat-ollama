@@ -1,4 +1,4 @@
-ARG NODE_VERSION=20.13.1
+ARG NODE_VERSION=24.20.0
 
 FROM node:${NODE_VERSION}-slim
 
@@ -9,9 +9,11 @@ WORKDIR /app
 # DATABASE_URL environment variable takes precedence over .env file configuration
 ENV DATABASE_URL=file:/app/sqlite/chatollama.sqlite
 
-COPY pnpm-lock.yaml package.json ./
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY packages/agent-cli/package.json ./packages/agent-cli/package.json
+COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
 RUN npm install -g pnpm
-RUN pnpm i
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 

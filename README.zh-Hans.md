@@ -2,6 +2,8 @@
 
 # ChatOllama
 
+新的 `chatollama-agent` 命令行客户端支持同一进程内的连续对话。输入 `/new` 可以清空对话历史并保留当前模型，输入 `/exit` 可以正常退出。在 TTY 模式下，模型请求运行时按 Ctrl+C 只会取消当前请求，CLI 仍可继续提问；空闲时按 Ctrl+C 才会退出。对话不会写入配置文件或数据库。
+
 > **🔐 新增 ACL 功能 (2025-08-25):** MCP 服务器管理访问控制列表（ACL）！通过 `ACL_ENABLED` 环境变量控制谁可以配置 MCP 服务器。[了解更多 ACL 配置 →](#mcp-服务器管理权限)
 
 > **🤖 深度智能体支持 (2025-08-19)：** ChatOllama 现在支持具有工具访问能力的 AI 智能体！目前需要 Anthropic API 密钥，请参考 `.env.example`，在 `.env` 中添加 `ANTHROPIC_API_KEY`。工具通过 MCP 设置进行配置。访问 `/agents` 开始使用。

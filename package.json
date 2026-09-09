@@ -2,12 +2,23 @@
   "name": "chat-ollama",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "build": "nuxt build",
+    "agent:cli": "pnpm --filter chatollama-agent start",
+    "agent:cli:demo": "pnpm --filter chatollama-agent demo",
+    "agent:example": "pnpm --filter chatollama-agent-runtime example",
+    "build": "pnpm build:agent && nuxt build",
+    "build:agent": "pnpm --filter chatollama-agent-runtime build && pnpm --filter chatollama-agent build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "test:agent": "pnpm --filter chatollama-agent-runtime build && pnpm --filter './packages/agent-*' test",
+    "test:agent:pack": "node scripts/test-agent-packages.mjs",
+    "test:agent:release": "node --test scripts/verify-agent-release-tag.spec.mjs scripts/check-agent-registry.spec.mjs scripts/compare-agent-artifacts.spec.mjs",
+    "typecheck:agent": "pnpm --filter './packages/agent-*' typecheck",
     "prisma-deploy": "prisma migrate deploy",
     "prisma-migrate": "prisma migrate dev",
     "prisma-generate": "prisma generate",
@@ -22,7 +33,7 @@
     "@types/jsdom": "^21.1.6",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/markdown-it": "^14.1.1",
-    "@types/node": "^20.14.9",
+    "@types/node": "24.13.3",
     "@types/ws": "^8.5.10",
     "h3": "^1.11.1",
     "nuxt": "^3.11.2",
@@ -34,6 +45,7 @@
     "vue": "^3.4.31",
     "vue-router": "^4.4.0"
   },
+  "packageManager": "pnpm@10.8.1",
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@iconify-json/heroicons": "^1.1.21",
@@ -61,7 +73,7 @@
     "@vueuse/core": "^10.11.0",
     "@vueuse/nuxt": "^10.11.0",
     "@zilliz/milvus2-sdk-node": "^2.3.5",
-    "ai": "^2.2.37",
+    "ai": "7.0.93",
     "bcryptjs": "^3.0.2",
     "cheerio": "1.0.0-rc.12",
     "chromadb": "^2.2.1",
@@ -102,7 +114,7 @@
     "tsx": "^4.7.0",
     "ws": "^8.18.0",
     "yup": "^1.4.0",
-    "zod": "^3.24.1",
+    "zod": "3.25.76",
     "zod-to-json-schema": "^3.24.1"
   }
 }

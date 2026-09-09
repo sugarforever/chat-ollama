@@ -1,0 +1,51 @@
+{
+  "name": "chatollama-agent-runtime",
+  "version": "0.2.0",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sugarforever/chat-ollama.git",
+    "directory": "packages/agent-runtime"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "example": "node --no-warnings --import tsx examples/stream.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.49",
+    "@ai-sdk/google": "4.0.64",
+    "@ai-sdk/openai": "4.0.60",
+    "@ai-sdk/openai-compatible": "3.0.44",
+    "ai": "7.0.93",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
+  }
+}
