@@ -6,9 +6,10 @@ messages, snapshots, and process-local events.
 
 The package supports streamed agent loops through Ollama, OpenAI, Anthropic,
 Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
-safe Session model switching. Its first built-in tool returns the current UTC
-time after schema validation. It does not contain a CLI/TUI, preference
-persistence, Skills, compaction, MCP, file, shell, or network tools.
+safe Session model switching. Its built-in tools provide a deterministic UTC
+clock plus workspace-confined file reading, directory listing, content search,
+and file discovery. It does not contain a CLI/TUI, preference persistence,
+Skills, compaction, MCP, writes, arbitrary shell execution, or network tools.
 
 ## Requirements
 
@@ -35,6 +36,7 @@ make a network request or require a credential.
 import { createAgentSession } from 'chatollama-agent-runtime';
 
 const session = createAgentSession({
+  workspaceRoot: process.cwd(),
   model: {
     provider: 'openai',
     model: 'gpt-5-mini',
@@ -52,6 +54,29 @@ const unsubscribe = session.subscribe(event => {
 await session.prompt('Say hello in one sentence.');
 unsubscribe();
 ```
+
+`workspaceRoot` is explicit and immutable for the Session. The Runtime
+canonicalizes it and confines `read_file`, `list_directory`, `grep`, and
+`find_files` to that tree. Tool paths are workspace-relative. Absolute paths,
+lexical `..` escapes, sibling-prefix confusion, missing targets, unsupported
+target types, and symlinks resolving outside the workspace produce stable,
+sanitized result objects.
+
+Workspace output limits are part of the tool results:
+
+| Tool | Hard limits |
+| --- | --- |
+| `read_file` | 2,000 lines and 65,536 output bytes; optional one-based `offset` and `limit` |
+| `list_directory` | 1,000 entries and 65,536 output bytes |
+| `grep` | 100 matches and 65,536 output bytes |
+| `find_files` | 1,000 files and 65,536 output bytes |
+
+Every successful result contains `truncated`; a true value means the model saw
+only the bounded prefix. Expected failures return `ok: false` with a stable
+code and message. The tools observe the active run's `AbortSignal`; cancellation
+returns `CANCELLED`. `grep` and `find_files` execute the fixed `rg` binary with
+Runtime-owned argv arrays and `shell: false`. Model text occupies one argument
+and cannot inject a flag or command.
 
 `AgentSession` exposes only:
 
@@ -111,7 +136,10 @@ for (const warning of warnings) {
 }
 const selected = models[0];
 if (selected) {
-  const session = createAgentSession({ model: createModelConfig(selected, env) });
+  const session = createAgentSession({
+    workspaceRoot: process.cwd(),
+    model: createModelConfig(selected, env),
+  });
   // Subscribe and prompt, or call session.setModel(createModelConfig(other, env)).
 }
 ```
@@ -196,6 +224,7 @@ pnpm typecheck:agent
 pnpm build:agent
 pnpm test:agent:pack
 pnpm agent:example
+pnpm agent:workspace-tools-demo
 ```
 
 The offline tests use the official AI SDK [`MockLanguageModelV3`, `mockValues`,
