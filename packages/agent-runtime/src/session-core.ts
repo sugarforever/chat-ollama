@@ -4,6 +4,7 @@ import { stepCountIs, ToolLoopAgent, type LanguageModel, type ModelMessage } fro
 
 import { createLanguageModel, describeModel } from './model-registry.js';
 import { createDemoTools } from './tools.js';
+import { createWorkspaceTools } from './workspace-tools.js';
 import type {
   AgentSession,
   AssistantMessage,
@@ -24,6 +25,7 @@ interface CreateAgentSessionWithModelOptions {
   readonly generateId?: () => string;
   readonly now?: () => Date;
   readonly maxSteps?: number;
+  readonly workspaceRoot?: string;
 }
 
 interface CurrentModel {
@@ -40,6 +42,7 @@ class InMemoryAgentSession implements AgentSession {
   readonly #modelMessages: ModelMessage[] = [];
   readonly #now: () => Date;
   readonly #maxSteps: number;
+  readonly #tools: ReturnType<typeof createWorkspaceTools>;
   #currentModel: CurrentModel;
   #activeRun:
     | { readonly runId: string; readonly controller: AbortController }
@@ -60,6 +63,10 @@ class InMemoryAgentSession implements AgentSession {
     this.#generateId = options.generateId ?? randomUUID;
     this.#now = options.now ?? (() => new Date());
     this.#maxSteps = maxSteps;
+    this.#tools = {
+      ...createDemoTools(this.#now),
+      ...createWorkspaceTools({ workspaceRoot: options.workspaceRoot ?? process.cwd() }),
+    };
   }
 
   getSnapshot(): SessionSnapshot {
@@ -132,7 +139,7 @@ class InMemoryAgentSession implements AgentSession {
     try {
       const agent = new ToolLoopAgent({
         model: this.#currentModel.model,
-        tools: createDemoTools(this.#now),
+        tools: this.#tools,
         stopWhen: stepCountIs(this.#maxSteps),
         prepareCall: options => ({ ...options, onError: () => {} }),
       });

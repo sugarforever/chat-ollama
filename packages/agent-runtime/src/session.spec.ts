@@ -3,6 +3,9 @@ import {
   mockValues,
   simulateReadableStream,
 } from 'ai/test';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAgentSession } from './index.js';
@@ -10,6 +13,46 @@ import { createAgentSessionWithModel } from './session-core.js';
 import type { RuntimeEvent } from './types.js';
 
 describe('AgentSession streaming', () => {
+  it('runs a workspace file tool through the existing lifecycle', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'agent-session-workspace-'));
+    try {
+      await writeFile(join(root, 'hello.txt'), 'hello workspace\n');
+      const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+        createToolCallStream('read-1', 'read_file', { path: 'hello.txt' }),
+        createTextStream(['Found it.']),
+      );
+      const model = new MockLanguageModelV3({ doStream: async () => nextStream() });
+      const session = createAgentSessionWithModel({
+        id: 'session-1',
+        model,
+        descriptor: { provider: 'openai', model: 'mock-model' },
+        generateId: () => 'run-1',
+        workspaceRoot: root,
+      });
+      const events: RuntimeEvent[] = [];
+      session.subscribe(event => events.push(event));
+
+      await session.prompt('Read hello.txt');
+
+      expect(events).toContainEqual({
+        type: 'tool.started',
+        runId: 'run-1',
+        call: { type: 'tool-call', callId: 'read-1', toolName: 'read_file', input: '{"path":"hello.txt"}' },
+      });
+      expect(events).toContainEqual({
+        type: 'tool.completed',
+        runId: 'run-1',
+        result: expect.objectContaining({
+          type: 'tool-result', callId: 'read-1', toolName: 'read_file', status: 'success',
+          output: expect.stringContaining('1: hello workspace'),
+        }),
+      });
+      expect(events.at(-1)).toEqual({ type: 'run.completed', runId: 'run-1' });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('runs a tool call through ToolLoopAgent before streaming the final answer', async () => {
     const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
       createToolCallStream('call-1', 'getCurrentUtcTime', { timezone: 'UTC' }),
@@ -265,6 +308,7 @@ describe('AgentSession streaming', () => {
   it('creates a public Session from model configuration without exposing secrets', () => {
     const session = createAgentSession({
       id: 'configured-session',
+      workspaceRoot: process.cwd(),
       model: {
         provider: 'openai-compatible',
         name: 'ollama',

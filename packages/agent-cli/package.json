@@ -26,6 +26,7 @@
   "scripts": {
     "demo": "node --no-warnings --import tsx examples/mock-runtime.ts",
     "tool-loop-demo": "node --no-warnings --import tsx examples/tool-loop-demo.ts",
+    "workspace-tools-demo": "node --no-warnings --import tsx examples/workspace-tools-demo.ts",
     "build": "pnpm clean && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "dev": "node --no-warnings --import tsx src/main.ts",

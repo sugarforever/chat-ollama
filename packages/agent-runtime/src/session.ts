@@ -15,5 +15,6 @@ export function createAgentSession(
     model: createLanguageModel(options.model),
     descriptor: describeModel(options.model),
     maxSteps: options.maxSteps,
+    workspaceRoot: options.workspaceRoot,
   });
 }
