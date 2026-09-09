@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -41,6 +41,216 @@ async function execute(
 }
 
 describe('workspace tools', () => {
+  it('creates parent directories and atomically creates or overwrites text files', async () => {
+    const root = await workspace();
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'write_file', { path: 'notes/today.txt', content: 'first\n' })).resolves.toEqual({
+      ok: true, path: 'notes/today.txt', bytesWritten: 6, created: true,
+    });
+    await expect(readFile(join(root, 'notes', 'today.txt'), 'utf8')).resolves.toBe('first\n');
+
+    await expect(execute(tools, 'write_file', { path: 'notes/today.txt', content: 'replaced' })).resolves.toEqual({
+      ok: true, path: 'notes/today.txt', bytesWritten: 8, created: false,
+    });
+    await expect(readFile(join(root, 'notes', 'today.txt'), 'utf8')).resolves.toBe('replaced');
+  });
+
+  it('performs one exact edit and rejects zero or multiple matches without changing the file', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'unique.txt'), 'before needle after');
+    await writeFile(join(root, 'zero.txt'), 'unchanged');
+    await writeFile(join(root, 'multiple.txt'), 'needle and needle');
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'edit_file', {
+      path: 'unique.txt', oldText: 'needle', newText: 'replacement',
+    })).resolves.toEqual({
+      ok: true, path: 'unique.txt', bytesWritten: 24, replacements: 1,
+    });
+    await expect(readFile(join(root, 'unique.txt'), 'utf8')).resolves.toBe('before replacement after');
+
+    await expect(execute(tools, 'edit_file', {
+      path: 'zero.txt', oldText: 'needle', newText: 'replacement',
+    })).resolves.toEqual({
+      ok: false, error: { code: 'EDIT_NOT_FOUND', message: 'Exact text was not found in the file.' },
+    });
+    await expect(execute(tools, 'edit_file', {
+      path: 'multiple.txt', oldText: 'needle', newText: 'replacement',
+    })).resolves.toEqual({
+      ok: false, error: { code: 'EDIT_NOT_UNIQUE', message: 'Exact text occurs more than once in the file.' },
+    });
+    await expect(readFile(join(root, 'zero.txt'), 'utf8')).resolves.toBe('unchanged');
+    await expect(readFile(join(root, 'multiple.txt'), 'utf8')).resolves.toBe('needle and needle');
+  });
+
+  it('rejects oversized writes and edits before changing workspace files', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'existing.txt'), 'keep');
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+    const oversized = 'x'.repeat(1_048_577);
+
+    for (const [name, input] of [
+      ['write_file', { path: 'too-large.txt', content: oversized }],
+      ['edit_file', { path: 'existing.txt', oldText: 'keep', newText: oversized }],
+    ] as const) {
+      await expect(execute(tools, name, input)).resolves.toEqual({
+        ok: false, error: { code: 'CONTENT_TOO_LARGE', message: 'File content exceeds the 1,048,576-byte limit.' },
+      });
+    }
+    await expect(readFile(join(root, 'existing.txt'), 'utf8')).resolves.toBe('keep');
+  });
+
+  it('rejects an edit when the file grows beyond the limit during its read', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'changing.txt'), 'needle');
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: { readFile: async () => Buffer.from('needle'.repeat(200_000)) },
+    });
+
+    await expect(execute(tools, 'edit_file', {
+      path: 'changing.txt', oldText: 'needle', newText: 'replacement',
+    })).resolves.toEqual({
+      ok: false, error: { code: 'CONTENT_TOO_LARGE', message: 'File content exceeds the 1,048,576-byte limit.' },
+    });
+    await expect(readFile(join(root, 'changing.txt'), 'utf8')).resolves.toBe('needle');
+  });
+
+  it('maps cancellation during an edit read to CANCELLED without changing the file', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'cancel.txt'), 'needle');
+    const controller = new AbortController();
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        readFile: async () => {
+          controller.abort();
+          throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+        },
+      },
+    });
+
+    await expect(execute(tools, 'edit_file', {
+      path: 'cancel.txt', oldText: 'needle', newText: 'replacement',
+    }, controller.signal)).resolves.toEqual({
+      ok: false, error: { code: 'CANCELLED', message: 'Tool execution was cancelled.' },
+    });
+    await expect(readFile(join(root, 'cancel.txt'), 'utf8')).resolves.toBe('needle');
+  });
+
+  it('rejects write escapes through lexical paths, prefix confusion, and symlinks', async () => {
+    const root = await workspace();
+    const outside = await workspace();
+    const sibling = `${root}-sibling`;
+    await mkdir(sibling);
+    temporaryDirectories.push(sibling);
+    await symlink(outside, join(root, 'escape'));
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    for (const path of ['../outside.txt', join(outside, 'absolute.txt'), `../${basename(sibling)}/prefix.txt`, 'escape/outside.txt']) {
+      await expect(execute(tools, 'write_file', { path, content: 'blocked' })).resolves.toEqual({
+        ok: false, error: { code: 'PATH_OUTSIDE_WORKSPACE', message: 'Path must stay within the workspace.' },
+      });
+    }
+    await expect(readFile(join(outside, 'outside.txt'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('revalidates the parent immediately before commit and blocks a changed symlink path', async () => {
+    const root = await workspace();
+    const outside = await workspace();
+    await mkdir(join(root, 'safe'));
+    const canonicalSafe = await realpath(join(root, 'safe'));
+    let parentChecks = 0;
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        realpath: async path => {
+          const resolved = await realpath(path);
+          if (resolved === canonicalSafe && ++parentChecks === 3) return outside;
+          return resolved;
+        },
+      },
+    });
+
+    await expect(execute(tools, 'write_file', { path: 'safe/file.txt', content: 'blocked' })).resolves.toEqual({
+      ok: false, error: { code: 'PATH_OUTSIDE_WORKSPACE', message: 'Path must stay within the workspace.' },
+    });
+    await expect(readFile(join(root, 'safe', 'file.txt'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps the original file and removes the temporary file when atomic replacement fails', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'stable.txt'), 'original');
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: { rename: async () => { throw Object.assign(new Error('simulated'), { code: 'EIO' }); } },
+    });
+
+    await expect(execute(tools, 'write_file', { path: 'stable.txt', content: 'new' })).resolves.toEqual({
+      ok: false, error: { code: 'TOOL_FAILED', message: 'Workspace tool failed.' },
+    });
+    await expect(readFile(join(root, 'stable.txt'), 'utf8')).resolves.toBe('original');
+    await expect(execute(createWorkspaceTools({ workspaceRoot: root }), 'list_directory', {})).resolves.toMatchObject({
+      entries: [{ name: 'stable.txt', type: 'file' }],
+    });
+  });
+
+  it('serializes writes to the same normalized path', async () => {
+    const root = await workspace();
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    const committed: string[] = [];
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        rename: async (source, target) => {
+          const content = await readFile(source, 'utf8');
+          if (content === 'first') await firstCanFinish;
+          await rename(source, target);
+          committed.push(content);
+        },
+      },
+    });
+
+    const first = execute(tools, 'write_file', { path: 'same.txt', content: 'first' });
+    await vi.waitFor(() => expect(committed).toEqual([]));
+    const second = execute(tools, 'write_file', { path: './same.txt', content: 'second' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(committed).toEqual([]);
+    releaseFirst();
+
+    await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
+    expect(committed).toEqual(['first', 'second']);
+    await expect(readFile(join(root, 'same.txt'), 'utf8')).resolves.toBe('second');
+  });
+
+  it('returns cancellation before a queued write changes the file', async () => {
+    const root = await workspace();
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        rename: async (source, target) => {
+          if (await readFile(source, 'utf8') === 'first') await firstCanFinish;
+          await rename(source, target);
+        },
+      },
+    });
+    const first = execute(tools, 'write_file', { path: 'same.txt', content: 'first' });
+    const controller = new AbortController();
+    const second = execute(tools, 'write_file', { path: 'same.txt', content: 'second' }, controller.signal);
+    controller.abort();
+    releaseFirst();
+
+    await first;
+    await expect(second).resolves.toEqual({
+      ok: false, error: { code: 'CANCELLED', message: 'Tool execution was cancelled.' },
+    });
+    await expect(readFile(join(root, 'same.txt'), 'utf8')).resolves.toBe('first');
+  });
+
   it('reads numbered UTF-8 lines with offset and limit', async () => {
     const root = await workspace();
     await writeFile(join(root, 'notes.txt'), 'alpha\nbéta\ngamma\n');
@@ -168,6 +378,8 @@ describe('workspace tools', () => {
       ['list_directory', {}],
       ['grep', { query: 'text' }],
       ['find_files', { pattern: '*.txt' }],
+      ['write_file', { path: 'created.txt', content: 'text' }],
+      ['edit_file', { path: 'notes.txt', oldText: 'text', newText: 'updated' }],
     ] as const) {
       await expect(execute(tools, name, input, controller.signal)).resolves.toEqual({
         ok: false, error: { code: 'CANCELLED', message: 'Tool execution was cancelled.' },

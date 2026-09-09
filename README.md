@@ -109,7 +109,7 @@ The demo performs two real model steps with AI SDK `MockLanguageModelV3`: the
 first requests the safe UTC-time tool, and the second receives its result and
 streams the final answer.
 
-To exercise all four workspace tools without a provider or network request:
+To exercise all six workspace tools without a provider or network request:
 
 ```bash
 pnpm agent:workspace-tools-demo
@@ -117,9 +117,10 @@ pnpm agent:workspace-tools-demo
 
 The CLI startup directory is the workspace root. Tool paths must be relative to
 that root; absolute paths, `..` escapes, prefix-confusion paths, and symlinks
-that resolve outside it are rejected. Results are capped and report
-truncation. Workspace tools are read-only: they do not expose writes or shell
-commands.
+that resolve outside it are rejected. Read/search results are capped and report
+truncation. `write_file` and exact `edit_file` use atomic replacement, serialize
+changes to the same path, and reject content over 1,048,576 bytes. They do not
+expose shell commands.
 
 For configuration precedence, saved preference locations, plain-mode behavior,
 and provider-specific examples, see the

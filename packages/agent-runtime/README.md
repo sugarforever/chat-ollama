@@ -8,8 +8,9 @@ The package supports streamed agent loops through Ollama, OpenAI, Anthropic,
 Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
 safe Session model switching. Its built-in tools provide a deterministic UTC
 clock plus workspace-confined file reading, directory listing, content search,
-and file discovery. It does not contain a CLI/TUI, preference persistence,
-Skills, compaction, MCP, writes, arbitrary shell execution, or network tools.
+file discovery, complete file writes, and exact edits. It does not contain a
+CLI/TUI, preference persistence, Skills, compaction, MCP, arbitrary shell
+execution, or network tools.
 
 ## Requirements
 
@@ -56,8 +57,9 @@ unsubscribe();
 ```
 
 `workspaceRoot` is explicit and immutable for the Session. The Runtime
-canonicalizes it and confines `read_file`, `list_directory`, `grep`, and
-`find_files` to that tree. Tool paths are workspace-relative. Absolute paths,
+canonicalizes it and confines `read_file`, `list_directory`, `grep`,
+`find_files`, `write_file`, and `edit_file` to that tree. Tool paths are
+workspace-relative. Absolute paths,
 lexical `..` escapes, sibling-prefix confusion, missing targets, unsupported
 target types, and symlinks resolving outside the workspace produce stable,
 sanitized result objects.
@@ -70,6 +72,8 @@ Workspace output limits are part of the tool results:
 | `list_directory` | 1,000 entries and 65,536 output bytes |
 | `grep` | 100 matches and 65,536 output bytes |
 | `find_files` | 1,000 files and 65,536 output bytes |
+| `write_file` | 1,048,576 content bytes; creates missing parent directories and atomically creates or replaces the file |
+| `edit_file` | 1,048,576 resulting content bytes; requires one exact literal match in an existing UTF-8 file |
 
 Every successful result contains `truncated`; a true value means the model saw
 only the bounded prefix. Expected failures return `ok: false` with a stable
@@ -80,7 +84,13 @@ Runtime-owned argv arrays and `shell: false`. They do not require `rg` on the
 host's `PATH`. Model text occupies one argument and cannot inject a flag or
 command.
 
-This confinement boundary treats model-provided paths and search text as
+Writes revalidate the real parent and existing target immediately before the
+atomic rename, remove temporary files after failures, and serialize operations
+that resolve to the same workspace path. `edit_file` never uses fuzzy matching:
+zero matches and multiple matches return different stable errors without
+changing the file. Both write tools observe cancellation before committing.
+
+This confinement boundary treats model-provided paths, content, and search text as
 untrusted. It is not an OS sandbox against a separate hostile process running
 as the same user and concurrently replacing workspace entries; command
 execution and operating-system sandboxing remain outside this Runtime layer.

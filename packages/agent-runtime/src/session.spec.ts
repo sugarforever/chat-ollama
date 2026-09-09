@@ -3,7 +3,7 @@ import {
   mockValues,
   simulateReadableStream,
 } from 'ai/test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -13,6 +13,43 @@ import { createAgentSessionWithModel } from './session-core.js';
 import type { RuntimeEvent } from './types.js';
 
 describe('AgentSession streaming', () => {
+  it('runs workspace writes through the existing tool lifecycle with path and result summaries', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'agent-session-workspace-'));
+    try {
+      const nextStream = mockValues<Awaited<ReturnType<MockLanguageModelV3['doStream']>>>(
+        createToolCallStream('write-1', 'write_file', { path: 'notes/new.txt', content: 'hello\n' }),
+        createToolCallStream('edit-1', 'edit_file', { path: 'notes/new.txt', oldText: 'hello', newText: 'updated' }),
+        createTextStream(['Updated it.']),
+      );
+      const session = createAgentSessionWithModel({
+        id: 'session-1',
+        model: new MockLanguageModelV3({ doStream: async () => nextStream() }),
+        descriptor: { provider: 'openai', model: 'mock-model' },
+        generateId: () => 'run-1',
+        workspaceRoot: root,
+      });
+      const events: RuntimeEvent[] = [];
+      session.subscribe(event => events.push(event));
+
+      await session.prompt('Create and update notes/new.txt');
+
+      expect(events).toContainEqual({
+        type: 'tool.started', runId: 'run-1',
+        call: { type: 'tool-call', callId: 'write-1', toolName: 'write_file', input: '{"path":"notes/new.txt","content":"hello\\n"}' },
+      });
+      expect(events).toContainEqual({
+        type: 'tool.completed', runId: 'run-1',
+        result: expect.objectContaining({
+          type: 'tool-result', callId: 'edit-1', toolName: 'edit_file', status: 'success',
+          output: expect.stringContaining('"path":"notes/new.txt"'),
+        }),
+      });
+      await expect(readFile(join(root, 'notes', 'new.txt'), 'utf8')).resolves.toBe('updated\n');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('runs a workspace file tool through the existing lifecycle', async () => {
     const root = await mkdtemp(join(tmpdir(), 'agent-session-workspace-'));
     try {
