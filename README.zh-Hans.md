@@ -367,10 +367,14 @@ pnpm exec ts-node scripts/migrate-mcp-servers.ts
 
 ```bash
 # 推荐的生产环境设置
-ACL_ENABLED=false          # 默认：开放 MCP 管理访问
+ACL_ENABLED=true           # 仅允许管理员管理 MCP
 SUPER_ADMIN_NAME=admin     # 设置超级管理员用户名
-AUTH_SECRET=your-long-random-secret-key-here
+SECRET=                    # 设置为以下命令的输出：openssl rand -base64 48
 ```
+
+`SECRET` 必须是部署专用的随机值，长度至少为 32 个字符。可以使用
+`openssl rand -base64 48` 生成。未设置或使用已知的公开占位值时，应用将拒绝启动；
+修改该值会使现有登录令牌全部失效。
 
 ### 实时语音聊天
 

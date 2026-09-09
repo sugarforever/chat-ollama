@@ -27,6 +27,7 @@ services:
 
   chatollama:
     environment:
+      - SECRET=${SECRET:?Set SECRET to a random value of at least 32 characters}
       - ACL_ENABLED=false  # Set to 'true' to enable admin-only MCP management
       - NUXT_KNOWLEDGE_BASE_ENABLED=true
       - NUXT_REALTIME_CHAT_ENABLED=false

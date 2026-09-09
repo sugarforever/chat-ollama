@@ -147,6 +147,9 @@ Key configuration options in `.env`:
 # Access Control
 ACL_ENABLED=false  # Set to 'true' for production (admin-only MCP management)
 
+# Authentication (required; generate with: openssl rand -base64 48)
+SECRET=
+
 # Database
 DATABASE_URL=file:../../chatollama.sqlite
 
@@ -370,10 +373,15 @@ Tools are loaded dynamically and integrated seamlessly into the chat experience.
 
 ```bash
 # Recommended production settings
-ACL_ENABLED=false          # Default: open access to MCP management
+ACL_ENABLED=true           # Restrict MCP management to administrators
 SUPER_ADMIN_NAME=admin     # Set super admin username
-AUTH_SECRET=your-long-random-secret-key-here
+SECRET=                    # Set to the output of: openssl rand -base64 48
 ```
+
+`SECRET` must be a deployment-specific random value containing at least 32
+characters. The application refuses to start when it is missing or
+uses a known public placeholder. Changing it invalidates all existing login
+tokens.
 
 ### Realtime Voice Chat
 
