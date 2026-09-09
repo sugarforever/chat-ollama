@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
+import { parseSemanticVersion } from './verify-agent-release-tag.mjs';
+
 const packages = ['chatollama-agent-runtime', 'chatollama-agent'];
 
 export function classifyRegistryState(expectedVersion, runtimeVersion, cliVersion) {
@@ -33,10 +35,8 @@ function readPublishedVersion(packageName, version) {
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const expectedVersion = process.argv[2];
-  assert.ok(
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(expectedVersion ?? ''),
-    'Usage: node scripts/check-agent-registry.mjs <semver>',
-  );
+  assert.ok(expectedVersion, 'Usage: node scripts/check-agent-registry.mjs <semver>');
+  parseSemanticVersion(expectedVersion);
 
   const versions = packages.map(packageName =>
     readPublishedVersion(packageName, expectedVersion),

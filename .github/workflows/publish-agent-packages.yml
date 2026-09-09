@@ -3,11 +3,12 @@ name: Publish Agent packages
 on:
   push:
     tags:
-      - 'agent-v*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
   contents: write
   id-token: write
+  pull-requests: read
 
 jobs:
   publish:
@@ -29,6 +30,24 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
+      - name: Verify release tag and package versions
+        id: release
+        run: |
+          VERSION="$(node scripts/verify-agent-release-tag.mjs "$GITHUB_REF_NAME" | sed -n 's/^Agent release versions match \(.*\)\.$/\1/p')"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release notes from release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE_SHA="$(git rev-list -n 1 "$GITHUB_REF_NAME")"
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}/pulls" > "$RUNNER_TEMP/associated-prs.json"
+          node scripts/build-agent-release-notes.mjs \
+            "${{ steps.release.outputs.version }}" \
+            "$RUNNER_TEMP/associated-prs.json" \
+            "$RUNNER_TEMP/release-notes.md"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -47,12 +66,9 @@ jobs:
       - name: Test packed artifacts
         run: pnpm test:agent:pack
 
-      - name: Verify release tag and package versions
-        run: node scripts/verify-agent-release-tag.mjs "$GITHUB_REF_NAME"
-
       - name: Check public Registry
         id: registry
-        run: node scripts/check-agent-registry.mjs "${GITHUB_REF_NAME#agent-v}" >> "$GITHUB_OUTPUT"
+        run: node scripts/check-agent-registry.mjs "${{ steps.release.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Verify recoverable Runtime artifact
         if: steps.registry.outputs.state == 'recover-cli'
@@ -91,8 +107,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --verify-tag \
             --title "ChatOllama Agent v${VERSION}" \
-            --generate-notes \
-            --notes "Published npm packages:
-
-          - [chatollama-agent@${VERSION}](https://www.npmjs.com/package/chatollama-agent/v/${VERSION})
-          - [chatollama-agent-runtime@${VERSION}](https://www.npmjs.com/package/chatollama-agent-runtime/v/${VERSION})"
+            --notes-file "$RUNNER_TEMP/release-notes.md"

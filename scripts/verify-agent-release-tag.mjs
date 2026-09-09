@@ -2,11 +2,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-export function verifyReleaseTag(tag, runtimeVersion, cliVersion) {
-  const match = /^agent-v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(tag);
-  assert.ok(match, `Release tag ${tag} must match agent-v<semver>`);
+export function parseSemanticVersion(value) {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(value);
+  assert.ok(match, `Version ${value} must be valid SemVer`);
+  if (match[4]) {
+    for (const identifier of match[4].split('.')) {
+      assert.ok(!/^\d+$/.test(identifier) || identifier === '0' || !identifier.startsWith('0'), `Version ${value} must be valid SemVer`);
+    }
+  }
+  return value;
+}
 
-  const tagVersion = match[1];
+export function verifyReleaseTag(tag, runtimeVersion, cliVersion) {
+  assert.ok(tag.startsWith('v'), `Release tag ${tag} must match v<semver>`);
+  const tagVersion = parseSemanticVersion(tag.slice(1));
   assert.equal(
     runtimeVersion,
     tagVersion,
