@@ -20,7 +20,15 @@ describe('stream example', () => {
       },
     );
 
-    expect(stdout).toBe('Hello from the mock model.\n');
+    expect(stdout).toBe(
+      '[step 1] started\n' +
+      '[tool getCurrentUtcTime] running {"timezone":"UTC"}\n' +
+      '[tool getCurrentUtcTime] completed 2026-09-09T12:00:00.000Z\n' +
+      '[step 1] completed: tool-calls\n' +
+      '[step 2] started\n' +
+      'The current UTC time is 2026-09-09T12:00:00.000Z.\n' +
+      '[step 2] completed: stop\n',
+    );
     expect(stderr).toBe('');
     expect(`${stdout}${stderr}`).not.toContain('example-secret');
   });

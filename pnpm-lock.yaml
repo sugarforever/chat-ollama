@@ -283,6 +283,9 @@ importers:
       '@xterm/headless':
         specifier: 5.5.0
         version: 5.5.0
+      ai:
+        specifier: 7.0.93
+        version: 7.0.93(zod@4.3.5)
       tsx:
         specifier: 4.20.5
         version: 4.20.5
@@ -8676,6 +8679,13 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 3.25.76
 
+  '@ai-sdk/gateway@4.0.75(zod@4.3.5)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.10
+      '@ai-sdk/provider-utils': 5.0.36(zod@4.3.5)
+      '@vercel/oidc': 3.2.0
+      zod: 4.3.5
+
   '@ai-sdk/google@4.0.64(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 4.0.10
@@ -8702,6 +8712,15 @@ snapshots:
       eventsource-parser: 3.1.1
       undici: 7.29.1
       zod: 3.25.76
+
+  '@ai-sdk/provider-utils@5.0.36(zod@4.3.5)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.10
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.1.1
+      undici: 7.29.1
+      zod: 4.3.5
 
   '@ai-sdk/provider@4.0.10':
     dependencies:
@@ -12668,6 +12687,13 @@ snapshots:
       '@ai-sdk/provider': 4.0.10
       '@ai-sdk/provider-utils': 5.0.36(zod@3.25.76)
       zod: 3.25.76
+
+  ai@7.0.93(zod@4.3.5):
+    dependencies:
+      '@ai-sdk/gateway': 4.0.75(zod@4.3.5)
+      '@ai-sdk/provider': 4.0.10
+      '@ai-sdk/provider-utils': 5.0.36(zod@4.3.5)
+      zod: 4.3.5
 
   ajv-formats@3.0.1(ajv@8.17.1):
     optionalDependencies:

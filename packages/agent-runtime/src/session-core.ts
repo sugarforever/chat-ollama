@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import { streamText, type LanguageModel, type ModelMessage } from 'ai';
+import { stepCountIs, ToolLoopAgent, type LanguageModel, type ModelMessage } from 'ai';
 
 import { createLanguageModel, describeModel } from './model-registry.js';
+import { createDemoTools } from './tools.js';
 import type {
   AgentSession,
   AssistantMessage,
@@ -21,6 +22,7 @@ interface CreateAgentSessionWithModelOptions {
   readonly descriptor: ModelDescriptor;
   readonly createModel?: (config: ModelConfig) => LanguageModel;
   readonly generateId?: () => string;
+  readonly now?: () => Date;
 }
 
 interface CurrentModel {
@@ -34,6 +36,8 @@ class InMemoryAgentSession implements AgentSession {
   readonly #generateId: () => string;
   readonly #listeners = new Set<RuntimeEventListener>();
   readonly #messages: SessionMessage[] = [];
+  readonly #modelMessages: ModelMessage[] = [];
+  readonly #now: () => Date;
   #currentModel: CurrentModel;
   #activeRun:
     | { readonly runId: string; readonly controller: AbortController }
@@ -47,6 +51,7 @@ class InMemoryAgentSession implements AgentSession {
     };
     this.#createModel = options.createModel ?? createLanguageModel;
     this.#generateId = options.generateId ?? randomUUID;
+    this.#now = options.now ?? (() => new Date());
   }
 
   getSnapshot(): SessionSnapshot {
@@ -86,6 +91,7 @@ class InMemoryAgentSession implements AgentSession {
     }
 
     this.#messages.splice(0);
+    this.#modelMessages.splice(0);
     this.#publish({
       type: 'session.reset',
       model: this.#currentModel.descriptor,
@@ -110,37 +116,108 @@ class InMemoryAgentSession implements AgentSession {
       model: this.#currentModel.descriptor,
     });
 
-    const messages = this.#messages.map(message => ({
-      role: message.role,
-      content: message.content,
-    })) satisfies ModelMessage[];
+    const messages: ModelMessage[] = [
+      ...this.#modelMessages,
+      { role: 'user', content: input },
+    ];
     let streamError: unknown;
+    let streamFailed = false;
 
     try {
-      const result = streamText({
+      const agent = new ToolLoopAgent({
         model: this.#currentModel.model,
+        tools: createDemoTools(this.#now),
+        stopWhen: stepCountIs(4),
+        prepareCall: options => ({ ...options, onError: () => {} }),
+      });
+      const result = await agent.stream({
         messages,
         abortSignal: controller.signal,
-        onError: ({ error }) => {
-          streamError = error;
-        },
       });
       let content = '';
+      let step = 0;
+      let finalReason: 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other' = 'other';
 
-      for await (const delta of result.textStream) {
+      streamLoop: for await (const part of result.fullStream) {
         if (controller.signal.aborted) {
           break;
         }
-        content += delta;
-        this.#publish({ type: 'model.delta', runId, delta });
+        switch (part.type) {
+          case 'start-step':
+            step += 1;
+            content = '';
+            this.#publish({ type: 'step.started', runId, step });
+            break;
+          case 'text-delta':
+            content += part.text;
+            this.#publish({ type: 'model.delta', runId, delta: part.text });
+            break;
+          case 'tool-call': {
+            const call = {
+              type: 'tool-call' as const,
+              callId: part.toolCallId,
+              toolName: part.toolName,
+              input: summarize(part.input),
+            };
+            this.#messages.push(call);
+            this.#publish({ type: 'tool.started', runId, call });
+            break;
+          }
+          case 'tool-result': {
+            if (part.preliminary) break;
+            const toolResult = {
+              type: 'tool-result' as const,
+              callId: part.toolCallId,
+              toolName: part.toolName,
+              status: 'success' as const,
+              output: summarize(part.output),
+            };
+            this.#messages.push(toolResult);
+            this.#publish({ type: 'tool.completed', runId, result: toolResult });
+            break;
+          }
+          case 'tool-error': {
+            const toolResult = {
+              type: 'tool-result' as const,
+              callId: part.toolCallId,
+              toolName: part.toolName,
+              status: 'error' as const,
+              output: 'Tool execution failed',
+            };
+            this.#messages.push(toolResult);
+            this.#publish({ type: 'tool.failed', runId, result: toolResult });
+            streamError = part.error;
+            streamFailed = true;
+            this.#publish({ type: 'step.completed', runId, step, reason: 'error' });
+            controller.abort();
+            break streamLoop;
+          }
+          case 'finish-step':
+            finalReason = part.finishReason;
+            this.#publish({ type: 'step.completed', runId, step, reason: part.finishReason });
+            break;
+          case 'error':
+            streamError = part.error;
+            streamFailed = true;
+            if (step > 0) {
+              this.#publish({ type: 'step.completed', runId, step, reason: 'error' });
+            }
+            controller.abort();
+            break streamLoop;
+        }
       }
 
+      if (streamFailed) {
+        throw streamError;
+      }
       if (controller.signal.aborted) {
         this.#publish({ type: 'run.cancelled', runId });
         return;
       }
-      if (streamError !== undefined) {
-        throw streamError;
+
+      if (step >= 4 && finalReason === 'tool-calls') {
+        this.#publish({ type: 'run.stopped', runId, reason: 'step-limit' });
+        return;
       }
 
       const assistantMessage: AssistantMessage = {
@@ -148,6 +225,9 @@ class InMemoryAgentSession implements AgentSession {
         content,
       };
       this.#messages.push(assistantMessage);
+      this.#modelMessages.push(...messages.slice(this.#modelMessages.length));
+      const response = await result.response;
+      this.#modelMessages.push(...response.messages);
       this.#publish({
         type: 'model.completed',
         runId,
@@ -155,7 +235,7 @@ class InMemoryAgentSession implements AgentSession {
       });
       this.#publish({ type: 'run.completed', runId });
     } catch {
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted && !streamFailed) {
         this.#publish({ type: 'run.cancelled', runId });
         return;
       }
@@ -182,6 +262,15 @@ class InMemoryAgentSession implements AgentSession {
         // Subscriber failures must not corrupt the active run.
       }
     }
+  }
+}
+
+function summarize(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '[unavailable]';
   }
 }
 

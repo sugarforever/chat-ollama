@@ -8,7 +8,26 @@ export interface AssistantMessage {
   readonly content: string;
 }
 
-export type SessionMessage = UserMessage | AssistantMessage;
+export interface ToolCallItem {
+  readonly type: 'tool-call';
+  readonly callId: string;
+  readonly toolName: string;
+  readonly input: string;
+}
+
+export interface ToolResultItem {
+  readonly type: 'tool-result';
+  readonly callId: string;
+  readonly toolName: string;
+  readonly status: 'success' | 'error';
+  readonly output: string;
+}
+
+export type SessionMessage =
+  | UserMessage
+  | AssistantMessage
+  | ToolCallItem
+  | ToolResultItem;
 
 export interface SessionSnapshot {
   readonly id: string;
@@ -109,6 +128,32 @@ export type RuntimeEvent =
       readonly input: string;
     }
   | {
+      readonly type: 'step.started';
+      readonly runId: string;
+      readonly step: number;
+    }
+  | {
+      readonly type: 'step.completed';
+      readonly runId: string;
+      readonly step: number;
+      readonly reason: 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
+    }
+  | {
+      readonly type: 'tool.started';
+      readonly runId: string;
+      readonly call: ToolCallItem;
+    }
+  | {
+      readonly type: 'tool.completed';
+      readonly runId: string;
+      readonly result: ToolResultItem & { readonly status: 'success' };
+    }
+  | {
+      readonly type: 'tool.failed';
+      readonly runId: string;
+      readonly result: ToolResultItem & { readonly status: 'error' };
+    }
+  | {
       readonly type: 'model.started';
       readonly runId: string;
       readonly model: ModelDescriptor;
@@ -135,6 +180,11 @@ export type RuntimeEvent =
   | {
       readonly type: 'run.completed';
       readonly runId: string;
+    }
+  | {
+      readonly type: 'run.stopped';
+      readonly runId: string;
+      readonly reason: 'step-limit';
     }
   | {
       readonly type: 'run.failed';

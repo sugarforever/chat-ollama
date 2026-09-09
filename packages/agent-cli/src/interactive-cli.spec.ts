@@ -156,6 +156,40 @@ describe('pi-tui interactive CLI', () => {
     runtime.completePrompt();
   });
 
+  it('renders tool lifecycle without replacing unfinished editor input', async () => {
+    const runtime = new ControlledRuntime();
+    const { terminal } = startCli(runtime);
+    await terminal.screen();
+    terminal.type('time');
+    terminal.sendInput('\r');
+    await vi.waitFor(() => expect(runtime.inputs).toEqual(['time']));
+    runtime.emit({ type: 'run.started', runId: 'run-1', input: 'time' });
+    runtime.emit({ type: 'model.started', runId: 'run-1', model: { provider: 'ollama', model: 'qwen3:8b' } });
+    runtime.emit({ type: 'step.started', runId: 'run-1', step: 1 });
+    runtime.emit({
+      type: 'tool.started', runId: 'run-1',
+      call: { type: 'tool-call', callId: 'call-1', toolName: 'getCurrentUtcTime', input: '{"timezone":"UTC"}' },
+    });
+    terminal.type('unfinished');
+    runtime.emit({
+      type: 'tool.completed', runId: 'run-1',
+      result: { type: 'tool-result', callId: 'call-1', toolName: 'getCurrentUtcTime', status: 'success', output: '2026-09-09T12:00:00.000Z' },
+    });
+    runtime.emit({ type: 'step.completed', runId: 'run-1', step: 1, reason: 'tool-calls' });
+    runtime.emit({ type: 'step.started', runId: 'run-1', step: 2 });
+    runtime.emit({ type: 'model.delta', runId: 'run-1', delta: 'done' });
+
+    const screen = await terminal.screen();
+    expect(screen).toContain('[tool getCurrentUtcTime] running');
+    expect(screen).toContain('[tool getCurrentUtcTime] completed 2026-09-09T12:00:00.000Z');
+    expect(screen).toContain('unfinished');
+    expect(screen).toContain('Assistant (ollama/qwen3:8b)> done');
+    expect(screen).not.toContain('completed 2026-09-09T12:00:00.000Zdone');
+    expect(terminal.writes).not.toContain('2026-09-09T12:00:00.000Z');
+    runtime.emit({ type: 'run.completed', runId: 'run-1' });
+    runtime.completePrompt();
+  });
+
   it('reports a runtime failure once and accepts another prompt afterwards', async () => {
     const runtime = new ControlledRuntime();
     const { terminal } = startCli(runtime);
@@ -173,6 +207,44 @@ describe('pi-tui interactive CLI', () => {
     await vi.waitFor(() => expect(runtime.inputs).toEqual(['Hello', 'retry']));
     runtime.completePrompt();
   });
+
+  it.each(['failed', 'cancelled'] as const)(
+    'starts a new assistant line after a partial response is %s',
+    async outcome => {
+      const runtime = new ControlledRuntime();
+      const { terminal } = startCli(runtime);
+      await terminal.screen();
+      terminal.type('one');
+      terminal.sendInput('\r');
+      await vi.waitFor(() => expect(runtime.inputs).toEqual(['one']));
+      runtime.emit({ type: 'model.started', runId: 'run-1', model: { provider: 'ollama', model: 'qwen3:8b' } });
+      runtime.emit({ type: 'model.delta', runId: 'run-1', delta: 'partial' });
+      if (outcome === 'failed') {
+        runtime.emit({ type: 'run.failed', runId: 'run-1', error: { message: 'Model request failed' } });
+        runtime.failPrompt();
+      } else {
+        runtime.emit({ type: 'run.cancelled', runId: 'run-1' });
+        runtime.completePrompt();
+      }
+      await vi.waitFor(async () => {
+        const current = await terminal.screen();
+        expect(current).toContain(
+          outcome === 'failed' ? '[error] Model request failed' : '[run run-1] cancelled',
+        );
+      });
+      terminal.type('two');
+      terminal.sendInput('\r');
+      await vi.waitFor(() => expect(runtime.inputs).toEqual(['one', 'two']));
+      runtime.emit({ type: 'model.started', runId: 'run-2', model: { provider: 'ollama', model: 'qwen3:8b' } });
+      runtime.emit({ type: 'model.delta', runId: 'run-2', delta: 'answer' });
+
+      const screen = await terminal.screen();
+      expect(screen).toContain('Assistant (ollama/qwen3:8b)> answer');
+      expect(screen).not.toContain('You> twoanswer');
+      runtime.emit({ type: 'run.completed', runId: 'run-2' });
+      runtime.completePrompt();
+    },
+  );
 
   it('cancels an active run on Ctrl+C, accepts another prompt, then exits when idle', async () => {
     const runtime = new ControlledRuntime();
