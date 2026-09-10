@@ -3,6 +3,8 @@ title: 把 Vercel AI SDK 放进 ChatOllama Runtime
 date: 2026-09-04
 ---
 
+![AI SDK 与 ChatOllama](./20260904-vercel-ai-sdk-agent-runtime-cover.webp)
+
 我最近开始为 ChatOllama 建立一个新的 `Agent Runtime`。第一步不是做工具调用，也不是马上做一个漂亮的终端界面，而是把模型流式调用、Session 状态和客户端事件之间的边界确定下来。这篇文章会记录第一个版本如何接入 `Vercel AI SDK`，以及测试过程中发现的一个错误日志问题。期望对大家有所帮助。
 
 ## 为什么先做 Runtime
