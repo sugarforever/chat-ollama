@@ -104,6 +104,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
     ...options.fileSystem,
   };
   const pendingWrites = new Map<string, Promise<void>>();
+  const pendingPathPreparations = new Map<string, Promise<void>>();
 
   return {
     write_file: tool({
@@ -114,6 +115,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         expectedVersion: contentVersionSchema.optional().describe('Only write if the current file has this content version.'),
       }),
       execute: async (input, execution) => withStableErrors(() => withPreparedPathLock(
+        pendingPathPreparations,
         pendingWrites,
         workspaceRoot,
         input.path,
@@ -155,6 +157,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         }),
       ]),
       execute: async (input, execution) => withStableErrors(() => withPreparedPathLock(
+        pendingPathPreparations,
         pendingWrites,
         workspaceRoot,
         input.path,
@@ -449,6 +452,7 @@ async function withPathLock<T>(
 }
 
 async function withPreparedPathLock<T>(
+  pendingPathPreparations: Map<string, Promise<void>>,
   pendingWrites: Map<string, Promise<void>>,
   workspaceRoot: string,
   requestedPath: string,
@@ -458,8 +462,14 @@ async function withPreparedPathLock<T>(
   operation: (destination: PreparedWritePath) => Promise<T>,
 ): Promise<T> {
   throwIfAborted(abortSignal);
-  const destination = await prepareWritePath(workspaceRoot, requestedPath, fileSystem, requireExisting);
-  return withPathLock(pendingWrites, writeLockKey(destination), () => operation(destination));
+  const lexicalKey = resolveWriteTarget(workspaceRoot, requestedPath);
+  let mutation!: Promise<T>;
+  await withPathLock(pendingPathPreparations, lexicalKey, async () => {
+    throwIfAborted(abortSignal);
+    const destination = await prepareWritePath(workspaceRoot, requestedPath, fileSystem, requireExisting);
+    mutation = withPathLock(pendingWrites, writeLockKey(destination), () => operation(destination));
+  });
+  return mutation;
 }
 
 async function prepareWritePath(

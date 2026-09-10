@@ -408,13 +408,17 @@ describe('workspace tools', () => {
     const root = await workspace();
     let releaseFirst!: () => void;
     const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    let firstRenameStarted = false;
     const committed: string[] = [];
     const tools = createWorkspaceTools({
       workspaceRoot: root,
       fileSystem: {
         rename: async (source, target) => {
           const content = await readFile(source, 'utf8');
-          if (content === 'first') await firstCanFinish;
+          if (content === 'first') {
+            firstRenameStarted = true;
+            await firstCanFinish;
+          }
           await rename(source, target);
           committed.push(content);
         },
@@ -422,7 +426,7 @@ describe('workspace tools', () => {
     });
 
     const first = execute(tools, 'write_file', { path: 'same.txt', content: 'first' });
-    await vi.waitFor(() => expect(committed).toEqual([]));
+    await vi.waitFor(() => expect(firstRenameStarted).toBe(true));
     const second = execute(tools, 'write_file', { path: './same.txt', content: 'second' });
     await new Promise(resolve => setTimeout(resolve, 10));
     expect(committed).toEqual([]);
@@ -431,6 +435,45 @@ describe('workspace tools', () => {
     await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
     expect(committed).toEqual(['first', 'second']);
     await expect(readFile(join(root, 'same.txt'), 'utf8')).resolves.toBe('second');
+  });
+
+  it('does not let a later write overtake a delayed preparation for the same normalized path', async () => {
+    const root = await workspace();
+    const target = join(await realpath(root), 'same.txt');
+    let releaseFirstPreparation!: () => void;
+    const firstPreparationCanFinish = new Promise<void>(resolve => { releaseFirstPreparation = resolve; });
+    let firstPreparationStarted = false;
+    let delayFirstTargetLookup = true;
+    const committed: string[] = [];
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        realpath: async path => {
+          if (path === target && delayFirstTargetLookup) {
+            delayFirstTargetLookup = false;
+            firstPreparationStarted = true;
+            await firstPreparationCanFinish;
+          }
+          return realpath(path);
+        },
+        rename: async (source, destination) => {
+          const content = await readFile(source, 'utf8');
+          await rename(source, destination);
+          committed.push(content);
+        },
+      },
+    });
+
+    const first = execute(tools, 'write_file', { path: 'same.txt', content: 'first' });
+    await vi.waitFor(() => expect(firstPreparationStarted).toBe(true));
+    const second = execute(tools, 'write_file', { path: './same.txt', content: 'second' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(committed).toEqual([]);
+    releaseFirstPreparation();
+
+    await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
+    expect(committed).toEqual(['first', 'second']);
+    await expect(readFile(target, 'utf8')).resolves.toBe('second');
   });
 
   it('serializes concurrent edits through directory symlink aliases of the same file', async () => {
