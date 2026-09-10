@@ -22,11 +22,11 @@ describe('workspace tools CLI demo', () => {
 
     const writeResult = completedToolResult('write_file');
     expect(writeResult).toMatchObject({ ok: true, path: 'notes/status.txt', bytesWritten: 6, created: true });
-    expect(writeResult.version).toEqual(expect.stringMatching(/^sha256:[0-9a-f]{64}$/));
+    expect(writeResult.version).toBe('sha256:7eb2ca55b87a4d45d66a63f76db11f9b4aa9106472a62b5865060f9fd8eadaaa');
 
     const editResult = completedToolResult('edit_file');
     expect(editResult).toMatchObject({ ok: true, path: 'notes/status.txt', bytesWritten: 6, replacements: 1 });
-    expect(editResult.version).toEqual(expect.stringMatching(/^sha256:[0-9a-f]{64}$/));
+    expect(editResult.version).toBe('sha256:ed1a545bb85e55816bbf9566b028b2a0bc456b88f49f6f266c0401048824194b');
     expect(stdout).toContain('Assistant (openai-compatible/workspace-tools-model)> Workspace inspection and update completed.');
   });
 });
