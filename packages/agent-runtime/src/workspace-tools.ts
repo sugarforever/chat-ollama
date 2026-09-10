@@ -88,6 +88,25 @@ const exactEditSchema = z.object({
   oldText: z.string().min(1).describe('Exact literal text that must occur once in the original file.'),
   newText: z.string().describe('Literal replacement text.'),
 });
+const editFileInputSchema = z.object({
+  path: z.string().min(1).describe('Workspace-relative existing file path.'),
+  oldText: z.string().min(1).optional().describe('Exact literal text that must occur once.'),
+  newText: z.string().optional().describe('Literal replacement text.'),
+  edits: z.array(exactEditSchema).min(1).max(MAX_EDIT_REPLACEMENTS).optional().describe('Disjoint replacements matched against the original file.'),
+  expectedVersion: contentVersionSchema.optional().describe('Only edit if the current file has this content version.'),
+}).superRefine((input, context) => {
+  const hasLegacyInput = input.oldText !== undefined || input.newText !== undefined;
+  const hasBatchInput = input.edits !== undefined;
+  if (hasLegacyInput && (input.oldText === undefined || input.newText === undefined)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'oldText and newText must be provided together.' });
+  }
+  if (hasLegacyInput && hasBatchInput) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Legacy and batch edit inputs are mutually exclusive.' });
+  }
+  if (!hasLegacyInput && !hasBatchInput) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Provide either oldText and newText or edits.' });
+  }
+});
 
 export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): ToolSet {
   const workspaceRoot = realpathSync(options.workspaceRoot);
@@ -120,12 +139,11 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         workspaceRoot,
         input.path,
         fileSystem,
-        false,
         execution.abortSignal,
         async destination => {
           throwIfAborted(execution.abortSignal);
           assertContentSize(input.content);
-          const created = !(await pathExists(destination.target, fileSystem));
+          const created = (await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem)) === undefined;
           await assertExpectedVersion(destination.target, input.expectedVersion, fileSystem, execution.abortSignal);
           await atomicWrite(destination, input.content, workspaceRoot, fileSystem, execution.abortSignal);
           return {
@@ -140,33 +158,20 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
     }),
     edit_file: tool({
       description: `Apply one or more non-overlapping exact literal replacements to an existing UTF-8 workspace file. Every oldText must occur once in the original file. The resulting content is limited to ${MAX_WRITE_BYTES.toLocaleString('en-US')} bytes.`,
-      inputSchema: z.union([
-        z.object({
-          path: z.string().min(1).describe('Workspace-relative existing file path.'),
-          oldText: z.string().min(1).describe('Exact literal text that must occur once.'),
-          newText: z.string().describe('Literal replacement text.'),
-          edits: z.never().optional(),
-          expectedVersion: contentVersionSchema.optional().describe('Only edit if the current file has this content version.'),
-        }),
-        z.object({
-          path: z.string().min(1).describe('Workspace-relative existing file path.'),
-          edits: z.array(exactEditSchema).min(1).max(MAX_EDIT_REPLACEMENTS).describe('Disjoint replacements matched against the original file.'),
-          oldText: z.never().optional(),
-          newText: z.never().optional(),
-          expectedVersion: contentVersionSchema.optional().describe('Only edit if the current file has this content version.'),
-        }),
-      ]),
+      inputSchema: editFileInputSchema,
       execute: async (input, execution) => withStableErrors(() => withPreparedPathLock(
         pendingPathPreparations,
         pendingWrites,
         workspaceRoot,
         input.path,
         fileSystem,
-        true,
         execution.abortSignal,
         async destination => {
           throwIfAborted(execution.abortSignal);
           const edits = normalizeExactEdits(input);
+          if ((await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem)) === undefined) {
+            throw new WorkspaceToolError('PATH_NOT_FOUND', errorMessages.PATH_NOT_FOUND);
+          }
           const stats = await fileSystem.lstat(destination.target);
           if (!stats.isFile()) {
             throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'edit_file requires a regular file.');
@@ -188,7 +193,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
           assertVersionMatches(bytes, input.expectedVersion);
           let content: string;
           try {
-            content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
           } catch {
             throw new WorkspaceToolError('INVALID_UTF8', errorMessages.INVALID_UTF8);
           }
@@ -416,6 +421,7 @@ interface PreparedWritePath {
   readonly target: string;
   readonly parent: string;
   readonly canonicalParent: string;
+  readonly canonicalTarget?: string;
 }
 
 function resolveWriteTarget(workspaceRoot: string, requestedPath: string): string {
@@ -430,7 +436,8 @@ function resolveWriteTarget(workspaceRoot: string, requestedPath: string): strin
 }
 
 function writeLockKey(destination: PreparedWritePath): string {
-  return resolve(destination.canonicalParent, basename(destination.target));
+  return destination.canonicalTarget
+    ?? resolve(destination.canonicalParent, basename(destination.target).normalize('NFC').toLowerCase());
 }
 
 async function withPathLock<T>(
@@ -457,7 +464,6 @@ async function withPreparedPathLock<T>(
   workspaceRoot: string,
   requestedPath: string,
   fileSystem: WriteFileSystem,
-  requireExisting: boolean,
   abortSignal: AbortSignal | undefined,
   operation: (destination: PreparedWritePath) => Promise<T>,
 ): Promise<T> {
@@ -466,7 +472,7 @@ async function withPreparedPathLock<T>(
   let mutation!: Promise<T>;
   await withPathLock(pendingPathPreparations, lexicalKey, async () => {
     throwIfAborted(abortSignal);
-    const destination = await prepareWritePath(workspaceRoot, requestedPath, fileSystem, requireExisting);
+    const destination = await prepareWritePath(workspaceRoot, requestedPath, fileSystem);
     mutation = withPathLock(pendingWrites, writeLockKey(destination), () => operation(destination));
   });
   return mutation;
@@ -476,7 +482,6 @@ async function prepareWritePath(
   workspaceRoot: string,
   requestedPath: string,
   fileSystem: WriteFileSystem,
-  requireExisting = false,
 ): Promise<PreparedWritePath> {
   const target = resolveWriteTarget(workspaceRoot, requestedPath);
   if (target === workspaceRoot) {
@@ -486,18 +491,14 @@ async function prepareWritePath(
   await ensureWorkspaceDirectory(workspaceRoot, parent, fileSystem);
   const canonicalParent = await fileSystem.realpath(parent);
   assertWithin(workspaceRoot, canonicalParent);
+  let canonicalTarget: string | undefined;
   try {
-    const canonicalTarget = await fileSystem.realpath(target);
+    canonicalTarget = await fileSystem.realpath(target);
     assertWithin(workspaceRoot, canonicalTarget);
-    const stats = await fileSystem.lstat(target);
-    if (!stats.isFile()) {
-      throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'File tools require a regular file.');
-    }
   } catch (error) {
     if (!isMissingPathError(error)) throw error;
-    if (requireExisting) throw new WorkspaceToolError('PATH_NOT_FOUND', errorMessages.PATH_NOT_FOUND);
   }
-  return { target, parent, canonicalParent };
+  return { target, parent, canonicalParent, canonicalTarget };
 }
 
 async function ensureWorkspaceDirectory(
@@ -577,16 +578,6 @@ async function validateExistingWriteTarget(
   } catch (error) {
     if (!isMissingPathError(error)) throw error;
     return undefined;
-  }
-}
-
-async function pathExists(target: string, fileSystem: WriteFileSystem): Promise<boolean> {
-  try {
-    await fileSystem.lstat(target);
-    return true;
-  } catch (error) {
-    if (isMissingPathError(error)) return false;
-    throw error;
   }
 }
 

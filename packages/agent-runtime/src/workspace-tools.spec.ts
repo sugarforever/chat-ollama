@@ -1,11 +1,12 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, mkdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { rgPath } from '@vscode/ripgrep';
 import type { ToolSet } from 'ai';
+import { prepareTools } from 'ai/internal';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createWorkspaceTools } from './workspace-tools.js';
@@ -177,6 +178,19 @@ describe('workspace tools', () => {
     await expect(readFile(join(root, 'multiple.txt'), 'utf8')).resolves.toBe('needle and needle');
   });
 
+  it('preserves a UTF-8 BOM while applying an exact edit', async () => {
+    const root = await workspace();
+    const target = join(root, 'bom.txt');
+    await writeFile(target, Buffer.from([0xef, 0xbb, 0xbf, 0x61, 0x62, 0x63]));
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'edit_file', { path: 'bom.txt', oldText: 'b', newText: 'B' })).resolves.toMatchObject({
+      ok: true,
+    });
+
+    await expect(readFile(target)).resolves.toEqual(Buffer.from([0xef, 0xbb, 0xbf, 0x61, 0x42, 0x63]));
+  });
+
   it('atomically applies multiple disjoint exact edits matched against the original content', async () => {
     const root = await workspace();
     await writeFile(join(root, 'batch.txt'), 'alpha beta gamma');
@@ -235,6 +249,26 @@ describe('workspace tools', () => {
       newText: 'Legacy',
       edits: [{ oldText: 'batch', newText: 'Batch' }],
     }).success).toBe(false);
+    expect(schema.safeParse({ path: 'missing-new.txt', oldText: 'legacy' }).success).toBe(false);
+    expect(schema.safeParse({ path: 'missing-old.txt', newText: 'Legacy' }).success).toBe(false);
+    expect(schema.safeParse({ path: 'missing-input.txt' }).success).toBe(false);
+    expect(schema.safeParse({
+      path: 'batch.txt', edits: [{ oldText: 'batch', newText: 'Batch' }],
+    }).success).toBe(true);
+  });
+
+  it('exposes edit_file as a provider-compatible object schema', async () => {
+    const root = await workspace();
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    const prepared = await prepareTools({ tools: { edit_file: tools.edit_file! } });
+    const editTool = prepared?.[0];
+    expect(editTool).toMatchObject({ type: 'function', name: 'edit_file' });
+    if (editTool?.type !== 'function') throw new Error('edit_file was not prepared as a function tool');
+
+    expect(editTool.inputSchema).toMatchObject({ type: 'object' });
+    expect(editTool.inputSchema).not.toHaveProperty('anyOf');
+    expect(JSON.stringify(editTool.inputSchema)).not.toContain('"not":{}');
   });
 
   it('rejects oversized edit batches before matching or changing the file', async () => {
@@ -476,6 +510,38 @@ describe('workspace tools', () => {
     await expect(readFile(target, 'utf8')).resolves.toBe('second');
   });
 
+  it('lets a queued edit observe a preceding write to the same normalized path', async () => {
+    const root = await workspace();
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    let firstRenameStarted = false;
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        rename: async (source, target) => {
+          if (await readFile(source, 'utf8') === 'alpha') {
+            firstRenameStarted = true;
+            await firstCanFinish;
+          }
+          await rename(source, target);
+        },
+      },
+    });
+
+    const first = execute(tools, 'write_file', { path: 'created.txt', content: 'alpha' });
+    await vi.waitFor(() => expect(firstRenameStarted).toBe(true));
+    let secondSettled = false;
+    const second = execute(tools, 'edit_file', { path: './created.txt', oldText: 'alpha', newText: 'beta' });
+    void second.then(() => { secondSettled = true; });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(secondSettled).toBe(false);
+    releaseFirst();
+
+    await expect(first).resolves.toMatchObject({ ok: true });
+    await expect(second).resolves.toMatchObject({ ok: true });
+    await expect(readFile(join(root, 'created.txt'), 'utf8')).resolves.toBe('beta');
+  });
+
   it('serializes concurrent edits through directory symlink aliases of the same file', async () => {
     const root = await workspace();
     await mkdir(join(root, 'real'));
@@ -514,6 +580,86 @@ describe('workspace tools', () => {
     await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
     expect(committed).toEqual(['ALPHA beta', 'ALPHA BETA']);
     await expect(readFile(join(root, 'real', 'shared.txt'), 'utf8')).resolves.toBe('ALPHA BETA');
+  });
+
+  it('serializes case aliases of an existing file by its realpath identity', async () => {
+    const root = await workspace();
+    const canonicalRoot = await realpath(root);
+    const target = join(canonicalRoot, 'Case.txt');
+    const alias = join(canonicalRoot, 'case.txt');
+    await writeFile(target, 'alpha beta');
+    const canonicalize = (path: string) => path === alias ? target : path;
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    let firstRenameStarted = false;
+    const committed: string[] = [];
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        lstat: path => lstat(canonicalize(path)),
+        readFile: (path, options) => readFile(canonicalize(path), options),
+        realpath: path => realpath(canonicalize(path)),
+        rename: async (source, destination) => {
+          const content = await readFile(source, 'utf8');
+          if (content === 'ALPHA beta') {
+            firstRenameStarted = true;
+            await firstCanFinish;
+          }
+          await rename(source, canonicalize(destination));
+          committed.push(content);
+        },
+      },
+    });
+
+    const first = execute(tools, 'edit_file', { path: 'Case.txt', oldText: 'alpha', newText: 'ALPHA' });
+    await vi.waitFor(() => expect(firstRenameStarted).toBe(true));
+    const second = execute(tools, 'edit_file', { path: 'case.txt', oldText: 'beta', newText: 'BETA' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(committed).toEqual([]);
+    releaseFirst();
+
+    await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
+    expect(committed).toEqual(['ALPHA beta', 'ALPHA BETA']);
+    await expect(readFile(target, 'utf8')).resolves.toBe('ALPHA BETA');
+  });
+
+  it('serializes case aliases of a new file with a stable target key', async () => {
+    const root = await workspace();
+    const canonicalRoot = await realpath(root);
+    const target = join(canonicalRoot, 'Case.txt');
+    const alias = join(canonicalRoot, 'case.txt');
+    const canonicalize = (path: string) => path === alias ? target : path;
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    let firstRenameStarted = false;
+    const committed: string[] = [];
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        lstat: path => lstat(canonicalize(path)),
+        realpath: path => realpath(canonicalize(path)),
+        rename: async (source, destination) => {
+          const content = await readFile(source, 'utf8');
+          if (content === 'first') {
+            firstRenameStarted = true;
+            await firstCanFinish;
+          }
+          await rename(source, canonicalize(destination));
+          committed.push(content);
+        },
+      },
+    });
+
+    const first = execute(tools, 'write_file', { path: 'Case.txt', content: 'first' });
+    await vi.waitFor(() => expect(firstRenameStarted).toBe(true));
+    const second = execute(tools, 'write_file', { path: 'case.txt', content: 'second' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(committed).toEqual([]);
+    releaseFirst();
+
+    await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
+    expect(committed).toEqual(['first', 'second']);
+    await expect(readFile(target, 'utf8')).resolves.toBe('second');
   });
 
   it('serializes writes through directory symlink aliases for a new file', async () => {
