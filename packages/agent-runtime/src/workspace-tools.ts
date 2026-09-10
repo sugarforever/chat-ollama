@@ -1,7 +1,7 @@
 import { spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
-import { lstat, mkdir, open, readFile, readdir, realpath, rename, unlink } from 'node:fs/promises';
+import { chmod, lstat, mkdir, open, readFile, readdir, realpath, rename, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 
@@ -31,6 +31,7 @@ export interface CreateWorkspaceToolsOptions {
 }
 
 interface WriteFileSystem {
+  readonly chmod: (path: string, mode: number) => Promise<void>;
   readonly lstat: (path: string) => ReturnType<typeof lstat>;
   readonly mkdir: (path: string) => Promise<void>;
   readonly open: (path: string, flags: 'wx', mode: number) => ReturnType<typeof open>;
@@ -92,6 +93,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
   const workspaceRoot = realpathSync(options.workspaceRoot);
   const spawn = options.spawn ?? (nodeSpawn as Spawn);
   const fileSystem: WriteFileSystem = {
+    chmod: (path, mode) => chmod(path, mode),
     lstat: path => lstat(path),
     mkdir: path => mkdir(path),
     open: (path, flags, mode) => open(path, flags, mode),
@@ -102,6 +104,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
     ...options.fileSystem,
   };
   const pendingWrites = new Map<string, Promise<void>>();
+  const pendingPathPreparations = new Map<string, Promise<void>>();
 
   return {
     write_file: tool({
@@ -111,13 +114,17 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         content: z.string().describe('Complete UTF-8 file content.'),
         expectedVersion: contentVersionSchema.optional().describe('Only write if the current file has this content version.'),
       }),
-      execute: async (input, execution) => withStableErrors(() => withPathLock(
+      execute: async (input, execution) => withStableErrors(() => withPreparedPathLock(
+        pendingPathPreparations,
         pendingWrites,
-        writeLockKey(workspaceRoot, input.path),
-        async () => {
+        workspaceRoot,
+        input.path,
+        fileSystem,
+        false,
+        execution.abortSignal,
+        async destination => {
           throwIfAborted(execution.abortSignal);
           assertContentSize(input.content);
-          const destination = await prepareWritePath(workspaceRoot, input.path, fileSystem);
           const created = !(await pathExists(destination.target, fileSystem));
           await assertExpectedVersion(destination.target, input.expectedVersion, fileSystem, execution.abortSignal);
           await atomicWrite(destination, input.content, workspaceRoot, fileSystem, execution.abortSignal);
@@ -149,13 +156,17 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
           expectedVersion: contentVersionSchema.optional().describe('Only edit if the current file has this content version.'),
         }),
       ]),
-      execute: async (input, execution) => withStableErrors(() => withPathLock(
+      execute: async (input, execution) => withStableErrors(() => withPreparedPathLock(
+        pendingPathPreparations,
         pendingWrites,
-        writeLockKey(workspaceRoot, input.path),
-        async () => {
+        workspaceRoot,
+        input.path,
+        fileSystem,
+        true,
+        execution.abortSignal,
+        async destination => {
           throwIfAborted(execution.abortSignal);
           const edits = normalizeExactEdits(input);
-          const destination = await prepareWritePath(workspaceRoot, input.path, fileSystem, true);
           const stats = await fileSystem.lstat(destination.target);
           if (!stats.isFile()) {
             throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'edit_file requires a regular file.');
@@ -407,7 +418,7 @@ interface PreparedWritePath {
   readonly canonicalParent: string;
 }
 
-function writeLockKey(workspaceRoot: string, requestedPath: string): string {
+function resolveWriteTarget(workspaceRoot: string, requestedPath: string): string {
   if (isAbsolute(requestedPath) || requestedPath.split(/[\\/]/).includes('..')) {
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
@@ -416,6 +427,10 @@ function writeLockKey(workspaceRoot: string, requestedPath: string): string {
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
   return target;
+}
+
+function writeLockKey(destination: PreparedWritePath): string {
+  return resolve(destination.canonicalParent, basename(destination.target));
 }
 
 async function withPathLock<T>(
@@ -436,13 +451,33 @@ async function withPathLock<T>(
   }
 }
 
+async function withPreparedPathLock<T>(
+  pendingPathPreparations: Map<string, Promise<void>>,
+  pendingWrites: Map<string, Promise<void>>,
+  workspaceRoot: string,
+  requestedPath: string,
+  fileSystem: WriteFileSystem,
+  requireExisting: boolean,
+  abortSignal: AbortSignal | undefined,
+  operation: (destination: PreparedWritePath) => Promise<T>,
+): Promise<T> {
+  throwIfAborted(abortSignal);
+  let mutation!: Promise<T>;
+  await withPathLock(pendingPathPreparations, workspaceRoot, async () => {
+    throwIfAborted(abortSignal);
+    const destination = await prepareWritePath(workspaceRoot, requestedPath, fileSystem, requireExisting);
+    mutation = withPathLock(pendingWrites, writeLockKey(destination), () => operation(destination));
+  });
+  return mutation;
+}
+
 async function prepareWritePath(
   workspaceRoot: string,
   requestedPath: string,
   fileSystem: WriteFileSystem,
   requireExisting = false,
 ): Promise<PreparedWritePath> {
-  const target = writeLockKey(workspaceRoot, requestedPath);
+  const target = resolveWriteTarget(workspaceRoot, requestedPath);
   if (target === workspaceRoot) {
     throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'File tools require a file path.');
   }
@@ -509,7 +544,8 @@ async function atomicWrite(
     handle = undefined;
     throwIfAborted(abortSignal);
 
-    await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem);
+    const existingMode = await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem);
+    if (existingMode !== undefined) await fileSystem.chmod(temporary, existingMode);
     const currentParent = await fileSystem.realpath(destination.parent);
     assertWithin(workspaceRoot, currentParent);
     if (currentParent !== destination.canonicalParent) {
@@ -528,7 +564,7 @@ async function validateExistingWriteTarget(
   workspaceRoot: string,
   target: string,
   fileSystem: WriteFileSystem,
-): Promise<void> {
+): Promise<number | undefined> {
   try {
     const canonical = await fileSystem.realpath(target);
     assertWithin(workspaceRoot, canonical);
@@ -536,8 +572,10 @@ async function validateExistingWriteTarget(
     if (!stats.isFile()) {
       throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'File tools require a regular file.');
     }
+    return Number(stats.mode) & 0o777;
   } catch (error) {
     if (!isMissingPathError(error)) throw error;
+    return undefined;
   }
 }
 

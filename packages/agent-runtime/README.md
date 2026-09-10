@@ -91,8 +91,9 @@ longer has that content, the mutation returns `VERSION_CONFLICT` without
 changing it. Omitting `expectedVersion` preserves unconditional-write behavior.
 
 Writes revalidate the real parent and existing target immediately before the
-atomic rename, remove temporary files after failures, and serialize operations
-that resolve to the same workspace path. `edit_file` never uses fuzzy matching.
+atomic rename, preserve an existing file's POSIX permission bits, remove
+temporary files after failures, and serialize operations that resolve to the
+same canonical workspace target. `edit_file` never uses fuzzy matching.
 Its `edits` form matches every `oldText` against the same original content,
 requires every match to be unique and non-overlapping, and applies the complete
 batch atomically. Missing, multiple, and overlapping matches return distinct

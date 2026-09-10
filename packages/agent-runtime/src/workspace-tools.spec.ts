@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, mkdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -114,6 +114,32 @@ describe('workspace tools', () => {
       version: 'sha256:6c1aa50442a93e42c0eb2907cf4e017cd19547891fa190f3ea473582b0479290',
     });
     await expect(readFile(join(root, 'notes', 'today.txt'), 'utf8')).resolves.toBe('replaced');
+  });
+
+  it.runIf(process.platform !== 'win32')('preserves POSIX permissions when atomically replacing an existing file', async () => {
+    const root = await workspace();
+    const target = join(root, 'executable.sh');
+    await writeFile(target, 'old', { mode: 0o755 });
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'write_file', { path: 'executable.sh', content: 'new' })).resolves.toMatchObject({
+      ok: true,
+      created: false,
+    });
+
+    expect((await stat(target)).mode & 0o777).toBe(0o755);
+  });
+
+  it.runIf(process.platform !== 'win32')('creates new files with private POSIX permissions', async () => {
+    const root = await workspace();
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'write_file', { path: 'private.txt', content: 'new' })).resolves.toMatchObject({
+      ok: true,
+      created: true,
+    });
+
+    expect((await stat(join(root, 'private.txt'))).mode & 0o777).toBe(0o600);
   });
 
   it('performs one exact edit and rejects zero or multiple matches without changing the file', async () => {
@@ -405,6 +431,81 @@ describe('workspace tools', () => {
     await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
     expect(committed).toEqual(['first', 'second']);
     await expect(readFile(join(root, 'same.txt'), 'utf8')).resolves.toBe('second');
+  });
+
+  it('serializes concurrent edits through directory symlink aliases of the same file', async () => {
+    const root = await workspace();
+    await mkdir(join(root, 'real'));
+    await writeFile(join(root, 'real', 'shared.txt'), 'alpha beta');
+    await symlink('real', join(root, 'alias'));
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    let firstRenameStarted = false;
+    const committed: string[] = [];
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        rename: async (source, target) => {
+          const content = await readFile(source, 'utf8');
+          if (content === 'ALPHA beta') {
+            firstRenameStarted = true;
+            await firstCanFinish;
+          }
+          await rename(source, target);
+          committed.push(content);
+        },
+      },
+    });
+
+    const first = execute(tools, 'edit_file', {
+      path: 'real/shared.txt', oldText: 'alpha', newText: 'ALPHA',
+    });
+    await vi.waitFor(() => expect(firstRenameStarted).toBe(true));
+    const second = execute(tools, 'edit_file', {
+      path: 'alias/shared.txt', oldText: 'beta', newText: 'BETA',
+    });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(committed).toEqual([]);
+    releaseFirst();
+
+    await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
+    expect(committed).toEqual(['ALPHA beta', 'ALPHA BETA']);
+    await expect(readFile(join(root, 'real', 'shared.txt'), 'utf8')).resolves.toBe('ALPHA BETA');
+  });
+
+  it('serializes writes through directory symlink aliases for a new file', async () => {
+    const root = await workspace();
+    await mkdir(join(root, 'real'));
+    await symlink('real', join(root, 'alias'));
+    let releaseFirst!: () => void;
+    const firstCanFinish = new Promise<void>(resolve => { releaseFirst = resolve; });
+    let firstRenameStarted = false;
+    const committed: string[] = [];
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        rename: async (source, target) => {
+          const content = await readFile(source, 'utf8');
+          if (content === 'first') {
+            firstRenameStarted = true;
+            await firstCanFinish;
+          }
+          await rename(source, target);
+          committed.push(content);
+        },
+      },
+    });
+
+    const first = execute(tools, 'write_file', { path: 'real/new.txt', content: 'first' });
+    await vi.waitFor(() => expect(firstRenameStarted).toBe(true));
+    const second = execute(tools, 'write_file', { path: 'alias/new.txt', content: 'second' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(committed).toEqual([]);
+    releaseFirst();
+
+    await expect(Promise.all([first, second])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
+    expect(committed).toEqual(['first', 'second']);
+    await expect(readFile(join(root, 'real', 'new.txt'), 'utf8')).resolves.toBe('second');
   });
 
   it('returns cancellation before a queued write changes the file', async () => {
