@@ -119,8 +119,16 @@ The CLI startup directory is the workspace root. Tool paths must be relative to
 that root; absolute paths, `..` escapes, prefix-confusion paths, and symlinks
 that resolve outside it are rejected. Read/search results are capped and report
 truncation. `write_file` and exact `edit_file` use atomic replacement, serialize
-changes to the same path, and reject content over 1,048,576 bytes. They do not
-expose shell commands.
+changes to the same path, and reject content over 1,048,576 bytes. Successful
+`read_file`, `write_file`, and `edit_file` results include a complete-content
+`sha256:<hex>` version. `write_file` and `edit_file` accept an optional
+`expectedVersion`; a stale value returns `VERSION_CONFLICT` without changing
+the file. `edit_file` supports the legacy single exact replacement and batches
+of up to 100 replacements: every literal `oldText` must match exactly once in
+the original content, ranges must be non-overlapping, and the whole batch is
+atomic. The cumulative edit input and resulting content are each limited to
+1,048,576 UTF-8 bytes; matching is never fuzzy. They do not expose shell
+commands.
 
 For configuration precedence, saved preference locations, plain-mode behavior,
 and provider-specific examples, see the

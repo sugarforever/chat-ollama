@@ -3,7 +3,7 @@ title: ChatOllama Agent Runtime 的工作区写入工具
 date: 2026-09-09
 ---
 
-`ChatOllama Agent Runtime` 已经能在 workspace root 内读取和检索文件。这次我继续补上 `write_file` 与 `edit_file`，让模型可以创建文本文件、完整覆盖文件，以及完成一次可验证的精确替换。
+`ChatOllama Agent Runtime` 已经能在 workspace root 内读取和检索文件。这次我继续补上 `write_file` 与 `edit_file`，让模型可以创建文本文件、完整覆盖文件，以及完成可验证的精确替换和批量替换。
 
 写文件带来的问题不只是多调用一个文件系统 API。路径可能在检查之后发生变化，写入可能中途失败，同一个文件也可能被多个工具调用同时修改。我会利用这次实现梳理这些边界怎样落到代码和测试里，期望对大家有所帮助。
 
@@ -23,11 +23,15 @@ date: 2026-09-09
 
 单次结果内容上限是 1,048,576 字节。`write_file` 在接触文件系统前检查完整内容，`edit_file` 则同时限制原文件和替换后的结果，避免一次工具调用读写无界文本。
 
-## 精确替换只接受一个答案
+## 内容版本与条件写入
 
-`edit_file` 的输入是 `oldText` 和 `newText`。它读取现有 UTF-8 文件后进行字面量匹配，不使用正则表达式，也不做相似度或模糊匹配。
+成功的 `read_file`、`write_file` 和 `edit_file` 结果都会返回基于完整文件内容计算的 `sha256:<hex>` 版本。模型可以把这个版本作为 `expectedVersion` 传给 `write_file` 或 `edit_file`，要求只有文件仍未变化时才提交；版本过期会返回 `VERSION_CONFLICT`，并保持文件不变。不提供 `expectedVersion` 时，仍保留无条件写入行为。
 
-只有恰好出现一次时才会生成新内容。零匹配返回 `EDIT_NOT_FOUND`，多匹配返回 `EDIT_NOT_UNIQUE`，两种情况都不会写文件。这个约束让模型必须先读取上下文，再提供足够明确的原文，而不是让 Runtime 静默选择某一个位置。
+## 精确替换只接受严格答案
+
+`edit_file` 兼容旧的单个 `oldText`/`newText` 输入，也接受最多 100 项的 `edits` 批量输入。它读取现有 UTF-8 文件后，对每个 `oldText` 针对同一份原始内容进行严格、区分大小写的字面量匹配，不使用正则表达式，也不做相似度或模糊匹配。每个 `oldText` 必须恰好出现一次，匹配区间必须互不重叠；所有检查通过后才会一次性提交整个批次。
+
+零匹配返回 `EDIT_NOT_FOUND`，多匹配返回 `EDIT_NOT_UNIQUE`，重叠返回 `EDIT_OVERLAP`，任一失败都不会写文件。所有编辑输入（每项 `oldText` 与 `newText` 的 UTF-8 字节总数）和替换后的结果内容分别限制为 1,048,576 字节。这个约束让模型必须先读取上下文，再提供足够明确的原文，而不是让 Runtime 静默选择某一个位置。
 
 ## 同一路径按顺序修改
 

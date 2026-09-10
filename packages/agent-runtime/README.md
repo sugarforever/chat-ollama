@@ -72,8 +72,8 @@ Workspace output limits are part of the tool results:
 | `list_directory` | 1,000 entries and 65,536 output bytes |
 | `grep` | 100 matches and 65,536 output bytes |
 | `find_files` | 1,000 files and 65,536 output bytes |
-| `write_file` | 1,048,576 content bytes; creates missing parent directories and atomically creates or replaces the file; accepts optional `expectedVersion` |
-| `edit_file` | 100 replacements, 1,048,576 cumulative edit-input bytes, and 1,048,576 resulting content bytes; accepts one legacy exact replacement or an `edits` array of disjoint exact replacements; accepts optional `expectedVersion` |
+| `write_file` | 1,048,576 UTF-8 content bytes; creates missing parent directories and atomically creates or replaces the file; returns a content version and accepts optional `expectedVersion` |
+| `edit_file` | Up to 100 replacements, 1,048,576 cumulative UTF-8 edit-input bytes (`oldText` plus `newText`), and 1,048,576 resulting content bytes; returns a content version; accepts one legacy exact replacement or an `edits` array; accepts optional `expectedVersion` |
 
 Every successful read/search result contains `truncated`; a true value means
 the model saw only the bounded prefix. Expected failures return `ok: false` with a stable
@@ -93,12 +93,13 @@ changing it. Omitting `expectedVersion` preserves unconditional-write behavior.
 Writes revalidate the real parent and existing target immediately before the
 atomic rename, preserve an existing file's POSIX permission bits, remove
 temporary files after failures, and serialize operations that resolve to the
-same canonical workspace target. `edit_file` never uses fuzzy matching.
-Its `edits` form matches every `oldText` against the same original content,
-requires every match to be unique and non-overlapping, and applies the complete
-batch atomically. Missing, multiple, and overlapping matches return distinct
-stable errors without changing the file. The legacy `oldText`/`newText` form
-remains supported. Both write tools observe cancellation before committing.
+same canonical workspace target. `edit_file` uses strict, case-sensitive
+literal matching and never uses fuzzy matching. Its `edits` form matches every
+`oldText` against the same original content, requires each one to occur exactly
+once and all ranges to be non-overlapping, and applies the complete batch
+atomically. Missing, multiple, and overlapping matches return distinct stable
+errors without changing the file. The legacy `oldText`/`newText` form remains
+supported. Both write tools observe cancellation before committing.
 
 This confinement boundary treats model-provided paths, content, and search text as
 untrusted. It is not an OS sandbox against a separate hostile process running
