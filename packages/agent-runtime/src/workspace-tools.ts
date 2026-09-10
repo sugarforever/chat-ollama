@@ -436,8 +436,8 @@ function resolveWriteTarget(workspaceRoot: string, requestedPath: string): strin
 }
 
 function writeLockKey(destination: PreparedWritePath): string {
-  return destination.canonicalTarget
-    ?? resolve(destination.canonicalParent, basename(destination.target).normalize('NFC').toLowerCase());
+  const identity = destination.canonicalTarget ?? resolve(destination.canonicalParent, basename(destination.target));
+  return resolve(dirname(identity), basename(identity).normalize('NFC').toLowerCase());
 }
 
 async function withPathLock<T>(

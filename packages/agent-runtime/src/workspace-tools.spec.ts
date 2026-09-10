@@ -542,6 +542,50 @@ describe('workspace tools', () => {
     await expect(readFile(join(root, 'created.txt'), 'utf8')).resolves.toBe('beta');
   });
 
+  it('keeps a mutation lock stable while a target changes from missing to existing', async () => {
+    const root = await workspace();
+    let releaseWrite!: () => void;
+    const writeCanFinish = new Promise<void>(resolve => { releaseWrite = resolve; });
+    let releaseFirstEdit!: () => void;
+    const firstEditCanFinish = new Promise<void>(resolve => { releaseFirstEdit = resolve; });
+    let writeRenameStarted = false;
+    let firstEditRenameStarted = false;
+    const committed: string[] = [];
+    const tools = createWorkspaceTools({
+      workspaceRoot: root,
+      fileSystem: {
+        rename: async (source, target) => {
+          const content = await readFile(source, 'utf8');
+          if (content === 'alpha beta') {
+            writeRenameStarted = true;
+            await writeCanFinish;
+          }
+          if (content === 'ALPHA beta') {
+            firstEditRenameStarted = true;
+            await firstEditCanFinish;
+          }
+          await rename(source, target);
+          committed.push(content);
+        },
+      },
+    });
+
+    const write = execute(tools, 'write_file', { path: 'Case.txt', content: 'alpha beta' });
+    await vi.waitFor(() => expect(writeRenameStarted).toBe(true));
+    const beforeCreation = execute(tools, 'edit_file', { path: 'Case.txt', oldText: 'alpha', newText: 'ALPHA' });
+    releaseWrite();
+    await expect(write).resolves.toMatchObject({ ok: true });
+    await vi.waitFor(() => expect(firstEditRenameStarted).toBe(true));
+    const afterCreation = execute(tools, 'edit_file', { path: 'Case.txt', oldText: 'beta', newText: 'BETA' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(committed).toEqual(['alpha beta']);
+    releaseFirstEdit();
+
+    await expect(Promise.all([beforeCreation, afterCreation])).resolves.toMatchObject([{ ok: true }, { ok: true }]);
+    expect(committed).toEqual(['alpha beta', 'ALPHA beta', 'ALPHA BETA']);
+    await expect(readFile(join(root, 'Case.txt'), 'utf8')).resolves.toBe('ALPHA BETA');
+  });
+
   it('serializes concurrent edits through directory symlink aliases of the same file', async () => {
     const root = await workspace();
     await mkdir(join(root, 'real'));
