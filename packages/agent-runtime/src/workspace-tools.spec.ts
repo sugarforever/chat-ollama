@@ -41,17 +41,77 @@ async function execute(
 }
 
 describe('workspace tools', () => {
+  it('returns content versions and rejects stale conditional writes without changing the file', async () => {
+    const root = await workspace();
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    const initial = await execute(tools, 'write_file', { path: 'versioned.txt', content: 'abc' });
+    expect(initial).toMatchObject({
+      ok: true,
+      version: 'sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    });
+    await expect(execute(tools, 'read_file', { path: 'versioned.txt' })).resolves.toMatchObject({
+      ok: true,
+      version: 'sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    });
+
+    await expect(execute(tools, 'write_file', {
+      path: 'versioned.txt',
+      content: 'overwritten',
+      expectedVersion: `sha256:${'0'.repeat(64)}`,
+    })).resolves.toEqual({
+      ok: false,
+      error: { code: 'VERSION_CONFLICT', message: 'File content changed since it was read.' },
+    });
+    await expect(readFile(join(root, 'versioned.txt'), 'utf8')).resolves.toBe('abc');
+
+    await expect(execute(tools, 'write_file', {
+      path: 'versioned.txt', content: 'updated', expectedVersion: initial.version,
+    })).resolves.toMatchObject({ ok: true, created: false, version: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) });
+    await expect(readFile(join(root, 'versioned.txt'), 'utf8')).resolves.toBe('updated');
+  });
+
+  it('rejects a stale conditional edit without changing the file', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'versioned.txt'), 'before needle after');
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'edit_file', {
+      path: 'versioned.txt',
+      oldText: 'needle',
+      newText: 'replacement',
+      expectedVersion: `sha256:${'0'.repeat(64)}`,
+    })).resolves.toEqual({
+      ok: false,
+      error: { code: 'VERSION_CONFLICT', message: 'File content changed since it was read.' },
+    });
+    await expect(readFile(join(root, 'versioned.txt'), 'utf8')).resolves.toBe('before needle after');
+  });
+
+  it('returns the SHA-256 version for an empty file', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'empty.txt'), '');
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'read_file', { path: 'empty.txt' })).resolves.toMatchObject({
+      ok: true,
+      version: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    });
+  });
+
   it('creates parent directories and atomically creates or overwrites text files', async () => {
     const root = await workspace();
     const tools = createWorkspaceTools({ workspaceRoot: root });
 
     await expect(execute(tools, 'write_file', { path: 'notes/today.txt', content: 'first\n' })).resolves.toEqual({
       ok: true, path: 'notes/today.txt', bytesWritten: 6, created: true,
+      version: 'sha256:b640e840b19d378660b32fb51ae18d67dccb4a8596a29e7bd72c1b2ae5928f41',
     });
     await expect(readFile(join(root, 'notes', 'today.txt'), 'utf8')).resolves.toBe('first\n');
 
     await expect(execute(tools, 'write_file', { path: 'notes/today.txt', content: 'replaced' })).resolves.toEqual({
       ok: true, path: 'notes/today.txt', bytesWritten: 8, created: false,
+      version: 'sha256:6c1aa50442a93e42c0eb2907cf4e017cd19547891fa190f3ea473582b0479290',
     });
     await expect(readFile(join(root, 'notes', 'today.txt'), 'utf8')).resolves.toBe('replaced');
   });
@@ -68,6 +128,7 @@ describe('workspace tools', () => {
       path: 'unique.txt', oldText: 'needle', newText: 'replacement',
     })).resolves.toEqual({
       ok: true, path: 'unique.txt', bytesWritten: 24, replacements: 1,
+      version: 'sha256:509f6a46187337d8ccf168bfcb6652bea148932b0082e9505aadb9edc0405ba3',
     });
     await expect(readFile(join(root, 'unique.txt'), 'utf8')).resolves.toBe('before replacement after');
 
@@ -88,6 +149,87 @@ describe('workspace tools', () => {
     });
     await expect(readFile(join(root, 'zero.txt'), 'utf8')).resolves.toBe('unchanged');
     await expect(readFile(join(root, 'multiple.txt'), 'utf8')).resolves.toBe('needle and needle');
+  });
+
+  it('atomically applies multiple disjoint exact edits matched against the original content', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'batch.txt'), 'alpha beta gamma');
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    await expect(execute(tools, 'edit_file', {
+      path: 'batch.txt',
+      edits: [
+        { oldText: 'gamma', newText: 'G' },
+        { oldText: 'alpha', newText: 'A' },
+      ],
+    })).resolves.toMatchObject({
+      ok: true,
+      path: 'batch.txt',
+      bytesWritten: 8,
+      replacements: 2,
+    });
+    await expect(readFile(join(root, 'batch.txt'), 'utf8')).resolves.toBe('A beta G');
+  });
+
+  it('rejects an entire batch when an edit is missing, non-unique, or overlaps another edit', async () => {
+    const root = await workspace();
+    const original = 'alpha beta beta';
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+
+    for (const [edits, error] of [
+      [
+        [{ oldText: 'alpha', newText: 'A' }, { oldText: 'missing', newText: 'M' }],
+        { code: 'EDIT_NOT_FOUND', message: 'Exact text was not found in the file.' },
+      ],
+      [
+        [{ oldText: 'alpha', newText: 'A' }, { oldText: 'beta', newText: 'B' }],
+        { code: 'EDIT_NOT_UNIQUE', message: 'Exact text occurs more than once in the file.' },
+      ],
+      [
+        [{ oldText: 'alpha', newText: 'A' }, { oldText: 'alpha', newText: 'B' }],
+        { code: 'EDIT_OVERLAP', message: 'Exact edit ranges overlap.' },
+      ],
+    ] as const) {
+      await writeFile(join(root, 'batch.txt'), original);
+      await expect(execute(tools, 'edit_file', { path: 'batch.txt', edits })).resolves.toEqual({ ok: false, error });
+      await expect(readFile(join(root, 'batch.txt'), 'utf8')).resolves.toBe(original);
+    }
+  });
+
+  it('makes legacy and batch edit input shapes mutually exclusive', async () => {
+    const root = await workspace();
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+    const schema = tools.edit_file!.inputSchema as unknown as {
+      safeParse: (input: unknown) => { success: boolean };
+    };
+
+    expect(schema.safeParse({
+      path: 'ambiguous.txt',
+      oldText: 'legacy',
+      newText: 'Legacy',
+      edits: [{ oldText: 'batch', newText: 'Batch' }],
+    }).success).toBe(false);
+  });
+
+  it('rejects oversized edit batches before matching or changing the file', async () => {
+    const root = await workspace();
+    await writeFile(join(root, 'batch.txt'), 'unchanged');
+    const tools = createWorkspaceTools({ workspaceRoot: root });
+    const tooMany = Array.from({ length: 101 }, (_, index) => ({ oldText: `missing-${index}`, newText: '' }));
+    const tooLarge = [
+      { oldText: 'x'.repeat(600_000), newText: '' },
+      { oldText: 'y'.repeat(600_000), newText: '' },
+    ];
+
+    await expect(execute(tools, 'edit_file', { path: 'batch.txt', edits: tooMany })).resolves.toEqual({
+      ok: false,
+      error: { code: 'EDIT_LIMIT_EXCEEDED', message: 'Edit batch exceeds the 100-replacement limit.' },
+    });
+    await expect(execute(tools, 'edit_file', { path: 'batch.txt', edits: tooLarge })).resolves.toEqual({
+      ok: false,
+      error: { code: 'CONTENT_TOO_LARGE', message: 'File content exceeds the 1,048,576-byte limit.' },
+    });
+    await expect(readFile(join(root, 'batch.txt'), 'utf8')).resolves.toBe('unchanged');
   });
 
   it('rejects oversized writes and edits before changing workspace files', async () => {

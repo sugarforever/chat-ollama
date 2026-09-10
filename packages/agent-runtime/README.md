@@ -72,8 +72,8 @@ Workspace output limits are part of the tool results:
 | `list_directory` | 1,000 entries and 65,536 output bytes |
 | `grep` | 100 matches and 65,536 output bytes |
 | `find_files` | 1,000 files and 65,536 output bytes |
-| `write_file` | 1,048,576 content bytes; creates missing parent directories and atomically creates or replaces the file |
-| `edit_file` | 1,048,576 resulting content bytes; requires one exact literal match in an existing UTF-8 file |
+| `write_file` | 1,048,576 content bytes; creates missing parent directories and atomically creates or replaces the file; accepts optional `expectedVersion` |
+| `edit_file` | 100 replacements, 1,048,576 cumulative edit-input bytes, and 1,048,576 resulting content bytes; accepts one legacy exact replacement or an `edits` array of disjoint exact replacements; accepts optional `expectedVersion` |
 
 Every successful read/search result contains `truncated`; a true value means
 the model saw only the bounded prefix. Expected failures return `ok: false` with a stable
@@ -84,11 +84,20 @@ Runtime-owned argv arrays and `shell: false`. They do not require `rg` on the
 host's `PATH`. Model text occupies one argument and cannot inject a flag or
 command.
 
+Successful `read_file`, `write_file`, and `edit_file` results include a
+`sha256:<hex>` version computed from the complete file content. A version may be
+passed back as `expectedVersion` to `write_file` or `edit_file`; if the file no
+longer has that content, the mutation returns `VERSION_CONFLICT` without
+changing it. Omitting `expectedVersion` preserves unconditional-write behavior.
+
 Writes revalidate the real parent and existing target immediately before the
 atomic rename, remove temporary files after failures, and serialize operations
-that resolve to the same workspace path. `edit_file` never uses fuzzy matching:
-zero matches and multiple matches return different stable errors without
-changing the file. Both write tools observe cancellation before committing.
+that resolve to the same workspace path. `edit_file` never uses fuzzy matching.
+Its `edits` form matches every `oldText` against the same original content,
+requires every match to be unique and non-overlapping, and applies the complete
+batch atomically. Missing, multiple, and overlapping matches return distinct
+stable errors without changing the file. The legacy `oldText`/`newText` form
+remains supported. Both write tools observe cancellation before committing.
 
 This confinement boundary treats model-provided paths, content, and search text as
 untrusted. It is not an OS sandbox against a separate hostile process running

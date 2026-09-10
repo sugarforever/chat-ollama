@@ -1,5 +1,5 @@
 import { spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { lstat, mkdir, open, readFile, readdir, realpath, rename, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
@@ -16,6 +16,7 @@ const MAX_DIRECTORY_ENTRIES = 1_000;
 const MAX_GREP_MATCHES = 100;
 const MAX_FOUND_FILES = 1_000;
 const MAX_WRITE_BYTES = 1_048_576;
+const MAX_EDIT_REPLACEMENTS = 100;
 
 type Spawn = (
   command: string,
@@ -43,13 +44,16 @@ type ErrorCode =
   | 'CANCELLED'
   | 'CONTENT_TOO_LARGE'
   | 'EDIT_NOT_FOUND'
+  | 'EDIT_LIMIT_EXCEEDED'
+  | 'EDIT_OVERLAP'
   | 'EDIT_NOT_UNIQUE'
   | 'INVALID_UTF8'
   | 'PATH_NOT_FOUND'
   | 'PATH_OUTSIDE_WORKSPACE'
   | 'SEARCH_FAILED'
   | 'TOOL_FAILED'
-  | 'UNSUPPORTED_TYPE';
+  | 'UNSUPPORTED_TYPE'
+  | 'VERSION_CONFLICT';
 
 interface ToolErrorResult {
   readonly ok: false;
@@ -66,6 +70,8 @@ const errorMessages: Record<ErrorCode, string> = {
   CANCELLED: 'Tool execution was cancelled.',
   CONTENT_TOO_LARGE: 'File content exceeds the 1,048,576-byte limit.',
   EDIT_NOT_FOUND: 'Exact text was not found in the file.',
+  EDIT_LIMIT_EXCEEDED: 'Edit batch exceeds the 100-replacement limit.',
+  EDIT_OVERLAP: 'Exact edit ranges overlap.',
   EDIT_NOT_UNIQUE: 'Exact text occurs more than once in the file.',
   INVALID_UTF8: 'File is not valid UTF-8 text.',
   PATH_NOT_FOUND: 'Path does not exist in the workspace.',
@@ -73,7 +79,14 @@ const errorMessages: Record<ErrorCode, string> = {
   SEARCH_FAILED: 'Workspace search failed.',
   TOOL_FAILED: 'Workspace tool failed.',
   UNSUPPORTED_TYPE: 'Path type is not supported.',
+  VERSION_CONFLICT: 'File content changed since it was read.',
 };
+
+const contentVersionSchema = z.string().regex(/^sha256:[0-9a-f]{64}$/).describe('Version returned by read_file or a previous mutation.');
+const exactEditSchema = z.object({
+  oldText: z.string().min(1).describe('Exact literal text that must occur once in the original file.'),
+  newText: z.string().describe('Literal replacement text.'),
+});
 
 export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): ToolSet {
   const workspaceRoot = realpathSync(options.workspaceRoot);
@@ -96,6 +109,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
       inputSchema: z.object({
         path: z.string().min(1).describe('Workspace-relative file path.'),
         content: z.string().describe('Complete UTF-8 file content.'),
+        expectedVersion: contentVersionSchema.optional().describe('Only write if the current file has this content version.'),
       }),
       execute: async (input, execution) => withStableErrors(() => withPathLock(
         pendingWrites,
@@ -105,28 +119,42 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
           assertContentSize(input.content);
           const destination = await prepareWritePath(workspaceRoot, input.path, fileSystem);
           const created = !(await pathExists(destination.target, fileSystem));
+          await assertExpectedVersion(destination.target, input.expectedVersion, fileSystem, execution.abortSignal);
           await atomicWrite(destination, input.content, workspaceRoot, fileSystem, execution.abortSignal);
           return {
             ok: true as const,
             path: toWorkspacePath(workspaceRoot, destination.target),
             bytesWritten: Buffer.byteLength(input.content),
             created,
+            version: contentVersion(Buffer.from(input.content)),
           };
         },
       )),
     }),
     edit_file: tool({
-      description: `Replace exactly one literal text occurrence in an existing UTF-8 workspace file. The resulting content is limited to ${MAX_WRITE_BYTES.toLocaleString('en-US')} bytes.`,
-      inputSchema: z.object({
-        path: z.string().min(1).describe('Workspace-relative existing file path.'),
-        oldText: z.string().min(1).describe('Exact literal text that must occur once.'),
-        newText: z.string().describe('Literal replacement text.'),
-      }),
+      description: `Apply one or more non-overlapping exact literal replacements to an existing UTF-8 workspace file. Every oldText must occur once in the original file. The resulting content is limited to ${MAX_WRITE_BYTES.toLocaleString('en-US')} bytes.`,
+      inputSchema: z.union([
+        z.object({
+          path: z.string().min(1).describe('Workspace-relative existing file path.'),
+          oldText: z.string().min(1).describe('Exact literal text that must occur once.'),
+          newText: z.string().describe('Literal replacement text.'),
+          edits: z.never().optional(),
+          expectedVersion: contentVersionSchema.optional().describe('Only edit if the current file has this content version.'),
+        }),
+        z.object({
+          path: z.string().min(1).describe('Workspace-relative existing file path.'),
+          edits: z.array(exactEditSchema).min(1).max(MAX_EDIT_REPLACEMENTS).describe('Disjoint replacements matched against the original file.'),
+          oldText: z.never().optional(),
+          newText: z.never().optional(),
+          expectedVersion: contentVersionSchema.optional().describe('Only edit if the current file has this content version.'),
+        }),
+      ]),
       execute: async (input, execution) => withStableErrors(() => withPathLock(
         pendingWrites,
         writeLockKey(workspaceRoot, input.path),
         async () => {
           throwIfAborted(execution.abortSignal);
+          const edits = normalizeExactEdits(input);
           const destination = await prepareWritePath(workspaceRoot, input.path, fileSystem, true);
           const stats = await fileSystem.lstat(destination.target);
           if (!stats.isFile()) {
@@ -146,25 +174,22 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
           if (bytes.byteLength > MAX_WRITE_BYTES) {
             throw new WorkspaceToolError('CONTENT_TOO_LARGE', errorMessages.CONTENT_TOO_LARGE);
           }
+          assertVersionMatches(bytes, input.expectedVersion);
           let content: string;
           try {
             content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
           } catch {
             throw new WorkspaceToolError('INVALID_UTF8', errorMessages.INVALID_UTF8);
           }
-          const first = content.indexOf(input.oldText);
-          if (first < 0) throw new WorkspaceToolError('EDIT_NOT_FOUND', errorMessages.EDIT_NOT_FOUND);
-          if (content.indexOf(input.oldText, first + 1) >= 0) {
-            throw new WorkspaceToolError('EDIT_NOT_UNIQUE', errorMessages.EDIT_NOT_UNIQUE);
-          }
-          const updated = `${content.slice(0, first)}${input.newText}${content.slice(first + input.oldText.length)}`;
+          const updated = applyExactEdits(content, edits);
           assertContentSize(updated);
           await atomicWrite(destination, updated, workspaceRoot, fileSystem, execution.abortSignal);
           return {
             ok: true as const,
             path: toWorkspacePath(workspaceRoot, destination.target),
             bytesWritten: Buffer.byteLength(updated),
-            replacements: 1,
+            replacements: edits.length,
+            version: contentVersion(Buffer.from(updated)),
           };
         },
       )),
@@ -201,7 +226,15 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         }
         const lines = splitLines(text);
         if (lines.length === 0) {
-          return { ok: true as const, content: '', truncated: false, startLine: 0, endLine: 0, limits: readLimits() };
+          return {
+            ok: true as const,
+            content: '',
+            version: contentVersion(bytes),
+            truncated: false,
+            startLine: 0,
+            endLine: 0,
+            limits: readLimits(),
+          };
         }
         const start = Math.min(input.offset ?? 1, lines.length + 1);
         const requestedLimit = Math.min(input.limit ?? MAX_READ_LINES, MAX_READ_LINES);
@@ -216,6 +249,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         return {
           ok: true as const,
           content,
+          version: contentVersion(bytes),
           truncated,
           startLine: selected.length === 0 ? 0 : start,
           endLine: bounded.includedValues === 0 ? 0 : start + bounded.includedValues - 1,
@@ -521,6 +555,84 @@ function assertContentSize(content: string): void {
   if (Buffer.byteLength(content) > MAX_WRITE_BYTES) {
     throw new WorkspaceToolError('CONTENT_TOO_LARGE', errorMessages.CONTENT_TOO_LARGE);
   }
+}
+
+type ExactEdit = { readonly oldText: string; readonly newText: string };
+
+function normalizeExactEdits(input: {
+  readonly edits?: readonly ExactEdit[];
+  readonly oldText?: string;
+  readonly newText?: string;
+}): readonly ExactEdit[] {
+  const edits = input.edits ?? [{ oldText: input.oldText!, newText: input.newText! }];
+  if (edits.length > MAX_EDIT_REPLACEMENTS) {
+    throw new WorkspaceToolError('EDIT_LIMIT_EXCEEDED', errorMessages.EDIT_LIMIT_EXCEEDED);
+  }
+  let inputBytes = 0;
+  for (const edit of edits) {
+    inputBytes += Buffer.byteLength(edit.oldText) + Buffer.byteLength(edit.newText);
+    if (inputBytes > MAX_WRITE_BYTES) {
+      throw new WorkspaceToolError('CONTENT_TOO_LARGE', errorMessages.CONTENT_TOO_LARGE);
+    }
+  }
+  return edits;
+}
+
+function applyExactEdits(content: string, edits: readonly ExactEdit[]): string {
+  const matches = edits.map(edit => {
+    const start = content.indexOf(edit.oldText);
+    if (start < 0) throw new WorkspaceToolError('EDIT_NOT_FOUND', errorMessages.EDIT_NOT_FOUND);
+    if (content.indexOf(edit.oldText, start + 1) >= 0) {
+      throw new WorkspaceToolError('EDIT_NOT_UNIQUE', errorMessages.EDIT_NOT_UNIQUE);
+    }
+    return { ...edit, start, end: start + edit.oldText.length };
+  }).sort((left, right) => left.start - right.start);
+
+  for (let index = 1; index < matches.length; index += 1) {
+    if (matches[index - 1]!.end > matches[index]!.start) {
+      throw new WorkspaceToolError('EDIT_OVERLAP', errorMessages.EDIT_OVERLAP);
+    }
+  }
+
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const match of matches) {
+    parts.push(content.slice(cursor, match.start), match.newText);
+    cursor = match.end;
+  }
+  parts.push(content.slice(cursor));
+  return parts.join('');
+}
+
+function contentVersion(content: Uint8Array): string {
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`;
+}
+
+function assertVersionMatches(content: Uint8Array, expectedVersion?: string): void {
+  if (expectedVersion !== undefined && contentVersion(content) !== expectedVersion) {
+    throw new WorkspaceToolError('VERSION_CONFLICT', errorMessages.VERSION_CONFLICT);
+  }
+}
+
+async function assertExpectedVersion(
+  target: string,
+  expectedVersion: string | undefined,
+  fileSystem: WriteFileSystem,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (expectedVersion === undefined) return;
+  let content: Buffer;
+  try {
+    content = await fileSystem.readFile(target, { signal });
+  } catch (error) {
+    if (signal?.aborted) throw new WorkspaceToolError('CANCELLED', errorMessages.CANCELLED);
+    if (isNodeError(error) && error.code === 'ENOENT') {
+      throw new WorkspaceToolError('VERSION_CONFLICT', errorMessages.VERSION_CONFLICT);
+    }
+    throw error;
+  }
+  throwIfAborted(signal);
+  assertVersionMatches(content, expectedVersion);
 }
 
 function assertWithin(workspaceRoot: string, target: string): void {
