@@ -126,6 +126,55 @@ describe('workspace Skill discovery', () => {
     });
   });
 
+  it('rejects an external Skills-root symlink before enumerating it', async () => {
+    const root = await createRoot();
+    const outside = await createRoot();
+    await createSkill(outside, 'private-directory-name', '---\nname: escaped\ndescription: Outside\n---\n');
+    await mkdir(join(root, '.agents'), { recursive: true });
+    await symlink(join(outside, '.agents', 'skills'), join(root, '.agents', 'skills'));
+
+    expect(discoverWorkspaceSkills(root)).toEqual({
+      skills: [],
+      warnings: [{
+        code: 'PATH_OUTSIDE_WORKSPACE',
+        locator: '.agents/skills',
+        message: 'Skipped .agents/skills: resolved path is outside the workspace.',
+      }],
+    });
+  });
+
+  it('does not decode or retain a Skill body while reading frontmatter', async () => {
+    const root = await createRoot();
+    const header = '---\nname: boundary\ndescription: Header closes early\n---\n';
+    const body = `${'x'.repeat(16_384 - Buffer.byteLength(header))}😀`;
+    await createSkill(root, 'boundary', `${header}${body}`);
+
+    expect(discoverWorkspaceSkills(root)).toEqual({
+      skills: [{
+        name: 'boundary',
+        description: 'Header closes early',
+        locator: '.agents/skills/boundary/SKILL.md',
+      }],
+      warnings: [],
+    });
+  });
+
+  it('warns when an existing SKILL.md symlink has a missing target', async () => {
+    const root = await createRoot();
+    const skillDirectory = join(root, '.agents', 'skills', 'dangling');
+    await mkdir(skillDirectory, { recursive: true });
+    await symlink(join(root, 'missing-SKILL.md'), join(skillDirectory, 'SKILL.md'));
+
+    expect(discoverWorkspaceSkills(root)).toEqual({
+      skills: [],
+      warnings: [{
+        code: 'FILE_UNREADABLE',
+        locator: '.agents/skills/dangling/SKILL.md',
+        message: 'Skipped .agents/skills/dangling/SKILL.md: file could not be read.',
+      }],
+    });
+  });
+
   it('renders a compact deterministic catalog that directs on-demand read_file use', () => {
     expect(renderWorkspaceSkillsCatalog([
       { name: 'alpha', description: 'First skill', locator: '.agents/skills/alpha/SKILL.md' },

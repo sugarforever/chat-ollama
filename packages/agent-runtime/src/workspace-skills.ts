@@ -2,6 +2,7 @@ import {
   accessSync,
   closeSync,
   constants,
+  lstatSync,
   openSync,
   readSync,
   readdirSync,
@@ -30,9 +31,25 @@ export interface WorkspaceSkillDiscoveryResult {
 export function discoverWorkspaceSkills(workspaceRoot: string): WorkspaceSkillDiscoveryResult {
   const canonicalRoot = realpathSync(workspaceRoot);
   const skillsRoot = join(canonicalRoot, SKILLS_DIRECTORY);
+  let canonicalSkillsRoot: string;
+  try {
+    canonicalSkillsRoot = realpathSync(skillsRoot);
+  } catch (error) {
+    if (hasCode(error, 'ENOENT') || hasCode(error, 'ENOTDIR')) {
+      return { skills: [], warnings: [] };
+    }
+    return { skills: [], warnings: [] };
+  }
+  if (!isWithin(canonicalRoot, canonicalSkillsRoot)) {
+    const locator = SKILLS_DIRECTORY.split(sep).join('/');
+    return {
+      skills: [],
+      warnings: [warning('PATH_OUTSIDE_WORKSPACE', locator, 'resolved path is outside the workspace.')],
+    };
+  }
   let directories: string[];
   try {
-    directories = readdirSync(skillsRoot, { withFileTypes: true })
+    directories = readdirSync(canonicalSkillsRoot, { withFileTypes: true })
       .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
       .map(entry => entry.name)
       .sort(compareCodeUnits);
@@ -54,7 +71,7 @@ export function discoverWorkspaceSkills(workspaceRoot: string): WorkspaceSkillDi
     try {
       canonical = realpathSync(candidate);
     } catch (error) {
-      if (hasCode(error, 'ENOENT') || hasCode(error, 'ENOTDIR')) continue;
+      if ((hasCode(error, 'ENOENT') || hasCode(error, 'ENOTDIR')) && !existsLexically(candidate)) continue;
       warnings.push(warning('FILE_UNREADABLE', locator, 'file could not be read.'));
       continue;
     }
@@ -115,18 +132,55 @@ export function renderWorkspaceSkillsCatalog(
 function readFrontmatter(path: string): string {
   const descriptor = openSync(path, 'r');
   try {
-    const buffer = Buffer.alloc(MAX_SKILL_FRONTMATTER_BYTES + 1);
-    const bytesRead = readSync(descriptor, buffer, 0, buffer.byteLength, 0);
-    const text = new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, bytesRead));
-    const match = /^(?:\uFEFF)?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
-    if (!match) throw new Error('Invalid frontmatter');
-    if (Buffer.byteLength(match[0]) > MAX_SKILL_FRONTMATTER_BYTES) {
-      throw new Error('Frontmatter is too large');
+    const bytes = Buffer.alloc(MAX_SKILL_FRONTMATTER_BYTES + 1);
+    const byte = Buffer.alloc(1);
+    let length = 0;
+    let lineStart = 0;
+    let contentStart: number | undefined;
+
+    while (length <= MAX_SKILL_FRONTMATTER_BYTES) {
+      const bytesRead = readSync(descriptor, byte, 0, 1, length);
+      if (bytesRead === 0) {
+        if (contentStart !== undefined && isDelimiter(bytes, lineStart, length)) {
+          return decodeFrontmatter(bytes.subarray(contentStart, lineStart));
+        }
+        throw new Error('Invalid frontmatter');
+      }
+      bytes[length] = byte[0]!;
+      length += 1;
+      if (byte[0] !== 0x0a) continue;
+
+      if (contentStart === undefined) {
+        if (!isOpeningDelimiter(bytes, lineStart, length - 1)) {
+          throw new Error('Invalid frontmatter');
+        }
+        contentStart = length;
+      } else if (isDelimiter(bytes, lineStart, length - 1)) {
+        return decodeFrontmatter(bytes.subarray(contentStart, lineStart));
+      }
+      lineStart = length;
     }
-    return match[1];
+    throw new Error('Frontmatter is too large');
   } finally {
     closeSync(descriptor);
   }
+}
+
+function decodeFrontmatter(bytes: Uint8Array): string {
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+}
+
+function isOpeningDelimiter(bytes: Buffer, start: number, end: number): boolean {
+  const line = bytes.subarray(start, stripCarriageReturn(bytes, start, end));
+  return line.equals(Buffer.from('---')) || line.equals(Buffer.from('\uFEFF---'));
+}
+
+function isDelimiter(bytes: Buffer, start: number, end: number): boolean {
+  return bytes.subarray(start, stripCarriageReturn(bytes, start, end)).equals(Buffer.from('---'));
+}
+
+function stripCarriageReturn(bytes: Buffer, start: number, end: number): number {
+  return end > start && bytes[end - 1] === 0x0d ? end - 1 : end;
 }
 
 function parseFrontmatter(source: string): { readonly name: string; readonly description: string } | undefined {
@@ -168,4 +222,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function hasCode(error: unknown, code: string): boolean {
   return error instanceof Error && 'code' in error && error.code === code;
+}
+
+function existsLexically(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
