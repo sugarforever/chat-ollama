@@ -35,6 +35,8 @@ describe('Runtime public contract', () => {
       id: 'session-1',
       messages: [user, assistant],
       model: { provider: 'openai', model: 'gpt-5-mini' },
+      skills: [],
+      skillWarnings: [],
     } satisfies SessionSnapshot;
 
     const events = [
@@ -76,6 +78,8 @@ describe('Runtime public contract', () => {
         { role: 'assistant', content: 'Hi' },
       ],
       model: { provider: 'openai', model: 'gpt-5-mini' },
+      skills: [],
+      skillWarnings: [],
     });
     expect(events.map(event => event.type)).toEqual([
       'run.started',

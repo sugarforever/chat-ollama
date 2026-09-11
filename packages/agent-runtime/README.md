@@ -9,7 +9,7 @@ Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
 safe Session model switching. Its built-in tools provide a deterministic UTC
 clock plus workspace-confined file reading, directory listing, content search,
 file discovery, complete file writes, and exact edits. It does not contain a
-CLI/TUI, preference persistence, Skills, compaction, MCP, arbitrary shell
+CLI/TUI, preference persistence, user-level or remote Skills, compaction, MCP, arbitrary shell
 execution, or network tools.
 
 ## Requirements
@@ -84,6 +84,19 @@ Runtime-owned argv arrays and `shell: false`. They do not require `rg` on the
 host's `PATH`. Model text occupies one argument and cannot inject a flag or
 command.
 
+At Session creation, the Runtime scans only
+`<workspaceRoot>/.agents/skills/*/SKILL.md`. Valid YAML frontmatter must contain
+non-empty string `name` and `description` fields. `getSnapshot()` exposes the
+stable, name-sorted descriptors and sanitized discovery warnings. The initial
+model request receives only each descriptor and workspace-relative locator;
+the Skill body is not included. When a Skill applies, the model uses the same
+workspace-confined `read_file` tool to load the complete `SKILL.md`.
+
+Each Skill file is limited to 262,144 bytes and its frontmatter to 16,384
+bytes. Invalid frontmatter, duplicate names, unreadable files, oversized files,
+and symlinks resolving outside the workspace are skipped without preventing
+Session creation. The catalog does not refresh while the Session is running.
+
 Successful `read_file`, `write_file`, and `edit_file` results include a
 `sha256:<hex>` version computed from the complete file content. A version may be
 passed back as `expectedVersion` to `write_file` or `edit_file`; if the file no
@@ -108,7 +121,7 @@ execution and operating-system sandboxing remain outside this Runtime layer.
 
 `AgentSession` exposes only:
 
-- `getSnapshot()` for an immutable copy of in-memory messages
+- `getSnapshot()` for an immutable copy of in-memory messages, workspace Skill descriptors, and Skill discovery warnings
 - `subscribe(listener)` for process-local events and its unsubscribe function
 - `prompt(input)` for one active streamed run
 - `cancel()` for aborting the active run

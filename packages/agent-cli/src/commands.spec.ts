@@ -5,6 +5,7 @@ import type {
   ModelDescriptor,
   RuntimeEventListener,
   SessionSnapshot,
+  WorkspaceSkillDescriptor,
 } from 'chatollama-agent-runtime';
 import { describe, expect, it } from 'vitest';
 
@@ -50,6 +51,7 @@ describe('command parsing', () => {
 
   it('parses renderer-independent list, reset, and exit commands', () => {
     expect(parseCommandInput('/models')).toEqual({ type: 'show-models' });
+    expect(parseCommandInput('/skills')).toEqual({ type: 'show-skills' });
     expect(parseCommandInput('/new')).toEqual({ type: 'new-session' });
     expect(parseCommandInput('/exit')).toEqual({ type: 'exit' });
   });
@@ -63,6 +65,45 @@ describe('command parsing', () => {
 });
 
 describe('command handling', () => {
+  it('lists workspace Skills only from the Runtime snapshot', async () => {
+    const session = new CommandRuntime();
+    session.skills = [
+      { name: 'alpha', description: 'First workflow', locator: '.agents/skills/alpha/SKILL.md' },
+      { name: 'beta', description: 'Second workflow', locator: '.agents/skills/beta/SKILL.md' },
+    ];
+    const handler = createCommandHandler({
+      session,
+      availableModels: [],
+      env: {},
+      writePreference: async () => {},
+    });
+
+    await expect(handler({ type: 'show-skills' })).resolves.toEqual({
+      type: 'continue',
+      inputMode: 'prompt',
+      lines: [
+        'Workspace Skills:',
+        '1. alpha — First workflow',
+        '2. beta — Second workflow',
+      ],
+    });
+  });
+
+  it('shows a clear empty state when the Runtime snapshot has no Skills', async () => {
+    const handler = createCommandHandler({
+      session: new CommandRuntime(),
+      availableModels: [],
+      env: {},
+      writePreference: async () => {},
+    });
+
+    await expect(handler({ type: 'show-skills' })).resolves.toEqual({
+      type: 'continue',
+      inputMode: 'prompt',
+      lines: ['No workspace Skills were discovered for this session.'],
+    });
+  });
+
   it('lists models in deterministic order with numbers and a current marker', async () => {
     const session = new CommandRuntime({
       provider: 'openai',
@@ -367,6 +408,7 @@ class CommandRuntime implements AgentSession {
   resetError: Error | undefined;
   setModelError: Error | undefined;
   onSetModel: ((model: ModelConfig) => void) | undefined;
+  skills: readonly WorkspaceSkillDescriptor[] = [];
   #model: ModelDescriptor;
 
   constructor(
@@ -376,7 +418,13 @@ class CommandRuntime implements AgentSession {
   }
 
   getSnapshot(): SessionSnapshot {
-    return { id: 'command-test', messages: [], model: { ...this.#model } };
+    return {
+      id: 'command-test',
+      messages: [],
+      model: { ...this.#model },
+      skills: this.skills.map(skill => ({ ...skill })),
+      skillWarnings: [],
+    };
   }
 
   subscribe(_listener: RuntimeEventListener): () => void {

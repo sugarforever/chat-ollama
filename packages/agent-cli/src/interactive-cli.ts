@@ -48,6 +48,7 @@ export async function runInteractiveCli(
     new CombinedAutocompleteProvider([
       { name: 'models', description: 'Choose an available model' },
       { name: 'model', description: 'Switch provider/model-id' },
+      { name: 'skills', description: 'List workspace Skills for this session' },
       { name: 'new', description: 'Clear conversation history' },
       { name: 'exit', description: 'Quit' },
     ], process.cwd()),

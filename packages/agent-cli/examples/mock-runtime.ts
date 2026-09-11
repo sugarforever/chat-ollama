@@ -26,6 +26,8 @@ class MockRuntime implements AgentSession {
       id: 'demo-session',
       messages: this.#messages.map(message => ({ ...message })),
       model: { ...this.#model },
+      skills: [],
+      skillWarnings: [],
     };
   }
 

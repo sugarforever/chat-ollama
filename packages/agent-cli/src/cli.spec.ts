@@ -386,7 +386,13 @@ class ControlledRuntime implements AgentSession {
   }
 
   getSnapshot(): SessionSnapshot {
-    return { id: 'mock-session', messages: [], model: { ...this.#model } };
+    return {
+      id: 'mock-session',
+      messages: [],
+      model: { ...this.#model },
+      skills: [],
+      skillWarnings: [],
+    };
   }
 
   subscribe(listener: RuntimeEventListener): () => void {

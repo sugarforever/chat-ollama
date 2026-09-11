@@ -3,7 +3,7 @@ import {
   mockValues,
   simulateReadableStream,
 } from 'ai/test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -13,6 +13,76 @@ import { createAgentSessionWithModel } from './session-core.js';
 import type { RuntimeEvent } from './types.js';
 
 describe('AgentSession streaming', () => {
+  it('freezes workspace Skill descriptors at creation and injects metadata without bodies', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'agent-session-skills-'));
+    try {
+      const firstDirectory = join(root, '.agents', 'skills', 'alpha');
+      await mkdir(firstDirectory, { recursive: true });
+      await writeFile(
+        join(firstDirectory, 'SKILL.md'),
+        '---\nname: alpha\ndescription: Use the alpha workflow\n---\nPRIVATE ALPHA INSTRUCTIONS\n',
+      );
+      const model = createTextModel(['done']);
+      const session = createAgentSessionWithModel({
+        id: 'session-skills',
+        model,
+        descriptor: { provider: 'openai', model: 'mock-model' },
+        generateId: () => 'run-1',
+        workspaceRoot: root,
+      });
+      const laterDirectory = join(root, '.agents', 'skills', 'later');
+      await mkdir(laterDirectory, { recursive: true });
+      await writeFile(
+        join(laterDirectory, 'SKILL.md'),
+        '---\nname: later\ndescription: Added after creation\n---\n',
+      );
+
+      expect(session.getSnapshot().skills).toEqual([
+        {
+          name: 'alpha',
+          description: 'Use the alpha workflow',
+          locator: '.agents/skills/alpha/SKILL.md',
+        },
+      ]);
+      expect(session.getSnapshot().skillWarnings).toEqual([]);
+
+      await session.prompt('Use alpha');
+
+      const initialPrompt = JSON.stringify(model.doStreamCalls[0]?.prompt);
+      expect(initialPrompt).toContain('Use the alpha workflow');
+      expect(initialPrompt).toContain('.agents/skills/alpha/SKILL.md');
+      expect(initialPrompt).not.toContain('PRIVATE ALPHA INSTRUCTIONS');
+      expect(initialPrompt).not.toContain('Added after creation');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('exposes stable Skill discovery warnings in the Runtime snapshot', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'agent-session-skills-'));
+    try {
+      const directory = join(root, '.agents', 'skills', 'broken');
+      await mkdir(directory, { recursive: true });
+      await writeFile(join(directory, 'SKILL.md'), 'not frontmatter');
+
+      const session = createAgentSessionWithModel({
+        id: 'session-skills',
+        model: createTextModel(['unused']),
+        descriptor: { provider: 'openai', model: 'mock-model' },
+        workspaceRoot: root,
+      });
+
+      expect(session.getSnapshot().skills).toEqual([]);
+      expect(session.getSnapshot().skillWarnings).toEqual([{
+        code: 'INVALID_FRONTMATTER',
+        locator: '.agents/skills/broken/SKILL.md',
+        message: 'Skipped .agents/skills/broken/SKILL.md: invalid YAML frontmatter with non-empty name and description required.',
+      }]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('runs workspace writes through the existing tool lifecycle with path and result summaries', async () => {
     const root = await mkdtemp(join(tmpdir(), 'agent-session-workspace-'));
     try {
@@ -359,6 +429,8 @@ describe('AgentSession streaming', () => {
       id: 'configured-session',
       messages: [],
       model: { provider: 'openai-compatible', model: 'qwen3:8b' },
+      skills: [],
+      skillWarnings: [],
     });
     expect(JSON.stringify(session.getSnapshot())).not.toContain(
       'configuration-secret',
@@ -433,6 +505,8 @@ describe('AgentSession streaming', () => {
         { role: 'assistant', content: 'Hello world' },
       ],
       model: { provider: 'openai', model: 'mock-model' },
+      skills: [],
+      skillWarnings: [],
     });
     expect(model.doStreamCalls[0]?.prompt).toEqual([
       { role: 'user', content: [{ type: 'text', text: 'Say hello' }] },
@@ -644,6 +718,8 @@ describe('AgentSession streaming', () => {
       id: 'session-1',
       messages: [],
       model: { provider: 'openai', model: 'second-model' },
+      skills: [],
+      skillWarnings: [],
     });
     expect(events).toEqual([
       {
@@ -711,6 +787,8 @@ describe('AgentSession streaming', () => {
       id: 'session-1',
       messages: [],
       model: { provider: 'openai', model: 'second-model' },
+      skills: [],
+      skillWarnings: [],
     });
     expect(events.at(-1)).toEqual({
       type: 'session.reset',
@@ -733,6 +811,8 @@ describe('AgentSession streaming', () => {
       id: 'session-1',
       messages: [{ role: 'user', content: 'Keep this pending' }],
       model: { provider: 'openai', model: 'mock-model' },
+      skills: [],
+      skillWarnings: [],
     });
 
     session.cancel();
