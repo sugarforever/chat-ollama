@@ -72,7 +72,7 @@ describe('pi-tui interactive CLI', () => {
     expect(screen).toContain('anthropic/claude-sonnet-4-5 (current)');
   });
 
-  it('offers and routes /models, /model, /new, and /exit through the editor', async () => {
+  it('offers and routes /models, /model, /skills, /new, and /exit through the editor', async () => {
     const runtime = new ControlledRuntime();
     const { terminal } = startCli(runtime);
     await terminal.screen();
@@ -81,6 +81,7 @@ describe('pi-tui interactive CLI', () => {
     // pi-tui displays command names without their leading slash.
     expect(screen).toMatch(/^→ models\s+/m);
     expect(screen).toMatch(/^\s+model\s+/m);
+    expect(screen).toMatch(/^\s+skills\s+/m);
     expect(screen).toMatch(/^\s+new\s+/m);
     expect(screen).toMatch(/^\s+exit\s+/m);
     terminal.sendInput('\x1b');
@@ -286,7 +287,13 @@ class ControlledRuntime implements AgentSession {
 
   get listenerCount(): number { return this.#listeners.size; }
   getSnapshot(): SessionSnapshot {
-    return { id: 'controlled', messages: [], model: { provider: 'ollama', model: 'qwen3:8b' } };
+    return {
+      id: 'controlled',
+      messages: [],
+      model: { provider: 'ollama', model: 'qwen3:8b' },
+      skills: [],
+      skillWarnings: [],
+    };
   }
   subscribe(listener: RuntimeEventListener): () => void {
     this.#listeners.add(listener);

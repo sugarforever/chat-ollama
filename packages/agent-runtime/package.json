@@ -41,6 +41,7 @@
     "@ai-sdk/openai-compatible": "3.0.44",
     "@vscode/ripgrep": "1.18.0",
     "ai": "7.0.93",
+    "yaml": "2.8.2",
     "zod": "3.25.76"
   },
   "devDependencies": {

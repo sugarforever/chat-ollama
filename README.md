@@ -78,6 +78,9 @@ At the prompt:
 - The Runtime may call `read_file`, `list_directory`, `grep`, and `find_files`
   to inspect the directory where the CLI was started. Both terminal modes show
   each tool's validated input, execution status, and bounded result.
+- Enter `/skills` to list the workspace Skills fixed when this CLI Session
+  started. When a Skill matches a task, the model can load its complete
+  instructions through `read_file`.
 - Enter `/models` to view available models and choose one. In an interactive
   terminal, use the arrow keys and Return; press Escape to cancel.
 - Enter `/model <provider>/<model-id>` to switch directly, for example
@@ -113,6 +116,27 @@ To exercise all six workspace tools without a provider or network request:
 
 ```bash
 pnpm agent:workspace-tools-demo
+```
+
+To add a workspace Skill, create `.agents/skills/<name>/SKILL.md` beneath the
+directory where the CLI starts:
+
+```md
+---
+name: release-note
+description: Write concise release notes
+---
+
+Always end release notes with: Ship small, learn fast.
+```
+
+Restart the CLI, run `/skills`, then ask it to use `release-note`. Discovery
+reads only the YAML `name` and `description`; the model receives a compact
+catalog and loads the complete file on demand. A deterministic version of this
+flow is available without credentials or network access:
+
+```bash
+pnpm agent:skills-demo
 ```
 
 The CLI startup directory is the workspace root. Tool paths must be relative to

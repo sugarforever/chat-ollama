@@ -25,4 +25,7 @@ export type {
   ToolCallItem,
   ToolResultItem,
   UserMessage,
+  WorkspaceSkillDescriptor,
+  WorkspaceSkillWarning,
+  WorkspaceSkillWarningCode,
 } from './types.js';

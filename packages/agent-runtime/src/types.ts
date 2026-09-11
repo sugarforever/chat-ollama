@@ -33,6 +33,27 @@ export interface SessionSnapshot {
   readonly id: string;
   readonly messages: readonly SessionMessage[];
   readonly model: ModelDescriptor;
+  readonly skills: readonly WorkspaceSkillDescriptor[];
+  readonly skillWarnings: readonly WorkspaceSkillWarning[];
+}
+
+export interface WorkspaceSkillDescriptor {
+  readonly name: string;
+  readonly description: string;
+  readonly locator: string;
+}
+
+export type WorkspaceSkillWarningCode =
+  | 'DUPLICATE_NAME'
+  | 'FILE_TOO_LARGE'
+  | 'FILE_UNREADABLE'
+  | 'INVALID_FRONTMATTER'
+  | 'PATH_OUTSIDE_WORKSPACE';
+
+export interface WorkspaceSkillWarning {
+  readonly code: WorkspaceSkillWarningCode;
+  readonly locator: string;
+  readonly message: string;
 }
 
 export interface OpenAIModelConfig {

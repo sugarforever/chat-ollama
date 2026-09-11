@@ -5,6 +5,10 @@ import { stepCountIs, ToolLoopAgent, type LanguageModel, type ModelMessage } fro
 import { createLanguageModel, describeModel } from './model-registry.js';
 import { createDemoTools } from './tools.js';
 import { createWorkspaceTools } from './workspace-tools.js';
+import {
+  discoverWorkspaceSkills,
+  renderWorkspaceSkillsCatalog,
+} from './workspace-skills.js';
 import type {
   AgentSession,
   AssistantMessage,
@@ -15,6 +19,8 @@ import type {
   SessionMessage,
   SessionSnapshot,
   UserMessage,
+  WorkspaceSkillDescriptor,
+  WorkspaceSkillWarning,
 } from './types.js';
 
 interface CreateAgentSessionWithModelOptions {
@@ -43,6 +49,9 @@ class InMemoryAgentSession implements AgentSession {
   readonly #now: () => Date;
   readonly #maxSteps: number;
   readonly #tools: ReturnType<typeof createWorkspaceTools>;
+  readonly #skills: readonly WorkspaceSkillDescriptor[];
+  readonly #skillWarnings: readonly WorkspaceSkillWarning[];
+  readonly #skillCatalog: string | undefined;
   #currentModel: CurrentModel;
   #activeRun:
     | { readonly runId: string; readonly controller: AbortController }
@@ -63,10 +72,15 @@ class InMemoryAgentSession implements AgentSession {
     this.#generateId = options.generateId ?? randomUUID;
     this.#now = options.now ?? (() => new Date());
     this.#maxSteps = maxSteps;
+    const workspaceRoot = options.workspaceRoot ?? process.cwd();
     this.#tools = {
       ...createDemoTools(this.#now),
-      ...createWorkspaceTools({ workspaceRoot: options.workspaceRoot ?? process.cwd() }),
+      ...createWorkspaceTools({ workspaceRoot }),
     };
+    const discovery = discoverWorkspaceSkills(workspaceRoot);
+    this.#skills = discovery.skills.map(skill => ({ ...skill }));
+    this.#skillWarnings = discovery.warnings.map(warning => ({ ...warning }));
+    this.#skillCatalog = renderWorkspaceSkillsCatalog(this.#skills);
   }
 
   getSnapshot(): SessionSnapshot {
@@ -74,6 +88,8 @@ class InMemoryAgentSession implements AgentSession {
       id: this.#id,
       messages: this.#messages.map(message => ({ ...message })),
       model: { ...this.#currentModel.descriptor },
+      skills: this.#skills.map(skill => ({ ...skill })),
+      skillWarnings: this.#skillWarnings.map(warning => ({ ...warning })),
     };
   }
 
@@ -139,6 +155,7 @@ class InMemoryAgentSession implements AgentSession {
     try {
       const agent = new ToolLoopAgent({
         model: this.#currentModel.model,
+        instructions: this.#skillCatalog,
         tools: this.#tools,
         stopWhen: stepCountIs(this.#maxSteps),
         prepareCall: options => ({ ...options, onError: () => {} }),

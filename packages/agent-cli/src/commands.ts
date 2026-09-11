@@ -8,6 +8,7 @@ export type CommandInputMode = 'prompt' | 'model-selection';
 
 export type ParsedCommand =
   | { readonly type: 'show-models' }
+  | { readonly type: 'show-skills' }
   | {
       readonly type: 'select-model';
       readonly provider: string;
@@ -64,6 +65,9 @@ export function parseCommandInput(
   if (value === '/models') {
     return { type: 'show-models' };
   }
+  if (value === '/skills') {
+    return { type: 'show-skills' };
+  }
   if (value === '/new') {
     return { type: 'new-session' };
   }
@@ -104,6 +108,8 @@ export function createCommandHandler(
     switch (command.type) {
       case 'show-models':
         return listModels(models, options.session);
+      case 'show-skills':
+        return listSkills(options.session);
       case 'select-model': {
         const selection = models.find(
           candidate =>
@@ -140,6 +146,21 @@ export function createCommandHandler(
         return { type: 'exit' };
     }
   };
+}
+
+function listSkills(session: AgentSession): CommandResult {
+  const skills = session.getSnapshot().skills;
+  if (skills.length === 0) {
+    return continueWith(
+      'prompt',
+      'No workspace Skills were discovered for this session.',
+    );
+  }
+  return continueWith(
+    'prompt',
+    'Workspace Skills:',
+    ...skills.map((skill, index) => `${index + 1}. ${skill.name} — ${skill.description}`),
+  );
 }
 
 function resetSession(session: AgentSession): CommandResult {
