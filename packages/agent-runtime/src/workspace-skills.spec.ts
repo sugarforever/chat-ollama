@@ -3,11 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
+import type { ToolSet } from 'ai';
 
 import {
   discoverWorkspaceSkills,
   renderWorkspaceSkillsCatalog,
 } from './workspace-skills.js';
+import { createWorkspaceTools } from './workspace-tools.js';
 
 const roots: string[] = [];
 
@@ -75,16 +77,48 @@ describe('workspace Skill discovery', () => {
 
   it('skips a file over the documented size limit without parsing it', async () => {
     const root = await createRoot();
-    await createSkill(root, 'huge', `---\nname: huge\ndescription: Too large\n---\n${'x'.repeat(262_145)}`);
+    await createSkill(root, 'huge', `---\nname: huge\ndescription: Too large\n---\n${'x'.repeat(60_001)}`);
 
     expect(discoverWorkspaceSkills(root)).toEqual({
       skills: [],
       warnings: [{
         code: 'FILE_TOO_LARGE',
         locator: '.agents/skills/huge/SKILL.md',
-        message: 'Skipped .agents/skills/huge/SKILL.md: file exceeds the 262,144-byte discovery limit.',
+        message: 'Skipped .agents/skills/huge/SKILL.md: file exceeds the 60,000-byte discovery limit.',
       }],
     });
+  });
+
+  it('accepts a maximum-size single-line Skill that read_file can return completely', async () => {
+    const root = await createRoot();
+    const header = '---\nname: wide\ndescription: Fully retrievable\n---\n';
+    await createSkill(root, 'wide', `${header}${'x'.repeat(60_000 - Buffer.byteLength(header))}`);
+
+    expect(discoverWorkspaceSkills(root).skills).toHaveLength(1);
+    const result = await execute(createWorkspaceTools({ workspaceRoot: root }), 'read_file', {
+      path: '.agents/skills/wide/SKILL.md',
+    });
+    expect(result).toMatchObject({ ok: true, truncated: false, startLine: 1, endLine: 5 });
+  });
+
+  it('warns when the existing Skills root cannot be enumerated', async () => {
+    const root = await createRoot();
+    const skillsRoot = join(root, '.agents', 'skills');
+    await mkdir(skillsRoot, { recursive: true });
+    await chmod(skillsRoot, 0o000);
+
+    try {
+      expect(discoverWorkspaceSkills(root)).toEqual({
+        skills: [],
+        warnings: [{
+          code: 'FILE_UNREADABLE',
+          locator: '.agents/skills',
+          message: 'Skipped .agents/skills: directory could not be read.',
+        }],
+      });
+    } finally {
+      await chmod(skillsRoot, 0o700);
+    }
   });
 
   it('skips an unreadable Skill without preventing other Skills from loading', async () => {
@@ -199,4 +233,11 @@ async function createSkill(root: string, directory: string, content: string): Pr
   const path = join(skillDirectory, 'SKILL.md');
   await writeFile(path, content);
   return path;
+}
+
+async function execute(tools: ToolSet, name: string, input: unknown): Promise<Record<string, unknown>> {
+  const result = await tools[name]!.execute!(input as never, {
+    toolCallId: 'test-call', messages: [], abortSignal: undefined, context: undefined,
+  });
+  return result as Record<string, unknown>;
 }

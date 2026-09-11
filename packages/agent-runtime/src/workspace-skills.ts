@@ -9,7 +9,7 @@ import {
   realpathSync,
   statSync,
 } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join } from 'node:path';
 
 import { parseDocument } from 'yaml';
 
@@ -18,9 +18,10 @@ import type {
   WorkspaceSkillWarning,
   WorkspaceSkillWarningCode,
 } from './types.js';
+import { MAX_WORKSPACE_SKILL_BYTES } from './workspace-limits.js';
+import { isWithinWorkspace, toWorkspacePath } from './workspace-paths.js';
 
 const SKILLS_DIRECTORY = join('.agents', 'skills');
-const MAX_SKILL_FILE_BYTES = 262_144;
 const MAX_SKILL_FRONTMATTER_BYTES = 16_384;
 
 export interface WorkspaceSkillDiscoveryResult {
@@ -38,10 +39,13 @@ export function discoverWorkspaceSkills(workspaceRoot: string): WorkspaceSkillDi
     if (hasCode(error, 'ENOENT') || hasCode(error, 'ENOTDIR')) {
       return { skills: [], warnings: [] };
     }
-    return { skills: [], warnings: [] };
+    return {
+      skills: [],
+      warnings: [warning('FILE_UNREADABLE', toWorkspacePath(canonicalRoot, skillsRoot), 'directory could not be read.')],
+    };
   }
-  if (!isWithin(canonicalRoot, canonicalSkillsRoot)) {
-    const locator = SKILLS_DIRECTORY.split(sep).join('/');
+  if (!isWithinWorkspace(canonicalRoot, canonicalSkillsRoot)) {
+    const locator = toWorkspacePath(canonicalRoot, skillsRoot);
     return {
       skills: [],
       warnings: [warning('PATH_OUTSIDE_WORKSPACE', locator, 'resolved path is outside the workspace.')],
@@ -57,7 +61,10 @@ export function discoverWorkspaceSkills(workspaceRoot: string): WorkspaceSkillDi
     if (hasCode(error, 'ENOENT') || hasCode(error, 'ENOTDIR')) {
       return { skills: [], warnings: [] };
     }
-    return { skills: [], warnings: [] };
+    return {
+      skills: [],
+      warnings: [warning('FILE_UNREADABLE', toWorkspacePath(canonicalRoot, skillsRoot), 'directory could not be read.')],
+    };
   }
 
   const skills: WorkspaceSkillDescriptor[] = [];
@@ -66,7 +73,7 @@ export function discoverWorkspaceSkills(workspaceRoot: string): WorkspaceSkillDi
 
   for (const directory of directories) {
     const candidate = join(skillsRoot, directory, 'SKILL.md');
-    const locator = toWorkspaceLocator(canonicalRoot, candidate);
+    const locator = toWorkspacePath(canonicalRoot, candidate);
     let canonical: string;
     try {
       canonical = realpathSync(candidate);
@@ -75,7 +82,7 @@ export function discoverWorkspaceSkills(workspaceRoot: string): WorkspaceSkillDi
       warnings.push(warning('FILE_UNREADABLE', locator, 'file could not be read.'));
       continue;
     }
-    if (!isWithin(canonicalRoot, canonical)) {
+    if (!isWithinWorkspace(canonicalRoot, canonical)) {
       warnings.push(warning('PATH_OUTSIDE_WORKSPACE', locator, 'resolved path is outside the workspace.'));
       continue;
     }
@@ -83,8 +90,8 @@ export function discoverWorkspaceSkills(workspaceRoot: string): WorkspaceSkillDi
     try {
       const stats = statSync(canonical);
       if (!stats.isFile()) continue;
-      if (stats.size > MAX_SKILL_FILE_BYTES) {
-        warnings.push(warning('FILE_TOO_LARGE', locator, `file exceeds the ${MAX_SKILL_FILE_BYTES.toLocaleString('en-US')}-byte discovery limit.`));
+      if (stats.size > MAX_WORKSPACE_SKILL_BYTES) {
+        warnings.push(warning('FILE_TOO_LARGE', locator, `file exceeds the ${MAX_WORKSPACE_SKILL_BYTES.toLocaleString('en-US')}-byte discovery limit.`));
         continue;
       }
       accessSync(canonical, constants.R_OK);
@@ -200,14 +207,6 @@ function warning(
   detail: string,
 ): WorkspaceSkillWarning {
   return { code, locator, message: `Skipped ${locator}: ${detail}` };
-}
-
-function isWithin(root: string, target: string): boolean {
-  return target === root || target.startsWith(`${root}${sep}`);
-}
-
-function toWorkspaceLocator(root: string, target: string): string {
-  return relative(root, target).split(sep).join('/');
 }
 
 function compareCodeUnits(left: string, right: string): number {

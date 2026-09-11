@@ -92,7 +92,7 @@ model request receives only each descriptor and workspace-relative locator;
 the Skill body is not included. When a Skill applies, the model uses the same
 workspace-confined `read_file` tool to load the complete `SKILL.md`.
 
-Each Skill file is limited to 262,144 bytes and its frontmatter to 16,384
+Each Skill file is limited to 60,000 bytes and its frontmatter to 16,384
 bytes. Invalid frontmatter, duplicate names, unreadable files, oversized files,
 and symlinks resolving outside the workspace are skipped without preventing
 Session creation. The catalog does not refresh while the Session is running.

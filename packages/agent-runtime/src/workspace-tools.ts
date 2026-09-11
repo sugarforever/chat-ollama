@@ -9,8 +9,11 @@ import { tool, type ToolSet } from 'ai';
 import { rgPath } from '@vscode/ripgrep';
 import { z } from 'zod';
 
+import { MAX_WORKSPACE_RESULT_DATA_BYTES } from './workspace-limits.js';
+import { isWithinWorkspace, toWorkspacePath } from './workspace-paths.js';
+
 const MAX_OUTPUT_BYTES = 65_536;
-const MAX_RESULT_DATA_BYTES = 64_000;
+const MAX_RESULT_DATA_BYTES = MAX_WORKSPACE_RESULT_DATA_BYTES;
 const MAX_READ_LINES = 2_000;
 const MAX_DIRECTORY_ENTRIES = 1_000;
 const MAX_GREP_MATCHES = 100;
@@ -429,7 +432,7 @@ function resolveWriteTarget(workspaceRoot: string, requestedPath: string): strin
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
   const target = resolve(workspaceRoot, requestedPath);
-  if (!isWithin(workspaceRoot, target)) {
+  if (!isWithinWorkspace(workspaceRoot, target)) {
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
   return target;
@@ -666,7 +669,7 @@ async function assertExpectedVersion(
 }
 
 function assertWithin(workspaceRoot: string, target: string): void {
-  if (!isWithin(workspaceRoot, target)) {
+  if (!isWithinWorkspace(workspaceRoot, target)) {
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
 }
@@ -680,7 +683,7 @@ async function resolveWorkspacePath(workspaceRoot: string, requestedPath: string
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
   const lexical = resolve(workspaceRoot, requestedPath);
-  if (!isWithin(workspaceRoot, lexical)) {
+  if (!isWithinWorkspace(workspaceRoot, lexical)) {
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
   let canonical: string;
@@ -692,18 +695,10 @@ async function resolveWorkspacePath(workspaceRoot: string, requestedPath: string
     }
     throw error;
   }
-  if (!isWithin(workspaceRoot, canonical)) {
+  if (!isWithinWorkspace(workspaceRoot, canonical)) {
     throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
   }
   return canonical;
-}
-
-function isWithin(root: string, target: string): boolean {
-  return target === root || target.startsWith(`${root}${sep}`);
-}
-
-function toWorkspacePath(workspaceRoot: string, target: string): string {
-  return relative(workspaceRoot, resolve(workspaceRoot, target)).split(sep).join('/');
 }
 
 async function withStableErrors<T>(operation: () => Promise<T>): Promise<T | ToolErrorResult> {
