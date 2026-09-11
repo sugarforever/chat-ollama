@@ -8,8 +8,9 @@ The package supports streamed agent loops through Ollama, OpenAI, Anthropic,
 Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
 safe Session model switching. Its built-in tools provide a deterministic UTC
 clock plus workspace-confined file reading, directory listing, content search,
-and file discovery. It does not contain a CLI/TUI, preference persistence,
-Skills, compaction, MCP, writes, arbitrary shell execution, or network tools.
+file discovery, complete file writes, and exact edits. It does not contain a
+CLI/TUI, preference persistence, Skills, compaction, MCP, arbitrary shell
+execution, or network tools.
 
 ## Requirements
 
@@ -56,8 +57,9 @@ unsubscribe();
 ```
 
 `workspaceRoot` is explicit and immutable for the Session. The Runtime
-canonicalizes it and confines `read_file`, `list_directory`, `grep`, and
-`find_files` to that tree. Tool paths are workspace-relative. Absolute paths,
+canonicalizes it and confines `read_file`, `list_directory`, `grep`,
+`find_files`, `write_file`, and `edit_file` to that tree. Tool paths are
+workspace-relative. Absolute paths,
 lexical `..` escapes, sibling-prefix confusion, missing targets, unsupported
 target types, and symlinks resolving outside the workspace produce stable,
 sanitized result objects.
@@ -70,9 +72,11 @@ Workspace output limits are part of the tool results:
 | `list_directory` | 1,000 entries and 65,536 output bytes |
 | `grep` | 100 matches and 65,536 output bytes |
 | `find_files` | 1,000 files and 65,536 output bytes |
+| `write_file` | 1,048,576 UTF-8 content bytes; creates missing parent directories and atomically creates or replaces the file; returns a content version and accepts optional `expectedVersion` |
+| `edit_file` | Up to 100 replacements, 1,048,576 cumulative UTF-8 edit-input bytes (`oldText` plus `newText`), and 1,048,576 resulting content bytes; returns a content version; accepts one legacy exact replacement or an `edits` array; accepts optional `expectedVersion` |
 
-Every successful result contains `truncated`; a true value means the model saw
-only the bounded prefix. Expected failures return `ok: false` with a stable
+Every successful read/search result contains `truncated`; a true value means
+the model saw only the bounded prefix. Expected failures return `ok: false` with a stable
 code and message. The tools observe the active run's `AbortSignal`; cancellation
 returns `CANCELLED`. `grep` and `find_files` execute the platform-specific `rg`
 binary supplied by the Runtime's `@vscode/ripgrep` production dependency, with
@@ -80,7 +84,24 @@ Runtime-owned argv arrays and `shell: false`. They do not require `rg` on the
 host's `PATH`. Model text occupies one argument and cannot inject a flag or
 command.
 
-This confinement boundary treats model-provided paths and search text as
+Successful `read_file`, `write_file`, and `edit_file` results include a
+`sha256:<hex>` version computed from the complete file content. A version may be
+passed back as `expectedVersion` to `write_file` or `edit_file`; if the file no
+longer has that content, the mutation returns `VERSION_CONFLICT` without
+changing it. Omitting `expectedVersion` preserves unconditional-write behavior.
+
+Writes revalidate the real parent and existing target immediately before the
+atomic rename, preserve an existing file's POSIX permission bits, remove
+temporary files after failures, and serialize operations that resolve to the
+same canonical workspace target. `edit_file` uses strict, case-sensitive
+literal matching and never uses fuzzy matching. Its `edits` form matches every
+`oldText` against the same original content, requires each one to occur exactly
+once and all ranges to be non-overlapping, and applies the complete batch
+atomically. Missing, multiple, and overlapping matches return distinct stable
+errors without changing the file. The legacy `oldText`/`newText` form remains
+supported. Both write tools observe cancellation before committing.
+
+This confinement boundary treats model-provided paths, content, and search text as
 untrusted. It is not an OS sandbox against a separate hostile process running
 as the same user and concurrently replacing workspace entries; command
 execution and operating-system sandboxing remain outside this Runtime layer.

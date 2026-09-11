@@ -22,12 +22,18 @@ try {
       { type: 'tool-call', toolCallId: 'list-1', toolName: 'list_directory', input: '{"path":"src"}' },
       { type: 'tool-call', toolCallId: 'grep-1', toolName: 'grep', input: '{"query":"hello workspace","path":"src"}' },
       { type: 'tool-call', toolCallId: 'find-1', toolName: 'find_files', input: '{"pattern":"*.ts","path":"src"}' },
-      { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool-calls' }, usage: usage(4) },
+      { type: 'tool-call', toolCallId: 'write-1', toolName: 'write_file', input: '{"path":"notes/status.txt","content":"draft\\n"}' },
+      { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool-calls' }, usage: usage(5) },
+    ]),
+    mockStream([
+      { type: 'stream-start', warnings: [] },
+      { type: 'tool-call', toolCallId: 'edit-1', toolName: 'edit_file', input: '{"path":"notes/status.txt","oldText":"draft","newText":"ready"}' },
+      { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool-calls' }, usage: usage(1) },
     ]),
     mockStream([
       { type: 'stream-start', warnings: [] },
       { type: 'text-start', id: 'text-1' },
-      { type: 'text-delta', id: 'text-1', delta: 'Workspace inspection completed.' },
+      { type: 'text-delta', id: 'text-1', delta: 'Workspace inspection and update completed.' },
       { type: 'text-end', id: 'text-1' },
       { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: usage(3) },
     ]),
@@ -46,7 +52,7 @@ try {
 
   await runCli({
     session,
-    input: Readable.from(['Inspect this workspace.\n', '/exit\n']),
+    input: Readable.from(['Inspect and update this workspace.\n', '/exit\n']),
     output: process.stdout,
     error: process.stdout,
   });

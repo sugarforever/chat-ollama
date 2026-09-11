@@ -1,7 +1,8 @@
 import { spawn as nodeSpawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
-import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { chmod, lstat, mkdir, open, readFile, readdir, realpath, rename, unlink } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 
 import { tool, type ToolSet } from 'ai';
@@ -14,6 +15,8 @@ const MAX_READ_LINES = 2_000;
 const MAX_DIRECTORY_ENTRIES = 1_000;
 const MAX_GREP_MATCHES = 100;
 const MAX_FOUND_FILES = 1_000;
+const MAX_WRITE_BYTES = 1_048_576;
+const MAX_EDIT_REPLACEMENTS = 100;
 
 type Spawn = (
   command: string,
@@ -24,16 +27,34 @@ type Spawn = (
 export interface CreateWorkspaceToolsOptions {
   readonly workspaceRoot: string;
   readonly spawn?: Spawn;
+  readonly fileSystem?: Partial<WriteFileSystem>;
+}
+
+interface WriteFileSystem {
+  readonly chmod: (path: string, mode: number) => Promise<void>;
+  readonly lstat: (path: string) => ReturnType<typeof lstat>;
+  readonly mkdir: (path: string) => Promise<void>;
+  readonly open: (path: string, flags: 'wx', mode: number) => ReturnType<typeof open>;
+  readonly readFile: (path: string, options: { signal?: AbortSignal }) => Promise<Buffer>;
+  readonly realpath: (path: string) => Promise<string>;
+  readonly rename: (oldPath: string, newPath: string) => Promise<void>;
+  readonly unlink: (path: string) => Promise<void>;
 }
 
 type ErrorCode =
   | 'CANCELLED'
+  | 'CONTENT_TOO_LARGE'
+  | 'EDIT_NOT_FOUND'
+  | 'EDIT_LIMIT_EXCEEDED'
+  | 'EDIT_OVERLAP'
+  | 'EDIT_NOT_UNIQUE'
   | 'INVALID_UTF8'
   | 'PATH_NOT_FOUND'
   | 'PATH_OUTSIDE_WORKSPACE'
   | 'SEARCH_FAILED'
   | 'TOOL_FAILED'
-  | 'UNSUPPORTED_TYPE';
+  | 'UNSUPPORTED_TYPE'
+  | 'VERSION_CONFLICT';
 
 interface ToolErrorResult {
   readonly ok: false;
@@ -48,19 +69,147 @@ class WorkspaceToolError extends Error {
 
 const errorMessages: Record<ErrorCode, string> = {
   CANCELLED: 'Tool execution was cancelled.',
+  CONTENT_TOO_LARGE: 'File content exceeds the 1,048,576-byte limit.',
+  EDIT_NOT_FOUND: 'Exact text was not found in the file.',
+  EDIT_LIMIT_EXCEEDED: 'Edit batch exceeds the 100-replacement limit.',
+  EDIT_OVERLAP: 'Exact edit ranges overlap.',
+  EDIT_NOT_UNIQUE: 'Exact text occurs more than once in the file.',
   INVALID_UTF8: 'File is not valid UTF-8 text.',
   PATH_NOT_FOUND: 'Path does not exist in the workspace.',
   PATH_OUTSIDE_WORKSPACE: 'Path must stay within the workspace.',
   SEARCH_FAILED: 'Workspace search failed.',
   TOOL_FAILED: 'Workspace tool failed.',
   UNSUPPORTED_TYPE: 'Path type is not supported.',
+  VERSION_CONFLICT: 'File content changed since it was read.',
 };
+
+const contentVersionSchema = z.string().regex(/^sha256:[0-9a-f]{64}$/).describe('Version returned by read_file or a previous mutation.');
+const exactEditSchema = z.object({
+  oldText: z.string().min(1).describe('Exact literal text that must occur once in the original file.'),
+  newText: z.string().describe('Literal replacement text.'),
+});
+const editFileInputSchema = z.object({
+  path: z.string().min(1).describe('Workspace-relative existing file path.'),
+  oldText: z.string().min(1).optional().describe('Exact literal text that must occur once.'),
+  newText: z.string().optional().describe('Literal replacement text.'),
+  edits: z.array(exactEditSchema).min(1).max(MAX_EDIT_REPLACEMENTS).optional().describe('Disjoint replacements matched against the original file.'),
+  expectedVersion: contentVersionSchema.optional().describe('Only edit if the current file has this content version.'),
+}).superRefine((input, context) => {
+  const hasLegacyInput = input.oldText !== undefined || input.newText !== undefined;
+  const hasBatchInput = input.edits !== undefined;
+  if (hasLegacyInput && (input.oldText === undefined || input.newText === undefined)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'oldText and newText must be provided together.' });
+  }
+  if (hasLegacyInput && hasBatchInput) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Legacy and batch edit inputs are mutually exclusive.' });
+  }
+  if (!hasLegacyInput && !hasBatchInput) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Provide either oldText and newText or edits.' });
+  }
+});
 
 export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): ToolSet {
   const workspaceRoot = realpathSync(options.workspaceRoot);
   const spawn = options.spawn ?? (nodeSpawn as Spawn);
+  const fileSystem: WriteFileSystem = {
+    chmod: (path, mode) => chmod(path, mode),
+    lstat: path => lstat(path),
+    mkdir: path => mkdir(path),
+    open: (path, flags, mode) => open(path, flags, mode),
+    readFile: (path, readOptions) => readFile(path, readOptions),
+    realpath: path => realpath(path),
+    rename: (oldPath, newPath) => rename(oldPath, newPath),
+    unlink: path => unlink(path),
+    ...options.fileSystem,
+  };
+  const pendingWrites = new Map<string, Promise<void>>();
+  const pendingPathPreparations = new Map<string, Promise<void>>();
 
   return {
+    write_file: tool({
+      description: `Create or fully replace a UTF-8 text file inside the workspace. Content is limited to ${MAX_WRITE_BYTES.toLocaleString('en-US')} bytes.`,
+      inputSchema: z.object({
+        path: z.string().min(1).describe('Workspace-relative file path.'),
+        content: z.string().describe('Complete UTF-8 file content.'),
+        expectedVersion: contentVersionSchema.optional().describe('Only write if the current file has this content version.'),
+      }),
+      execute: async (input, execution) => withStableErrors(() => withPreparedPathLock(
+        pendingPathPreparations,
+        pendingWrites,
+        workspaceRoot,
+        input.path,
+        fileSystem,
+        execution.abortSignal,
+        async destination => {
+          throwIfAborted(execution.abortSignal);
+          assertContentSize(input.content);
+          const created = (await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem)) === undefined;
+          await assertExpectedVersion(destination.target, input.expectedVersion, fileSystem, execution.abortSignal);
+          await atomicWrite(destination, input.content, workspaceRoot, fileSystem, execution.abortSignal);
+          return {
+            ok: true as const,
+            path: toWorkspacePath(workspaceRoot, destination.target),
+            bytesWritten: Buffer.byteLength(input.content),
+            created,
+            version: contentVersion(Buffer.from(input.content)),
+          };
+        },
+      )),
+    }),
+    edit_file: tool({
+      description: `Apply one or more non-overlapping exact literal replacements to an existing UTF-8 workspace file. Every oldText must occur once in the original file. The resulting content is limited to ${MAX_WRITE_BYTES.toLocaleString('en-US')} bytes.`,
+      inputSchema: editFileInputSchema,
+      execute: async (input, execution) => withStableErrors(() => withPreparedPathLock(
+        pendingPathPreparations,
+        pendingWrites,
+        workspaceRoot,
+        input.path,
+        fileSystem,
+        execution.abortSignal,
+        async destination => {
+          throwIfAborted(execution.abortSignal);
+          const edits = normalizeExactEdits(input);
+          if ((await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem)) === undefined) {
+            throw new WorkspaceToolError('PATH_NOT_FOUND', errorMessages.PATH_NOT_FOUND);
+          }
+          const stats = await fileSystem.lstat(destination.target);
+          if (!stats.isFile()) {
+            throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'edit_file requires a regular file.');
+          }
+          if (stats.size > MAX_WRITE_BYTES) throw new WorkspaceToolError('CONTENT_TOO_LARGE', errorMessages.CONTENT_TOO_LARGE);
+          let bytes: Buffer;
+          try {
+            bytes = await fileSystem.readFile(destination.target, { signal: execution.abortSignal });
+          } catch (error) {
+            if (execution.abortSignal?.aborted) {
+              throw new WorkspaceToolError('CANCELLED', errorMessages.CANCELLED);
+            }
+            throw error;
+          }
+          throwIfAborted(execution.abortSignal);
+          if (bytes.byteLength > MAX_WRITE_BYTES) {
+            throw new WorkspaceToolError('CONTENT_TOO_LARGE', errorMessages.CONTENT_TOO_LARGE);
+          }
+          assertVersionMatches(bytes, input.expectedVersion);
+          let content: string;
+          try {
+            content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+          } catch {
+            throw new WorkspaceToolError('INVALID_UTF8', errorMessages.INVALID_UTF8);
+          }
+          const updated = applyExactEdits(content, edits);
+          assertContentSize(updated);
+          await atomicWrite(destination, updated, workspaceRoot, fileSystem, execution.abortSignal);
+          return {
+            ok: true as const,
+            path: toWorkspacePath(workspaceRoot, destination.target),
+            bytesWritten: Buffer.byteLength(updated),
+            replacements: edits.length,
+            version: contentVersion(Buffer.from(updated)),
+          };
+        },
+      )),
+    }),
     read_file: tool({
       description: 'Read UTF-8 text lines from a file inside the workspace.',
       inputSchema: z.object({
@@ -93,7 +242,15 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         }
         const lines = splitLines(text);
         if (lines.length === 0) {
-          return { ok: true as const, content: '', truncated: false, startLine: 0, endLine: 0, limits: readLimits() };
+          return {
+            ok: true as const,
+            content: '',
+            version: contentVersion(bytes),
+            truncated: false,
+            startLine: 0,
+            endLine: 0,
+            limits: readLimits(),
+          };
         }
         const start = Math.min(input.offset ?? 1, lines.length + 1);
         const requestedLimit = Math.min(input.limit ?? MAX_READ_LINES, MAX_READ_LINES);
@@ -108,6 +265,7 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
         return {
           ok: true as const,
           content,
+          version: contentVersion(bytes),
           truncated,
           startLine: selected.length === 0 ? 0 : start,
           endLine: bounded.includedValues === 0 ? 0 : start + bounded.includedValues - 1,
@@ -257,6 +415,264 @@ export function createWorkspaceTools(options: CreateWorkspaceToolsOptions): Tool
       }),
     }),
   };
+}
+
+interface PreparedWritePath {
+  readonly target: string;
+  readonly parent: string;
+  readonly canonicalParent: string;
+  readonly canonicalTarget?: string;
+}
+
+function resolveWriteTarget(workspaceRoot: string, requestedPath: string): string {
+  if (isAbsolute(requestedPath) || requestedPath.split(/[\\/]/).includes('..')) {
+    throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
+  }
+  const target = resolve(workspaceRoot, requestedPath);
+  if (!isWithin(workspaceRoot, target)) {
+    throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
+  }
+  return target;
+}
+
+function writeLockKey(destination: PreparedWritePath): string {
+  const identity = destination.canonicalTarget ?? resolve(destination.canonicalParent, basename(destination.target));
+  return resolve(dirname(identity), basename(identity).normalize('NFC').toLowerCase());
+}
+
+async function withPathLock<T>(
+  pendingWrites: Map<string, Promise<void>>,
+  key: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = pendingWrites.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>(resolvePromise => { release = resolvePromise; });
+  pendingWrites.set(key, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (pendingWrites.get(key) === current) pendingWrites.delete(key);
+  }
+}
+
+async function withPreparedPathLock<T>(
+  pendingPathPreparations: Map<string, Promise<void>>,
+  pendingWrites: Map<string, Promise<void>>,
+  workspaceRoot: string,
+  requestedPath: string,
+  fileSystem: WriteFileSystem,
+  abortSignal: AbortSignal | undefined,
+  operation: (destination: PreparedWritePath) => Promise<T>,
+): Promise<T> {
+  throwIfAborted(abortSignal);
+  const lexicalKey = resolveWriteTarget(workspaceRoot, requestedPath);
+  let mutation!: Promise<T>;
+  await withPathLock(pendingPathPreparations, lexicalKey, async () => {
+    throwIfAborted(abortSignal);
+    const destination = await prepareWritePath(workspaceRoot, requestedPath, fileSystem);
+    mutation = withPathLock(pendingWrites, writeLockKey(destination), () => operation(destination));
+  });
+  return mutation;
+}
+
+async function prepareWritePath(
+  workspaceRoot: string,
+  requestedPath: string,
+  fileSystem: WriteFileSystem,
+): Promise<PreparedWritePath> {
+  const target = resolveWriteTarget(workspaceRoot, requestedPath);
+  if (target === workspaceRoot) {
+    throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'File tools require a file path.');
+  }
+  const parent = dirname(target);
+  await ensureWorkspaceDirectory(workspaceRoot, parent, fileSystem);
+  const canonicalParent = await fileSystem.realpath(parent);
+  assertWithin(workspaceRoot, canonicalParent);
+  let canonicalTarget: string | undefined;
+  try {
+    canonicalTarget = await fileSystem.realpath(target);
+    assertWithin(workspaceRoot, canonicalTarget);
+  } catch (error) {
+    if (!isMissingPathError(error)) throw error;
+  }
+  return { target, parent, canonicalParent, canonicalTarget };
+}
+
+async function ensureWorkspaceDirectory(
+  workspaceRoot: string,
+  targetDirectory: string,
+  fileSystem: WriteFileSystem,
+): Promise<void> {
+  const relativeDirectory = relative(workspaceRoot, targetDirectory);
+  let current = workspaceRoot;
+  for (const segment of relativeDirectory.split(sep).filter(Boolean)) {
+    current = resolve(current, segment);
+    try {
+      const stats = await fileSystem.lstat(current);
+      if (!stats.isDirectory() && !stats.isSymbolicLink()) {
+        throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'A parent path is not a directory.');
+      }
+    } catch (error) {
+      if (!isMissingPathError(error)) throw error;
+      try {
+        await fileSystem.mkdir(current);
+      } catch (mkdirError) {
+        if (!isNodeError(mkdirError) || mkdirError.code !== 'EEXIST') throw mkdirError;
+      }
+    }
+    assertWithin(workspaceRoot, await fileSystem.realpath(current));
+  }
+}
+
+async function atomicWrite(
+  destination: PreparedWritePath,
+  content: string,
+  workspaceRoot: string,
+  fileSystem: WriteFileSystem,
+  abortSignal?: AbortSignal,
+): Promise<void> {
+  const temporary = resolve(destination.canonicalParent, `.${basename(destination.target)}.${randomUUID()}.tmp`);
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  let temporaryExists = false;
+  try {
+    handle = await fileSystem.open(temporary, 'wx', 0o600);
+    temporaryExists = true;
+    await handle.writeFile(content, 'utf8');
+    await handle.sync();
+    await handle.close();
+    handle = undefined;
+    throwIfAborted(abortSignal);
+
+    const existingMode = await validateExistingWriteTarget(workspaceRoot, destination.target, fileSystem);
+    if (existingMode !== undefined) await fileSystem.chmod(temporary, existingMode);
+    const currentParent = await fileSystem.realpath(destination.parent);
+    assertWithin(workspaceRoot, currentParent);
+    if (currentParent !== destination.canonicalParent) {
+      throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
+    }
+    throwIfAborted(abortSignal);
+    await fileSystem.rename(temporary, destination.target);
+    temporaryExists = false;
+  } finally {
+    await handle?.close().catch(() => {});
+    if (temporaryExists) await fileSystem.unlink(temporary).catch(() => {});
+  }
+}
+
+async function validateExistingWriteTarget(
+  workspaceRoot: string,
+  target: string,
+  fileSystem: WriteFileSystem,
+): Promise<number | undefined> {
+  try {
+    const canonical = await fileSystem.realpath(target);
+    assertWithin(workspaceRoot, canonical);
+    const stats = await fileSystem.lstat(target);
+    if (!stats.isFile()) {
+      throw new WorkspaceToolError('UNSUPPORTED_TYPE', 'File tools require a regular file.');
+    }
+    return Number(stats.mode) & 0o777;
+  } catch (error) {
+    if (!isMissingPathError(error)) throw error;
+    return undefined;
+  }
+}
+
+function assertContentSize(content: string): void {
+  if (Buffer.byteLength(content) > MAX_WRITE_BYTES) {
+    throw new WorkspaceToolError('CONTENT_TOO_LARGE', errorMessages.CONTENT_TOO_LARGE);
+  }
+}
+
+type ExactEdit = { readonly oldText: string; readonly newText: string };
+
+function normalizeExactEdits(input: {
+  readonly edits?: readonly ExactEdit[];
+  readonly oldText?: string;
+  readonly newText?: string;
+}): readonly ExactEdit[] {
+  const edits = input.edits ?? [{ oldText: input.oldText!, newText: input.newText! }];
+  if (edits.length > MAX_EDIT_REPLACEMENTS) {
+    throw new WorkspaceToolError('EDIT_LIMIT_EXCEEDED', errorMessages.EDIT_LIMIT_EXCEEDED);
+  }
+  let inputBytes = 0;
+  for (const edit of edits) {
+    inputBytes += Buffer.byteLength(edit.oldText) + Buffer.byteLength(edit.newText);
+    if (inputBytes > MAX_WRITE_BYTES) {
+      throw new WorkspaceToolError('CONTENT_TOO_LARGE', errorMessages.CONTENT_TOO_LARGE);
+    }
+  }
+  return edits;
+}
+
+function applyExactEdits(content: string, edits: readonly ExactEdit[]): string {
+  const matches = edits.map(edit => {
+    const start = content.indexOf(edit.oldText);
+    if (start < 0) throw new WorkspaceToolError('EDIT_NOT_FOUND', errorMessages.EDIT_NOT_FOUND);
+    if (content.indexOf(edit.oldText, start + 1) >= 0) {
+      throw new WorkspaceToolError('EDIT_NOT_UNIQUE', errorMessages.EDIT_NOT_UNIQUE);
+    }
+    return { ...edit, start, end: start + edit.oldText.length };
+  }).sort((left, right) => left.start - right.start);
+
+  for (let index = 1; index < matches.length; index += 1) {
+    if (matches[index - 1]!.end > matches[index]!.start) {
+      throw new WorkspaceToolError('EDIT_OVERLAP', errorMessages.EDIT_OVERLAP);
+    }
+  }
+
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const match of matches) {
+    parts.push(content.slice(cursor, match.start), match.newText);
+    cursor = match.end;
+  }
+  parts.push(content.slice(cursor));
+  return parts.join('');
+}
+
+function contentVersion(content: Uint8Array): string {
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`;
+}
+
+function assertVersionMatches(content: Uint8Array, expectedVersion?: string): void {
+  if (expectedVersion !== undefined && contentVersion(content) !== expectedVersion) {
+    throw new WorkspaceToolError('VERSION_CONFLICT', errorMessages.VERSION_CONFLICT);
+  }
+}
+
+async function assertExpectedVersion(
+  target: string,
+  expectedVersion: string | undefined,
+  fileSystem: WriteFileSystem,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (expectedVersion === undefined) return;
+  let content: Buffer;
+  try {
+    content = await fileSystem.readFile(target, { signal });
+  } catch (error) {
+    if (signal?.aborted) throw new WorkspaceToolError('CANCELLED', errorMessages.CANCELLED);
+    if (isNodeError(error) && error.code === 'ENOENT') {
+      throw new WorkspaceToolError('VERSION_CONFLICT', errorMessages.VERSION_CONFLICT);
+    }
+    throw error;
+  }
+  throwIfAborted(signal);
+  assertVersionMatches(content, expectedVersion);
+}
+
+function assertWithin(workspaceRoot: string, target: string): void {
+  if (!isWithin(workspaceRoot, target)) {
+    throw new WorkspaceToolError('PATH_OUTSIDE_WORKSPACE', errorMessages.PATH_OUTSIDE_WORKSPACE);
+  }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return isNodeError(error) && (error.code === 'ENOENT' || error.code === 'ENOTDIR');
 }
 
 async function resolveWorkspacePath(workspaceRoot: string, requestedPath: string): Promise<string> {
