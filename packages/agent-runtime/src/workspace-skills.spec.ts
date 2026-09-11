@@ -92,13 +92,15 @@ describe('workspace Skill discovery', () => {
   it('accepts a maximum-size single-line Skill that read_file can return completely', async () => {
     const root = await createRoot();
     const header = '---\nname: wide\ndescription: Fully retrievable\n---\n';
-    await createSkill(root, 'wide', `${header}${'x'.repeat(60_000 - Buffer.byteLength(header))}`);
+    const sentinel = 'THE_END';
+    await createSkill(root, 'wide', `${header}${'x'.repeat(60_000 - Buffer.byteLength(header) - sentinel.length)}${sentinel}`);
 
     expect(discoverWorkspaceSkills(root).skills).toHaveLength(1);
     const result = await execute(createWorkspaceTools({ workspaceRoot: root }), 'read_file', {
       path: '.agents/skills/wide/SKILL.md',
     });
     expect(result).toMatchObject({ ok: true, truncated: false, startLine: 1, endLine: 5 });
+    expect(String(result.content).endsWith(sentinel)).toBe(true);
   });
 
   it('warns when the existing Skills root cannot be enumerated', async () => {
