@@ -49,6 +49,12 @@ describe('model discovery credential catalog', () => {
       provider: 'openrouter',
       models: ['anthropic/claude-sonnet-4-5', 'openai/gpt-5-mini'],
     },
+    {
+      name: 'Cheaper Inference',
+      env: { CHEAPER_INFERENCE_API_KEY: 'cheaperinference-test-key' },
+      provider: 'cheaperinference',
+      models: ['claude-sonnet-5', 'gpt-5.4-mini'],
+    },
   ])('includes the exact built-in $name catalog only after its credential is set', async ({
     env,
     provider,
@@ -69,6 +75,7 @@ describe('model discovery credential catalog', () => {
         GOOGLE_GENERATIVE_AI_API_KEY: ' ',
         DEEPSEEK_API_KEY: '',
         OPENROUTER_API_KEY: ' ',
+        CHEAPER_INFERENCE_API_KEY: '',
       },
       fetch: emptyCatalogFetch,
     });

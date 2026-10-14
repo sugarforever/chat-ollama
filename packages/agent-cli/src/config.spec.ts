@@ -110,6 +110,18 @@ describe('CLI model configuration', () => {
       apiKey: 'r',
       name: 'openrouter',
     });
+    expect(
+      readModelConfig({
+        AGENT_PROVIDER: 'cheaperinference',
+        CHEAPER_INFERENCE_API_KEY: 'c',
+      }),
+    ).toEqual({
+      provider: 'cheaperinference',
+      model: 'gpt-5.4-mini',
+      baseURL: 'https://api.cheaperinference.com/v1',
+      apiKey: 'c',
+      name: 'cheaperinference',
+    });
   });
 
   it('rejects unsupported provider names before creating a Session', () => {

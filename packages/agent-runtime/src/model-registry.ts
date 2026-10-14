@@ -106,6 +106,13 @@ export function createModelConfig(
         getCredential('openrouter', env),
         'https://openrouter.ai/api/v1',
       );
+    case 'cheaperinference':
+      return compatibleConfig(
+        'cheaperinference',
+        selection,
+        getCredential('cheaperinference', env),
+        'https://api.cheaperinference.com/v1',
+      );
   }
 }
 

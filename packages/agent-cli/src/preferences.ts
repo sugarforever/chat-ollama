@@ -12,6 +12,7 @@ const PROVIDERS = new Set<ProviderId>([
   'google',
   'deepseek',
   'openrouter',
+  'cheaperinference',
 ]);
 
 const INVALID_PREFERENCE_WARNING =

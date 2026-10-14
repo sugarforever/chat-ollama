@@ -167,6 +167,7 @@ try {
     GOOGLE_GENERATIVE_AI_API_KEY: '',
     DEEPSEEK_API_KEY: '',
     OPENROUTER_API_KEY: '',
+    CHEAPER_INFERENCE_API_KEY: '',
     NODE_OPTIONS: `--import=data:text/javascript,${encodeURIComponent(fakeDiscovery)}`,
     npm_config_cache: join(temporaryDirectory, 'npm-cache'),
   };

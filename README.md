@@ -25,6 +25,7 @@ are the provider credentials recognized by the current release:
 | Google Gemini              | `GEMINI_API_KEY`, falling back to `GOOGLE_GENERATIVE_AI_API_KEY`       |
 | DeepSeek                   | `DEEPSEEK_API_KEY`                                                     |
 | OpenRouter                 | `OPENROUTER_API_KEY`                                                   |
+| Cheaper Inference          | `CHEAPER_INFERENCE_API_KEY`                                            |
 | Ollama (OpenAI-compatible) | `OLLAMA_API_KEY` (optional; defaults to the non-secret value `ollama`) |
 
 For example:
@@ -38,7 +39,7 @@ The CLI also recognizes these explicit startup overrides:
 
 | Variable         | Purpose                                                                       |
 | ---------------- | ----------------------------------------------------------------------------- |
-| `AGENT_PROVIDER` | Select `openai`, `anthropic`, `google`, `deepseek`, `openrouter`, or `ollama` |
+| `AGENT_PROVIDER` | Select `openai`, `anthropic`, `google`, `deepseek`, `openrouter`, `cheaperinference`, or `ollama` |
 | `AGENT_MODEL`    | Select the model ID                                                           |
 | `AGENT_BASE_URL` | Override the selected provider's API endpoint                                 |
 | `AGENT_API_KEY`  | Override the selected provider's credential                                   |

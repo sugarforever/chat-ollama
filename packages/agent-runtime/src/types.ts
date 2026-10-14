@@ -65,8 +65,8 @@ export interface OpenAICompatibleModelConfig {
 }
 
 export interface CompatibleProviderModelConfig {
-  readonly provider: 'ollama' | 'deepseek' | 'openrouter';
-  readonly name: 'ollama' | 'deepseek' | 'openrouter';
+  readonly provider: 'ollama' | 'deepseek' | 'openrouter' | 'cheaperinference';
+  readonly name: 'ollama' | 'deepseek' | 'openrouter' | 'cheaperinference';
   readonly model: string;
   readonly apiKey?: string;
   readonly baseURL: string;
@@ -85,7 +85,8 @@ export type ProviderId =
   | 'anthropic'
   | 'google'
   | 'deepseek'
-  | 'openrouter';
+  | 'openrouter'
+  | 'cheaperinference';
 
 export interface AvailableModel {
   readonly provider: ProviderId;

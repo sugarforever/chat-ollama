@@ -5,7 +5,7 @@ ChatOllama. It uses Vercel AI SDK internally and exposes ChatOllama-owned
 messages, snapshots, and process-local events.
 
 The package supports streamed agent loops through Ollama, OpenAI, Anthropic,
-Google Gemini, DeepSeek, and OpenRouter, plus reusable model discovery and
+Google Gemini, DeepSeek, OpenRouter, and Cheaper Inference, plus reusable model discovery and
 safe Session model switching. Its built-in tools provide a deterministic UTC
 clock plus workspace-confined file reading, directory listing, content search,
 file discovery, complete file writes, and exact edits. It does not contain a
@@ -180,6 +180,7 @@ if (selected) {
 | Google Gemini | `GEMINI_API_KEY`, then `GOOGLE_GENERATIVE_AI_API_KEY` |
 | DeepSeek | `DEEPSEEK_API_KEY` |
 | OpenRouter | `OPENROUTER_API_KEY` |
+| Cheaper Inference | `CHEAPER_INFERENCE_API_KEY` |
 
 Blank credentials are ignored. Configured remote providers contribute a small
 built-in catalog; OpenAI's models endpoint augments it. Credential presence
@@ -196,7 +197,7 @@ credentials privately from the environment. Public discovery results contain
 provider/model identity and optional non-secret endpoint metadata, never keys.
 
 OpenAI, Anthropic, and Google use their official AI SDK provider adapters.
-Ollama, DeepSeek, and OpenRouter use the OpenAI-compatible adapter with
+Ollama, DeepSeek, OpenRouter, and Cheaper Inference use the OpenAI-compatible adapter with
 provider-specific configuration. The Runtime has no pi-tui or pi-ai dependency.
 
 Startup precedence and user preference files belong to the CLI. Its explicit

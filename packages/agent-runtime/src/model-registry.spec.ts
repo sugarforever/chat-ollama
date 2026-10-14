@@ -83,6 +83,19 @@ describe('model registry', () => {
       },
       providerId: 'openrouter.chat',
     },
+    {
+      name: 'Cheaper Inference',
+      selection: { provider: 'cheaperinference', model: 'gpt-test' },
+      env: { CHEAPER_INFERENCE_API_KEY: 'cheaperinference-secret' },
+      config: {
+        provider: 'cheaperinference',
+        name: 'cheaperinference',
+        model: 'gpt-test',
+        baseURL: 'https://api.cheaperinference.com/v1',
+        apiKey: 'cheaperinference-secret',
+      },
+      providerId: 'cheaperinference.chat',
+    },
   ] satisfies readonly {
     readonly name: string;
     readonly selection: AvailableModel;
