@@ -14,6 +14,7 @@ const DEFAULT_MODELS: Record<ProviderId, string> = {
   google: 'gemini-2.5-flash',
   deepseek: 'deepseek-chat',
   openrouter: 'openai/gpt-5-mini',
+  cheaperinference: 'gpt-5.4-mini',
 };
 
 const LEGACY_OLLAMA_SELECTION: AvailableModel = {

@@ -32,6 +32,11 @@ export const PROVIDER_CATALOG: readonly ProviderDefinition[] = [
     credentialNames: ['OPENROUTER_API_KEY'],
     models: ['anthropic/claude-sonnet-4-5', 'openai/gpt-5-mini'],
   },
+  {
+    id: 'cheaperinference',
+    credentialNames: ['CHEAPER_INFERENCE_API_KEY'],
+    models: ['claude-sonnet-5', 'gpt-5.4-mini'],
+  },
 ];
 
 export function getCredential(
