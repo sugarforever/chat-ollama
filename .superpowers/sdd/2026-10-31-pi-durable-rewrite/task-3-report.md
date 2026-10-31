@@ -36,3 +36,36 @@ Build output retains the known legacy ancestor .nuxt/tsconfig warning and expect
 - Secrets remain server-side on disk (settings DB and endpoint snapshots); backups require the same filesystem protection. No encryption-at-rest claim.
 - Embedding settings are ready for task 4's explicit reindex workflow. Polished settings/login interfaces remain task 6.
 - No legacy data migration, no pushes/PRs. Known legacy ancestor tsconfig warning remains; node:sqlite bundler externalization warnings are expected on Node24.
+
+## Round 1 review correction: deployment URL validation
+
+Review finding: CHAT_BASE_URL / EMBEDDING_BASE_URL defaults bypassed submitted URL validation, allowing URL credentials/query secrets into public settings and unsupported schemes into the provider.
+
+TDD evidence:
+
+- `pnpm exec vitest run tests/settings.spec.ts` before implementation: **2 failed, 1 passed**. Both deployment-variable validation cases failed with `expected [Function] to throw an error`; they had accepted a credential-bearing URL. The separate crash-boundary investigation already passed.
+- Shared `validateEndpoint` now runs for deployment defaults, persisted configuration loads and submitted edits. HTTP(S), credentials, query and fragment rules are identical. URL parsing errors are replaced by the fixed `Invalid endpoint` error, without original input or cause, so malformed URLs cannot leak input through error messages.
+- `pnpm exec vitest run tests/settings.spec.ts tests/auth-settings.spec.ts`: **2 files, 6 tests passed**. Covers both deployment variables with URL credentials, secret query/fragment, file scheme, malformed input, accepted local HTTP URL, public-settings rejection without echoing input, and existing real HTTP settings/auth behavior.
+
+Crash-boundary investigation:
+
+- Inspected installed pi-durable 1.4.0 `harness/harness.js`: reopening an existing root returns its ID without applying creation options or resolving the configured model. `ConversationImpl.configure` commits the model change; model resolution happens when generation prepares a request (`harness/generation.js`).
+- The sidecar-before-configure gap is entered only while no run is active. Recreated the exact on-disk state: real pi root persisted with `prior-model`, sidecar replaced with `next-model`, then new manager startup/resume. Startup succeeds; next admission configures the root before submitting, and the real HTTP provider receives `next-model`.
+- This focused characterization passed before the URL fix, so the proposed startup failure was not reproduced. No runtime-ordering change was made. Existing restart-during-active-run test still protects the opposite case where unfinished work must retain its frozen endpoint.
+
+Final round-1 verification (Node 24, sequential commands):
+
+```text
+pnpm test
+ Test Files  7 passed (7)
+      Tests  21 passed (21)
+   Duration  20.60s
+pnpm check
+svelte-check found 0 errors and 0 warnings
+pnpm build
+✓ built in 934ms
+✔ done
+build/startup.js 14.4kb
+```
+
+Known ancestor tsconfig and node:sqlite externalization notices remain unchanged. No test failures remain.

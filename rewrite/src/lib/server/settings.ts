@@ -15,28 +15,47 @@ export function appDatabase() {
   );
   return db;
 }
+function validateEndpoint(endpoint: ChatEndpointConfig): ChatEndpointConfig {
+  try {
+    const url = new URL(endpoint.baseUrl);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      throw Error();
+  } catch {
+    // URL parsing errors can contain the original input and embedded credentials.
+    throw Error("Invalid endpoint");
+  }
+  return endpoint;
+}
 function load(kind: "chat" | "embedding"): ChatEndpointConfig {
   const db = appDatabase();
   try {
     const row = db
       .prepare("SELECT value FROM settings WHERE kind=?")
       .get(kind) as { value: string } | undefined;
-    return row
-      ? JSON.parse(row.value)
-      : {
-          baseUrl:
-            process.env[
-              kind === "chat" ? "CHAT_BASE_URL" : "EMBEDDING_BASE_URL"
-            ] || "http://127.0.0.1:11434/v1",
-          modelId:
-            process.env[
-              kind === "chat" ? "CHAT_MODEL_ID" : "EMBEDDING_MODEL_ID"
-            ] || "local",
-          apiKey:
-            process.env[
-              kind === "chat" ? "CHAT_API_KEY" : "EMBEDDING_API_KEY"
-            ] || "",
-        };
+    return validateEndpoint(
+      row
+        ? JSON.parse(row.value)
+        : {
+            baseUrl:
+              process.env[
+                kind === "chat" ? "CHAT_BASE_URL" : "EMBEDDING_BASE_URL"
+              ] || "http://127.0.0.1:11434/v1",
+            modelId:
+              process.env[
+                kind === "chat" ? "CHAT_MODEL_ID" : "EMBEDDING_MODEL_ID"
+              ] || "local",
+            apiKey:
+              process.env[
+                kind === "chat" ? "CHAT_API_KEY" : "EMBEDDING_API_KEY"
+              ] || "",
+          },
+    );
   } finally {
     db.close();
   }
@@ -72,15 +91,7 @@ export function saveSettings(input: Record<string, unknown>) {
         throw Error("Invalid settings");
       next[key] = value;
     }
-    const url = new URL(next.baseUrl);
-    if (
-      !["http:", "https:"].includes(url.protocol) ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash
-    )
-      throw Error("Invalid endpoint");
+    validateEndpoint(next);
     updates.push([kind, JSON.stringify(next)]);
   }
   const db = appDatabase();
