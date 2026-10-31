@@ -38,10 +38,15 @@ async function setup() {
     });
     const base = `http://127.0.0.1:${port}`;
     let cookie = "";
-    const request = (path: string, data?: unknown, origin = base) =>
+    const request = (
+      path: string,
+      data?: unknown,
+      origin = base,
+      method?: string,
+    ) =>
       fetch(base + path, {
         redirect: "manual",
-        method: data === undefined ? "GET" : "POST",
+        method: method ?? (data === undefined ? "GET" : "POST"),
         headers: { cookie, origin, "content-type": "application/json" },
         body: data === undefined ? undefined : JSON.stringify(data),
       });
@@ -63,6 +68,8 @@ test("central access gate, password validation, cookie flags, origin checks and 
   const app = await start();
   for (const path of [
     "/api/conversations",
+    "/api/mcp",
+    "/api/conversations/unknown/acknowledge",
     "/api/conversations/unknown/events",
     "/sources/future",
   ])
@@ -185,4 +192,70 @@ test("settings persist redacted secrets and configure actual later model request
   for (let i = 0; i < 200 && a.requests.length === before; i++)
     await new Promise((r) => setTimeout(r, 25));
   expect(a.requests.length).toBeGreaterThan(before);
+});
+
+test("MCP settings and acknowledgement require login and keep credentials on the server", async () => {
+  const { start, dir } = await setup();
+  const app = await start();
+  expect(
+    (await app.request("/api/conversations/unknown/acknowledge", {})).status,
+  ).toBe(401);
+  await app.login();
+  const saved = await app.request(
+    "/api/mcp",
+    {
+      servers: [
+        {
+          id: "remote",
+          transport: "http",
+          url: "http://127.0.0.1:1/mcp",
+          headers: { Authorization: "Bearer mcp-private-secret" },
+        },
+      ],
+    },
+    undefined,
+    "PUT",
+  );
+  expect(saved.status).toBe(200);
+  expect(await saved.text()).not.toContain("mcp-private-secret");
+  expect(await (await app.request("/api/mcp")).text()).not.toContain(
+    "mcp-private-secret",
+  );
+  const failed = await app.request("/api/conversations", {
+    modelId: "fixture",
+    mcpServerIds: ["remote"],
+    knowledgeBaseIds: [],
+  });
+  expect(failed.status).toBe(502);
+  expect(await failed.text()).toContain("authentication");
+  const response = await app.request("/api/conversations", {
+    modelId: "fixture",
+    mcpServerIds: [],
+    knowledgeBaseIds: [],
+  });
+  const { id } = await response.json();
+  const { openMcpBarrier } = await import("../src/lib/server/mcp/barrier");
+  const barrier = openMcpBarrier(
+    join(dir, "sessions", `${id}.sqlite.mcp.sqlite`),
+  );
+  try {
+    barrier.begin("external action", "test");
+    barrier.fail();
+    expect(
+      (
+        await app.request(`/api/conversations/${id}/messages`, {
+          requestId: "blocked",
+          content: "continue",
+        })
+      ).status,
+    ).toBe(409);
+    const state = await app.request(`/api/conversations/${id}`);
+    expect((await state.json()).mcpUncertainty).toContain("may have completed");
+    expect(
+      (await app.request(`/api/conversations/${id}/acknowledge`, {})).status,
+    ).toBe(200);
+    expect(barrier.uncertainty()).toBeUndefined();
+  } finally {
+    barrier.close();
+  }
 });

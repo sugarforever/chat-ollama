@@ -1,3 +1,5 @@
+import type { McpConfig } from "../mcp/client";
+import type { RuntimeTool } from "../mcp/tools";
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -14,6 +16,12 @@ export function createSessionManager(options: {
   directory: string;
   endpoint: ChatEndpointConfig;
   loadEndpoint?: () => ChatEndpointConfig;
+  mcpConfigs?: McpConfig[];
+  loadMcpConfigs?: () => McpConfig[];
+  tools?: RuntimeTool[];
+  createTools?: (
+    config: ConversationConfig,
+  ) => RuntimeTool[] | Promise<RuntimeTool[]>;
 }) {
   const sessions = new Map<string, Promise<AgentSession>>();
   let closed = false;
@@ -41,6 +49,18 @@ export function createSessionManager(options: {
       const initial = existsSync(endpointFile)
         ? JSON.parse(readFileSync(endpointFile, "utf8"))
         : { ...options.endpoint, modelId: row.config.modelId };
+      const mcpFile = join(options.directory, `${id}.mcp.json`);
+      const hasManifest = existsSync(
+        join(options.directory, `${id}.sqlite.mcp-tools.json`),
+      );
+      const mcpConfigs: McpConfig[] =
+        existsSync(mcpFile) && hasManifest
+          ? JSON.parse(readFileSync(mcpFile, "utf8"))
+          : (options.loadMcpConfigs?.() ?? options.mcpConfigs ?? []).filter(
+              (c) => row!.config.mcpServerIds.includes(c.id),
+            );
+      if (!existsSync(mcpFile) || !hasManifest)
+        writeFileSync(mcpFile, JSON.stringify(mcpConfigs), { mode: 0o600 });
       const session = await openAgentSession(
         id,
         join(options.directory, `${id}.sqlite`),
@@ -56,6 +76,26 @@ export function createSessionManager(options: {
               return endpoint;
             }
           : undefined,
+        {
+          mcpServerIds: row.config.mcpServerIds,
+          mcpConfigs,
+          tools: [
+            ...(options.tools ?? []),
+            ...(await (options.createTools?.(row.config) ?? [])),
+          ],
+          loadMcpConfigs: options.loadMcpConfigs
+            ? () => {
+                const next = options.loadMcpConfigs!().filter((c) =>
+                  row!.config.mcpServerIds.includes(c.id),
+                );
+                writeFileSync(`${mcpFile}.tmp`, JSON.stringify(next), {
+                  mode: 0o600,
+                });
+                renameSync(`${mcpFile}.tmp`, mcpFile);
+                return next;
+              }
+            : undefined,
+        },
       );
       db.ready(id);
       return session;
@@ -69,6 +109,13 @@ export function createSessionManager(options: {
   return {
     openSession,
     async createConversation(config: ConversationConfig) {
+      const selected = options.loadMcpConfigs?.() ?? options.mcpConfigs ?? [];
+      if (
+        config.mcpServerIds.some(
+          (id) => !selected.some((server) => server.id === id),
+        )
+      )
+        throw new ApiError(400, "INVALID_INPUT", "Unknown MCP server");
       const id = randomUUID();
       validateConversationId(id);
       // Catalogue intent precedes session creation; startup completes interrupted creation.
@@ -88,7 +135,16 @@ export function createSessionManager(options: {
         .map(({ id, config, createdAt }) => ({ id, config, createdAt }));
     },
     async resume() {
-      for (const row of (await catalogue).list()) await openSession(row.id);
+      for (const row of (await catalogue).list()) {
+        try {
+          await openSession(row.id);
+        } catch (error) {
+          // A server unavailable during initial discovery must not make settings
+          // inaccessible. Opening that conversation still returns its actionable error.
+          if (!(error instanceof ApiError && error.code === "MCP_CONNECTION"))
+            throw error;
+        }
+      }
     },
     async close() {
       if (closed) return;

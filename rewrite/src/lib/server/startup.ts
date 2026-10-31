@@ -1,3 +1,4 @@
+import { loadMcpServers } from "./mcp/config";
 import { loadChatConfig } from "./settings";
 import { resolve } from "node:path";
 import { createSessionManager } from "./runtime/manager";
@@ -11,6 +12,7 @@ async function start() {
     directory: resolve(process.env.DATA_DIR || "data", "sessions"),
     endpoint: loadChatConfig(),
     loadEndpoint: loadChatConfig,
+    loadMcpConfigs: loadMcpServers,
   });
   await manager.resume();
   return manager;

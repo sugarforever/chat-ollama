@@ -33,3 +33,27 @@ Set `ADMIN_PASSWORD` before serving requests. Sign in at `/login`. Salted scrypt
 Authenticated `GET /api/settings` returns `{chat, embedding}` containing `baseUrl`, `modelId`, and `hasApiKey`. `POST /api/settings` accepts partial chat/embedding objects. Omit `apiKey` to preserve it; an empty string clears it. URLs must use HTTP(S) without embedded credentials, query strings, or fragments; local endpoints are allowed. `CHAT_*` and `EMBEDDING_*` environment variables seed defaults until settings are saved. Settings and hashed sessions persist in `DATA_DIR/app.sqlite` (0600), inside the data directory (0700). Protect and back up the entire directory, including SQLite WALs and credential-bearing per-conversation endpoint snapshots.
 
 Saved chat settings apply at the next admitted run, including existing conversations. Active runs retain the endpoint/key/model in `sessions/:id.endpoint.json` (0600), including across restart after a settings edit. Original conversation configuration remains creation metadata. Embeddings have independent configuration; the knowledge-base task adds explicit reindex behavior. The UI delivery task refines the minimal login page.
+
+MCP servers are configured with authenticated `PUT /api/mcp`, using
+`{"servers":[{"id":"local","transport":"stdio","command":"node","args":["server.js"],"env":{"TOKEN":"..."}}]}`
+or `{"servers":[{"id":"remote","transport":"http","url":"https://host/mcp","headers":{"Authorization":"Bearer ..."}}]}`.
+This replaces the entire server list, including credentials. `GET /api/mcp` returns
+public configuration and credential presence flags; environment values and headers
+remain server-side. Use environment/header fields for secrets. HTTP supports
+Streamable HTTP; interactive OAuth setup is outside v1. Select server IDs when
+creating a conversation. Only selected tools are registered, without per-call approval.
+
+An interrupted MCP action may already have changed an external system. Snapshots
+include `mcpUncertainty` and status `interrupted`; inspect the external outcome,
+then explicitly `POST /api/conversations/:id/acknowledge` to allow subsequent input.
+Acknowledgement does not retry the old action. Automatic model requests and all
+MCP dispatch remain blocked until acknowledgement; native pi interrupted results
+remain in the transcript. Running requests receive Stop's cancellation signal, but
+cancellation cannot undo an external effect.
+
+The application persists selected MCP configuration and discovery per conversation
+with private file permissions, preserving a run's effective tools across restart.
+Later input refreshes global configuration. The additional `.mcp.sqlite` file owns
+only the application's uncertainty barrier; pi's SQLite schema is untouched. A crash
+in the gap between native result commit and barrier cleanup conservatively requires
+acknowledgement. This covers process failure, not host loss or power failure.

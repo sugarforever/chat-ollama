@@ -12,6 +12,7 @@ export type PublicEntry = {
 export type ConversationSnapshot = {
   id: string;
   revision: string;
+  mcpUncertainty?: string;
   status: RunStatus;
   entries: PublicEntry[];
 };
