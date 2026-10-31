@@ -513,7 +513,8 @@ test("failed run shows an actionable status without exposing provider details", 
 
 // Delay real responses; the application and production server still execute normally.
 async function delayResponse(page: Page, pattern: string) {
-  let release!: () => void, captured!: () => void;
+  let release!: () => void, captured!: () => void, fulfilled!: () => void;
+  const delivered = new Promise<void>((r) => (fulfilled = r));
   const gate = new Promise<void>((r) => (release = r));
   const ready = new Promise<void>((r) => (captured = r));
   await page.route(
@@ -523,10 +524,11 @@ async function delayResponse(page: Page, pattern: string) {
       captured();
       await gate;
       await route.fulfill({ response });
+      fulfilled();
     },
     { times: 1 },
   );
-  return { ready, release };
+  return { ready, release, delivered };
 }
 async function pair(page: Page) {
   await login(page);
@@ -574,6 +576,71 @@ test("delayed admission cannot clear a different conversation draft", async ({
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
     "draft in B",
   );
+});
+// A real GET captures running before SSE commits completion; network delivery is delayed.
+// Removing same-conversation stream ordering must hide the answer and disable the composer.
+test("delayed running GET cannot overwrite completed SSE state in the same conversation", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  await create(page);
+  const id = new URL(page.url()).searchParams.get("conversation")!;
+  let release!: () => void, captured!: () => void;
+  let capturedStatus = "";
+  const gate = new Promise<void>((r) => release = r);
+  const ready = new Promise<void>((r) => captured = r);
+  await page.route(`**/api/conversations/${id}`, async (route) => {
+    const response = await route.fetch();
+    capturedStatus = (await response.json()).status;
+    captured();
+    await gate;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  try {
+    await page.getByLabel("Message", { exact: true }).fill("hold stale same conversation");
+    await page.getByRole("button", { name: "Send message", exact: true }).click();
+    await ready;
+    expect(capturedStatus).toBe("running");
+    await expect(page.getByText("Persisted partial answer", { exact: true })).toBeVisible();
+    held();
+    await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+    const delivered = page.waitForResponse((r) => r.url().endsWith(`/conversations/${id}`));
+    release();
+    await delivered;
+    await settle(page);
+    await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+  } finally {
+    release();
+    held();
+  }
+});
+test("delayed Stop GET cannot overwrite a subsequent run's SSE state", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  await create(page);
+  const id = new URL(page.url()).searchParams.get("conversation")!;
+  await page.getByLabel("Message", { exact: true }).fill("hold first action run");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByText("Persisted partial answer", { exact: true })).toBeVisible();
+  const delay = await delayResponse(page, `**/api/conversations/${id}`);
+  try {
+    await page.getByRole("button", { name: "Stop", exact: true }).click();
+    await delay.ready;
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+    await page.getByLabel("Message", { exact: true }).fill("hold subsequent action run");
+    await page.getByRole("button", { name: "Send message", exact: true }).click();
+    await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+    await expect(page.getByText("Persisted partial answer", { exact: true })).toHaveCount(2);
+    delay.release();
+    await delay.delivered;
+    await settle(page);
+    await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  } finally {
+    delay.release();
+    held();
+  }
 });
 test("delayed send snapshot cannot replace the selected conversation", async ({
   page,
@@ -727,16 +794,22 @@ test("SIGKILL resumes the admitted chat on the shipped entrypoint", async ({ pag
   await login(page);
   await configure(page);
   await create(page);
+  const id = new URL(page.url()).searchParams.get("conversation")!;
+  const snapshot = async () => (await request(page, `/api/conversations/${id}`)).value;
+  // Build a prior process revision higher than recovery's reset counter.
+  for (let n = 0; n < 3; n++) {
+    await request(page, `/api/conversations/${id}/messages`, {requestId: `warmup-${n}`, content: `warmup ${n}`});
+    await expect.poll(async () => (await snapshot()).status).toBe("idle");
+  }
+  await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
   await page.getByLabel("Message", { exact: true }).fill("hold crash recovery");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByText("Persisted partial answer", { exact: true })).toBeVisible();
+  const beforeRestart = Number((await snapshot()).revision);
   await killServer();
   await startServer();
-  await page.reload();
   await expect(page.getByText("hold crash recovery", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", {name: "Stop", exact: true})).toBeVisible();
-  const id = new URL(page.url()).searchParams.get("conversation")!;
-  const snapshot = async () => (await request(page, `/api/conversations/${id}`)).value;
   await expect.poll(async () => {
     held();
     const current = await snapshot();
@@ -747,6 +820,8 @@ test("SIGKILL resumes the admitted chat on the shipped entrypoint", async ({ pag
   }).toEqual({status: "idle", answers: 1});
   await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
   const completed = await snapshot();
+  expect(Number(completed.revision)).toBeLessThan(beforeRestart);
+  await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
   expect(completed.entries.filter((entry: any) => entry.kind === "user" && entry.content === "hold crash recovery")).toHaveLength(1);
   expect(modelRequests.filter(prompt => prompt === "hold crash recovery")).toHaveLength(2);
   await page.reload();

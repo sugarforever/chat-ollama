@@ -19,6 +19,8 @@
   let stream: EventSource | undefined;
   let validSources = new Set<string>();
   let generation = 0;
+  // Local stream delivery order also survives process-local server revision resets.
+  let streamUpdates = 0;
   const md = new MarkdownIt({ html: false, linkify: false });
   md.renderer.rules.image = (tokens, idx) =>
     md.utils.escapeHtml(tokens[idx].content);
@@ -52,6 +54,21 @@
   function active(own: number, id: string) {
     return !disposed && own === generation && id === current;
   }
+  function applySnapshot(
+    own: number,
+    id: string,
+    next: ConversationSnapshot,
+    expectedStreamUpdates = streamUpdates,
+  ) {
+    if (!active(own, id) || expectedStreamUpdates !== streamUpdates) return;
+    snapshot = next;
+    void validateCitations();
+  }
+  async function readSnapshot(own: number, id: string) {
+    const beforeRead = streamUpdates;
+    const next = await api(`/api/conversations/${id}`);
+    applySnapshot(own, id, next, beforeRead);
+  }
   async function refresh() {
     const [nextConversations, nextCollections, nextMcp] = await Promise.all([
       api("/api/conversations"),
@@ -76,9 +93,8 @@
     history.replaceState(null, "", `?conversation=${encodeURIComponent(id)}`);
     connection = "Connecting";
     try {
-      const next = await api(`/api/conversations/${id}`);
+      await readSnapshot(own, id);
       if (!active(own, id)) return;
-      snapshot = next;
       stream = new EventSource(`/api/conversations/${id}/events`);
       stream.onopen = () => {
         if (active(own, id)) connection = "Connected";
@@ -89,10 +105,9 @@
       };
       stream.onmessage = (event) => {
         if (!active(own, id)) return;
-        snapshot = JSON.parse(event.data).snapshot;
-        void validateCitations();
+        streamUpdates++;
+        applySnapshot(own, id, JSON.parse(event.data).snapshot);
       };
-      await validateCitations();
     } catch (e) {
       if (active(own, id)) error = (e as Error).message;
     }
@@ -150,8 +165,7 @@
       });
       if (!active(own, id)) return;
       if (draft === content) draft = "";
-      const next = await api(`/api/conversations/${id}`);
-      if (active(own, id)) snapshot = next;
+      await readSnapshot(own, id);
     } catch (e) {
       if (active(own, id)) error = (e as Error).message;
     }
@@ -162,8 +176,7 @@
     try {
       await api(`/api/conversations/${id}/${name}`, {});
       if (!active(own, id)) return;
-      const next = await api(`/api/conversations/${id}`);
-      if (active(own, id)) snapshot = next;
+      await readSnapshot(own, id);
     } catch (e) {
       if (active(own, id)) error = (e as Error).message;
     }

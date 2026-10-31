@@ -67,7 +67,10 @@ export function createSessionManager(options: {
         initial,
         options.loadEndpoint
           ? () => {
-              const endpoint = options.loadEndpoint!();
+              const endpoint = {
+                ...options.loadEndpoint!(),
+                modelId: row!.config.modelId,
+              };
               writeFileSync(`${endpointFile}.tmp`, JSON.stringify(endpoint), {
                 mode: 0o600,
               });

@@ -100,7 +100,7 @@ test("failed logins are rate limited", async () => {
   expect((await app.login()).status).toBe(429);
 });
 // Real pi requests catch a settings-only implementation, key loss, or endpoint changes during a run.
-test("settings persist redacted secrets and configure actual later model requests", async () => {
+test("conversation model survives endpoint edits and active-run restart while later requests refresh URL and key", async () => {
   const { start } = await setup();
   const a = await modelServer(),
     b = await modelServer({ failure: true });
@@ -137,7 +137,7 @@ test("settings persist redacted secrets and configure actual later model request
   const id = (
     await (
       await app.request("/api/conversations", {
-        modelId: "fixture",
+        modelId: "chosen-model",
         knowledgeBaseIds: [],
         mcpServerIds: [],
       })
@@ -150,13 +150,17 @@ test("settings persist redacted secrets and configure actual later model request
   for (let i = 0; i < 200 && a.requests.length === 0; i++)
     await new Promise((r) => setTimeout(r, 25));
   expect(a.requests[0].authorization).toBe("Bearer private-key");
-  await app.request("/api/settings", { chat: { baseUrl: b.baseUrl } });
+  expect(JSON.parse(a.requests[0].prompt).model).toBe("chosen-model");
+  await app.request("/api/settings", { chat: { baseUrl: b.baseUrl, modelId: "edited-global", apiKey: "edited-key" } });
   expect(b.requests).toHaveLength(0);
   app.proc.kill("SIGKILL");
   await new Promise((r) => app.proc.once("exit", r));
   app = await start();
   await app.login();
   expect(b.requests).toHaveLength(0);
+  await expect.poll(() => a.requests.length).toBe(2);
+  expect(a.requests[1].authorization).toBe("Bearer private-key");
+  expect(JSON.parse(a.requests[1].prompt).model).toBe("chosen-model");
   a.release();
   for (let i = 0; i < 200; i++) {
     if (
@@ -174,7 +178,9 @@ test("settings persist redacted secrets and configure actual later model request
   for (let i = 0; i < 200 && b.requests.length === 0; i++)
     await new Promise((r) => setTimeout(r, 25));
   expect(b.requests[0].path).toBe("/custom/v1/chat/completions");
-  expect(b.requests[0].authorization).toBe("Bearer private-key");
+  expect(b.requests[0].authorization).toBe("Bearer edited-key");
+  expect(JSON.parse(b.requests[0].prompt).model).toBe("chosen-model");
+  expect((await (await app.request("/api/conversations")).json()).find((c: any) => c.id === id).config.modelId).toBe("chosen-model");
   for (let i = 0; i < 200; i++) {
     if (
       (await (await app.request(`/api/conversations/${id}`)).json()).status ===
