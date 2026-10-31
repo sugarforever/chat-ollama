@@ -5,7 +5,7 @@ import type { ConversationConfig } from "../contracts";
 const publicErrors: Record<string, [number, string]> = {
   MCP_CONNECTION: [
     502,
-    "Cannot connect MCP server; check address, command and authentication headers. OAuth setup is outside v1.",
+    "Cannot connect or discover MCP server; check selected server configuration, address, command and authentication headers. OAuth setup is outside v1.",
   ],
   MCP_UNCERTAIN: [
     409,

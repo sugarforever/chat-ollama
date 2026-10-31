@@ -259,3 +259,51 @@ test("MCP settings and acknowledgement require login and keep credentials on the
     barrier.close();
   }
 });
+
+test("MCP discovery failure and removal leave built HTTP settings available after restart", async () => {
+  const { start } = await setup();
+  let app = await start();
+  await app.login();
+  await app.request(
+    "/api/mcp",
+    {
+      servers: [
+        {
+          id: "broken",
+          transport: "stdio",
+          command: process.execPath,
+          args: [
+            "--import",
+            "tsx",
+            new URL("./fixtures/mcp-server.ts", import.meta.url).pathname,
+          ],
+          env: { FAIL_LIST: "1" },
+        },
+      ],
+    },
+    undefined,
+    "PUT",
+  );
+  const failed = await app.request("/api/conversations", {
+    modelId: "fixture",
+    knowledgeBaseIds: [],
+    mcpServerIds: ["broken"],
+  });
+  expect(failed.status).toBe(502);
+  const error = await failed.text();
+  expect(error).toContain("authentication");
+  expect(error).not.toContain("discovery-private-secret");
+  const [{ id }] = await (await app.request("/api/conversations")).json();
+  app.proc.kill("SIGKILL");
+  await new Promise((r) => app.proc.once("exit", r));
+  app = await start();
+  await app.login();
+  expect((await app.request("/api/settings")).status).toBe(200);
+  await app.request("/api/mcp", { servers: [] }, undefined, "PUT");
+  app.proc.kill("SIGKILL");
+  await new Promise((r) => app.proc.once("exit", r));
+  app = await start();
+  await app.login();
+  expect((await app.request("/api/settings")).status).toBe(200);
+  expect((await app.request(`/api/conversations/${id}`)).status).toBe(502);
+});

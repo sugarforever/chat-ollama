@@ -1,3 +1,8 @@
+import {
+  ListToolsRequestSchema,
+  McpError,
+  ErrorCode,
+} from "@modelcontextprotocol/sdk/types.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -18,6 +23,10 @@ server.registerTool("effect", { inputSchema: {} }, async () => {
   await new Promise(() => {});
   return { content: [] };
 });
+if (process.env.FAIL_LIST)
+  server.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    throw new McpError(ErrorCode.InternalError, "discovery-private-secret");
+  });
 if (process.env.MCP_HTTP) {
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

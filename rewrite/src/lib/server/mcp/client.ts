@@ -16,6 +16,13 @@ export type McpConfig =
       url: string;
       headers?: Record<string, string>;
     };
+export function mcpConnectionError() {
+  return new ApiError(
+    502,
+    "MCP_CONNECTION",
+    "Cannot connect or discover MCP server; check selected server configuration, address, command and authentication headers. OAuth setup is outside v1.",
+  );
+}
 export async function connectServer(config: McpConfig) {
   const client = new Client({ name: "chat-ollama", version: "1" });
   const transport =
@@ -33,22 +40,22 @@ export async function connectServer(config: McpConfig) {
     await client.connect(transport);
   } catch {
     await transport.close();
-    throw new ApiError(
-      502,
-      "MCP_CONNECTION",
-      "Cannot connect MCP server; check address, command and authentication headers. OAuth setup is outside v1.",
-    );
+    throw mcpConnectionError();
   }
   return {
     async listTools() {
-      const tools = [];
-      let cursor: string | undefined;
-      do {
-        const page = await client.listTools({ cursor });
-        tools.push(...page.tools);
-        cursor = page.nextCursor;
-      } while (cursor);
-      return tools;
+      try {
+        const tools = [];
+        let cursor: string | undefined;
+        do {
+          const page = await client.listTools({ cursor });
+          tools.push(...page.tools);
+          cursor = page.nextCursor;
+        } while (cursor);
+        return tools;
+      } catch {
+        throw mcpConnectionError();
+      }
     },
     callTool: (
       name: string,

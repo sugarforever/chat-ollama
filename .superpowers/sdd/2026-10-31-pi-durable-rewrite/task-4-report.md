@@ -46,3 +46,15 @@ Using Node 24.22.2 via `/tmp/pi-rewrite-node/node_modules/node/bin`:
 - `pnpm exec vitest run tests/mcp.spec.ts tests/runtime-recovery.spec.ts` after the hook typing correction: 2 files / 15 tests passed (11.33s).
 
 Existing warnings remain visible: ancestor legacy Nuxt tsconfig during Vite discovery, SvelteKit overriding the Vitest base, adapter-node treating node:sqlite as external, and Node's SQLite experimental warning in child stderr. No legacy files were changed or warning suppression added.
+
+## Review fix round 1: recoverable discovery failures
+
+The review found two errors outside the MCP failure boundary: a removed selected server threw plain `Unknown MCP server`, and an SDK tools/list failure escaped as raw `McpError` even after initialization succeeded. Both could leave a catalogue creation intent without a discovery manifest, then reject all application startup because only MCP_CONNECTION is deliberately isolated per conversation.
+
+Added a shared sanitized MCP connection/discovery error factory. Missing selected configuration and all listTools failures now use the existing MCP_CONNECTION/502 category, with public guidance to check selected configuration, command, address and authentication headers. Existing manager startup isolation consequently applies to both cases; no broad exception swallowing was added. Partial tool discovery still closes its opened clients.
+
+RED evidence: the removed/renamed regression rejected resume with `Unknown MCP server removed`; the successful-initialize/tools-list regression returned raw SDK code -32603 instead of MCP_CONNECTION; built HTTP returned 500 instead of 502. The fixture emits `discovery-private-secret` in its real SDK tools/list error, and tests ensure it never reaches the caller.
+
+GREEN focused command: `pnpm exec vitest run tests/mcp.spec.ts tests/auth-settings.spec.ts` passed 2 files / 18 tests (19.09s). The new real HTTP regression creates a failed discovery intent, restarts and verifies settings are reachable, removes the selected server, restarts again, and verifies settings remain 200 while the affected conversation returns 502. Unit integration also exercises renaming after failed creation and successful initialization followed by rejected tools/list across manager restart.
+
+Round 1 final serial validation under Node 24.22.2: `pnpm test` passed 8 files / 36 tests, 0 failures (44.28s); `pnpm check` reported 0 errors and 0 warnings; `pnpm build` completed Vite, adapter-node and bootstrap esbuild successfully (24.5 kB bootstrap); `git diff --check` was clean. Existing tooling warnings were not changed. No remaining review finding from round 1 is deferred.

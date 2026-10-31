@@ -454,3 +454,90 @@ test("an unavailable selected server does not prevent startup or repairing globa
     await manager.close();
   }
 });
+
+test("failed discovery remains recoverable after its selected server is removed or renamed", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "mcp-removed-"));
+  let servers: any[] = [
+    { id: "removed", transport: "http", url: "http://127.0.0.1:1/mcp" },
+  ];
+  const options = {
+    directory,
+    endpoint: {
+      baseUrl: "http://127.0.0.1:1/v1",
+      apiKey: "x",
+      modelId: "fixture",
+    },
+    loadMcpConfigs: () => servers,
+  };
+  let manager = createSessionManager(options);
+  await expect(
+    manager.createConversation({
+      modelId: "fixture",
+      knowledgeBaseIds: [],
+      mcpServerIds: ["removed"],
+    }),
+  ).rejects.toMatchObject({ code: "MCP_CONNECTION" });
+  const [{ id }] = await manager.listConversations();
+  await manager.close();
+  servers = [
+    { id: "renamed", transport: "http", url: "http://127.0.0.1:1/mcp" },
+  ];
+  manager = createSessionManager(options);
+  try {
+    await expect(manager.resume()).resolves.toBeUndefined();
+    await expect(manager.getSession(id)).rejects.toMatchObject({
+      code: "MCP_CONNECTION",
+      status: 502,
+    });
+    expect(await manager.listConversations()).toHaveLength(1);
+  } finally {
+    await manager.close();
+  }
+});
+
+test("successful initialization followed by tools/list failure is sanitized and does not prevent restart", async () => {
+  const config = {
+    id: "broken-list",
+    transport: "stdio" as const,
+    command: process.execPath,
+    args: ["--import", "tsx", fixture],
+    env: { FAIL_LIST: "1" },
+  };
+  const connection = await connectServer(config);
+  try {
+    await expect(connection.listTools()).rejects.toMatchObject({
+      code: "MCP_CONNECTION",
+      status: 502,
+    });
+    await expect(connection.listTools()).rejects.not.toThrow(
+      "discovery-private-secret",
+    );
+  } finally {
+    await connection.close();
+  }
+  const directory = mkdtempSync(join(tmpdir(), "mcp-discovery-"));
+  const options = {
+    directory,
+    endpoint: {
+      baseUrl: "http://127.0.0.1:1/v1",
+      apiKey: "x",
+      modelId: "fixture",
+    },
+    mcpConfigs: [config],
+  };
+  let manager = createSessionManager(options);
+  await expect(
+    manager.createConversation({
+      modelId: "fixture",
+      knowledgeBaseIds: [],
+      mcpServerIds: ["broken-list"],
+    }),
+  ).rejects.toMatchObject({ code: "MCP_CONNECTION" });
+  await manager.close();
+  manager = createSessionManager(options);
+  try {
+    await expect(manager.resume()).resolves.toBeUndefined();
+  } finally {
+    await manager.close();
+  }
+});

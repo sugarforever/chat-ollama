@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import { Type } from "@sinclair/typebox";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { connectServer, type McpConfig, type McpConnection } from "./client";
+import {
+  connectServer,
+  mcpConnectionError,
+  type McpConfig,
+  type McpConnection,
+} from "./client";
 // Only this adapter boundary depends on pi's executable tool type.
 export type RuntimeTool = ToolRegistration;
 export type McpDescriptor = { serverId: string; tool: Tool };
@@ -32,7 +37,7 @@ export async function createMcpTools(
     let value = connections.get(id);
     if (!value) {
       const config = configs.find((c) => c.id === id);
-      if (!config) throw Error(`Unknown MCP server ${id}`);
+      if (!config) throw mcpConnectionError();
       value = await connectServer(config);
       connections.set(id, value);
     }

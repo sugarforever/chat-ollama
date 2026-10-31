@@ -28,3 +28,6 @@
 - An initial fixture run failed because zod was only transitive; it is now a pinned direct dependency. An initial `pnpm test -- tests/mcp.spec.ts` invocation selected the full suite under this pnpm/Vitest combination; targeted verification uses `pnpm exec vitest run ...`. All final checks use Node 24; existing ancestor Nuxt/base/node:sqlite build warnings remain visible.
 
 - Final Task 4 Node 24 verification: full suite 8 files / 33 tests passed; svelte-check zero errors/warnings; production Vite/adapter-node/bootstrap build succeeded. The async generation hook requires an explicit undefined return to match pi HookResult.
+
+- Task 4 review fix: normalize missing selected configuration and tools/list failures to the existing sanitized MCP_CONNECTION category. Real SDK and built HTTP restart tests reproduce failed discovery followed by server removal/rename, confirming settings remain accessible and only the affected conversation receives actionable 502. The fixture's private error string is absent from public failures.
+- Review round 1 final serial Node 24 verification: 8 files / 36 tests passed, type check zero errors/warnings, and production build succeeded (24.5 kB bootstrap). Existing tooling warnings remain unchanged.
