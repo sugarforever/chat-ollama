@@ -48,14 +48,23 @@
     return md.renderer.render(tokens, md.options, {});
   }
   $: busy = snapshot?.status === "running" || snapshot?.status === "cancelling";
+  let disposed = false;
+  function active(own: number, id: string) {
+    return !disposed && own === generation && id === current;
+  }
   async function refresh() {
-    [conversations, collections, { servers }] = await Promise.all([
+    const [nextConversations, nextCollections, nextMcp] = await Promise.all([
       api("/api/conversations"),
       api("/api/knowledge-bases"),
       api("/api/mcp"),
     ]);
+    if (disposed) return;
+    conversations = nextConversations;
+    collections = nextCollections;
+    servers = nextMcp.servers;
   }
   async function open(id: string) {
+    if (disposed) return;
     const own = ++generation;
     stream?.close();
     if (current !== id) {
@@ -68,25 +77,29 @@
     connection = "Connecting";
     try {
       const next = await api(`/api/conversations/${id}`);
-      if (own !== generation) return;
+      if (!active(own, id)) return;
       snapshot = next;
       stream = new EventSource(`/api/conversations/${id}/events`);
-      stream.onopen = () => (connection = "Connected");
+      stream.onopen = () => {
+        if (active(own, id)) connection = "Connected";
+      };
       stream.onerror = () => {
-        connection = "Reconnecting — confirmed messages are saved";
+        if (active(own, id))
+          connection = "Reconnecting — confirmed messages are saved";
       };
       stream.onmessage = (event) => {
-        if (own !== generation) return;
+        if (!active(own, id)) return;
         snapshot = JSON.parse(event.data).snapshot;
         void validateCitations();
       };
       await validateCitations();
     } catch (e) {
-      error = (e as Error).message;
+      if (active(own, id)) error = (e as Error).message;
     }
   }
   async function validateCitations() {
-    const own = generation;
+    const own = generation,
+      id = current;
     const urls = [
       ...new Set(
         (snapshot?.entries.map((e) => e.content).join("\n") ?? "").match(
@@ -95,16 +108,20 @@
       ),
     ];
     for (const url of urls) {
+      if (!active(own, id)) return;
       if (validSources.has(url)) continue;
       try {
-        await api(`/api${url}?conversationId=${encodeURIComponent(current)}`);
-        if (own === generation) validSources = new Set([...validSources, url]);
+        await api(`/api${url}?conversationId=${encodeURIComponent(id)}`);
+        if (!active(own, id)) return;
+        validSources = new Set([...validSources, url]);
       } catch {
         /* Invalid citations stay inert. */
       }
     }
   }
   async function create() {
+    const own = generation,
+      id = current;
     error = "";
     try {
       const c = await api("/api/conversations", {
@@ -112,33 +129,43 @@
         knowledgeBaseIds: selectedCollections,
         mcpServerIds: selectedServers,
       });
+      if (!active(own, id)) return;
       creating = false;
       await refresh();
-      await open(c.id);
+      if (active(own, id)) await open(c.id);
     } catch (e) {
-      error = (e as Error).message;
+      if (active(own, id)) error = (e as Error).message;
     }
   }
   async function send(event: SubmitEvent) {
     event.preventDefault();
+    const own = generation,
+      id = current,
+      content = draft;
     error = "";
     try {
-      await api(`/api/conversations/${current}/messages`, {
-        content: draft,
+      await api(`/api/conversations/${id}/messages`, {
+        content,
         requestId: crypto.randomUUID(),
       });
-      draft = "";
-      snapshot = await api(`/api/conversations/${current}`);
+      if (!active(own, id)) return;
+      if (draft === content) draft = "";
+      const next = await api(`/api/conversations/${id}`);
+      if (active(own, id)) snapshot = next;
     } catch (e) {
-      error = (e as Error).message;
+      if (active(own, id)) error = (e as Error).message;
     }
   }
   async function action(name: string) {
+    const own = generation,
+      id = current;
     try {
-      await api(`/api/conversations/${current}/${name}`, {});
-      snapshot = await api(`/api/conversations/${current}`);
+      await api(`/api/conversations/${id}/${name}`, {});
+      if (!active(own, id)) return;
+      const next = await api(`/api/conversations/${id}`);
+      if (active(own, id)) snapshot = next;
     } catch (e) {
-      error = (e as Error).message;
+      if (active(own, id)) error = (e as Error).message;
     }
   }
   async function clickCitation(event: MouseEvent) {
@@ -146,31 +173,39 @@
     if (!anchor) return;
     const href = anchor.getAttribute("href") ?? "";
     if (href === "#" || href.startsWith("/sources/")) event.preventDefault();
+    const own = generation,
+      id = current;
     if (validSources.has(href)) {
       try {
-        source = await api(
-          `/api${href}?conversationId=${encodeURIComponent(current)}`,
+        const next = await api(
+          `/api${href}?conversationId=${encodeURIComponent(id)}`,
         );
+        if (active(own, id)) source = next;
       } catch (e) {
+        if (!active(own, id)) return;
         error = (e as Error).message;
         validSources = new Set([...validSources].filter((x) => x !== href));
       }
     }
   }
   onMount(() => {
+    const initial = generation;
     const offline = () => {
       stream?.close();
       connection = "Reconnecting — confirmed messages are saved";
     };
     const online = () => {
-      if (current) void open(current);
+      if (!disposed && current) void open(current);
     };
     window.addEventListener("offline", offline);
     window.addEventListener("online", online);
     void (async () => {
       try {
         await refresh();
-        modelId = (await api("/api/settings")).chat.modelId;
+        if (disposed || initial !== generation) return;
+        const settings = await api("/api/settings");
+        if (disposed || initial !== generation) return;
+        modelId = settings.chat.modelId;
         if (conversations.length) {
           const selected = new URLSearchParams(location.search).get(
             "conversation",
@@ -181,10 +216,12 @@
           );
         }
       } catch (e) {
-        error = (e as Error).message;
+        if (!disposed && initial === generation) error = (e as Error).message;
       }
     })();
     return () => {
+      disposed = true;
+      generation++;
       stream?.close();
       window.removeEventListener("offline", offline);
       window.removeEventListener("online", online);

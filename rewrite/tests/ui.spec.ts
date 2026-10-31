@@ -174,18 +174,16 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await expect(
     page.getByRole("button", { name: "Save complete replacement" }),
   ).toBeDisabled();
-  await page
-    .getByLabel("Complete MCP configuration JSON")
-    .fill(
-      JSON.stringify([
-        {
-          id: "saved-tools",
-          transport: "http",
-          url: "http://127.0.0.1:9/mcp",
-          headers: { Authorization: "Bearer mcp-secret" },
-        },
-      ]),
-    );
+  await page.getByLabel("Complete MCP configuration JSON").fill(
+    JSON.stringify([
+      {
+        id: "saved-tools",
+        transport: "http",
+        url: "http://127.0.0.1:9/mcp",
+        headers: { Authorization: "Bearer mcp-secret" },
+      },
+    ]),
+  );
   await page
     .getByLabel("I intend to replace all servers and their secrets")
     .check();
@@ -199,18 +197,16 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await page
     .getByRole("button", { name: "Replace MCP configuration", exact: true })
     .click();
-  await page
-    .getByLabel("Complete MCP configuration JSON")
-    .fill(
-      JSON.stringify([
-        {
-          id: "saved-tools",
-          transport: "http",
-          url: "http://127.0.0.1:9/mcp",
-          hasHeaders: true,
-        },
-      ]),
-    );
+  await page.getByLabel("Complete MCP configuration JSON").fill(
+    JSON.stringify([
+      {
+        id: "saved-tools",
+        transport: "http",
+        url: "http://127.0.0.1:9/mcp",
+        hasHeaders: true,
+      },
+    ]),
+  );
   await page
     .getByLabel("I intend to replace all servers and their secrets")
     .check();
@@ -485,4 +481,216 @@ test("failed run shows an actionable status without exposing provider details", 
     ),
   ).toBeVisible({ timeout: 25000 });
   await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+});
+
+// Delay real responses; the application and production server still execute normally.
+async function delayResponse(page: Page, pattern: string) {
+  let release!: () => void, captured!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const ready = new Promise<void>((r) => (captured = r));
+  await page.route(
+    pattern,
+    async (route) => {
+      const response = await route.fetch();
+      captured();
+      await gate;
+      await route.fulfill({ response });
+    },
+    { times: 1 },
+  );
+  return { ready, release };
+}
+async function pair(page: Page) {
+  await login(page);
+  await configure(page);
+  await create(page);
+  const a = new URL(page.url()).searchParams.get("conversation")!;
+  await create(page);
+  const b = new URL(page.url()).searchParams.get("conversation")!;
+  const buttons = page
+    .getByRole("navigation", { name: "Conversations" })
+    .getByRole("button");
+  await buttons.nth((await buttons.count()) - 2).click();
+  await expect(page).toHaveURL(new RegExp(a));
+  return { a, b, buttons };
+}
+async function switchLast(page: Page) {
+  const buttons = page
+    .getByRole("navigation", { name: "Conversations" })
+    .getByRole("button");
+  await buttons.last().click();
+  await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+}
+async function settle(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+}
+test("delayed admission cannot clear a different conversation draft", async ({
+  page,
+}) => {
+  const { a } = await pair(page);
+  const delay = await delayResponse(page, `**/api/conversations/${a}/messages`);
+  await page.getByLabel("Message", { exact: true }).fill("message in A");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await delay.ready;
+  await switchLast(page);
+  await page.getByLabel("Message", { exact: true }).fill("draft in B");
+  const done = page.waitForResponse((r) => r.url().endsWith(`/${a}/messages`));
+  delay.release();
+  await done;
+  await settle(page);
+  await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
+    "draft in B",
+  );
+});
+test("delayed send snapshot cannot replace the selected conversation", async ({
+  page,
+}) => {
+  const { a } = await pair(page);
+  const delay = await delayResponse(page, `**/api/conversations/${a}`);
+  await page.getByLabel("Message", { exact: true }).fill("stale A transcript");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await delay.ready;
+  await switchLast(page);
+  const done = page.waitForResponse((r) =>
+    r.url().endsWith(`/conversations/${a}`),
+  );
+  delay.release();
+  await done;
+  await settle(page);
+  await expect(
+    page.getByText("stale A transcript", { exact: true }),
+  ).toHaveCount(0);
+});
+test("delayed Stop snapshot cannot replace the selected conversation", async ({
+  page,
+}) => {
+  const { a } = await pair(page);
+  await page.getByLabel("Message", { exact: true }).fill("hold stale Stop A");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.getByText("Persisted partial answer", { exact: true }),
+  ).toBeVisible();
+  const delay = await delayResponse(page, `**/api/conversations/${a}`);
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await delay.ready;
+  await switchLast(page);
+  const done = page.waitForResponse((r) =>
+    r.url().endsWith(`/conversations/${a}`),
+  );
+  delay.release();
+  await done;
+  await settle(page);
+  held();
+  await expect(
+    page.getByText("hold stale Stop A", { exact: true }),
+  ).toHaveCount(0);
+});
+for (const phase of ["catalogue", "settings", "snapshot"])
+  test(`unmount during delayed ${phase} cannot open an orphan stream`, async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const Original = window.EventSource;
+      (window as any).__streams = 0;
+      window.EventSource = class extends Original {
+        constructor(url: string | URL, options?: EventSourceInit) {
+          super(url, options);
+          (window as any).__streams++;
+        }
+        close() {
+          (window as any).__streams--;
+          super.close();
+        }
+      };
+    });
+    await login(page);
+    await configure(page);
+    await create(page);
+    const id = new URL(page.url()).searchParams.get("conversation")!;
+    const path =
+      phase === "catalogue"
+        ? "/api/conversations"
+        : phase === "settings"
+          ? "/api/settings"
+          : `/api/conversations/${id}`;
+    const delay = await delayResponse(page, `**${path}`);
+    await page.reload();
+    await delay.ready;
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Models", exact: true }),
+    ).toBeVisible();
+    const done = page.waitForResponse((r) => r.url().endsWith(path));
+    delay.release();
+    await done;
+    await settle(page);
+    expect(await page.evaluate(() => (window as any).__streams)).toBe(0);
+  });
+test("delayed source excerpt cannot open in a different conversation", async ({
+  page,
+}) => {
+  await login(page);
+  await configure(page);
+  const c = (
+    await request(page, "/api/knowledge-bases", { name: "Delayed sources" })
+  ).value;
+  await page.request.post(base + `/api/knowledge-bases/${c.id}/documents`, {
+    headers: { origin: base },
+    multipart: {
+      file: {
+        name: "delayed.md",
+        mimeType: "text/markdown",
+        buffer: Buffer.from("orchard delayed excerpt"),
+      },
+    },
+  });
+  await expect
+    .poll(
+      async () =>
+        (await request(page, `/api/knowledge-bases/${c.id}/documents`)).value[0]
+          .status,
+    )
+    .toBe("ready");
+  sourceId = (
+    await request(page, `/api/knowledge-bases/${c.id}/search`, {
+      query: "orchard",
+    })
+  ).value[0].sourceId;
+  await page.reload();
+  await create(page, "Delayed sources");
+  const a = new URL(page.url()).searchParams.get("conversation")!;
+  await page
+    .getByLabel("Message", { exact: true })
+    .fill("retrieve delayed source");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Notes", exact: true }),
+  ).toBeVisible();
+  await create(page);
+  const buttons = page
+    .getByRole("navigation", { name: "Conversations" })
+    .getByRole("button");
+  await buttons.nth((await buttons.count()) - 2).click();
+  await expect(
+    page.getByRole("link", { name: "Notes", exact: true }),
+  ).toBeVisible();
+  const delay = await delayResponse(
+    page,
+    `**/api/sources/${sourceId}?conversationId=${a}`,
+  );
+  await page.getByRole("link", { name: "Notes", exact: true }).click();
+  await delay.ready;
+  await switchLast(page);
+  const done = page.waitForResponse((r) =>
+    r.url().includes(`/api/sources/${sourceId}`),
+  );
+  delay.release();
+  await done;
+  await settle(page);
+  await expect(page.getByLabel("Source excerpt")).toHaveCount(0);
 });
