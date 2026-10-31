@@ -140,3 +140,7 @@ ChatOllama is an app for running AI agents, not an SDK for building them.
 
 This README should be updated with every release that changes user-visible
 behavior.
+
+## Standalone pi durable rewrite
+
+The replacement application lives in [`rewrite/`](rewrite/README.md), with its own Node 24/pnpm workspace, Docker Compose service, administrator login, local SQLite/files, knowledge collections and MCP. Follow that directory's README for setup and acceptance commands. The existing application and database remain independent; legacy-data migration is deferred.

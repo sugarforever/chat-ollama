@@ -113,7 +113,67 @@ pnpm exec playwright install chromium
 pnpm test
 pnpm check
 pnpm build
-pnpm exec playwright test tests/ui.spec.ts
+pnpm exec playwright test tests/acceptance.spec.ts
 ```
 
 Run these serially because HTTP tests rebuild shared `build/` output. Browser tests are excluded from Vitest. Screenshots are written under ignored `test-results/` for desktop and 390-pixel layouts.
+
+## Docker deployment and operations
+
+This directory is a standalone replacement. It does not require or alter the legacy PostgreSQL, Redis, Chroma or Milvus services. Old-data migration is deferred. Use one app process and one replica per data directory; do not cluster Node workers or share the volume between running instances.
+
+```sh
+cd rewrite
+cp .env.example .env
+# Edit .env: choose ADMIN_PASSWORD, exact ORIGIN, and provider/model settings.
+docker compose config
+docker compose up --build -d
+docker compose logs -f app
+```
+
+Open the exact `ORIGIN` URL and log in with `ADMIN_PASSWORD`. There is no separate session-signing secret: tokens are random, and only their hashes are stored. Keep the password and provider/MCP credentials private. Changing the password does not revoke already-issued sessions; log out or remove persisted sessions during a stopped maintenance window to revoke them. Saved settings override environment defaults. For local Node execution, export the variables before `pnpm start`; Node does not automatically load `.env` here. `DATA_DIR` defaults to `./data` locally; Compose fixes it to `/data` in the persistent `rewrite-data` named volume.
+
+The image uses Node 24.22.2 and runs `node server.mjs` as the unprivileged `node` user. It includes production JavaScript dependencies, generated adapter output and the bootstrap bundle. Stdio MCP executables and any runtimes they need must be installed by the operator in a derived image; a configured command executes inside the container, not on the host. Install them as root while building the derived image and switch back to `USER node`. Avoid credentials in image layers. HTTP MCP needs no local executable. Both transports are tested with local protocol fixtures; live third-party interoperability remains provider-specific.
+
+Inside Docker, `localhost` means the app container. The example uses `host.docker.internal` (including a Linux host-gateway mapping). The host's model/embedding service must listen on a reachable interface and allow Docker traffic. Alternatively use a reachable LAN/service URL. Chat and embedding URLs are independent OpenAI-compatible endpoints. Select actual installed model IDs in Settings. Changing embedding settings requires **Reindex collection** for each existing collection; it never silently rebuilds your corpus.
+
+For public access, put TLS in front of the app and set `ORIGIN=https://your-host` exactly, including any nondefault port. Only trust headers supplied by your own proxy. Disable response buffering and compression buffering for `/api/conversations/*/events`; for nginx use `proxy_buffering off`, `proxy_cache off`, and a suitably long `proxy_read_timeout`. Browser disconnects and proxy reconnects do not stop admitted work. The next SSE connection obtains a complete committed snapshot.
+
+```sh
+# Graceful shutdown preserves pending work; starting resumes it.
+docker compose stop app
+docker compose start app
+# Destructive process-crash drill, on disposable test data only:
+docker compose kill -s SIGKILL app
+docker compose up -d app
+```
+
+Stop in the UI deliberately cancels a run; closing a tab does not. A crashed model request may execute again to recover unfinished work. An interrupted unsafe MCP action is different: it may already have affected the external system, so automatic model/MCP dispatch stays blocked. Inspect that system, then use **I checked the outcome — acknowledge**. Acknowledgment allows new input; it does not repeat the action. Do not infer that cancellation undoes external changes. The guarantee is recovery after application-process failure on an intact local volume, not host loss, filesystem loss or power failure.
+
+The entire data directory is one backup unit:
+
+```text
+/data/app.sqlite                     settings, hashed sessions, knowledge metadata/vectors
+/data/uploads/                       original uploaded files
+/data/sessions/catalogue.sqlite      conversation catalogue and creation intent
+/data/sessions/<id>.sqlite            pi durable conversation storage
+/data/sessions/                       endpoint/MCP snapshots and uncertainty sidecars
+```
+
+Preserve all files, including SQLite `-wal`/`-shm` files and per-conversation sidecars; endpoint/MCP snapshots contain secrets. Back up only while the app is stopped. For example, from this directory with the default named volume:
+
+```sh
+docker compose stop app
+docker compose run --rm --no-deps --user root --entrypoint tar app -C /data -czf - . > rewrite-backup.tar.gz
+docker compose start app
+# Restore into an empty volume while every app instance is stopped:
+docker compose stop app
+cat rewrite-backup.tar.gz | docker compose run --rm -T --no-deps --user root --entrypoint sh app -c 'tar -xzf - -C /data && chown -R node:node /data'
+docker compose start app
+```
+
+Protect the archive as credentials and user content. Restore into an empty volume to avoid mixing two catalogues; retain the original volume until restoration is verified. Never use `docker compose down -v` on valuable data. For a host bind mount, create its directory with ownership writable by container UID/GID 1000 and retain private permissions.
+
+Acceptance now runs `tests/acceptance.spec.ts` against the shipped `server.mjs`, not the custom HTTP harness. Run `pnpm test`, `pnpm check`, `pnpm build`, then `pnpm exec playwright test` **serially**. It covers login/settings, uploads/cited retrieval, MCP, Stop, offline/reconnect, SIGKILL chat recovery, actual interrupted indexing recovery, and unsafe MCP no-repeat across two restarts. Fixtures need no external keys. See the task-7 report for actual Docker availability and verification evidence; the existence of packaging files does not establish a successful container smoke test.
+
+On a disposable Docker host, `sh tests/container-smoke.sh` builds the image in a unique temporary Compose project, verifies login and a saved collection after SIGKILL/restart, and removes only that project's volume. It needs port 3000 free. This smoke is separate from the comprehensive host-built protocol/browser acceptance; its local execution was blocked by Docker availability. CI is configured to run it, but no CI result is claimed here.

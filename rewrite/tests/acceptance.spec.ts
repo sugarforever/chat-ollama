@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { fork, type ChildProcess } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { embeddingServer } from "./fixtures/embedding-server";
@@ -58,6 +58,12 @@ test.beforeAll(async () => {
       emit({}, "tool_calls");
       res.end("data: [DONE]\n\n");
       return;
+    } else if (String(last).includes("echo MCP") && !body.messages.some((m: any) => m.role === "tool")) {
+      const tool = body.tools.find((t: any) => t.function.description.includes(": echo."));
+      emit({ role: "assistant", tool_calls: [{ index: 0, id: "echo", type: "function", function: { name: tool.function.name, arguments: JSON.stringify({text: "MCP completed"}) } }] });
+      emit({}, "tool_calls");
+      res.end("data: [DONE]\n\n");
+      return;
     } else if (String(last).includes("effect")) {
       const tool = body.tools.find((t: any) =>
         t.function.description.includes("effect"),
@@ -86,15 +92,7 @@ test.beforeAll(async () => {
   });
   await new Promise<void>((r) => model.listen(0, "127.0.0.1", r));
   modelUrl = `http://127.0.0.1:${(model.address() as any).port}/v1`;
-  child = fork("tests/fixtures/http-child.ts", [], {
-    execArgv: ["--import", "tsx"],
-    env: { ...process.env, DATA_DIR: dir, ADMIN_PASSWORD: "ui-password" },
-    stdio: ["ignore", "ignore", "pipe", "ipc"],
-  });
-  base = await new Promise<string>((resolve, reject) => {
-    child.once("message", (m: any) => resolve(`http://127.0.0.1:${m.port}`));
-    child.once("exit", () => reject(Error("server exited")));
-  });
+  await startServer();
 });
 test.afterAll(async () => {
   held();
@@ -104,6 +102,32 @@ test.afterAll(async () => {
   await embedding.close();
   await rm(dir, { recursive: true, force: true });
 });
+
+async function startServer() {
+  if (!base) {
+    const portServer = createServer();
+    await new Promise<void>((r) => portServer.listen(0, "127.0.0.1", r));
+    base = `http://127.0.0.1:${(portServer.address() as any).port}`;
+    await new Promise<void>((r) => portServer.close(() => r()));
+  }
+  let stderr = "";
+  child = fork("server.mjs", [], {
+    execArgv: [],
+    env: { ...process.env, DATA_DIR: dir, ADMIN_PASSWORD: "ui-password", HOST: "127.0.0.1", PORT: new URL(base).port, ORIGIN: base },
+    stdio: ["ignore", "ignore", "pipe", "ipc"],
+  });
+  child.stderr?.on("data", (data) => stderr += data);
+  await expect.poll(async () => {
+    if (child.exitCode !== null) throw Error(stderr);
+    try { return (await fetch(base + "/login")).status; } catch { return 0; }
+  }, {timeout: 20000}).toBe(200);
+}
+async function killServer() {
+  const exited = new Promise<void>((r) => child.once("exit", () => r()));
+  child.kill("SIGKILL");
+  await exited;
+}
+
 async function login(page: Page) {
   await page.goto(base);
   await page.getByLabel("Password").fill("ui-password");
@@ -145,9 +169,11 @@ async function create(page: Page, collection?: string, mcp?: string) {
     .click();
   if (collection) await page.getByLabel(collection, { exact: true }).check();
   if (mcp) await page.getByLabel(mcp, { exact: true }).check();
+  const previousUrl = page.url();
   await page
     .getByRole("button", { name: "Create conversation", exact: true })
     .click();
+  await expect(page).not.toHaveURL(previousUrl);
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 test("administrator opens responsive chat and independent secret-preserving settings", async ({
@@ -693,4 +719,84 @@ test("delayed source excerpt cannot open in a different conversation", async ({
   await done;
   await settle(page);
   await expect(page.getByLabel("Source excerpt")).toHaveCount(0);
+});
+
+test("SIGKILL resumes the admitted chat on the shipped entrypoint", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  await create(page);
+  await page.getByLabel("Message", { exact: true }).fill("hold crash recovery");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByText("Persisted partial answer", { exact: true })).toBeVisible();
+  await killServer();
+  await startServer();
+  await page.reload();
+  await expect(page.getByText("hold crash recovery", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", {name: "Stop", exact: true})).toBeVisible();
+  await expect.poll(async () => {
+    held();
+    return page.getByLabel("Message", { exact: true }).isEnabled();
+  }).toBe(true);
+  await expect(page.getByText("hold crash recovery", { exact: true })).toHaveCount(1);
+  await page.screenshot({ path: "test-results/acceptance-chat-restarted.png", fullPage: true });
+});
+
+test("SIGKILL during embedding resumes indexing from the mounted data directory", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  const c = (await request(page, "/api/knowledge-bases", { name: "Crash indexing" })).value;
+  const count = embedding.requests.length;
+  embedding.hold(true);
+  const uploaded = await page.request.post(base + `/api/knowledge-bases/${c.id}/documents`, {
+    headers: { origin: base },
+    multipart: { file: { name: "restart.md", mimeType: "text/markdown", buffer: Buffer.from("Apples orchard 苹果") } },
+  });
+  const document = await uploaded.json();
+  await expect.poll(() => embedding.requests.length).toBeGreaterThan(count);
+  await killServer();
+  embedding.hold(false);
+  await startServer();
+  await expect.poll(async () => (await request(page, `/api/documents/${document.id}`)).value.status).toBe("ready");
+  expect((await request(page, `/api/knowledge-bases/${c.id}/search`, {query: "苹果"})).value.length).toBeGreaterThan(0);
+});
+
+test("SIGKILL after external MCP effect preserves uncertainty without repeated dispatch", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  const effectFile = join(dir, "crash-effect.log");
+  await request(page, "/api/mcp", { servers: [{ id: "crash-action", transport: "stdio", command: process.execPath,
+    args: ["--import", "tsx", join(process.cwd(), "tests/fixtures/mcp-server.ts")], env: { EFFECT_FILE: effectFile } }] }, "PUT");
+  await page.reload();
+  await create(page, undefined, "crash-action");
+  await page.getByLabel("Message", { exact: true }).fill("effect crash");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect.poll(async () => { try { return await readFile(effectFile, "utf8"); } catch { return ""; } }).toBe("effect\n");
+  await killServer();
+  await startServer();
+  await page.reload();
+  await expect(page.getByText("An external action has an uncertain outcome.")).toBeVisible();
+  await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+  expect(await readFile(effectFile, "utf8")).toBe("effect\n");
+  await killServer();
+  await startServer();
+  await page.reload();
+  await expect(page.getByText("An external action has an uncertain outcome.")).toBeVisible();
+  expect(await readFile(effectFile, "utf8")).toBe("effect\n");
+  await page.screenshot({ path: "test-results/acceptance-mcp-restarted.png", fullPage: true });
+});
+
+
+test("selected MCP tool completes through the shipped HTTP server", async ({page}) => {
+  await login(page);
+  await configure(page);
+  await request(page, "/api/mcp", { servers: [{id: "echo-server", transport: "stdio", command: process.execPath,
+    args: ["--import", "tsx", join(process.cwd(), "tests/fixtures/mcp-server.ts")] }] }, "PUT");
+  await page.reload();
+  await create(page, undefined, "echo-server");
+  await page.getByLabel("Message", {exact: true}).fill("echo MCP");
+  await page.getByRole("button", {name: "Send message", exact: true}).click();
+  await expect(page.getByRole("heading", {name: "Orchard answer"})).toBeVisible();
+  await page.locator("summary").click();
+  await expect(page.locator("details")).toContainText("MCP completed");
+  await expect(page.getByLabel("Message", {exact: true})).toBeEnabled();
 });
