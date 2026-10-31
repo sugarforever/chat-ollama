@@ -1,18 +1,27 @@
-import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
-import type { ConversationConfig } from '../../contracts';
-import { openCatalogue } from '../db';
-import { ApiError, validateConversationId } from '../errors';
-import { openAgentSession, type AgentSession, type ChatEndpointConfig } from './session';
-export function createSessionManager(options: { directory: string; endpoint: ChatEndpointConfig }) {
+import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import type { ConversationConfig } from "../../contracts";
+import { openCatalogue } from "../db";
+import { ApiError, validateConversationId } from "../errors";
+import {
+  openAgentSession,
+  type AgentSession,
+  type ChatEndpointConfig,
+} from "./session";
+export function createSessionManager(options: {
+  directory: string;
+  endpoint: ChatEndpointConfig;
+  loadEndpoint?: () => ChatEndpointConfig;
+}) {
   const sessions = new Map<string, Promise<AgentSession>>();
   let closed = false;
   const catalogue = mkdir(options.directory, { recursive: true }).then(() =>
-    openCatalogue(join(options.directory, 'catalogue.sqlite')),
+    openCatalogue(join(options.directory, "catalogue.sqlite")),
   );
   async function openSession(id: string): Promise<AgentSession> {
-    if (closed) throw new Error('Runtime is closed');
+    if (closed) throw new Error("Runtime is closed");
     validateConversationId(id);
     const existing = sessions.get(id);
     if (existing) return existing;
@@ -21,10 +30,33 @@ export function createSessionManager(options: { directory: string; endpoint: Cha
       let row = db.get(id);
       // Internal explicit creation for runtime consumers; HTTP reads use getSession.
       if (!row) {
-        db.insert(id, { modelId: options.endpoint.modelId, knowledgeBaseIds: [], mcpServerIds: [] });
+        db.insert(id, {
+          modelId: options.endpoint.modelId,
+          knowledgeBaseIds: [],
+          mcpServerIds: [],
+        });
         row = db.get(id)!;
       }
-      const session = await openAgentSession(id, join(options.directory, `${id}.sqlite`), { ...options.endpoint, modelId: row.config.modelId });
+      const endpointFile = join(options.directory, `${id}.endpoint.json`);
+      const initial = existsSync(endpointFile)
+        ? JSON.parse(readFileSync(endpointFile, "utf8"))
+        : { ...options.endpoint, modelId: row.config.modelId };
+      const session = await openAgentSession(
+        id,
+        join(options.directory, `${id}.sqlite`),
+        initial,
+        options.loadEndpoint
+          ? () => {
+              const endpoint = options.loadEndpoint!();
+              writeFileSync(`${endpointFile}.tmp`, JSON.stringify(endpoint), {
+                mode: 0o600,
+              });
+              // Atomic replacement keeps the previous complete snapshot if killed mid-write.
+              renameSync(`${endpointFile}.tmp`, endpointFile);
+              return endpoint;
+            }
+          : undefined,
+      );
       db.ready(id);
       return session;
     })();
@@ -46,11 +78,14 @@ export function createSessionManager(options: { directory: string; endpoint: Cha
     },
     async getSession(id: string) {
       validateConversationId(id);
-      if (!(await catalogue).get(id)) throw new ApiError(404, 'NOT_FOUND', 'Conversation not found');
+      if (!(await catalogue).get(id))
+        throw new ApiError(404, "NOT_FOUND", "Conversation not found");
       return openSession(id);
     },
     async listConversations() {
-      return (await catalogue).list().map(({ id, config, createdAt }) => ({ id, config, createdAt }));
+      return (await catalogue)
+        .list()
+        .map(({ id, config, createdAt }) => ({ id, config, createdAt }));
     },
     async resume() {
       for (const row of (await catalogue).list()) await openSession(row.id);
@@ -59,7 +94,11 @@ export function createSessionManager(options: { directory: string; endpoint: Cha
       if (closed) return;
       closed = true;
       const opened = await Promise.allSettled(sessions.values());
-      await Promise.all(opened.filter(x => x.status === 'fulfilled').map(x => x.value.close()));
+      await Promise.all(
+        opened
+          .filter((x) => x.status === "fulfilled")
+          .map((x) => x.value.close()),
+      );
       sessions.clear();
       (await catalogue).close();
     },

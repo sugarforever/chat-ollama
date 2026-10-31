@@ -1,3 +1,4 @@
+import { loadChatConfig } from "./settings";
 import { resolve } from "node:path";
 import { createSessionManager } from "./runtime/manager";
 // SvelteKit routes and the custom Node entrypoint are separate bundles.
@@ -8,11 +9,8 @@ const processState = globalThis as typeof globalThis & {
 async function start() {
   const manager = createSessionManager({
     directory: resolve(process.env.DATA_DIR || "data", "sessions"),
-    endpoint: {
-      baseUrl: process.env.CHAT_BASE_URL || "http://127.0.0.1:11434/v1",
-      apiKey: process.env.CHAT_API_KEY || "",
-      modelId: process.env.CHAT_MODEL_ID || "local",
-    },
+    endpoint: loadChatConfig(),
+    loadEndpoint: loadChatConfig,
   });
   await manager.resume();
   return manager;
