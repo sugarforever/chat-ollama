@@ -3,6 +3,14 @@ import { ApiError } from "./errors";
 import type { ConversationConfig } from "../contracts";
 
 const publicErrors: Record<string, [number, string]> = {
+  KNOWLEDGE_NOT_FOUND: [404, "Knowledge source or collection not found"],
+  REINDEX_REQUIRED: [
+    409,
+    "Embedding configuration changed; explicit reindex required",
+  ],
+  KNOWLEDGE_BUSY: [429, "Knowledge indexing or search is busy; retry shortly"],
+  UNSUPPORTED_DOCUMENT: [415, "Upload a text-based PDF, Markdown or text file"],
+  UPLOAD_TOO_LARGE: [413, "Upload limit is 10 MiB"],
   MCP_CONNECTION: [
     502,
     "Cannot connect or discover MCP server; check selected server configuration, address, command and authentication headers. OAuth setup is outside v1.",
