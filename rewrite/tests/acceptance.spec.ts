@@ -11,6 +11,7 @@ let child: ChildProcess,
   embedding: Awaited<ReturnType<typeof embeddingServer>>,
   model: ReturnType<typeof createServer>,
   modelUrl: string;
+const modelRequests: string[] = [];
 let sourceId = "",
   held: () => void = () => {};
 test.beforeAll(async () => {
@@ -22,6 +23,7 @@ test.beforeAll(async () => {
     const body = JSON.parse(raw);
     const last =
       body.messages.findLast((m: any) => m.role === "user")?.content ?? "";
+    modelRequests.push(String(last));
     if (String(last).includes("fail model")) {
       res.writeHead(503);
       res.end("fixture provider unavailable");
@@ -733,10 +735,26 @@ test("SIGKILL resumes the admitted chat on the shipped entrypoint", async ({ pag
   await page.reload();
   await expect(page.getByText("hold crash recovery", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", {name: "Stop", exact: true})).toBeVisible();
+  const id = new URL(page.url()).searchParams.get("conversation")!;
+  const snapshot = async () => (await request(page, `/api/conversations/${id}`)).value;
   await expect.poll(async () => {
     held();
-    return page.getByLabel("Message", { exact: true }).isEnabled();
-  }).toBe(true);
+    const current = await snapshot();
+    return {
+      status: current.status,
+      answers: current.entries.filter((entry: any) => entry.kind === "assistant" && !entry.partial && entry.content === "Persisted partial answer completed").length,
+    };
+  }).toEqual({status: "idle", answers: 1});
+  await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+  const completed = await snapshot();
+  expect(completed.entries.filter((entry: any) => entry.kind === "user" && entry.content === "hold crash recovery")).toHaveLength(1);
+  expect(modelRequests.filter(prompt => prompt === "hold crash recovery")).toHaveLength(2);
+  await page.reload();
+  await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+  const persisted = await snapshot();
+  expect(persisted.status).toBe("idle");
+  expect(persisted.entries).toEqual(completed.entries);
+  expect(modelRequests.filter(prompt => prompt === "hold crash recovery")).toHaveLength(2);
   await expect(page.getByText("hold crash recovery", { exact: true })).toHaveCount(1);
   await page.screenshot({ path: "test-results/acceptance-chat-restarted.png", fullPage: true });
 });

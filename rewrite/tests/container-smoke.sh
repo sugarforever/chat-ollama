@@ -9,7 +9,7 @@ export PORT=3000
 cookie_file=$(mktemp)
 cleanup() {
   rm -f "$cookie_file"
-  docker compose logs app
+  docker compose logs app || true
   docker compose down -v
 }
 trap cleanup EXIT
