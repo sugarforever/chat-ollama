@@ -344,3 +344,50 @@ test("ingestDocument waits for an already queued upload and is idempotent after 
   await service.ingestDocument(d.id);
   expect(endpoint.requests).toHaveLength(requests);
 });
+
+test("failed compatible rebuild retains published search results and exposes rebuild error", async () => {
+  const { service, endpoint, start } = await setup();
+  const c = service.createCollection("Published generation");
+  const d = await upload(service, c.id, "Orchard apples");
+  await service.idle();
+  const before = await service.searchKnowledgeBases([c.id], "果园");
+  endpoint.fail(true);
+  service.reindex(c.id);
+  await service.idle();
+  endpoint.fail(false);
+  expect(await service.searchKnowledgeBases([c.id], "果园")).toEqual(before);
+  expect(service.document(d.id)).toMatchObject({
+    status: "ready",
+    error: expect.stringMatching(/Embedding request failed/),
+  });
+  expect(service.collections()[0]).toMatchObject({
+    needsReindex: false,
+    indexing: false,
+  });
+  await service.close();
+  const reopened = start();
+  await reopened.idle();
+  expect(await reopened.searchKnowledgeBases([c.id], "果园")).toEqual(before);
+});
+
+test("a malformed ordinary upload fails independently and the next queued upload becomes searchable", async () => {
+  const { service, endpoint } = await setup();
+  const c = service.createCollection("Independent uploads");
+  endpoint.hold(true);
+  await upload(service, c.id, "Whales ocean");
+  for (let i = 0; i < 200 && endpoint.requests.length === 0; i++)
+    await new Promise((r) => setTimeout(r, 5));
+  const bad = await upload(service, c.id, "   ");
+  await new Promise((r) => setTimeout(r, 5)); // distinct creation order in the persisted queue
+  const good = await upload(service, c.id, "Orchard apples");
+  endpoint.hold(false);
+  await service.idle();
+  expect(service.document(bad.id)).toMatchObject({
+    status: "failed",
+    error: expect.stringMatching(/no text/),
+  });
+  expect(service.document(good.id).status).toBe("ready");
+  expect(
+    (await service.searchKnowledgeBases([c.id], "果园"))[0].documentId,
+  ).toBe(good.id);
+});

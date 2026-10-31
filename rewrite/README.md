@@ -64,7 +64,7 @@ Knowledge collections and ingestion use `DATA_DIR/app.sqlite` plus generated
 embedding settings. Changes to endpoint/model/key require explicit reindexing of
 existing collections. A collection reindex stages a replacement generation and
 publishes it atomically; incompatible collections cannot be searched or appended
-to until reindex succeeds. Failed jobs retain an actionable status for retry.
+to until reindex succeeds. Failed ordinary uploads affect only their own document. A failed replacement keeps compatible published passages searchable and exposes the rebuild error alongside ready status; incompatible settings still require successful reindexing.
 Queued/indexing work resumes after process restart. No OCR is provided.
 
 Authenticated knowledge HTTP endpoints:

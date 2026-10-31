@@ -140,7 +140,9 @@ export function openKnowledge(options: {
     const generation = reindex || c.generation;
     const docs = reindex
       ? documents(id)
-      : documents(id).filter((d) => d.status === "queued");
+      : documents(id)
+          .filter((d) => d.status === "queued")
+          .slice(0, 1);
     let dimensions = reindex ? null : c.dimensions;
     const completed: string[] = [];
     try {
@@ -252,24 +254,35 @@ export function openKnowledge(options: {
       if (closed) return; // queued/indexing marker is recovered next startup.
       const message =
         error instanceof Error ? error.message : "Indexing failed";
-      // Only locally generated extraction/embedding messages cross this boundary.
-      for (const d of docs)
-        if (
-          reindex ||
-          (documentExists(d.id) && document(d.id).status !== "ready")
-        )
+      // Ordinary ingestion has one document per pump turn; a bad upload cannot
+      // fail later queued documents. Rebuilds remain collection-wide and atomic.
+      transaction(() => {
+        for (const d of docs) {
+          if (!documentExists(d.id)) continue;
+          if (reindex) {
+            // Published availability is independent of replacement progress.
+            // Keep the failure visible even when the compatible old index is ready.
+            db.prepare(
+              `UPDATE knowledge_documents SET status=CASE WHEN EXISTS (
+              SELECT 1 FROM knowledge_chunks WHERE document_id=? AND generation=?
+            ) THEN 'ready' ELSE 'failed' END,error=? WHERE id=?`,
+            ).run(d.id, c.generation, message, d.id);
+          } else if (document(d.id).status !== "ready") {
+            db.prepare(
+              "UPDATE knowledge_documents SET status='failed',error=? WHERE id=?",
+            ).run(message, d.id);
+          }
+        }
+        if (reindex) {
+          // Retain published chunks/fingerprint and discard only replacement staging.
           db.prepare(
-            "UPDATE knowledge_documents SET status='failed',error=? WHERE id=?",
-          ).run(message, d.id);
-      if (reindex) {
-        // Retain the published generation and fingerprint; discard partial staging.
-        db.prepare(
-          "DELETE FROM knowledge_chunks WHERE generation=? AND document_id IN (SELECT id FROM knowledge_documents WHERE collection_id=?)",
-        ).run(reindex, id);
-        db.prepare(
-          "UPDATE knowledge_collections SET reindex_generation=NULL WHERE id=?",
-        ).run(id);
-      }
+            "DELETE FROM knowledge_chunks WHERE generation=? AND document_id IN (SELECT id FROM knowledge_documents WHERE collection_id=?)",
+          ).run(reindex, id);
+          db.prepare(
+            "UPDATE knowledge_collections SET reindex_generation=NULL WHERE id=?",
+          ).run(id);
+        }
+      });
     }
   }
   const documentExists = (id: string) =>
