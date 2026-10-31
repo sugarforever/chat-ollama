@@ -6,6 +6,8 @@ export type PublicEntry = {
   content: string;
   toolName?: string;
   uncertain?: boolean;
+  toolStatus?: "pending" | "running" | "done";
+  partial?: boolean;
 };
 export type ConversationSnapshot = {
   id: string;

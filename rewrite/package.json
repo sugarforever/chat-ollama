@@ -8,7 +8,7 @@
   "scripts": {
     "test": "vitest run",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "build": "vite build && esbuild src/lib/server/startup.ts --bundle --platform=node --format=esm --packages=external --outfile=build/startup.js",
+    "build": "vite build && esbuild src/lib/server/startup.ts --bundle --platform=node --format=esm --packages=external --tsconfig=tsconfig.json --outfile=build/startup.js",
     "dev": "vite dev",
     "start": "node server.mjs"
   },

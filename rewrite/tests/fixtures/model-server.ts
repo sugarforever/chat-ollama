@@ -1,5 +1,5 @@
 import { createServer, type ServerResponse } from "node:http";
-export async function modelServer() {
+export async function modelServer(options: { failure?: boolean } = {}) {
   const requests: { path: string; prompt: string; authorization?: string }[] =
     [];
   const pending = new Set<ServerResponse>();
@@ -21,6 +21,7 @@ export async function modelServer() {
       prompt: body,
       authorization: req.headers.authorization,
     });
+    if (options.failure) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: { message: 'fixture-secret upstream failure' } })); return; }
     res.writeHead(200, { "content-type": "text/event-stream" });
     res.flushHeaders();
     pending.add(res);
@@ -32,6 +33,9 @@ export async function modelServer() {
   return {
     baseUrl: `http://127.0.0.1:${address.port}/custom/v1`,
     requests,
+    partial() {
+      for (const res of pending) res.write(`data: ${JSON.stringify({ id: "fixture", object: "chat.completion.chunk", created: 1, model: "fixture", choices: [{ index: 0, delta: { role: "assistant", content: "Partial answer" }, finish_reason: null }] })}\n\n`);
+    },
     release() {
       hold = false;
       for (const res of pending) finish(res);
