@@ -150,9 +150,6 @@ test("built authenticated knowledge API and startup scoped tool execute through 
       await request(`/api/knowledge-bases/${a.id}/search`, { query: "果园" })
     ).json();
     expect(hits[0].documentId).toBe(d.id);
-    const source = await request(`/sources/${hits[0].sourceId}`);
-    expect(source.status).toBe(200);
-    expect(await source.text()).toContain("苹果");
     const conversation = await (
       await request("/api/conversations", {
         modelId: "fixture",
@@ -160,6 +157,9 @@ test("built authenticated knowledge API and startup scoped tool execute through 
         mcpServerIds: [],
       })
     ).json();
+    const source = await request(`/sources/${hits[0].sourceId}?conversationId=${conversation.id}`);
+    expect(source.status).toBe(200);
+    expect(await source.text()).toContain("苹果");
     expect(
       (
         await request(`/api/conversations/${conversation.id}/messages`, {
