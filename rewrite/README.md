@@ -1,14 +1,48 @@
-# Standalone rewrite
+# ChatOllama web application: SvelteKit + pi durable
+
+A standalone, single-administrator chatbot with durable agent conversations,
+document knowledge bases, and MCP tools. SvelteKit serves both the browser UI
+and the application HTTP/SSE API; pi durable owns agent execution. The legacy
+Nuxt app does not call this backend and is not needed to run it.
+
+## Storage compatibility
+
+This app uses a new SQLite schema for settings, login sessions, knowledge
+metadata and embeddings, plus separate pi durable SQLite files and local
+uploads. It cannot directly read the legacy Prisma/PostgreSQL records, older
+SQLite databases, Chroma/Milvus indexes, or uploaded-file layout. Chat history,
+accounts, settings and knowledge bases are not shared. No migration or
+export/import tool is included; existing data is left untouched. Knowledge
+content imported in a future migration would generally need reindexing.
+
+The legacy app and this replacement can run independently on different ports.
+For Compose, change both `PORT` and `ORIGIN` when using a port other than 3000.
+The replacement does not need PostgreSQL, Redis, Chroma, or Milvus.
+
+## Local Node.js setup
 
 Run from this directory with Node **24.22.2 LTS** and pnpm **10.8.1**:
 
 ```sh
-pnpm install
-pnpm test
-pnpm check
+pnpm install --frozen-lockfile
 pnpm build
+# Replace the example password and model ID; use your provider's URL/key.
+export ADMIN_PASSWORD='replace-with-a-long-unique-password'
+export ORIGIN='http://localhost:3000'
+export CHAT_BASE_URL='http://127.0.0.1:11434/v1'
+export CHAT_MODEL_ID='your-chat-model'
+# Set CHAT_API_KEY if your provider requires it.
 pnpm start
 ```
+
+Open the exact `ORIGIN` URL and log in. Configure the independent embedding
+endpoint and model in Settings before indexing knowledge documents. Environment
+variables must be exported; `pnpm start` does not load `.env` automatically.
+The `.env.example` provider URLs target Docker-to-host access; for direct local
+Node execution, use addresses reachable from the host process.
+
+For the single-service container setup, see
+[Docker deployment and operations](#docker-deployment-and-operations).
 
 This folder has its own workspace boundary and lockfile; do not install the legacy Nuxt app to run it. `server.mjs` awaits runtime bootstrap before accepting HTTP, reopens every catalogued conversation SQLite file, and closes sessions on SIGTERM/SIGINT. One process must own the data directory. Set DATA_DIR (default `data`), CHAT_BASE_URL (default `http://127.0.0.1:11434/v1`), CHAT_API_KEY, CHAT_MODEL_ID, PORT and HOST. The endpoint uses OpenAI chat completions; it is not an Ollama-specific integration.
 
@@ -174,6 +208,6 @@ docker compose start app
 
 Protect the archive as credentials and user content. Restore into an empty volume to avoid mixing two catalogues; retain the original volume until restoration is verified. Never use `docker compose down -v` on valuable data. For a host bind mount, create its directory with ownership writable by container UID/GID 1000 and retain private permissions.
 
-Acceptance now runs `tests/acceptance.spec.ts` against the shipped `server.mjs`, not the custom HTTP harness. Run `pnpm test`, `pnpm check`, `pnpm build`, then `pnpm exec playwright test` **serially**. It covers login/settings, uploads/cited retrieval, MCP, Stop, offline/reconnect, SIGKILL chat recovery, actual interrupted indexing recovery, and unsafe MCP no-repeat across two restarts. Fixtures need no external keys. See the task-7 report for actual Docker availability and verification evidence; the existence of packaging files does not establish a successful container smoke test.
+Acceptance now runs `tests/acceptance.spec.ts` against the shipped `server.mjs`, not the custom HTTP harness. Run `pnpm test`, `pnpm check`, `pnpm build`, then `pnpm exec playwright test` **serially**. It covers login/settings, uploads/cited retrieval, MCP, Stop, offline/reconnect, SIGKILL chat recovery, actual interrupted indexing recovery, and unsafe MCP no-repeat across two restarts. Fixtures need no external keys. See [build evidence](./docs/build-evidence.md) and the [rewrite validation workflow](../.github/workflows/rewrite.yml) for verification details; the existence of packaging files alone does not establish a successful container smoke test.
 
-On a disposable Docker host, `sh tests/container-smoke.sh` builds the image in a unique temporary Compose project, verifies login and a saved collection after SIGKILL/restart, and removes only that project's volume. It needs port 3000 free. This smoke is separate from the comprehensive host-built protocol/browser acceptance; its local execution was blocked by Docker availability. CI is configured to run it, but no CI result is claimed here.
+On a disposable Docker host, `sh tests/container-smoke.sh` builds the image in a unique temporary Compose project, verifies login and a saved collection after SIGKILL/restart, and removes only that project's volume. It needs port 3000 free. This smoke is separate from the comprehensive host-built protocol/browser acceptance; its local execution was blocked by Docker availability. Ubuntu CI verified Compose configuration, image construction, and this container restart smoke on commit `ce0fa64`: [validation run](https://github.com/sugarforever/chat-ollama/actions/runs/41158776362). The local Docker limitation does not describe that successful remote run.

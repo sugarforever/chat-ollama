@@ -1,10 +1,114 @@
 # ChatOllama
 
-ChatOllama is an open-source agentic app for running AI agents with hosted or
-local models. The primary user entry point today is the installable
-`chatollama-agent` command-line app.
+ChatOllama's new web application is a standalone rewrite built with **SvelteKit,
+TypeScript, and pi durable**. It provides persistent agent conversations,
+document knowledge bases, and Model Context Protocol (MCP) tools through one
+self-hosted Node.js process.
 
-## Install
+The implementation lives in [`rewrite/`](./rewrite/README.md). The legacy
+Nuxt application at the repository root and the existing Agent CLI remain
+separate applications; they have not been converted to use the new backend.
+Run the rewrite from its own directory, not through the root Nuxt commands.
+
+## New web application
+
+- Streaming Markdown chat, conversation history, expandable tool activity,
+  source citations, and explicit Stop controls.
+- Pi durable execution: closing the browser does not cancel work; unfinished
+  runs resume after the application process restarts on an intact data volume.
+- One durable session per conversation and one active run per conversation.
+  HTTP commands and Server-Sent Events (SSE) connect the browser to the server.
+- OpenAI-compatible chat endpoints with configurable base URL, API key, and
+  model ID. Ollama can be used through its compatible endpoint; no dedicated
+  Ollama integration is required.
+- Named knowledge bases with text-based PDF, Markdown, and plain-text uploads,
+  indexing status, retry, deletion, and source excerpts. Retrieval is an agent
+  tool scoped to the conversation's selected collections.
+- Independent embedding endpoint/model settings and explicit collection
+  reindexing after embedding configuration changes.
+- Local stdio and remote Streamable HTTP MCP servers, selected per
+  conversation. Selected tools run without individual approval. An uncertain
+  interrupted action blocks further execution until you check its external
+  outcome and acknowledge it; acknowledgment does not retry that action.
+- A single administrator login and one Docker Compose service. SQLite and
+  local files replace the legacy app's external storage dependencies.
+
+### Quick start with Docker Compose
+
+From a checkout containing the rewrite:
+
+```sh
+cd rewrite
+cp .env.example .env
+# Edit .env before starting (see below).
+docker compose up --build -d
+```
+
+Set `ADMIN_PASSWORD`, the exact public `ORIGIN`, and your chat and embedding
+endpoint/model settings. Open `http://localhost:3000` with the default origin
+and log in. API keys are needed when required by your provider. Inside Docker,
+`localhost` refers to the container; use a reachable provider address such as
+`host.docker.internal` for services on the host.
+
+The rewrite has its own package manifest, lockfile, and workspace boundary.
+For direct Node.js setup, use Node **24.22.2** and pnpm **10.8.1** and follow the
+[standalone setup instructions](./rewrite/README.md#local-nodejs-setup).
+For data protection, proxy/SSE settings, MCP executables, and backup/restore,
+see [deployment and operations](./rewrite/README.md#docker-deployment-and-operations).
+
+### Architecture and coexistence
+
+```text
+SvelteKit browser UI → HTTP commands / SSE → SvelteKit server → pi durable
+                                                    ├─ knowledge search tool
+                                                    └─ selected MCP tools
+```
+
+Nuxt does not serve the new UI or call this backend. Each app has its own
+build, configuration, authentication, and storage. Running both requires
+different ports; both web applications otherwise default to port 3000. For
+example, set the rewrite's Compose `PORT=3001` and
+`ORIGIN=http://localhost:3001` together to keep the legacy app on port 3000.
+
+### Existing data is not compatible
+
+| | Legacy Nuxt application | New web application |
+| --- | --- | --- |
+| Application records | Prisma/PostgreSQL; older releases used SQLite | New application SQLite schema |
+| Knowledge vectors | Chroma or Milvus | Embeddings stored in SQLite |
+| Agent conversations | Legacy chat/agent records | Pi durable SQLite sessions |
+| Uploaded files | Legacy storage layout | Private files under the rewrite data directory |
+
+The rewrite cannot directly read or share legacy chats, users, settings,
+documents, or vector indexes. It starts with its own data. No automatic
+migration or export/import tool is included, and the legacy data is left
+untouched. A future import would need an explicit conversion; knowledge
+content would generally need reindexing. An old SQLite database is not
+compatible merely because both apps use SQLite.
+
+Docker Compose stores the rewrite's data in its own `rewrite-data` volume.
+Local Node.js execution uses `./data` by default. Preserve the whole directory,
+including uploads, runtime sidecars, and SQLite WAL files; some files contain
+provider/MCP credentials. See the [backup procedure](./rewrite/README.md#docker-deployment-and-operations).
+
+### Current scope
+
+This version targets one administrator and one application process. Voice,
+legacy-data migration, skills, OCR, crawling, branching, message editing, and
+regeneration are deferred. Recovery covers application-process failure on an
+intact volume; it does not guarantee recovery from host or power loss.
+
+[Build and validation evidence](./rewrite/docs/build-evidence.md) records
+fixture-based integration, browser, and recovery checks. These do not establish
+live-model answer quality or every third-party provider's compatibility.
+
+## Existing Agent CLI
+
+The installable `chatollama-agent` CLI is a separate entry point. The provider
+variables and commands below belong to that CLI, not to the new web app. Its
+in-memory conversation behavior does not describe pi durable web sessions.
+
+### Install
 
 Requires Node.js 24 or newer.
 
@@ -13,7 +117,7 @@ npm install --global chatollama-agent
 chatollama-agent
 ```
 
-## Configure a provider
+### Configure a provider
 
 Set the API key for any provider you want to use before starting the CLI. These
 are the provider credentials recognized by the current release:
@@ -64,7 +168,7 @@ Ollama. This keeps the command loop available but does not mean that model is
 installed or reachable. To select it explicitly, set `AGENT_PROVIDER=ollama`
 and, when needed, `AGENT_BASE_URL`.
 
-## Use the CLI
+### Use the CLI
 
 On startup, ChatOllama discovers available models. Configured remote providers
 contribute a built-in model catalog; OpenAI also performs filtered model
@@ -134,13 +238,5 @@ For configuration precedence, saved preference locations, plain-mode behavior,
 and provider-specific examples, see the
 [Agent CLI guide](./packages/agent-cli/README.md).
 
-ChatOllama is an app for running AI agents, not an SDK for building them.
 
 [MIT License](./LICENSE)
-
-This README should be updated with every release that changes user-visible
-behavior.
-
-## Standalone pi durable rewrite
-
-The replacement application lives in [`rewrite/`](rewrite/README.md), with its own Node 24/pnpm workspace, Docker Compose service, administrator login, local SQLite/files, knowledge collections and MCP. Follow that directory's README for setup and acceptance commands. The existing application and database remain independent; legacy-data migration is deferred.
