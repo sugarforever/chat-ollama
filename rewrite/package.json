@@ -1,0 +1,33 @@
+{
+  "name": "chat-ollama-rewrite",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "build": "vite build && esbuild src/lib/server/startup.ts --bundle --platform=node --format=esm --packages=external --outfile=build/startup.js",
+    "dev": "vite dev",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-durable": "1.4.0",
+    "@earendil-works/pi-ai": "1.4.0",
+    "@earendil-works/chord": "1.4.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "5.5.7",
+    "@sveltejs/kit": "2.49.1",
+    "@sveltejs/vite-plugin-svelte": "6.2.1",
+    "svelte": "5.45.6",
+    "vite": "7.2.2",
+    "vitest": "4.0.13",
+    "typescript": "5.9.3",
+    "svelte-check": "4.3.4",
+    "@types/node": "24.10.1",
+    "tsx": "4.20.6",
+    "esbuild": "0.27.0"
+  }
+}

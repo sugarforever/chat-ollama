@@ -1,0 +1,6 @@
+# Runtime build evidence
+
+- Pi 1.4.0 supplies durable submission admission, task checkpoints, SQLite storage, restart recovery, committed watches, abort, and safe/unsafe tool replay policy. The app still owns authentication, configuration, application HTTP/SSE contracts, knowledge ingestion/search, MCP connectivity, and UI.
+- Real local OpenAI-compatible HTTP fixture and child processes prove an admitted model request resumes after SIGKILL without another user input; completed work is not rerun after a later reopen. Separate conversation files run concurrently. Browser observer detachment does not cancel work. No external API credentials were used.
+- Actual friction: pnpm initially discovered an ancestor workspace; stopped that install and added a standalone boundary. Main-branch README watch APIs differ from pinned 1.4.0. Type checking caught the mismatch and an explicit watch test reproduced it. Pi IDs are numeric brands and are converted to strings at the public boundary. Pi's built-in OpenAI provider uses Responses; a custom provider selects Chat Completions for compatible endpoints and sets model and provider base URLs.
+- Runtime target is Node 24.22.2 LTS. Host default Node 26.8.1 was not used for final verification. SQLite emits Node's experimental SQLite warning in child stderr; no process or storage errors are suppressed.
