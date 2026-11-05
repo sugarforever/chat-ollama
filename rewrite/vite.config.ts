@@ -2,5 +2,9 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [sveltekit()],
-  test: { include: ["tests/**/*.spec.ts"], testTimeout: 20000 },
+  test: {
+    fileParallelism: false,
+    include: ["tests/**/*.spec.ts"],
+    testTimeout: 20000,
+  },
 });
