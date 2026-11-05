@@ -1,9 +1,15 @@
+import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
+import { createMcpTools, type RuntimeTool } from "../mcp/tools";
+import { openMcpBarrier } from "../mcp/barrier";
+import type { McpConfig } from "../mcp/client";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import {
   Harness,
   createRegistry,
+  hook,
+  GenerationTask,
   ConversationBusy,
   type LiveState,
   type SubmissionRecord,
@@ -21,6 +27,7 @@ export interface AgentSession {
   snapshot(): Promise<ConversationSnapshot>;
   submit(requestId: string, content: string): Promise<{ id: string }>;
   stop(): Promise<void>;
+  acknowledgeInterruption(): Promise<void>;
   watch(listener: (snapshot: ConversationSnapshot) => void): () => void;
   close(): Promise<void>;
 }
@@ -29,7 +36,64 @@ export async function openAgentSession(
   file: string,
   endpoint: ChatEndpointConfig,
   loadEndpoint?: () => ChatEndpointConfig,
+  toolOptions: {
+    mcpServerIds?: string[];
+    mcpConfigs?: McpConfig[];
+    tools?: RuntimeTool[];
+    loadMcpConfigs?: () => McpConfig[];
+  } = {},
 ): Promise<AgentSession> {
+  const barrier = openMcpBarrier(`${file}.mcp.sqlite`);
+  const manifestFile = `${file}.mcp-tools.json`;
+  function saveManifest() {
+    writeFileSync(`${manifestFile}.tmp`, JSON.stringify(mcp.descriptors), {
+      mode: 0o600,
+    });
+    renameSync(`${manifestFile}.tmp`, manifestFile);
+  }
+  let mcp: Awaited<ReturnType<typeof createMcpTools>>;
+  try {
+    mcp = await createMcpTools(
+      toolOptions.mcpServerIds ?? [],
+      toolOptions.mcpConfigs ?? [],
+      barrier,
+      existsSync(manifestFile)
+        ? JSON.parse(readFileSync(manifestFile, "utf8"))
+        : undefined,
+    );
+    saveManifest();
+  } catch (error) {
+    barrier.close();
+    throw error;
+  }
+  const registry = createRegistry();
+  let abortUncertainRun: () => Promise<void> = async () => {};
+  const hooks = [
+    hook(GenerationTask, {
+      async beforeRequest(_request, _api, hookContext) {
+        if (barrier.uncertainty()) {
+          // Conversation.abort waits for idle; never await our own task here.
+          void abortUncertainRun().catch(() => {});
+          const signal = hookContext.abortSignal;
+          if (signal && !signal.aborted)
+            await new Promise<void>((resolve) =>
+              signal.addEventListener("abort", () => resolve(), { once: true }),
+            );
+          throw new ApiError(
+            409,
+            "MCP_UNCERTAIN",
+            "Acknowledge the uncertain MCP action before continuing",
+          );
+        }
+        return undefined;
+      },
+    }),
+  ];
+  registry.install({
+    name: "application",
+    hooks,
+    tools: [...mcp.tools, ...(toolOptions.tools ?? [])],
+  });
   const models = createModels();
   function configure(value: ChatEndpointConfig) {
     endpoint = value;
@@ -67,19 +131,18 @@ export async function openAgentSession(
   const storage = await openNodeSqliteStorage(file);
   let harness;
   try {
-    harness = await Harness.open(
-      storage,
-      { models, registry: createRegistry() },
-      context,
-    );
+    harness = await Harness.open(storage, { models, registry }, context);
   } catch (error) {
     await storage.close(context);
+    await mcp.close();
+    barrier.close();
     throw error;
   }
   try {
     const root = await harness.root(context, {
       agent: { model: { provider: "chat", modelId: endpoint.modelId } },
     });
+    abortUncertainRun = () => root.abort(context);
     const committed = await root.watch(context);
     let revision = 0;
     let latest: SubmissionRecord | undefined = (
@@ -104,7 +167,7 @@ export async function openAgentSession(
     function snapshot(): ConversationSnapshot {
       const view = committed.value;
       const live = view.docs["pi.live"] as LiveState | undefined;
-      return projectState({
+      const result = projectState({
         id,
         revision: String(revision),
         entries: view.entries,
@@ -112,6 +175,12 @@ export async function openAgentSession(
         latest,
         abortRequested: live?.run && cancelling.has(live.run.taskId),
       });
+      const uncertainty = barrier.uncertainty();
+      if (uncertainty) {
+        result.mcpUncertainty = uncertainty;
+        result.status = "interrupted";
+      }
+      return result;
     }
     function publish() {
       if (closed) return;
@@ -150,6 +219,13 @@ export async function openAgentSession(
       if (changed) queueMicrotask(publish);
     });
     committed.start(async () => {
+      barrier.committed(
+        committed.value.entries.flatMap((e) =>
+          (e.model ?? []).flatMap((m) =>
+            m.role === "toolResult" ? [m.toolCallId] : [],
+          ),
+        ),
+      );
       publish();
     });
     harness.resume();
@@ -181,6 +257,30 @@ export async function openAgentSession(
               );
             return { id: String(previous.id) };
           }
+          if (barrier.uncertainty())
+            throw new ApiError(
+              409,
+              "MCP_UNCERTAIN",
+              "Acknowledge the uncertain MCP action first",
+            );
+          if (
+            toolOptions.loadMcpConfigs &&
+            !["running", "cancelling"].includes(snapshot().status)
+          ) {
+            const next = await createMcpTools(
+              toolOptions.mcpServerIds ?? [],
+              toolOptions.loadMcpConfigs(),
+              barrier,
+            );
+            await mcp.close();
+            mcp = next;
+            saveManifest();
+            registry.install({
+              name: "application",
+              hooks,
+              tools: [...mcp.tools, ...(toolOptions.tools ?? [])],
+            });
+          }
           if (
             loadEndpoint &&
             !["running", "cancelling"].includes(snapshot().status)
@@ -206,6 +306,16 @@ export async function openAgentSession(
         admissionLine = admitted.catch(() => {});
         return admitted;
       },
+      async acknowledgeInterruption() {
+        if ((committed.value.docs["pi.live"] as LiveState | undefined)?.run)
+          throw new ApiError(
+            409,
+            "BUSY",
+            "Wait for the interrupted run to settle",
+          );
+        barrier.acknowledge();
+        publish();
+      },
       async stop() {
         await root.abort(context);
       },
@@ -227,10 +337,14 @@ export async function openAgentSession(
         listeners.clear();
         await committed.stop();
         await harness.close(context);
+        await mcp.close();
+        barrier.close();
       },
     };
   } catch (error) {
     await harness.close(context);
+    await mcp.close();
+    barrier.close();
     throw error;
   }
 }

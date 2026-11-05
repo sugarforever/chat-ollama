@@ -13,21 +13,24 @@
     "start": "node server.mjs"
   },
   "dependencies": {
-    "@earendil-works/pi-durable": "1.4.0",
+    "@earendil-works/chord": "1.4.0",
     "@earendil-works/pi-ai": "1.4.0",
-    "@earendil-works/chord": "1.4.0"
+    "@earendil-works/pi-durable": "1.4.0",
+    "@modelcontextprotocol/sdk": "1.25.3",
+    "@sinclair/typebox": "0.34.41",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "5.5.7",
     "@sveltejs/kit": "2.49.1",
     "@sveltejs/vite-plugin-svelte": "6.2.1",
-    "svelte": "5.45.6",
-    "vite": "7.2.2",
-    "vitest": "4.0.13",
-    "typescript": "5.9.3",
-    "svelte-check": "4.3.4",
     "@types/node": "24.10.1",
+    "esbuild": "0.27.0",
+    "svelte": "5.45.6",
+    "svelte-check": "4.3.4",
     "tsx": "4.20.6",
-    "esbuild": "0.27.0"
+    "typescript": "5.9.3",
+    "vite": "7.2.2",
+    "vitest": "4.0.13"
   }
 }

@@ -1,3 +1,4 @@
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeAll, expect, test } from "vitest";
 import { execFileSync, fork } from "node:child_process";
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
@@ -250,6 +251,28 @@ test("startup completes interrupted catalogue creation with its saved config", a
   const catalogue = openCatalogue(
     join(directory, "sessions", "catalogue.sqlite"),
   );
+  const settings = new DatabaseSync(join(directory, "app.sqlite"));
+  settings.exec(
+    "CREATE TABLE settings(kind TEXT PRIMARY KEY,value TEXT NOT NULL)",
+  );
+  settings
+    .prepare("INSERT INTO settings VALUES(?,?)")
+    .run(
+      "mcp",
+      JSON.stringify([
+        {
+          id: "server-one",
+          transport: "stdio",
+          command: process.execPath,
+          args: [
+            "--import",
+            "tsx",
+            new URL("./fixtures/mcp-server.ts", import.meta.url).pathname,
+          ],
+        },
+      ]),
+    );
+  settings.close();
   catalogue.insert("creation-interrupted", {
     modelId: "fixture",
     knowledgeBaseIds: ["collection-one"],
