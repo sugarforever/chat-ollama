@@ -16,7 +16,7 @@ Pinned runtime: `@earendil-works/pi-durable`, `@earendil-works/pi-ai`, and `@ear
 
 The adapter exposes application snapshots, admission, Stop, subscriptions and close. pi types stay private. A process manager caches opening promises per conversation. Browser subscription cleanup cannot cancel agent work. SQLite WAL synchronous NORMAL protects against process crashes; no host-loss or power-loss guarantee is claimed.
 
-The release's packaged README/types are the API reference. The moving upstream main README already describes a different watch callback. In 1.4.0, `watch.start(async (value, ops, context) => ...)` delivers committed views; `Harness.resume()` starts pending work, `root.abort()` waits for idle, and `Harness.close()` preserves pending tasks. Custom providers need the model's baseUrl as well as the provider's baseUrl. Unsafe tools interrupted mid-call produce interrupted results; only explicitly replay-safe tools rerun. Tool integration and product features arrive in subsequent tasks.
+The release's packaged README/types are the API reference. The moving upstream main README already describes a different watch callback. In 1.4.0, `watch.start(async (value, ops, context) => ...)` delivers committed views; `Harness.resume()` starts pending work, `root.abort()` waits for idle, and `Harness.close()` preserves pending tasks. Custom providers need the model's baseUrl as well as the provider's baseUrl. Unsafe tools interrupted mid-call produce interrupted results; only explicitly replay-safe tools rerun. MCP and knowledge tools integrate through application adapters.
 
 Tests use a real local HTTP model fixture, real pi SQLite storage, and separate Node processes. They verify SIGKILL recovery without resubmission, completed work staying completed, custom URL/key forwarding, concurrent independent conversations, committed watches, explicit Stop, and detached observers.
 
@@ -32,7 +32,7 @@ Set `ADMIN_PASSWORD` before serving requests. Sign in at `/login`. Salted scrypt
 
 Authenticated `GET /api/settings` returns `{chat, embedding}` containing `baseUrl`, `modelId`, and `hasApiKey`. `POST /api/settings` accepts partial chat/embedding objects. Omit `apiKey` to preserve it; an empty string clears it. URLs must use HTTP(S) without embedded credentials, query strings, or fragments; local endpoints are allowed. `CHAT_*` and `EMBEDDING_*` environment variables seed defaults until settings are saved. Settings and hashed sessions persist in `DATA_DIR/app.sqlite` (0600), inside the data directory (0700). Protect and back up the entire directory, including SQLite WALs and credential-bearing per-conversation endpoint snapshots.
 
-Saved chat settings apply at the next admitted run, including existing conversations. Active runs retain the endpoint/key/model in `sessions/:id.endpoint.json` (0600), including across restart after a settings edit. Original conversation configuration remains creation metadata. Embeddings have independent configuration; the knowledge-base task adds explicit reindex behavior. The UI delivery task refines the minimal login page.
+Saved chat settings apply at the next admitted run, including existing conversations. Active runs retain the endpoint/key/model in `sessions/:id.endpoint.json` (0600), including across restart after a settings edit. Original conversation configuration remains creation metadata. Embeddings have independent configuration and require explicit collection reindexing after changes. The UI delivery task refines the minimal login page.
 
 MCP servers are configured with authenticated `PUT /api/mcp`, using
 `{"servers":[{"id":"local","transport":"stdio","command":"node","args":["server.js"],"env":{"TOKEN":"..."}}]}`
@@ -57,3 +57,45 @@ Later input refreshes global configuration. The additional `.mcp.sqlite` file ow
 only the application's uncertainty barrier; pi's SQLite schema is untouched. A crash
 in the gap between native result commit and barrier cleanup conservatively requires
 acknowledgement. This covers process failure, not host loss or power failure.
+
+Knowledge collections and ingestion use `DATA_DIR/app.sqlite` plus generated
+0600 files in `DATA_DIR/uploads`; they never modify pi's schema. Configure
+`EMBEDDING_BASE_URL`, `EMBEDDING_MODEL_ID`, `EMBEDDING_API_KEY` or the independent
+embedding settings. Changes to endpoint/model/key require explicit reindexing of
+existing collections. A collection reindex stages a replacement generation and
+publishes it atomically; incompatible collections cannot be searched or appended
+to until reindex succeeds. Failed ordinary uploads affect only their own document. A failed replacement keeps compatible published passages searchable and exposes the rebuild error alongside ready status; incompatible settings still require successful reindexing.
+Queued/indexing work resumes after process restart. No OCR is provided.
+
+Authenticated knowledge HTTP endpoints:
+
+- `GET /api/knowledge-bases`, `POST /api/knowledge-bases` with `{name}`, and
+  `DELETE /api/knowledge-bases/:id`.
+- `GET /api/knowledge-bases/:id/documents`; `POST` to the same URL with one
+  multipart `file` field (`.pdf`, `.md`, `.markdown`, `.txt`). Upload returns 202
+  with a generated document ID. Max file size 10 MiB; UTF-8 text; at most 1000 PDF
+  pages and 2 million extracted characters. Text-free PDFs fail with a no-OCR
+  message. Extracted chunks have at most 1200 characters and 150-character overlap.
+- `GET /api/documents/:id`, `DELETE /api/documents/:id`, and
+  `POST /api/documents/:id/retry`. Status is queued/indexing/ready/failed, with a
+  sanitized failure message. Poll document/list APIs while indexing.
+- `POST /api/knowledge-bases/:id/reindex` explicitly queues a collection rebuild.
+- `POST /api/knowledge-bases/:id/search` with `{query, limit?}` returns excerpts,
+  document/title, optional PDF page, cosine score and stable `sourceId`.
+  `GET /sources/:sourceId` returns inert JSON source details. Deleted sources return
+  404. The UI may render this response in a source panel.
+
+A conversation registers the replay-safe `search_knowledge` tool only when its
+`knowledgeBaseIds` selection is nonempty. The model chooses when to search; it
+cannot change the scoped collection IDs. Source IDs survive embedding reindexing
+when the extracted passage is unchanged. Read-only retrieval needs no MCP outcome
+barrier. Native Stop cancels a pending embedding request.
+
+One in-process worker indexes persisted pending documents, batching at most 32
+texts per embedding request. Upload admission caps pending documents at 100.
+Search permits two concurrent scans and clamps top-k to 1–20. Float32 normalized
+vectors are persisted in SQLite; a worker thread scans one row at a time and keeps
+only top-k, avoiding a vector copy into the request heap. No external vector
+service or retrieval framework is required. `tests/retrieval-scale.spec.ts`
+generates 100,000 384-dimensional chunks and records latency, process RSS and
+concurrent native chat responsiveness. See `docs/build-evidence.md` for results.
