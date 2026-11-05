@@ -1,9 +1,11 @@
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
-import { Harness, createRegistry } from "@earendil-works/pi-durable";
+import { Harness, createRegistry, ConversationBusy, type LiveState, type SubmissionRecord } from "@earendil-works/pi-durable";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
-import type { ConversationSnapshot, PublicEntry } from "../../contracts";
+import { projectState } from "./projection";
+import { ApiError } from "../errors";
+import type { ConversationSnapshot } from "../../contracts";
 export type ChatEndpointConfig = {
   baseUrl: string;
   apiKey: string;
@@ -69,71 +71,81 @@ export async function openAgentSession(
     });
     const committed = await root.watch(context);
     let revision = 0;
+    let latest: SubmissionRecord | undefined = (await storage.scanSubmissions({ conversationId: root.id, order: "descending" }, 1, undefined, context)).items[0];
+    const cancelling = new Set<number>();
+    const initialRun = (committed.value.docs["pi.live"] as LiveState | undefined)?.run;
+    if (initialRun && (await harness.getTask(initialRun.taskId, context))?.abortRequested) cancelling.add(initialRun.taskId);
     const listeners = new Set<(snapshot: ConversationSnapshot) => void>();
+    let closed = false;
     function snapshot(): ConversationSnapshot {
       const view = committed.value;
-      const live = view.docs["pi.live"];
-      const entries: PublicEntry[] = view.entries.flatMap((entry) => {
-        const kind =
-          entry.kind === "pi.user"
-            ? "user"
-            : entry.kind === "pi.assistant"
-              ? "assistant"
-              : entry.kind === "pi.tool-result"
-                ? "tool"
-                : undefined;
-        if (!kind) return [];
-        const content = (entry.model ?? [])
-          .map((message) =>
-            typeof message.content === "string"
-              ? message.content
-              : message.content
-                  .map((part) => ("text" in part ? part.text : ""))
-                  .join(""),
-          )
-          .join("");
-        return [{ id: String(entry.id), kind, content }];
-      });
-      return {
-        id,
-        revision: String(revision),
-        status: live?.run ? "running" : live?.runFailure ? "failed" : "idle",
-        entries,
-      };
+      const live = view.docs["pi.live"] as LiveState | undefined;
+      return projectState({ id, revision: String(revision), entries: view.entries, live, latest, abortRequested: live?.run && cancelling.has(live.run.taskId) });
     }
-    committed.start(async () => {
+    function publish() {
+      if (closed) return;
       revision++;
       for (const listener of listeners) {
-        try {
-          listener(snapshot());
-        } catch {
-          /* A browser listener cannot fail the runtime watch. */
+        try { listener(structuredClone(snapshot())); } catch { /* Isolate disconnected browsers. */ }
+      }
+    }
+    // Outcomes and abort marks are durable tables, not fields on pi.live.
+    // The observer only reads the publication; it never re-enters Session APIs.
+    const detachCommits = harness.subscribeCommits(publication => {
+      let changed = false;
+      for (const change of publication.changes) {
+        if (change.type === "submission" && change.value.conversationId === root.id && (!latest || change.value.id >= latest.id)) { latest = change.value; changed = true; }
+        if (change.type === "task") {
+          if (change.value.abortRequested && change.value.state.status !== "terminal") cancelling.add(change.value.id);
+          else cancelling.delete(change.value.id);
+          changed = true;
         }
       }
+      if (changed) queueMicrotask(publish);
     });
+    committed.start(async () => { publish(); });
     harness.resume();
+    let admissionLine: Promise<unknown> = Promise.resolve();
     return {
       async snapshot() {
         return structuredClone(snapshot());
       },
-      async submit(requestId, content) {
-        const admission = await root.submit(
-          { type: "input", requestId, content, whenBusy: "reject" },
-          context,
-        );
-        return { id: String(admission.id) };
+      submit(requestId, content) {
+        const admitted = admissionLine.then(async () => {
+          // pi commits the request ID and immutable user entry together. There is no
+          // application admission write to lose if the process dies after submit.
+          const previous = await storage.submissionByRequest(root.id, requestId, context);
+          if (previous) {
+            const entry = previous.entry === undefined ? undefined : await storage.entry(previous.entry, context);
+            const original = entry?.entry.model?.[0]?.content;
+            if (previous.type !== "input" || original !== content)
+              throw new ApiError(409, "REQUEST_CONFLICT", "Request ID was already used with different content");
+            return { id: String(previous.id) };
+          }
+          try {
+            const admission = await root.submit({ type: "input", requestId, content, whenBusy: "reject" }, context);
+            return { id: String(admission.id) };
+          } catch (error) {
+            if (error instanceof ConversationBusy) throw new ApiError(409, "BUSY", "Conversation is busy");
+            throw error;
+          }
+        });
+        admissionLine = admitted.catch(() => {});
+        return admitted;
       },
       async stop() {
         await root.abort(context);
       },
       watch(listener) {
         listeners.add(listener);
-        listener(snapshot());
+        try { listener(snapshot()); } catch (error) { listeners.delete(listener); throw error; }
         return () => {
           listeners.delete(listener);
         };
       },
       async close() {
+        closed = true;
+        detachCommits();
         listeners.clear();
         await committed.stop();
         await harness.close(context);
