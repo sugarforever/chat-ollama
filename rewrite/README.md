@@ -32,7 +32,7 @@ Set `ADMIN_PASSWORD` before serving requests. Sign in at `/login`. Salted scrypt
 
 Authenticated `GET /api/settings` returns `{chat, embedding}` containing `baseUrl`, `modelId`, and `hasApiKey`. `POST /api/settings` accepts partial chat/embedding objects. Omit `apiKey` to preserve it; an empty string clears it. URLs must use HTTP(S) without embedded credentials, query strings, or fragments; local endpoints are allowed. `CHAT_*` and `EMBEDDING_*` environment variables seed defaults until settings are saved. Settings and hashed sessions persist in `DATA_DIR/app.sqlite` (0600), inside the data directory (0700). Protect and back up the entire directory, including SQLite WALs and credential-bearing per-conversation endpoint snapshots.
 
-Saved chat settings apply at the next admitted run, including existing conversations. Active runs retain the endpoint/key/model in `sessions/:id.endpoint.json` (0600), including across restart after a settings edit. Original conversation configuration remains creation metadata. Embeddings have independent configuration and require explicit collection reindexing after changes. The UI delivery task refines the minimal login page.
+Saved chat settings apply at the next admitted run, including existing conversations. Active runs retain the endpoint/key/model in `sessions/:id.endpoint.json` (0600), including across restart after a settings edit. Original conversation configuration remains creation metadata. Embeddings have independent configuration and require explicit collection reindexing after changes. The interface at `/` provides the conversation sidebar, streaming Markdown, expandable tool activity, citation excerpts, Stop and reconnect state. Work continues after closing the browser; Stop explicitly cancels. Uncertain external actions require an explicit acknowledgment after checking the external system.
 
 MCP servers are configured with authenticated `PUT /api/mcp`, using
 `{"servers":[{"id":"local","transport":"stdio","command":"node","args":["server.js"],"env":{"TOKEN":"..."}}]}`
@@ -82,8 +82,7 @@ Authenticated knowledge HTTP endpoints:
 - `POST /api/knowledge-bases/:id/reindex` explicitly queues a collection rebuild.
 - `POST /api/knowledge-bases/:id/search` with `{query, limit?}` returns excerpts,
   document/title, optional PDF page, cosine score and stable `sourceId`.
-  `GET /sources/:sourceId` returns inert JSON source details. Deleted sources return
-  404. The UI may render this response in a source panel.
+  `GET /api/sources/:sourceId?conversationId=:conversationId` returns inert JSON source details only when the source belongs to a selected conversation collection. The direct `/sources/:sourceId` route has the same required conversation scope. Missing scopes, unselected collections and deleted sources return 404. The UI verifies references before making them clickable and revalidates on inspection.
 
 A conversation registers the replay-safe `search_knowledge` tool only when its
 `knowledgeBaseIds` selection is nonempty. The model chooses when to search; it
@@ -99,3 +98,22 @@ only top-k, avoiding a vector copy into the request heap. No external vector
 service or retrieval framework is required. `tests/retrieval-scale.spec.ts`
 generates 100,000 384-dimensional chunks and records latency, process RSS and
 concurrent native chat responsiveness. See `docs/build-evidence.md` for results.
+
+
+## Browser interface validation
+
+Settings at `/settings` edit chat and embedding endpoints independently. Blank API key fields preserve saved credentials; a separate checkbox explicitly removes them. Knowledge collections support uploads, statuses, retries, deletion and explicit reindexing. A failed compatible rebuild displays its warning separately while published content remains ready.
+
+The MCP editor replaces the complete global server list. It starts with a blank replacement and requires explicit acknowledgment: saved secrets are never fetched or filled into the editor. Supply every intended server and its full credentials; redacted presence flags are rejected. Select knowledge collections and MCP servers when creating a conversation.
+
+The browser suite uses Chromium and a real adapter-node production build with local HTTP model/embedding and real stdio MCP fixtures. It needs no external credentials:
+
+```sh
+pnpm exec playwright install chromium
+pnpm test
+pnpm check
+pnpm build
+pnpm exec playwright test tests/ui.spec.ts
+```
+
+Run these serially because HTTP tests rebuild shared `build/` output. Browser tests are excluded from Vitest. Screenshots are written under ignored `test-results/` for desktop and 390-pixel layouts.

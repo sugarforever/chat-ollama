@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     fileParallelism: false,
     include: ["tests/**/*.spec.ts"],
+    exclude: ["tests/ui.spec.ts"],
     testTimeout: 20000,
   },
 });
