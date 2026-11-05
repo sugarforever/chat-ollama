@@ -89,5 +89,5 @@ test("new endpoint snapshot with the prior root model can restart and admit the 
   await session.submit("after-crash", "hello");
   for (let i = 0; i < 200 && model.requests.length === 0; i++)
     await new Promise((r) => setTimeout(r, 25));
-  expect(JSON.parse(model.requests[0].prompt).model).toBe("next-model");
+  expect(JSON.parse(model.requests[0].prompt).model).toBe("prior-model");
 });

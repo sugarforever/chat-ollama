@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      ORIGIN: ${ORIGIN:-http://localhost:3000}
+      DATA_DIR: /data
+      CHAT_BASE_URL: ${CHAT_BASE_URL:-http://host.docker.internal:11434/v1}
+      CHAT_MODEL_ID: ${CHAT_MODEL_ID:-}
+      CHAT_API_KEY: ${CHAT_API_KEY:-}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - rewrite-data:/data
+    stop_grace_period: 30s
+volumes:
+  rewrite-data:

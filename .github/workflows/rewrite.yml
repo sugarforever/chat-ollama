@@ -1,0 +1,40 @@
+name: Standalone rewrite
+on:
+  pull_request:
+    paths:
+      - 'rewrite/**'
+      - '.github/workflows/rewrite.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rewrite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+          cache-dependency-path: rewrite/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test
+      - run: pnpm check
+      - run: pnpm build
+      - run: pnpm exec playwright test
+      - run: docker compose config --quiet
+        env:
+          ADMIN_PASSWORD: ci-config-only
+      - run: sh tests/container-smoke.sh
+        env:
+          COMPOSE_PROJECT_NAME: pi-rewrite-ci
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: rewrite-test-results
+          path: rewrite/test-results/

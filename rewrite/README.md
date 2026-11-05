@@ -1,14 +1,48 @@
-# Standalone rewrite
+# ChatOllama web application: SvelteKit + pi durable
+
+A standalone, single-administrator chatbot with durable agent conversations,
+document knowledge bases, and MCP tools. SvelteKit serves both the browser UI
+and the application HTTP/SSE API; pi durable owns agent execution. The legacy
+Nuxt app does not call this backend and is not needed to run it.
+
+## Storage compatibility
+
+This app uses a new SQLite schema for settings, login sessions, knowledge
+metadata and embeddings, plus separate pi durable SQLite files and local
+uploads. It cannot directly read the legacy Prisma/PostgreSQL records, older
+SQLite databases, Chroma/Milvus indexes, or uploaded-file layout. Chat history,
+accounts, settings and knowledge bases are not shared. No migration or
+export/import tool is included; existing data is left untouched. Knowledge
+content imported in a future migration would generally need reindexing.
+
+The legacy app and this replacement can run independently on different ports.
+For Compose, change both `PORT` and `ORIGIN` when using a port other than 3000.
+The replacement does not need PostgreSQL, Redis, Chroma, or Milvus.
+
+## Local Node.js setup
 
 Run from this directory with Node **24.22.2 LTS** and pnpm **10.8.1**:
 
 ```sh
-pnpm install
-pnpm test
-pnpm check
+pnpm install --frozen-lockfile
 pnpm build
+# Replace the example password and model ID; use your provider's URL/key.
+export ADMIN_PASSWORD='replace-with-a-long-unique-password'
+export ORIGIN='http://localhost:3000'
+export CHAT_BASE_URL='http://127.0.0.1:11434/v1'
+export CHAT_MODEL_ID='your-chat-model'
+# Set CHAT_API_KEY if your provider requires it.
 pnpm start
 ```
+
+Open the exact `ORIGIN` URL and log in. Configure the independent embedding
+endpoint and model in Settings before indexing knowledge documents. Environment
+variables must be exported; `pnpm start` does not load `.env` automatically.
+The `.env.example` provider URLs target Docker-to-host access; for direct local
+Node execution, use addresses reachable from the host process.
+
+For the single-service container setup, see
+[Docker deployment and operations](#docker-deployment-and-operations).
 
 This folder has its own workspace boundary and lockfile; do not install the legacy Nuxt app to run it. `server.mjs` awaits runtime bootstrap before accepting HTTP, reopens every catalogued conversation SQLite file, and closes sessions on SIGTERM/SIGINT. One process must own the data directory. Set DATA_DIR (default `data`), CHAT_BASE_URL (default `http://127.0.0.1:11434/v1`), CHAT_API_KEY, CHAT_MODEL_ID, PORT and HOST. The endpoint uses OpenAI chat completions; it is not an Ollama-specific integration.
 
@@ -23,7 +57,7 @@ Tests use a real local HTTP model fixture, real pi SQLite storage, and separate 
 
 Chat HTTP commands are `POST /api/conversations` with `{modelId, knowledgeBaseIds, mcpServerIds}`, `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations/:id/messages` with `{requestId, content}`, and `POST /api/conversations/:id/stop`. Creation returns 201; durable message admission returns 202 with `{id}`. Repeating an identical request ID returns that original ID, conflicting content returns 409/REQUEST_CONFLICT, and distinct input while running returns 409/BUSY. Stop waits for pi to reach idle; connected state observers can see cancelling while that happens.
 
-`GET /api/conversations/:id/events` sends application-owned `snapshot` envelopes as SSE `data:`. Every connection receives the current full state, including when Last-Event-ID is supplied. Slow clients retain only the newest pending snapshot. Revisions are process-local and are not resume cursors. The projection includes committed transcript, committed assistant partial text, tool output/status/uncertainty, and persisted run outcomes; it omits provider error details.
+`GET /api/conversations/:id/events` sends application-owned `snapshot` envelopes as SSE `data:`. Every connection receives the current full state, including when Last-Event-ID is supplied. Slow clients retain only the newest pending snapshot. Revisions are process-local and are not resume cursors. The browser discards HTTP snapshot reads overtaken by SSE updates for the same selection, without comparing revisions across application restarts. The projection includes committed transcript, committed assistant partial text, tool output/status/uncertainty, and persisted run outcomes; it omits provider error details.
 
 `DATA_DIR/sessions/catalogue.sqlite` stores conversation config and creation intent; each generated conversation ID has its own pi SQLite file alongside it. Startup completes interrupted creation before accepting HTTP. Unknown HTTP IDs never create session files. pi owns the single durable request receipt and user entry; the application has no second admission ledger or event journal. Authentication and same-origin mutation checks protect the application centrally.
 
@@ -32,7 +66,7 @@ Set `ADMIN_PASSWORD` before serving requests. Sign in at `/login`. Salted scrypt
 
 Authenticated `GET /api/settings` returns `{chat, embedding}` containing `baseUrl`, `modelId`, and `hasApiKey`. `POST /api/settings` accepts partial chat/embedding objects. Omit `apiKey` to preserve it; an empty string clears it. URLs must use HTTP(S) without embedded credentials, query strings, or fragments; local endpoints are allowed. `CHAT_*` and `EMBEDDING_*` environment variables seed defaults until settings are saved. Settings and hashed sessions persist in `DATA_DIR/app.sqlite` (0600), inside the data directory (0700). Protect and back up the entire directory, including SQLite WALs and credential-bearing per-conversation endpoint snapshots.
 
-Saved chat settings apply at the next admitted run, including existing conversations. Active runs retain the endpoint/key/model in `sessions/:id.endpoint.json` (0600), including across restart after a settings edit. Original conversation configuration remains creation metadata. Embeddings have independent configuration and require explicit collection reindexing after changes. The interface at `/` provides the conversation sidebar, streaming Markdown, expandable tool activity, citation excerpts, Stop and reconnect state. Work continues after closing the browser; Stop explicitly cancels. Uncertain external actions require an explicit acknowledgment after checking the external system.
+The global chat model ID is the default for the new-conversation form. A conversation keeps its selected model ID for every run; changing that global default does not change existing selections. Saved base URL and API key changes apply at the next admitted run, including existing conversations. Active runs retain their effective endpoint/key/selected model in `sessions/:id.endpoint.json` (0600), including across restart after a settings edit. Embeddings have independent configuration and require explicit collection reindexing after changes. The interface at `/` provides the conversation sidebar, streaming Markdown, expandable tool activity, citation excerpts, Stop and reconnect state. Work continues after closing the browser; Stop explicitly cancels. Uncertain external actions require an explicit acknowledgment after checking the external system.
 
 MCP servers are configured with authenticated `PUT /api/mcp`, using
 `{"servers":[{"id":"local","transport":"stdio","command":"node","args":["server.js"],"env":{"TOKEN":"..."}}]}`
@@ -113,7 +147,67 @@ pnpm exec playwright install chromium
 pnpm test
 pnpm check
 pnpm build
-pnpm exec playwright test tests/ui.spec.ts
+pnpm exec playwright test tests/acceptance.spec.ts
 ```
 
 Run these serially because HTTP tests rebuild shared `build/` output. Browser tests are excluded from Vitest. Screenshots are written under ignored `test-results/` for desktop and 390-pixel layouts.
+
+## Docker deployment and operations
+
+This directory is a standalone replacement. It does not require or alter the legacy PostgreSQL, Redis, Chroma or Milvus services. Old-data migration is deferred. Use one app process and one replica per data directory; do not cluster Node workers or share the volume between running instances.
+
+```sh
+cd rewrite
+cp .env.example .env
+# Edit .env: choose ADMIN_PASSWORD, exact ORIGIN, and provider/model settings.
+docker compose config
+docker compose up --build -d
+docker compose logs -f app
+```
+
+Open the exact `ORIGIN` URL and log in with `ADMIN_PASSWORD`. There is no separate session-signing secret: tokens are random, and only their hashes are stored. Keep the password and provider/MCP credentials private. Changing the password does not revoke already-issued sessions; log out or remove persisted sessions during a stopped maintenance window to revoke them. Saved settings override environment defaults. For local Node execution, export the variables before `pnpm start`; Node does not automatically load `.env` here. `DATA_DIR` defaults to `./data` locally; Compose fixes it to `/data` in the persistent `rewrite-data` named volume.
+
+The image uses Node 24.22.2 and runs `node server.mjs` as the unprivileged `node` user. It includes production JavaScript dependencies, generated adapter output and the bootstrap bundle. Stdio MCP executables and any runtimes they need must be installed by the operator in a derived image; a configured command executes inside the container, not on the host. Install them as root while building the derived image and switch back to `USER node`. Avoid credentials in image layers. HTTP MCP needs no local executable. Both transports are tested with local protocol fixtures; live third-party interoperability remains provider-specific.
+
+Inside Docker, `localhost` means the app container. The example uses `host.docker.internal` (including a Linux host-gateway mapping). The host's model/embedding service must listen on a reachable interface and allow Docker traffic. Alternatively use a reachable LAN/service URL. Chat and embedding URLs are independent OpenAI-compatible endpoints. Select actual installed model IDs in Settings. Changing embedding settings requires **Reindex collection** for each existing collection; it never silently rebuilds your corpus.
+
+For public access, put TLS in front of the app and set `ORIGIN=https://your-host` exactly, including any nondefault port. Only trust headers supplied by your own proxy. Disable response buffering and compression buffering for `/api/conversations/*/events`; for nginx use `proxy_buffering off`, `proxy_cache off`, and a suitably long `proxy_read_timeout`. Browser disconnects and proxy reconnects do not stop admitted work. The next SSE connection obtains a complete committed snapshot.
+
+```sh
+# Graceful shutdown preserves pending work; starting resumes it.
+docker compose stop app
+docker compose start app
+# Destructive process-crash drill, on disposable test data only:
+docker compose kill -s SIGKILL app
+docker compose up -d app
+```
+
+Stop in the UI deliberately cancels a run; closing a tab does not. A crashed model request may execute again to recover unfinished work. An interrupted unsafe MCP action is different: it may already have affected the external system, so automatic model/MCP dispatch stays blocked. Inspect that system, then use **I checked the outcome — acknowledge**. Acknowledgment allows new input; it does not repeat the action. Do not infer that cancellation undoes external changes. The guarantee is recovery after application-process failure on an intact local volume, not host loss, filesystem loss or power failure.
+
+The entire data directory is one backup unit:
+
+```text
+/data/app.sqlite                     settings, hashed sessions, knowledge metadata/vectors
+/data/uploads/                       original uploaded files
+/data/sessions/catalogue.sqlite      conversation catalogue and creation intent
+/data/sessions/<id>.sqlite            pi durable conversation storage
+/data/sessions/                       endpoint/MCP snapshots and uncertainty sidecars
+```
+
+Preserve all files, including SQLite `-wal`/`-shm` files and per-conversation sidecars; endpoint/MCP snapshots contain secrets. Back up only while the app is stopped. For example, from this directory with the default named volume:
+
+```sh
+docker compose stop app
+docker compose run --rm --no-deps --user root --entrypoint tar app -C /data -czf - . > rewrite-backup.tar.gz
+docker compose start app
+# Restore into an empty volume while every app instance is stopped:
+docker compose stop app
+cat rewrite-backup.tar.gz | docker compose run --rm -T --no-deps --user root --entrypoint sh app -c 'tar -xzf - -C /data && chown -R node:node /data'
+docker compose start app
+```
+
+Protect the archive as credentials and user content. Restore into an empty volume to avoid mixing two catalogues; retain the original volume until restoration is verified. Never use `docker compose down -v` on valuable data. For a host bind mount, create its directory with ownership writable by container UID/GID 1000 and retain private permissions.
+
+Acceptance now runs `tests/acceptance.spec.ts` against the shipped `server.mjs`, not the custom HTTP harness. Run `pnpm test`, `pnpm check`, `pnpm build`, then `pnpm exec playwright test` **serially**. It covers login/settings, uploads/cited retrieval, MCP, Stop, offline/reconnect, SIGKILL chat recovery, actual interrupted indexing recovery, and unsafe MCP no-repeat across two restarts. Fixtures need no external keys. See [build evidence](./docs/build-evidence.md) and the [rewrite validation workflow](../.github/workflows/rewrite.yml) for verification details; the existence of packaging files alone does not establish a successful container smoke test.
+
+On a disposable Docker host, `sh tests/container-smoke.sh` builds the image in a unique temporary Compose project, verifies login and a saved collection after SIGKILL/restart, and removes only that project's volume. It needs port 3000 free. This smoke is separate from the comprehensive host-built protocol/browser acceptance; its local execution was blocked by Docker availability. Ubuntu CI verified Compose configuration, image construction, and this container restart smoke on commit `ce0fa64`: [validation run](https://github.com/sugarforever/chat-ollama/actions/runs/41158776362). The local Docker limitation does not describe that successful remote run.

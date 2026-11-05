@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { fork, type ChildProcess } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { embeddingServer } from "./fixtures/embedding-server";
@@ -11,6 +11,7 @@ let child: ChildProcess,
   embedding: Awaited<ReturnType<typeof embeddingServer>>,
   model: ReturnType<typeof createServer>,
   modelUrl: string;
+const modelRequests: string[] = [];
 let sourceId = "",
   held: () => void = () => {};
 test.beforeAll(async () => {
@@ -22,6 +23,7 @@ test.beforeAll(async () => {
     const body = JSON.parse(raw);
     const last =
       body.messages.findLast((m: any) => m.role === "user")?.content ?? "";
+    modelRequests.push(String(last));
     if (String(last).includes("fail model")) {
       res.writeHead(503);
       res.end("fixture provider unavailable");
@@ -58,6 +60,12 @@ test.beforeAll(async () => {
       emit({}, "tool_calls");
       res.end("data: [DONE]\n\n");
       return;
+    } else if (String(last).includes("echo MCP") && !body.messages.some((m: any) => m.role === "tool")) {
+      const tool = body.tools.find((t: any) => t.function.description.includes(": echo."));
+      emit({ role: "assistant", tool_calls: [{ index: 0, id: "echo", type: "function", function: { name: tool.function.name, arguments: JSON.stringify({text: "MCP completed"}) } }] });
+      emit({}, "tool_calls");
+      res.end("data: [DONE]\n\n");
+      return;
     } else if (String(last).includes("effect")) {
       const tool = body.tools.find((t: any) =>
         t.function.description.includes("effect"),
@@ -86,15 +94,7 @@ test.beforeAll(async () => {
   });
   await new Promise<void>((r) => model.listen(0, "127.0.0.1", r));
   modelUrl = `http://127.0.0.1:${(model.address() as any).port}/v1`;
-  child = fork("tests/fixtures/http-child.ts", [], {
-    execArgv: ["--import", "tsx"],
-    env: { ...process.env, DATA_DIR: dir, ADMIN_PASSWORD: "ui-password" },
-    stdio: ["ignore", "ignore", "pipe", "ipc"],
-  });
-  base = await new Promise<string>((resolve, reject) => {
-    child.once("message", (m: any) => resolve(`http://127.0.0.1:${m.port}`));
-    child.once("exit", () => reject(Error("server exited")));
-  });
+  await startServer();
 });
 test.afterAll(async () => {
   held();
@@ -104,6 +104,32 @@ test.afterAll(async () => {
   await embedding.close();
   await rm(dir, { recursive: true, force: true });
 });
+
+async function startServer() {
+  if (!base) {
+    const portServer = createServer();
+    await new Promise<void>((r) => portServer.listen(0, "127.0.0.1", r));
+    base = `http://127.0.0.1:${(portServer.address() as any).port}`;
+    await new Promise<void>((r) => portServer.close(() => r()));
+  }
+  let stderr = "";
+  child = fork("server.mjs", [], {
+    execArgv: [],
+    env: { ...process.env, DATA_DIR: dir, ADMIN_PASSWORD: "ui-password", HOST: "127.0.0.1", PORT: new URL(base).port, ORIGIN: base },
+    stdio: ["ignore", "ignore", "pipe", "ipc"],
+  });
+  child.stderr?.on("data", (data) => stderr += data);
+  await expect.poll(async () => {
+    if (child.exitCode !== null) throw Error(stderr);
+    try { return (await fetch(base + "/login")).status; } catch { return 0; }
+  }, {timeout: 20000}).toBe(200);
+}
+async function killServer() {
+  const exited = new Promise<void>((r) => child.once("exit", () => r()));
+  child.kill("SIGKILL");
+  await exited;
+}
+
 async function login(page: Page) {
   await page.goto(base);
   await page.getByLabel("Password").fill("ui-password");
@@ -145,9 +171,11 @@ async function create(page: Page, collection?: string, mcp?: string) {
     .click();
   if (collection) await page.getByLabel(collection, { exact: true }).check();
   if (mcp) await page.getByLabel(mcp, { exact: true }).check();
+  const previousUrl = page.url();
   await page
     .getByRole("button", { name: "Create conversation", exact: true })
     .click();
+  await expect(page).not.toHaveURL(previousUrl);
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 test("administrator opens responsive chat and independent secret-preserving settings", async ({
@@ -485,7 +513,8 @@ test("failed run shows an actionable status without exposing provider details", 
 
 // Delay real responses; the application and production server still execute normally.
 async function delayResponse(page: Page, pattern: string) {
-  let release!: () => void, captured!: () => void;
+  let release!: () => void, captured!: () => void, fulfilled!: () => void;
+  const delivered = new Promise<void>((r) => (fulfilled = r));
   const gate = new Promise<void>((r) => (release = r));
   const ready = new Promise<void>((r) => (captured = r));
   await page.route(
@@ -495,10 +524,11 @@ async function delayResponse(page: Page, pattern: string) {
       captured();
       await gate;
       await route.fulfill({ response });
+      fulfilled();
     },
     { times: 1 },
   );
-  return { ready, release };
+  return { ready, release, delivered };
 }
 async function pair(page: Page) {
   await login(page);
@@ -546,6 +576,71 @@ test("delayed admission cannot clear a different conversation draft", async ({
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
     "draft in B",
   );
+});
+// A real GET captures running before SSE commits completion; network delivery is delayed.
+// Removing same-conversation stream ordering must hide the answer and disable the composer.
+test("delayed running GET cannot overwrite completed SSE state in the same conversation", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  await create(page);
+  const id = new URL(page.url()).searchParams.get("conversation")!;
+  let release!: () => void, captured!: () => void;
+  let capturedStatus = "";
+  const gate = new Promise<void>((r) => release = r);
+  const ready = new Promise<void>((r) => captured = r);
+  await page.route(`**/api/conversations/${id}`, async (route) => {
+    const response = await route.fetch();
+    capturedStatus = (await response.json()).status;
+    captured();
+    await gate;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  try {
+    await page.getByLabel("Message", { exact: true }).fill("hold stale same conversation");
+    await page.getByRole("button", { name: "Send message", exact: true }).click();
+    await ready;
+    expect(capturedStatus).toBe("running");
+    await expect(page.getByText("Persisted partial answer", { exact: true })).toBeVisible();
+    held();
+    await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+    const delivered = page.waitForResponse((r) => r.url().endsWith(`/conversations/${id}`));
+    release();
+    await delivered;
+    await settle(page);
+    await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+  } finally {
+    release();
+    held();
+  }
+});
+test("delayed Stop GET cannot overwrite a subsequent run's SSE state", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  await create(page);
+  const id = new URL(page.url()).searchParams.get("conversation")!;
+  await page.getByLabel("Message", { exact: true }).fill("hold first action run");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByText("Persisted partial answer", { exact: true })).toBeVisible();
+  const delay = await delayResponse(page, `**/api/conversations/${id}`);
+  try {
+    await page.getByRole("button", { name: "Stop", exact: true }).click();
+    await delay.ready;
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+    await page.getByLabel("Message", { exact: true }).fill("hold subsequent action run");
+    await page.getByRole("button", { name: "Send message", exact: true }).click();
+    await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+    await expect(page.getByText("Persisted partial answer", { exact: true })).toHaveCount(2);
+    delay.release();
+    await delay.delivered;
+    await settle(page);
+    await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  } finally {
+    delay.release();
+    held();
+  }
 });
 test("delayed send snapshot cannot replace the selected conversation", async ({
   page,
@@ -693,4 +788,108 @@ test("delayed source excerpt cannot open in a different conversation", async ({
   await done;
   await settle(page);
   await expect(page.getByLabel("Source excerpt")).toHaveCount(0);
+});
+
+test("SIGKILL resumes the admitted chat on the shipped entrypoint", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  await create(page);
+  const id = new URL(page.url()).searchParams.get("conversation")!;
+  const snapshot = async () => (await request(page, `/api/conversations/${id}`)).value;
+  // Build a prior process revision higher than recovery's reset counter.
+  for (let n = 0; n < 3; n++) {
+    await request(page, `/api/conversations/${id}/messages`, {requestId: `warmup-${n}`, content: `warmup ${n}`});
+    await expect.poll(async () => (await snapshot()).status).toBe("idle");
+  }
+  await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+  await page.getByLabel("Message", { exact: true }).fill("hold crash recovery");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByText("Persisted partial answer", { exact: true })).toBeVisible();
+  const beforeRestart = Number((await snapshot()).revision);
+  await killServer();
+  await startServer();
+  await expect(page.getByText("hold crash recovery", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", {name: "Stop", exact: true})).toBeVisible();
+  await expect.poll(async () => {
+    held();
+    const current = await snapshot();
+    return {
+      status: current.status,
+      answers: current.entries.filter((entry: any) => entry.kind === "assistant" && !entry.partial && entry.content === "Persisted partial answer completed").length,
+    };
+  }).toEqual({status: "idle", answers: 1});
+  await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+  const completed = await snapshot();
+  expect(Number(completed.revision)).toBeLessThan(beforeRestart);
+  await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+  expect(completed.entries.filter((entry: any) => entry.kind === "user" && entry.content === "hold crash recovery")).toHaveLength(1);
+  expect(modelRequests.filter(prompt => prompt === "hold crash recovery")).toHaveLength(2);
+  await page.reload();
+  await expect(page.getByText("Persisted partial answer completed", { exact: true })).toBeVisible();
+  const persisted = await snapshot();
+  expect(persisted.status).toBe("idle");
+  expect(persisted.entries).toEqual(completed.entries);
+  expect(modelRequests.filter(prompt => prompt === "hold crash recovery")).toHaveLength(2);
+  await expect(page.getByText("hold crash recovery", { exact: true })).toHaveCount(1);
+  await page.screenshot({ path: "test-results/acceptance-chat-restarted.png", fullPage: true });
+});
+
+test("SIGKILL during embedding resumes indexing from the mounted data directory", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  const c = (await request(page, "/api/knowledge-bases", { name: "Crash indexing" })).value;
+  const count = embedding.requests.length;
+  embedding.hold(true);
+  const uploaded = await page.request.post(base + `/api/knowledge-bases/${c.id}/documents`, {
+    headers: { origin: base },
+    multipart: { file: { name: "restart.md", mimeType: "text/markdown", buffer: Buffer.from("Apples orchard 苹果") } },
+  });
+  const document = await uploaded.json();
+  await expect.poll(() => embedding.requests.length).toBeGreaterThan(count);
+  await killServer();
+  embedding.hold(false);
+  await startServer();
+  await expect.poll(async () => (await request(page, `/api/documents/${document.id}`)).value.status).toBe("ready");
+  expect((await request(page, `/api/knowledge-bases/${c.id}/search`, {query: "苹果"})).value.length).toBeGreaterThan(0);
+});
+
+test("SIGKILL after external MCP effect preserves uncertainty without repeated dispatch", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  const effectFile = join(dir, "crash-effect.log");
+  await request(page, "/api/mcp", { servers: [{ id: "crash-action", transport: "stdio", command: process.execPath,
+    args: ["--import", "tsx", join(process.cwd(), "tests/fixtures/mcp-server.ts")], env: { EFFECT_FILE: effectFile } }] }, "PUT");
+  await page.reload();
+  await create(page, undefined, "crash-action");
+  await page.getByLabel("Message", { exact: true }).fill("effect crash");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect.poll(async () => { try { return await readFile(effectFile, "utf8"); } catch { return ""; } }).toBe("effect\n");
+  await killServer();
+  await startServer();
+  await page.reload();
+  await expect(page.getByText("An external action has an uncertain outcome.")).toBeVisible();
+  await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+  expect(await readFile(effectFile, "utf8")).toBe("effect\n");
+  await killServer();
+  await startServer();
+  await page.reload();
+  await expect(page.getByText("An external action has an uncertain outcome.")).toBeVisible();
+  expect(await readFile(effectFile, "utf8")).toBe("effect\n");
+  await page.screenshot({ path: "test-results/acceptance-mcp-restarted.png", fullPage: true });
+});
+
+
+test("selected MCP tool completes through the shipped HTTP server", async ({page}) => {
+  await login(page);
+  await configure(page);
+  await request(page, "/api/mcp", { servers: [{id: "echo-server", transport: "stdio", command: process.execPath,
+    args: ["--import", "tsx", join(process.cwd(), "tests/fixtures/mcp-server.ts")] }] }, "PUT");
+  await page.reload();
+  await create(page, undefined, "echo-server");
+  await page.getByLabel("Message", {exact: true}).fill("echo MCP");
+  await page.getByRole("button", {name: "Send message", exact: true}).click();
+  await expect(page.getByRole("heading", {name: "Orchard answer"})).toBeVisible();
+  await page.locator("summary").click();
+  await expect(page.locator("details")).toContainText("MCP completed");
+  await expect(page.getByLabel("Message", {exact: true})).toBeEnabled();
 });
