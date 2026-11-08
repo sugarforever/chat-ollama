@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  appDatabase,
   loadChatConfig,
   loadEmbeddingConfig,
   publicSettings,
@@ -90,4 +91,49 @@ test("new endpoint snapshot with the prior root model can restart and admit the 
   for (let i = 0; i < 200 && model.requests.length === 0; i++)
     await new Promise((r) => setTimeout(r, 25));
   expect(JSON.parse(model.requests[0].prompt).model).toBe("prior-model");
+});
+
+// Catches treating provider credentials as replacement data or re-importing environment defaults.
+test("named providers preserve keys, reject invalid replacements atomically and import legacy settings once", async () => {
+  await directory();
+  vi.stubEnv("CHAT_API_KEY", "legacy-secret");
+  const imported = publicSettings() as any;
+  expect(imported.defaultProviderId).toBe("legacy");
+  expect(imported.providers).toEqual([expect.objectContaining({ id: "legacy", name: "Legacy chat", hasApiKey: true })]);
+  const providers = [
+    { id: "legacy", name: "Local", baseUrl: "http://localhost:11434/v1", modelId: "local-model" },
+    { id: "remote", name: "Remote", baseUrl: "https://example.test/v1", modelId: "remote-model", apiKey: "remote-secret" },
+  ];
+  saveSettings({ providers, defaultProviderId: "remote" });
+  saveSettings({ providers: providers.map(({apiKey, ...p}) => p) });
+  const saved = publicSettings() as any;
+  expect(saved.providers.every((p: any) => p.hasApiKey)).toBe(true);
+  expect(JSON.stringify(saved)).not.toContain("secret");
+  for (const patch of [
+    { providers: [providers[0], providers[0]], defaultProviderId: "legacy" },
+    { providers: [{ ...providers[0], baseUrl: "https://user:secret@example.test/v1" }], defaultProviderId: "legacy" },
+    { providers: [], defaultProviderId: "remote" },
+    { defaultProviderId: "missing" },
+    { defaultProviderId: null },
+  ]) expect(() => saveSettings(patch)).toThrow();
+  expect(publicSettings()).toEqual(saved);
+  vi.stubEnv("CHAT_API_KEY", "changed-secret");
+  expect(publicSettings()).toEqual(saved);
+  saveSettings({ providers: [{ ...providers[1], apiKey: "" }], defaultProviderId: "remote" });
+  expect((publicSettings() as any).providers[0].hasApiKey).toBe(false);
+});
+
+// Catches importing environment values instead of the user's persisted endpoint on upgrade.
+test("saved legacy settings take precedence over environment defaults and remain pinned", async () => {
+  await directory();
+  const db = appDatabase();
+  db.prepare("INSERT INTO settings VALUES ('chat',?)").run(JSON.stringify({ baseUrl: "https://saved.test/v1", modelId: "saved-model", apiKey: "saved-secret" }));
+  db.close();
+  vi.stubEnv("CHAT_BASE_URL", "https://environment.test/v1");
+  expect(loadChatConfig()).toEqual({ baseUrl: "https://saved.test/v1", modelId: "saved-model", apiKey: "saved-secret" });
+  saveSettings({ providers: [
+    { id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model" },
+    { id: "new", name: "New", baseUrl: "https://new.test/v1", modelId: "new-model" },
+  ], defaultProviderId: "new" });
+  expect((publicSettings() as any).providers[0]).toEqual({ id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model", hasApiKey: true });
 });

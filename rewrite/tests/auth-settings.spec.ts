@@ -313,3 +313,78 @@ test("MCP discovery failure and removal leave built HTTP settings available afte
   expect((await app.request("/api/settings")).status).toBe(200);
   expect((await app.request(`/api/conversations/${id}`)).status).toBe(502);
 });
+
+// Catches resolving from the global default, mutating a live run, and losing history on switch.
+test("provider selection applies to subsequent input, survives SIGKILL and never falls back after deletion", async () => {
+  const { start } = await setup();
+  const a = await modelServer(), b = await modelServer();
+  cleanup.push(() => a.close(), () => b.close());
+  let app = await start();
+  await app.login();
+  const providers = [
+    { id: "a", name: "Alpha", baseUrl: a.baseUrl, modelId: "alpha", apiKey: "secret-alpha" },
+    { id: "b", name: "Beta", baseUrl: b.baseUrl, modelId: "beta", apiKey: "secret-beta" },
+  ];
+  expect((await app.request("/api/settings", { providers, defaultProviderId: "a" })).status).toBe(200);
+  const created = await app.request("/api/conversations", { providerId: "a", modelId: "alpha", knowledgeBaseIds: [], mcpServerIds: [] });
+  expect(created.status).toBe(201);
+  const { id } = await created.json();
+  expect((await app.request("/api/settings", { defaultProviderId: "b" })).status).toBe(200);
+  const defaultConversation = await (await app.request("/api/conversations", { modelId: "beta-default", knowledgeBaseIds: [], mcpServerIds: [] })).json();
+  const listed = await (await app.request("/api/conversations")).json();
+  expect(listed.find((c: any) => c.id === id).config.providerId).toBe("a");
+  expect(listed.find((c: any) => c.id === defaultConversation.id).config.providerId).toBe("b");
+  expect((await app.request("/api/conversations", { providerId: "missing", modelId: "x", knowledgeBaseIds: [], mcpServerIds: [] })).status).toBe(409);
+  const path = `/api/conversations/${id}`;
+  expect((await app.request(path + "/messages", { requestId: "first", content: "Remember Alpha" })).status).toBe(202);
+  await expect.poll(() => a.requests.length).toBe(1);
+  const events = await app.request(path + "/events");
+  const reader = events.body!.getReader();
+  await reader.read();
+  expect((await app.request(path, { providerId: "b", modelId: "beta-2" }, undefined, "PATCH")).status).toBe(200);
+  let eventText = "";
+  while (!eventText.includes('"providerId":"b"')) eventText += new TextDecoder().decode((await reader.read()).value);
+  expect(eventText).not.toContain("secret-");
+  await reader.cancel();
+  expect((await app.request("/api/settings", { providers: [providers[1]], defaultProviderId: "b" })).status).toBe(200);
+  expect(b.requests).toHaveLength(0);
+  app.proc.kill("SIGKILL");
+  await new Promise(r => app.proc.once("exit", r));
+  app = await start();
+  await app.login();
+  await expect.poll(() => a.requests.length).toBe(2);
+  expect(a.requests[1].authorization).toBe("Bearer secret-alpha");
+  expect(JSON.parse(a.requests[1].prompt).model).toBe("alpha");
+  expect(b.requests).toHaveLength(0);
+  a.release();
+  await expect.poll(async () => (await (await app.request(path)).json()).status).toBe("idle");
+  b.release();
+  expect((await app.request(path + "/messages", { requestId: "second", content: "Continue Beta" })).status).toBe(202);
+  await expect.poll(() => b.requests.length).toBe(1);
+  const prompt = JSON.parse(b.requests[0].prompt);
+  expect(prompt.model).toBe("beta-2");
+  expect(b.requests[0].authorization).toBe("Bearer secret-beta");
+  expect(prompt.messages).toEqual(expect.arrayContaining([expect.objectContaining({ role: "user", content: "Remember Alpha" }), expect.objectContaining({ role: "assistant", content: "Recovered answer" })]));
+  await expect.poll(async () => (await (await app.request(path)).json()).status).toBe("idle");
+  for (const selection of [{ providerId: "missing", modelId: "x" }, { providerId: "b", modelId: " " }, { modelId: "x" }]) {
+    expect((await app.request(path, selection, undefined, "PATCH")).status).toBeGreaterThanOrEqual(400);
+  }
+  const snapshot = await (await app.request(path)).json();
+  expect(snapshot.selection).toEqual({ providerId: "b", modelId: "beta-2" });
+  expect(JSON.stringify(snapshot)).not.toContain("secret-");
+  expect((await app.request("/api/settings", { providers: [providers[0]], defaultProviderId: "a" })).status).toBe(200);
+  app.proc.kill("SIGKILL");
+  await new Promise(r => app.proc.once("exit", r));
+  app = await start();
+  await app.login();
+  expect((await app.request(path)).status).toBe(200);
+  const rejected = await app.request(path + "/messages", { requestId: "deleted", content: "No fallback" });
+  expect(rejected.status).toBe(409);
+  expect((await rejected.json()).error.code).toBe("PROVIDER_NOT_FOUND");
+  // A retry of already-admitted input remains idempotent after configuration changes.
+  expect((await app.request(path + "/messages", { requestId: "second", content: "Continue Beta" })).status).toBe(202);
+  expect((await app.request(path, { providerId: "a", modelId: "alpha-next" }, undefined, "PATCH")).status).toBe(200);
+  expect((await app.request(path + "/messages", { requestId: "fixed", content: "Recovered selection" })).status).toBe(202);
+  await expect.poll(() => a.requests.length).toBe(3);
+  expect(JSON.parse(a.requests[2].prompt).model).toBe("alpha-next");
+});

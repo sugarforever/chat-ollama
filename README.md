@@ -79,23 +79,32 @@ before uploading knowledge documents.
 
 ### Configure models
 
-Open **Settings** to edit the chat and embedding endpoint, model ID, and API
-key. Saved settings override environment defaults. Blank API key fields keep
-existing credentials; use the removal checkbox to clear a saved key.
+Open **Settings** to add named OpenAI-compatible chat providers, each with its
+own base URL, default model ID, and API key. Choose the default provider for new
+conversations and click **Save providers**. Blank API key fields keep existing
+credentials; use the removal checkbox to clear a saved key. Embeddings have
+independent settings. Model IDs must be supported by the selected provider.
 
-The chat model is the default for new conversations. Each conversation keeps
-its selected model ID.
+On upgrade, the previous chat settings (or `CHAT_*` environment defaults) are
+saved once as **Legacy chat**. Existing rewrite conversations are pinned to that
+provider and keep their model IDs. Back up the data directory before upgrading;
+this upgrade does not import data from the older Nuxt application.
 
 ### Chat
 
-Create a conversation, choose its model and any knowledge bases or MCP
-servers, then send a message. Responses render as streaming Markdown. Expand
-tool activity to inspect execution, and open source citations to view excerpts.
+Create a conversation, choose its provider/model pair and any knowledge bases
+or MCP servers, then send a message. Use **Conversation provider**, **Conversation
+model ID**, and **Apply to next message** to switch in the same conversation.
+History stays intact. The saved pair persists across reloads and restarts.
+Changing defaults affects new conversations only. Editing a provider's URL/key
+applies to subsequent input in conversations using that provider. Removing it
+requires those conversations to choose another provider before sending again.
 
-Closing the browser does not stop a running task. Reopen the conversation to
-see its latest state. Use **Stop** to cancel execution explicitly. Pi Durable
-persists conversations and resumes unfinished work after an application-process
-restart on an intact data volume.
+An active run continues with its captured provider, model and key, including
+after an application-process restart on an intact data volume. Switching the
+selection does not stop it. Responses render as streaming Markdown. Expand tool
+activity to inspect execution, and open source citations to view excerpts.
+Closing the browser does not stop a task; use **Stop** to cancel explicitly.
 
 ### Add a knowledge base
 

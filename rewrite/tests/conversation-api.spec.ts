@@ -246,7 +246,7 @@ test("Stop is repeatable and invalid or unknown IDs never create sessions", asyn
 
 // Recreates the durable creation intent left by a crash before a pi session file exists.
 test("startup completes interrupted catalogue creation with its saved config", async () => {
-  const { directory, start } = await setup();
+  const { directory, model, start } = await setup();
   await mkdir(join(directory, "sessions"));
   const catalogue = openCatalogue(
     join(directory, "sessions", "catalogue.sqlite"),
@@ -285,6 +285,7 @@ test("startup completes interrupted catalogue creation with its saved config", a
     expect.objectContaining({
       id: "creation-interrupted",
       config: {
+        providerId: "legacy",
         modelId: "fixture",
         knowledgeBaseIds: ["collection-one"],
         mcpServerIds: ["server-one"],
@@ -295,4 +296,17 @@ test("startup completes interrupted catalogue creation with its saved config", a
   expect(await readdir(join(directory, "sessions"))).toContain(
     "creation-interrupted.sqlite",
   );
+  // The migration persists the original selection before a new default is saved.
+  const origin = new URL(app.url).origin;
+  expect((await fetch(origin + "/api/settings", {
+    method: "POST", headers: { cookie: app.cookie, origin, "content-type": "application/json" },
+    body: JSON.stringify({ providers: [
+      { id: "legacy", name: "Imported", baseUrl: model.baseUrl, modelId: "fixture" },
+      { id: "next", name: "Next default", baseUrl: "http://127.0.0.1:1/v1", modelId: "other" },
+    ], defaultProviderId: "next" }),
+  })).status).toBe(200);
+  expect((await (await app.request("/creation-interrupted")).json()).selection).toEqual({ providerId: "legacy", modelId: "fixture" });
+  const db = openCatalogue(join(directory, "sessions", "catalogue.sqlite"));
+  expect(db.get("creation-interrupted")!.config.providerId).toBe("legacy");
+  db.close();
 });

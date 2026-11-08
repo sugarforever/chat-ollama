@@ -87,7 +87,9 @@ test.beforeAll(async () => {
     } else
       emit({
         role: "assistant",
-        content: `## Orchard answer\nApples grow here. [Notes](/sources/${sourceId}) [Invented](/sources/invented) [Unsafe](javascript:alert(1))\n<script>window.attacked=true</script>`,
+        content: String(last).startsWith("history ")
+          ? "## Orchard answer\nI can continue with the conversation history."
+          : `## Orchard answer\nApples grow here. [Notes](/sources/${sourceId}) [Invented](/sources/invented) [Unsafe](javascript:alert(1))\n<script>window.attacked=true</script>`,
       });
     emit({}, "stop");
     res.end("data: [DONE]\n\n");
@@ -187,15 +189,15 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await expect(
     page.getByRole("heading", { name: "Models", exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Chat model ID").fill("fixture");
+  await page.getByLabel("Default model ID").fill("fixture");
   await page
-    .getByRole("button", { name: "Save chat settings", exact: true })
+    .getByRole("button", { name: "Save providers", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("Chat settings saved");
+  await expect(page.getByRole("status")).toContainText("Providers saved");
   await expect(page.getByLabel("Embedding model ID")).toHaveValue(
     embedding.config.modelId,
   );
-  await expect(page.getByLabel("Chat API key")).toHaveValue("");
+  await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
   await page
     .getByRole("button", { name: "Replace MCP configuration", exact: true })
     .click();
@@ -892,4 +894,45 @@ test("selected MCP tool completes through the shipped HTTP server", async ({page
   await page.locator("summary").click();
   await expect(page.locator("details")).toContainText("MCP completed");
   await expect(page.getByLabel("Message", {exact: true})).toBeEnabled();
+});
+
+// Catches forms that save only defaults, lose credentials, or create a new conversation on switch.
+test("named providers can be saved in Settings and switched within a conversation", async ({ page }) => {
+  await login(page);
+  await configure(page);
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  const card = page.getByRole("group", { name: "Provider New provider", exact: true });
+  await card.getByLabel("Provider name", { exact: true }).fill("Second provider");
+  const second = page.getByRole("group", { name: "Provider Second provider", exact: true });
+  await second.getByLabel("Base URL", { exact: true }).fill(modelUrl);
+  await second.getByLabel("Default model ID", { exact: true }).fill("second-model");
+  await second.getByLabel("API key", { exact: true }).fill("second-private-key");
+  await page.getByRole("button", { name: "Save providers", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Providers saved");
+  await expect(second.getByLabel("API key", { exact: true })).toHaveValue("");
+  await page.reload();
+  await expect(second.getByLabel("API key", { exact: true })).toHaveAttribute("placeholder", "Key saved · leave blank to keep");
+  await page.locator("main.settings > section").first().screenshot({ path: "test-results/provider-settings.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("link", { name: "Back to chat", exact: false }).click();
+  await create(page);
+  const id = new URL(page.url()).searchParams.get("conversation");
+  await page.getByLabel("Message", { exact: true }).fill("history before switching");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Orchard answer" })).toBeVisible();
+  await page.getByLabel("Conversation provider", { exact: true }).selectOption({ label: "Second provider" });
+  await page.getByLabel("Conversation model ID", { exact: true }).fill("second-selected-model");
+  await page.getByRole("button", { name: "Apply to next message", exact: true }).click();
+  await expect.poll(async () => (await request(page, `/api/conversations/${id}`)).value.selection.modelId).toBe("second-selected-model");
+  await page.reload();
+  await expect(page.getByLabel("Conversation model ID", { exact: true })).toHaveValue("second-selected-model");
+  await expect(page.getByText("history before switching", { exact: true })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("conversation")).toBe(id);
+  await page.getByLabel("Message", { exact: true }).fill("history after switching");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Orchard answer" })).toHaveCount(2);
+  await page.screenshot({ path: "test-results/provider-switch.png", fullPage: true });
 });

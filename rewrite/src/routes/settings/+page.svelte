@@ -4,6 +4,8 @@
   let settings: any;
   let keys = { chat: "", embedding: "" };
   let clear = { chat: false, embedding: false };
+  let providerKeys: Record<string, string> = {};
+  let clearProviderKeys: Record<string, boolean> = {};
   let error = "";
   let notice = "";
   let collections: any[] = [];
@@ -30,22 +32,39 @@
       error = (e as Error).message;
     }
   }
-  async function save(kind: "chat" | "embedding") {
-    await run(
-      async () => {
-        const value = settings[kind];
-        const patch: any = { baseUrl: value.baseUrl, modelId: value.modelId };
-        if (clear[kind]) patch.apiKey = "";
-        else if (keys[kind]) patch.apiKey = keys[kind];
-        settings = await api("/api/settings", { [kind]: patch });
-        keys[kind] = "";
-        clear[kind] = false;
-        await loadCollections();
-      },
-      kind === "embedding"
-        ? "Embedding settings saved. Reindex collections explicitly before searching with the new configuration."
-        : "Chat settings saved",
-    );
+  async function saveProviders() {
+    await run(async () => {
+      settings = await api("/api/settings", {
+        defaultProviderId: settings.defaultProviderId,
+        providers: settings.providers.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          baseUrl: p.baseUrl,
+          modelId: p.modelId,
+          ...(clearProviderKeys[p.id]
+            ? { apiKey: "" }
+            : providerKeys[p.id]
+              ? { apiKey: providerKeys[p.id] }
+              : {}),
+        })),
+      });
+      providerKeys = {};
+      clearProviderKeys = {};
+    }, "Providers saved");
+  }
+  async function saveEmbedding() {
+    await run(async () => {
+      const patch: any = {
+        baseUrl: settings.embedding.baseUrl,
+        modelId: settings.embedding.modelId,
+      };
+      if (clear.embedding) patch.apiKey = "";
+      else if (keys.embedding) patch.apiKey = keys.embedding;
+      settings = await api("/api/settings", { embedding: patch });
+      keys.embedding = "";
+      clear.embedding = false;
+      await loadCollections();
+    }, "Embedding settings saved. Reindex collections explicitly before searching with the new configuration.");
   }
   async function upload(id: string, event: Event) {
     const input = event.target as HTMLInputElement;
@@ -113,49 +132,147 @@
     </p>{/if}
   <section>
     <h2>Models</h2>
-    <div class="grid">
-      {#if settings}{#each ["chat", "embedding"] as kind}{@const k = kind as
-            "chat" | "embedding"}
-          <form
-            class="card stack"
-            onsubmit={(e) => {
-              e.preventDefault();
-              void save(k);
-            }}
+    {#if settings}
+      <form
+        class="stack"
+        onsubmit={(e) => {
+          e.preventDefault();
+          void saveProviders();
+        }}
+      >
+        <h3>Chat providers</h3>
+        <p class="muted">
+          Defaults apply to new conversations. Editing a selected provider
+          applies to its next message. Active runs keep their captured
+          configuration.
+        </p>
+        <div class="grid">
+          {#each settings.providers as p (p.id)}
+            <fieldset class="card stack" aria-label={`Provider ${p.name}`}>
+              <legend>{p.name}</legend>
+              <label
+                >Provider name<input
+                  bind:value={p.name}
+                  required
+                  maxlength="100"
+                /></label
+              >
+              <label
+                >Base URL<input
+                  bind:value={p.baseUrl}
+                  required
+                  type="url"
+                /></label
+              >
+              <label
+                >Default model ID<input
+                  bind:value={p.modelId}
+                  required
+                  maxlength="200"
+                /></label
+              >
+              <label
+                >API key<input
+                  type="password"
+                  bind:value={providerKeys[p.id]}
+                  autocomplete="new-password"
+                  placeholder={p.hasApiKey
+                    ? "Key saved · leave blank to keep"
+                    : "Optional API key"}
+                /></label
+              >
+              <label class="check"
+                ><input
+                  type="checkbox"
+                  bind:checked={clearProviderKeys[p.id]}
+                />Remove saved API key</label
+              >
+              <button
+                type="button"
+                disabled={settings.providers.length === 1}
+                onclick={() => {
+                  settings.providers = settings.providers.filter(
+                    (v: any) => v.id !== p.id,
+                  );
+                  if (settings.defaultProviderId === p.id)
+                    settings.defaultProviderId = settings.providers[0].id;
+                }}>Remove provider</button
+              >
+            </fieldset>
+          {/each}
+        </div>
+        <p class="muted">
+          Removing a provider takes effect on Save. Conversations using it must
+          choose another provider before sending again.
+        </p>
+        <label
+          >Default chat provider<select aria-label="Default chat provider" bind:value={settings.defaultProviderId}
+            >{#each settings.providers as p}<option value={p.id}
+                >{p.name}</option
+              >{/each}</select
+          ></label
+        >
+        <div class="row">
+          <button
+            type="button"
+            onclick={() => {
+              settings.providers = [
+                ...settings.providers,
+                {
+                  id: crypto.randomUUID(),
+                  name: "New provider",
+                  baseUrl: "http://127.0.0.1:11434/v1",
+                  modelId: "local",
+                  hasApiKey: false,
+                },
+              ];
+            }}>Add provider</button
           >
-            <h3>{k === "chat" ? "Chat" : "Embedding"} endpoint</h3>
-            <label
-              >{k === "chat" ? "Chat" : "Embedding"} base URL<input
-                bind:value={settings[k].baseUrl}
-                required
-                type="url"
-              /></label
-            ><label
-              >{k === "chat" ? "Chat" : "Embedding"} model ID<input
-                bind:value={settings[k].modelId}
-                required
-              /></label
-            ><label
-              >{k === "chat" ? "Chat" : "Embedding"} API key<input
-                type="password"
-                bind:value={keys[k]}
-                autocomplete="new-password"
-                placeholder={settings[k].hasApiKey
-                  ? "Key saved · leave blank to keep"
-                  : "Optional API key"}
-              /></label
-            ><label class="check"
-              ><input type="checkbox" bind:checked={clear[k]} />Remove saved API
-              key</label
-            >
-            <p class="muted">
-              {k === "chat"
-                ? "Used for new conversations and subsequent messages."
-                : "Independent of chat. Changes require an explicit collection reindex."}
-            </p>
-            <button class="primary">Save {k} settings</button>
-          </form>{/each}{/if}
-    </div>
+          <button class="primary">Save providers</button>
+        </div>
+      </form>
+      <form
+        class="card stack"
+        style="margin-top:24px"
+        onsubmit={(e) => {
+          e.preventDefault();
+          void saveEmbedding();
+        }}
+      >
+        <h3>Embedding endpoint</h3>
+        <label
+          >Embedding base URL<input
+            bind:value={settings.embedding.baseUrl}
+            required
+            type="url"
+          /></label
+        >
+        <label
+          >Embedding model ID<input
+            bind:value={settings.embedding.modelId}
+            required
+          /></label
+        >
+        <label
+          >Embedding API key<input
+            type="password"
+            bind:value={keys.embedding}
+            autocomplete="new-password"
+            placeholder={settings.embedding.hasApiKey
+              ? "Key saved · leave blank to keep"
+              : "Optional API key"}
+          /></label
+        >
+        <label class="check"
+          ><input type="checkbox" bind:checked={clear.embedding} />Remove saved
+          API key</label
+        >
+        <p class="muted">
+          Independent of chat. Changes require an explicit collection reindex.
+        </p>
+        <button class="primary">Save embedding settings</button>
+      </form>
+    {/if}
   </section>
   <section class="stack">
     <h2>Knowledge collections</h2>
