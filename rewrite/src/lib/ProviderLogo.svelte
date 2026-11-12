@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Server } from "@lucide/svelte";
   export let service: string | undefined = undefined;
   export let name = "";
   export let baseUrl = "";
@@ -74,29 +75,11 @@
     height="24"
   />
 {:else}
-  <svg
-    aria-hidden="true"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.6"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    ><rect x="3" y="3" width="18" height="7" rx="2" /><rect
-      x="3"
-      y="14"
-      width="18"
-      height="7"
-      rx="2"
-    /><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6" /></svg
-  >
+  <Server class="shrink-0" size={24} strokeWidth={1.75} aria-hidden="true" />
 {/if}
 
 <style>
-  img,
-  svg {
+  img {
     display: block;
     flex-shrink: 0;
     width: 24px;

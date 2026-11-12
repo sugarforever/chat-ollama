@@ -1263,9 +1263,13 @@ test('compact model controls preserve drafts and new conversation settings fit m
  expect(renamed.status).toBe(200);
  await page.setViewportSize({width:390,height:667});
  await page.reload();
- await expect(page.getByRole('button',{name:'Change model',exact:true})).toContainText('fixture');
+ await expect(page.getByRole('button',{name:'Change model',exact:true})).toHaveText((await request(page,`/api/conversations/${new URL(page.url()).searchParams.get('conversation')}`)).value.selection.modelId);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await expect(page.getByRole('button',{name:'Send message',exact:true})).toBeInViewport();
+ await page.getByRole('button',{name:'Open conversations',exact:true}).click();
+ await page.getByRole('dialog',{name:'Conversations',exact:true}).getByRole('link',{name:'Settings',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Providers',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
 test('returning to Settings synchronizes account status after the provider editor closes',async({page})=>{

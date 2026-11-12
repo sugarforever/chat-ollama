@@ -12,7 +12,7 @@ Architecture: Keep state and network operations in their existing owners. Extrac
 - [x] Simplify login, empty and error views; preserve accessible labels, feedback and reduced motion.
 - [x] Run type checks, unit/integration suite and production build. Attempt browser validation using the available browser tools; disclose any tool blocker.
 - [x] Review the final diff and keep screenshots outside Git.
-- [ ] Commit and create a new PR with validation evidence.
+- [x] Commit and create a new PR with validation evidence.
 
 Review focus: long identifiers, mobile keyboard space, dirty settings navigation, invalid credentials, popup cancellation/recovery, failed saves, tool uncertainty and explicit collection reindexing. Do not add component tests that merely assert CSS; preserve the existing behavioral tests.
 

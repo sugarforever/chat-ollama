@@ -1,6 +1,10 @@
 <script lang="ts">
   import ChatNavigation from "$lib/components/shell/ChatNavigation.svelte";
   import Button from "$lib/components/ui/button/button.svelte";
+  import Input from "$lib/components/ui/input/input.svelte";
+  import NativeSelect from "$lib/components/ui/native-select/native-select.svelte";
+  import Checkbox from "$lib/components/ui/checkbox/checkbox.svelte";
+  import Textarea from "$lib/components/ui/textarea/textarea.svelte";
   import {
     SquarePen,
     ChevronDown,
@@ -430,15 +434,18 @@
               Choose a model, then add knowledge and tools if you need them.
             </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             class="icon-button"
             aria-label="Cancel new conversation"
-            onclick={closeCreation}><AppIcon name="close" /></button
+            onclick={closeCreation}><AppIcon name="close" /></Button
           >
         </div>
         <div class="creation-models">
           <label
-            >Provider<select
+            >Provider<NativeSelect
+              class="w-full"
               aria-label="Provider"
               bind:value={providerId}
               onchange={() => {
@@ -446,15 +453,15 @@
                   providers.find((p) => p.id === providerId)?.modelId ?? "";
               }}
               >{#each providers as p}<option value={p.id}>{p.name}</option
-                >{/each}</select
+                >{/each}</NativeSelect
             ></label
           >
           <label
-            >Model ID<input
+            >Model ID<Input
               bind:value={modelId}
               list="new-model-options"
               required
-              maxlength="200"
+              maxlength={200}
             /></label
           >
         </div>
@@ -462,10 +469,14 @@
           <div class="option-group">
             <h3><AppIcon name="book" />Knowledge collections</h3>
             {#each collections as c}<label class="check"
-                ><input
-                  type="checkbox"
-                  bind:group={selectedCollections}
-                  value={c.id}
+                ><Checkbox
+                  aria-label={c.name}
+                  checked={selectedCollections.includes(c.id)}
+                  onCheckedChange={(checked) => {
+                    selectedCollections = checked
+                      ? [...selectedCollections, c.id]
+                      : selectedCollections.filter((id) => id !== c.id);
+                  }}
                 />{c.name}{c.needsReindex ? " · reindex required" : ""}</label
               >{/each}{#if !collections.length}<p class="muted">
                 Add collections in Settings.
@@ -477,17 +488,21 @@
               Selected servers may act without per-call approval.
             </p>
             {#each servers as s}<label class="check"
-                ><input
-                  type="checkbox"
-                  bind:group={selectedServers}
-                  value={s.id}
+                ><Checkbox
+                  aria-label={s.id}
+                  checked={selectedServers.includes(s.id)}
+                  onCheckedChange={(checked) => {
+                    selectedServers = checked
+                      ? [...selectedServers, s.id]
+                      : selectedServers.filter((id) => id !== s.id);
+                  }}
                 />{s.id}</label
               >{/each}
           </div>
         </div>
         <div class="row creation-actions">
-          <button class="primary" onclick={create}>Create conversation</button
-          ><button onclick={closeCreation}>Cancel</button>
+          <Button class="primary" onclick={create}>Create conversation</Button
+          ><Button variant="ghost" onclick={closeCreation}>Cancel</Button>
         </div>
       </section>
     {:else if snapshot}
@@ -497,7 +512,8 @@
           onsubmit={selectModel}
         >
           <label
-            >Conversation provider<select
+            >Conversation provider<NativeSelect
+              class="w-full"
               aria-label="Conversation provider"
               bind:value={conversationProvider}
               onchange={() => {
@@ -512,19 +528,20 @@
                 >{/if}
               {#each providers as p}<option value={p.id}>{p.name}</option
                 >{/each}
-            </select></label
+            </NativeSelect></label
           >
           <label
-            >Conversation model ID<input
+            >Conversation model ID<Input
               bind:value={conversationModel}
               list="conversation-model-options"
               required
-              maxlength="200"
+              maxlength={200}
             /></label
           >
-          <button
+          <Button
+            type="submit"
             disabled={!providers.some((p) => p.id === conversationProvider) ||
-              !conversationModel.trim()}>Apply to next message</button
+              !conversationModel.trim()}>Apply to next message</Button
           >
           <span class="muted"
             >Saved: {providers.find(
@@ -584,8 +601,8 @@
             Check the external system before continuing. Acknowledging does not
             repeat the action.
           </p>
-          <button disabled={busy} onclick={() => action("acknowledge")}
-            >I checked the outcome — acknowledge</button
+          <Button disabled={busy} onclick={() => action("acknowledge")}
+            >I checked the outcome — acknowledge</Button
           >
         </div>{/if}
       <form class="composer-wrap" onsubmit={send}>
@@ -596,13 +613,13 @@
               : "Working…"}
           </p>{/if}
         <div class="composer">
-          <label for="message" class="composer-label">Message</label><textarea
+          <label for="message" class="composer-label">Message</label><Textarea
             id="message"
             bind:value={draft}
             placeholder="Message"
-            rows="1"
+            rows={1}
             disabled={busy || !!snapshot.mcpUncertainty}
-          ></textarea>
+          ></Textarea>
           {#if busy}<Button
               type="button"
               class="send-button"
@@ -624,8 +641,8 @@
       </form>{:else}<div class="workspace-empty">
         <h1>What’s on your mind?</h1>
         <p class="muted">Choose a model to start a conversation.</p>
-        <button class="primary" onclick={startCreation}
-          >Start a conversation<AppIcon name="arrow" size={16} /></button
+        <Button class="primary" onclick={startCreation}
+          >Start a conversation<AppIcon name="arrow" size={16} /></Button
         ><a href="/settings" class="empty-settings"
           >Manage models and connections</a
         >
@@ -634,10 +651,11 @@
 </div>
 {#if source}<aside class="source" aria-label="Source excerpt">
     <div class="source-header">
-      <span class="eyebrow">KNOWLEDGE / SOURCE</span><button
+      <span class="eyebrow">KNOWLEDGE / SOURCE</span><Button
+        variant="ghost"
         class="subtle"
         onclick={() => (source = undefined)}
-        ><AppIcon name="close" size={16} />Close source</button
+        ><AppIcon name="close" size={16} />Close source</Button
       >
     </div>
     <h2>{source.title}</h2>

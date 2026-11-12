@@ -1150,6 +1150,7 @@
     background: var(--canvas);
   }
   .settings-content {
+    overflow-wrap: anywhere;
     min-width: 0;
     width: 100%;
     max-width: 816px;
