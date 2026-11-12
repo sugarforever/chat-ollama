@@ -9,6 +9,8 @@ export type PublicEntry = {
   kind: "user" | "assistant" | "tool";
   content: string;
   toolName?: string;
+  toolArguments?: Record<string, unknown>;
+  toolError?: boolean;
   uncertain?: boolean;
   toolStatus?: "pending" | "running" | "done";
   partial?: boolean;

@@ -38,6 +38,19 @@ test.beforeAll(async () => {
       res.write(
         `data: ${JSON.stringify({ id: "fixture", object: "chat.completion.chunk", created: 1, model: "fixture", choices: [{ index: 0, delta, finish_reason }] })}\n\n`,
       );
+    if (String(last).includes("native waterfall")) {
+      const count = body.messages.filter((m: any) => m.role === "tool").length;
+      if (count < 2) {
+        const command = count === 0 ? "printf first" : "printf second; sleep 3; printf finished; exit 1";
+        emit({ role: "assistant", tool_calls: [{ index: 0, id: `native-${count}`, type: "function", function: { name: "bash", arguments: JSON.stringify({ command, timeout: 10 }) } }] });
+        emit({}, "tool_calls");
+      } else {
+        emit({ role: "assistant", content: "Waterfall complete" });
+        emit({}, "stop");
+      }
+      res.end("data: [DONE]\n\n");
+      return;
+    }
     if (String(last).includes("hold")) {
       emit({ role: "assistant", content: "Persisted partial answer" });
       await new Promise<void>((r) => (held = r));
@@ -1582,4 +1595,40 @@ test('composer sends with command or control Enter and preserves multiline and I
  release();
  await expect(page.getByText('Keyboard repeated message',{exact:true})).toBeVisible();
  expect(posts).toBe(3);
+});
+
+
+test("native tool waterfall preserves expanded cards, exact commands and errors through completion and reload", async ({page}) => {
+  await login(page);
+  await configure(page);
+  await create(page);
+  await page.getByLabel("Message", {exact:true}).fill("native waterfall");
+  await page.getByRole("button", {name:"Send message",exact:true}).click();
+  const cards = page.locator(".entry.tool details");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1).locator("summary")).toContainText("running");
+  await cards.nth(0).locator("summary").click();
+  await cards.nth(1).locator("summary").click();
+  await expect(cards.nth(0).locator(".tool-input")).toHaveText("printf first");
+  await expect(cards.nth(0).locator(".tool-output")).toHaveText("first");
+  await expect(cards.nth(1).locator(".tool-input")).toHaveText("printf second; sleep 3; printf finished; exit 1");
+  await expect(cards.nth(1)).toContainText("timeout: 10");
+  await expect(page.getByText("Waterfall complete", {exact:true})).toBeVisible();
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1).locator("summary")).toContainText("error");
+  await expect(cards.nth(1)).toHaveAttribute("open", "");
+  await expect(cards.nth(0)).toHaveAttribute("open", "");
+  await expect(cards.nth(1).locator(".tool-output")).toContainText("secondfinished");
+  await page.screenshot({path:"test-results/native-tool-waterfall-desktop.png",fullPage:true});
+  await page.reload();
+  await expect(cards).toHaveCount(2);
+  await cards.nth(0).locator("summary").click();
+  await cards.nth(1).locator("summary").click();
+  await expect(cards.nth(0).locator(".tool-input")).toHaveText("printf first");
+  await expect(cards.nth(1).locator(".tool-input")).toHaveText("printf second; sleep 3; printf finished; exit 1");
+  await expect(cards.nth(1).locator("summary")).toContainText("error");
+  await page.setViewportSize({width:390,height:844});
+  await expect(cards.nth(1).locator(".tool-input")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({path:"test-results/native-tool-waterfall-mobile.png",fullPage:true});
 });

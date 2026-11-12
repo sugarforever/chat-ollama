@@ -50,6 +50,39 @@ test('projects live tools and persisted uncertain results without pi fields', as
   const state = projectState({ id: 'one', revision: '7', live: { run: { taskId: 9 as any, inputs: [8 as any], turns: 0 }, tools: [{ callId: 'call-a', name: 'send', status: 'running', output: 'Sending' }] }, entries: [] });
   expect(state.entries).toEqual([{ id: 'tool:call-a', kind: 'tool', toolName: 'send', content: 'Sending', toolStatus: 'running' }]);
   const result = projectState({ id: 'one', revision: '8', entries: [{ id: 10 as any, conversationId: 1 as any, kind: 'pi.tool-result', model: [{ role: 'toolResult', toolCallId: 'call-a', toolName: 'send', content: [{ type: 'text', text: 'Uncertain result' }], isError: true, timestamp: 1 }], data: { diagnostics: [{ severity: 'error', code: 'interrupted', message: 'Uncertain result' }] } }] });
-  expect(result.entries).toEqual([{ id: '10', kind: 'tool', toolName: 'send', content: 'Uncertain result', toolStatus: 'done', uncertain: true }]);
+  expect(result.entries).toEqual([{ id: '10', kind: 'tool', toolName: 'send', content: 'Uncertain result', toolStatus: 'done', toolError: true, uncertain: true }]);
   expect(result.status).toBe('interrupted');
+});
+
+// A call must keep its place and DOM identity while live slots rotate between rounds.
+test('tool waterfall keeps call inputs, prior results, and stable identities across rounds', async () => {
+  const { projectState } = await import('../src/lib/server/runtime/projection');
+  const assistant = (id: number, callId: string, command: string) => ({ id, kind: 'pi.assistant', model: [{ role: 'assistant', content: [{ type: 'toolCall', id: callId, name: 'bash', arguments: { command } }] }] }) as any;
+  const result = (id: number, callId: string, text: string, isError = false) => ({ id, kind: 'pi.tool-result', model: [{ role: 'toolResult', toolCallId: callId, toolName: 'bash', content: [{ type: 'text', text }], isError }] }) as any;
+  const first = assistant(11, 'call-a', 'printf first');
+  const running = projectState({ id: 'one', revision: '1', entries: [first], live: { tools: [{ callId: 'call-a', name: 'bash', status: 'running', output: 'fir' }] } });
+  expect(running.entries.filter(e => e.kind === 'tool')).toEqual([expect.objectContaining({ toolArguments: { command: 'printf first' }, content: 'fir', toolStatus: 'running' })]);
+  const next = projectState({ id: 'one', revision: '2', entries: [first, result(13, 'call-a', 'first'), assistant(15, 'call-b', 'printf second')], live: { tools: [{ callId: 'call-b', name: 'bash', status: 'running', output: 'sec' }] } });
+  const calls = next.entries.filter(e => e.kind === 'tool');
+  expect(calls).toHaveLength(2);
+  expect(calls[0]).toEqual(expect.objectContaining({ id: running.entries.find(e => e.kind === 'tool')!.id, toolArguments: { command: 'printf first' }, content: 'first', toolStatus: 'done' }));
+  expect(calls[1]).toEqual(expect.objectContaining({ toolArguments: { command: 'printf second' }, content: 'sec', toolStatus: 'running' }));
+  const saved = projectState({ id: 'one', revision: '3', entries: [first, result(13, 'call-a', 'first'), assistant(15, 'call-b', 'printf second'), result(17, 'call-b', 'second failed', true)] });
+  expect(saved.entries.filter(e => e.kind === 'tool').map(e => e.id)).toEqual(calls.map(e => e.id));
+  expect(saved.entries.find(e => e.id === calls[1].id)).toEqual(expect.objectContaining({ toolArguments: { command: 'printf second' }, toolError: true, content: 'second failed' }));
+});
+
+test('repeated provider call IDs in later rounds do not overwrite earlier calls', async () => {
+  const { projectState } = await import('../src/lib/server/runtime/projection');
+  const entries = [
+    { id: 1, kind: 'pi.assistant', model: [{ role: 'assistant', content: [{ type: 'toolCall', id: 'reused', name: 'bash', arguments: { command: 'printf first' } }] }] },
+    { id: 2, kind: 'pi.tool-result', model: [{ role: 'toolResult', toolCallId: 'reused', toolName: 'bash', content: [{ type: 'text', text: 'first' }], isError: false }] },
+    { id: 3, kind: 'pi.assistant', model: [{ role: 'assistant', content: [{ type: 'toolCall', id: 'reused', name: 'bash', arguments: { command: 'printf second' } }] }] },
+  ] as any;
+  const state = projectState({ id: 'one', revision: '1', entries, live: { tools: [{ callId: 'reused', name: 'bash', status: 'running', output: 'second' }] } });
+  const calls = state.entries.filter(e => e.kind === 'tool');
+  expect(calls).toHaveLength(2);
+  expect(calls[0].id).not.toBe(calls[1].id);
+  expect(calls[0].content).toBe('first');
+  expect(calls[1]).toEqual(expect.objectContaining({ content: 'second', toolStatus: 'running', toolArguments: { command: 'printf second' } }));
 });
