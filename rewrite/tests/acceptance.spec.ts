@@ -1030,6 +1030,10 @@ test('settings catalog selects subscription defaults and cancel discards only pr
 });
 
 test('connect account opens official login automatically and completes without another app action', async({page,context})=>{
+ await page.addInitScript(()=>{
+  const open=window.open.bind(window);
+  window.open=(url,target,features)=>{(window as any).__authPopupFeatures=features;return open(url,target,features);};
+ });
  await login(page);await configure(page);
  await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
  await page.getByRole('link',{name:'Settings',exact:true}).click();
@@ -1048,6 +1052,9 @@ test('connect account opens official login automatically and completes without a
  const popup=await popupReady;
  await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=test');
  expect(answers).toEqual(['browser']);
+ expect(await page.evaluate(()=>(window as any).__authPopupFeatures)).toMatch(/popup=yes/);
+ expect(await popup.evaluate(()=>innerWidth)).toBeLessThanOrEqual(520);
+ expect(await popup.evaluate(()=>innerHeight)).toBeLessThanOrEqual(720);
  expect(await popup.evaluate(()=>window.opener===null)).toBe(true);
  await expect(page.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();

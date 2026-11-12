@@ -108,7 +108,22 @@
       popupBlocked = false;
       answeredPrompts.clear();
       // Open during the click, before saving or fetching the authorization URL.
-      loginWindow = window.open("about:blank", "_blank");
+      const width = Math.min(520, window.screen.availWidth || 520);
+      const height = Math.min(
+        720,
+        Math.max(1, (window.screen.availHeight || 800) - 80),
+      );
+      const left = Math.round(
+        window.screenX + Math.max(0, (window.outerWidth - width) / 2),
+      );
+      const top = Math.round(
+        window.screenY + Math.max(0, (window.outerHeight - height) / 2),
+      );
+      loginWindow = window.open(
+        "about:blank",
+        "_blank",
+        `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
+      );
       if (loginWindow) {
         loginWindow.opener = null;
         loginWindow.document.title = "Connecting account…";
