@@ -3,8 +3,12 @@ import { createMcpTools, type RuntimeTool } from "../mcp/tools";
 import { openMcpBarrier } from "../mcp/barrier";
 import type { McpConfig } from "../mcp/client";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
-import { createModels, createProvider } from "@earendil-works/pi-ai/models";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import {
+  runtimeProvider,
+  runtimeCredentialStore,
+  runtimeAuthContext,
+} from "./provider";
+import { createModels } from "@earendil-works/pi-ai/models";
 import {
   Harness,
   createRegistry,
@@ -22,6 +26,15 @@ export type ChatEndpointConfig = {
   baseUrl: string;
   apiKey: string;
   modelId: string;
+  useAmbientCredentials?: boolean;
+  service?: string;
+  authMode?: import("../providers").AuthMode;
+  protocol?: import("../providers").CustomProtocol;
+  credentialEnv?: Record<string, string>;
+  credentialId?: string;
+  model?: import("@earendil-works/pi-ai").Model<
+    import("@earendil-works/pi-ai").Api
+  >;
 };
 export interface AgentSession {
   configurationChanged(): void;
@@ -96,38 +109,13 @@ export async function openAgentSession(
     hooks,
     tools: [...mcp.tools, ...(toolOptions.tools ?? [])],
   });
-  const models = createModels();
+  const models = createModels({
+    credentials: runtimeCredentialStore(() => endpoint),
+    authContext: runtimeAuthContext(() => endpoint),
+  });
   function configure(value: ChatEndpointConfig) {
     endpoint = value;
-    models.setProvider(
-      createProvider({
-        id: "chat",
-        baseUrl: endpoint.baseUrl,
-        auth: {
-          apiKey: {
-            name: "Configured API key",
-            async resolve() {
-              return { auth: { apiKey: endpoint.apiKey || "local" } };
-            },
-          },
-        },
-        api: openAICompletionsApi(),
-        models: [
-          {
-            id: endpoint.modelId,
-            name: endpoint.modelId,
-            api: "openai-completions",
-            provider: "chat",
-            baseUrl: endpoint.baseUrl,
-            input: ["text"],
-            reasoning: false,
-            contextWindow: 32768,
-            maxTokens: 4096,
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          },
-        ],
-      }),
-    );
+    models.setProvider(runtimeProvider(value));
   }
   configure(endpoint);
   const storage = await openNodeSqliteStorage(file);
@@ -198,28 +186,31 @@ export async function openAgentSession(
     }
     // Outcomes and abort marks are durable tables, not fields on pi.live.
     // The observer only reads the publication; it never re-enters Session APIs.
-    const detachCommits = harness.subscribeCommits((publication) => {
-      let changed = false;
-      for (const change of publication.changes) {
-        if (
-          change.type === "submission" &&
-          change.value.conversationId === root.id &&
-          (!latest || change.value.id >= latest.id)
-        ) {
-          latest = change.value;
-          changed = true;
-        }
-        if (change.type === "task") {
+    const commitObservation = harness.observeCommits({
+      advance(publication) {
+        let changed = false;
+        for (const change of publication.changes) {
           if (
-            change.value.abortRequested &&
-            change.value.state.status !== "terminal"
-          )
-            cancelling.add(change.value.id);
-          else cancelling.delete(change.value.id);
-          changed = true;
+            change.type === "submission" &&
+            change.value.conversationId === root.id &&
+            (!latest || change.value.id >= latest.id)
+          ) {
+            latest = change.value;
+            changed = true;
+          }
+          if (change.type === "task") {
+            if (
+              change.value.abortRequested &&
+              change.value.state.status !== "terminal"
+            )
+              cancelling.add(change.value.id);
+            else cancelling.delete(change.value.id);
+            changed = true;
+          }
         }
-      }
-      if (changed) queueMicrotask(publish);
+        if (changed) queueMicrotask(publish);
+      },
+      end() {},
     });
     committed.start(async () => {
       barrier.committed(
@@ -295,6 +286,26 @@ export async function openAgentSession(
               context,
             );
           }
+          if (
+            endpoint.service &&
+            endpoint.service !== "custom" &&
+            !["running", "cancelling"].includes(snapshot().status)
+          ) {
+            try {
+              if (
+                !(await models.getAuth("chat", {
+                  signal: AbortSignal.timeout(30000),
+                }))
+              )
+                throw Error("Not configured");
+            } catch {
+              throw new ApiError(
+                401,
+                "AUTH_REQUIRED",
+                "Connect this provider in Settings before sending",
+              );
+            }
+          }
           try {
             const admission = await root.submit(
               { type: "input", requestId, content, whenBusy: "reject" },
@@ -337,7 +348,7 @@ export async function openAgentSession(
       },
       async close() {
         closed = true;
-        detachCommits();
+        commitObservation.detach();
         listeners.clear();
         await committed.stop();
         await harness.close(context);

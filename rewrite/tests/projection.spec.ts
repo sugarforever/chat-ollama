@@ -47,7 +47,7 @@ test('model failure status survives reopen without exposing upstream secret erro
 // Catches dropping tool progress, duplicating completed calls, and losing interrupted-action uncertainty.
 test('projects live tools and persisted uncertain results without pi fields', async () => {
   const { projectState } = await import('../src/lib/server/runtime/projection');
-  const state = projectState({ id: 'one', revision: '7', live: { run: { taskId: 9 as any, inputs: [8 as any] }, tools: [{ callId: 'call-a', name: 'send', status: 'running', output: 'Sending' }] }, entries: [] });
+  const state = projectState({ id: 'one', revision: '7', live: { run: { taskId: 9 as any, inputs: [8 as any], turns: 0 }, tools: [{ callId: 'call-a', name: 'send', status: 'running', output: 'Sending' }] }, entries: [] });
   expect(state.entries).toEqual([{ id: 'tool:call-a', kind: 'tool', toolName: 'send', content: 'Sending', toolStatus: 'running' }]);
   const result = projectState({ id: 'one', revision: '8', entries: [{ id: 10 as any, conversationId: 1 as any, kind: 'pi.tool-result', model: [{ role: 'toolResult', toolCallId: 'call-a', toolName: 'send', content: [{ type: 'text', text: 'Uncertain result' }], isError: true, timestamp: 1 }], data: { diagnostics: [{ severity: 'error', code: 'interrupted', message: 'Uncertain result' }] } }] });
   expect(result.entries).toEqual([{ id: '10', kind: 'tool', toolName: 'send', content: 'Uncertain result', toolStatus: 'done', uncertain: true }]);

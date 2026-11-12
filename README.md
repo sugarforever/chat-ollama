@@ -58,7 +58,7 @@ Use Node.js **24.22.2** and pnpm **10.8.1**. From the repository root:
 
 ```sh
 cd rewrite
-pnpm install --frozen-lockfile
+pnpm install
 pnpm build
 
 export ADMIN_PASSWORD='replace-with-a-long-unique-password'
@@ -79,11 +79,19 @@ before uploading knowledge documents.
 
 ### Configure models
 
-Open **Settings** to add named OpenAI-compatible chat providers, each with its
-own base URL, default model ID, and API key. Choose the default provider for new
-conversations and click **Save providers**. Blank API key fields keep existing
-credentials; use the removal checkbox to clear a saved key. Embeddings have
-independent settings. Model IDs must be supported by the selected provider.
+Open **Settings**, add a named provider, choose its service and authentication
+mode, then select a model. API-key services have the official base URL preset;
+enter your key and click **Save providers**. Cloud providers offer guided credential
+setup. For a Codex subscription, select **OpenAI Codex**, save, click **Connect
+account**, and complete the official browser or device login. OpenAI API keys and
+subscription accounts are separate connections. Custom endpoints remain available
+with their native API protocol. Secrets stay on the server.
+
+Choose a default provider for new conversations, or switch provider/model inside
+an existing conversation with **Apply to next message**. Active runs retain their
+captured configuration across restarts. Embeddings use a separate endpoint/key;
+chat subscription credentials do not apply. See the [provider and authentication
+guide](rewrite/docs/provider-auth.md) for cloud setup, persistence and disconnect behavior.
 
 On upgrade, the previous chat settings (or `CHAT_*` environment defaults) are
 saved once as **Legacy chat**. Existing rewrite conversations are pinned to that

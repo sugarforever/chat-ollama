@@ -10,6 +10,8 @@
   let selectedServers: string[] = [];
   let modelId = "";
   let providerId = "";
+  let catalog: {id:string;models:{id:string;name:string}[]}[] = [];
+  const choices = (id:string) => catalog.find(p=>p.id===providers.find(p=>p.id===id)?.service)?.models??[];
   let providers: import("$lib/contracts").PublicProvider[] = [];
   let conversationProvider = "";
   let conversationModel = "";
@@ -251,6 +253,7 @@
         const settings = await api("/api/settings");
         if (disposed || initial !== generation) return;
         providers = settings.providers;
+        catalog = settings.catalog;
         providerId = settings.defaultProviderId;
         modelId = providers.find((p) => p.id === providerId)?.modelId ?? "";
         if (conversations.length) {
@@ -304,6 +307,8 @@
       >
     </header>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
+    <datalist id="new-model-options">{#each choices(providerId) as m}<option value={m.id}>{m.name}</option>{/each}</datalist>
+    <datalist id="conversation-model-options">{#each choices(conversationProvider) as m}<option value={m.id}>{m.name}</option>{/each}</datalist>
     {#if creating}<section class="empty card stack">
         <h1>New conversation</h1>
         <label
@@ -321,6 +326,7 @@
         <label
           >Model ID<input
             bind:value={modelId}
+            list="new-model-options"
             required
             maxlength="200"
           /></label
@@ -381,6 +387,7 @@
         <label
           >Conversation model ID<input
             bind:value={conversationModel}
+            list="conversation-model-options"
             required
             maxlength="200"
           /></label
@@ -398,7 +405,7 @@
       </form>
       {#if snapshot.status === "failed"}
         <p class="error" role="status">
-          Run failed. Check your model settings, then send a new message.
+          Run failed. Check your provider authentication and model settings, then send a new message.
         </p>
       {:else if snapshot.status === "interrupted" && !snapshot.mcpUncertainty}
         <p class="notice" role="status">

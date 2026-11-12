@@ -1,3 +1,12 @@
+import { readCredential } from "./provider-credentials";
+import { randomUUID } from "node:crypto";
+import {
+  providerCatalog,
+  nativeProvider,
+  captureModel,
+  customProtocols,
+  type AuthMode,
+} from "./providers";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, chmodSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -62,7 +71,7 @@ function load(kind: "chat" | "embedding"): ChatEndpointConfig {
     db.close();
   }
 }
-type Provider = ChatEndpointConfig & { id: string; name: string };
+export type Provider = ChatEndpointConfig & { id: string; name: string };
 type Providers = { providers: Provider[]; defaultProviderId: string };
 export const LEGACY_PROVIDER_ID = "legacy";
 export function loadProviders(): Providers {
@@ -99,10 +108,36 @@ export function resolveChatEndpoint(
       "PROVIDER_NOT_FOUND",
       "Selected provider is unavailable; choose a provider in this conversation",
     );
+  // Legacy snapshots retain their original completions-only shape.
+  if (!provider.service)
+    return {
+      baseUrl: provider.baseUrl,
+      apiKey: provider.apiKey,
+      modelId: selection.modelId,
+    };
+  const stored = provider.credentialId
+    ? readCredential(provider.credentialId)
+    : undefined;
   return {
-    baseUrl: provider.baseUrl,
-    apiKey: provider.apiKey,
+    ...provider,
+    ...(stored?.type === "api_key" && provider.authMode === "api_key"
+      ? {
+          apiKey: stored.key ?? "",
+          credentialEnv: stored.env,
+          ...(provider.service === "amazon-bedrock" &&
+          !stored.key &&
+          !stored.env
+            ? { useAmbientCredentials: true }
+            : {}),
+        }
+      : {}),
     modelId: selection.modelId,
+    model: captureModel(
+      provider.service,
+      selection.modelId,
+      provider.baseUrl,
+      provider.protocol,
+    ),
   };
 }
 export const loadChatConfig = () => {
@@ -110,17 +145,29 @@ export const loadChatConfig = () => {
   const provider = saved.providers.find(
     (p) => p.id === saved.defaultProviderId,
   )!;
-  return {
-    baseUrl: provider.baseUrl,
-    apiKey: provider.apiKey,
+  return resolveChatEndpoint({
+    providerId: provider.id,
     modelId: provider.modelId,
-  };
+  });
 };
 export const loadEmbeddingConfig = () => load("embedding");
 export function publicSettings() {
-  const redact = ({ apiKey, ...value }: ChatEndpointConfig) => ({
+  const redact = ({
+    apiKey,
+    credentialEnv,
+    credentialId,
+    model,
+    useAmbientCredentials,
+    ...value
+  }: ChatEndpointConfig) => ({
     ...value,
-    hasApiKey: !!apiKey,
+    hasApiKey:
+      !!apiKey ||
+      !!(
+        credentialId &&
+        readCredential(credentialId)?.type === "api_key" &&
+        (readCredential(credentialId) as { key?: string })?.key
+      ),
   });
   const saved = loadProviders();
   return {
@@ -129,6 +176,8 @@ export function publicSettings() {
     embedding: redact(loadEmbeddingConfig()),
     providers: saved.providers.map((p) => redact(p) as PublicProvider),
     defaultProviderId: saved.defaultProviderId,
+    catalog: providerCatalog(),
+    customProtocols,
   };
 }
 function patchEndpoint(
@@ -175,19 +224,118 @@ export function saveSettings(input: Record<string, unknown>) {
         typeof p.name !== "string" ||
         !p.name.trim() ||
         p.name.length > 100 ||
-        typeof p.baseUrl !== "string" ||
+        (p.service === undefined && typeof p.baseUrl !== "string") ||
         typeof p.modelId !== "string"
       )
         throw Error("Invalid provider");
       ids.add(p.id);
       const old = current.providers.find((old) => old.id === p.id);
+      if (p.service === undefined)
+        return {
+          ...patchEndpoint(
+            { baseUrl: "", modelId: "", apiKey: old?.apiKey ?? "" },
+            p,
+          ),
+          id: p.id,
+          name: p.name.trim(),
+        };
+      if (typeof p.service !== "string") throw Error("Invalid service");
+      const native =
+        p.service === "custom" ? undefined : nativeProvider(p.service);
+      const authMode: AuthMode =
+        p.authMode ??
+        (native?.auth.apiKey ? "api_key" : native ? "oauth" : "none");
+      if (
+        !(
+          native
+            ? [
+                ...(native.auth.apiKey ? ["api_key", "ambient"] : []),
+                ...(native.auth.oauth ? ["oauth"] : []),
+              ]
+            : ["api_key", "none"]
+        ).includes(authMode)
+      )
+        throw Error("Invalid authentication mode");
+      const same = old?.service === p.service && old?.authMode === authMode;
+      const stored =
+        same && old?.credentialId
+          ? readCredential(old.credentialId)
+          : undefined;
+      const previousKey = same
+        ? stored?.type === "api_key"
+          ? (stored.key ?? old?.apiKey ?? "")
+          : (old?.apiKey ?? "")
+        : "";
+      const previousEnv = same
+        ? stored?.type === "api_key"
+          ? (stored.env ?? old?.credentialEnv)
+          : old?.credentialEnv
+        : undefined;
+
+      const baseUrl = p.baseUrl ?? native?.baseUrl ?? "";
+      if (typeof baseUrl !== "string") throw Error("Invalid endpoint");
+      // Subscription tokens must never be sent to a user-selected endpoint.
+      if (authMode === "oauth" && baseUrl !== (native?.baseUrl ?? ""))
+        throw Error("OAuth uses the official endpoint");
+      const endpoint = baseUrl
+        ? patchEndpoint(
+            {
+              baseUrl,
+              modelId: p.modelId,
+              apiKey: previousKey,
+            },
+            { ...p, baseUrl },
+          )
+        : {
+            baseUrl: "",
+            modelId: p.modelId,
+            apiKey: previousKey,
+          };
+      if (!baseUrl && p.apiKey !== undefined) {
+        if (typeof p.apiKey !== "string" || p.apiKey.length > 8192)
+          throw Error("Invalid key");
+        endpoint.apiKey = p.apiKey;
+      }
+      if (authMode !== "api_key") endpoint.apiKey = "";
+      const protocol = p.protocol ?? "openai-completions";
+      if (!customProtocols.includes(protocol)) throw Error("Invalid protocol");
+      const credentialEnv =
+        p.credentialEnv === undefined ? previousEnv : p.credentialEnv;
+      if (
+        credentialEnv !== undefined &&
+        (!credentialEnv ||
+          typeof credentialEnv !== "object" ||
+          Array.isArray(credentialEnv) ||
+          Object.entries(credentialEnv).some(
+            ([k, v]) =>
+              !/^[A-Z][A-Z0-9_]{0,100}$/.test(k) ||
+              typeof v !== "string" ||
+              v.length > 8192,
+          ))
+      )
+        throw Error("Invalid provider credential configuration");
+      captureModel(p.service, p.modelId, baseUrl, protocol);
       return {
-        ...patchEndpoint(
-          { baseUrl: "", modelId: "", apiKey: old?.apiKey ?? "" },
-          p,
-        ),
+        ...endpoint,
         id: p.id,
         name: p.name.trim(),
+        service: p.service,
+        authMode,
+        protocol,
+        ...(authMode === "api_key" &&
+        p.service === "amazon-bedrock" &&
+        p.apiKey === undefined &&
+        (old?.useAmbientCredentials ||
+          (stored?.type === "api_key" && !stored.key && !stored.env))
+          ? { useAmbientCredentials: true }
+          : {}),
+        ...(credentialEnv && authMode === "api_key" ? { credentialEnv } : {}),
+        ...(same &&
+        old?.credentialId &&
+        p.apiKey === undefined &&
+        p.credentialEnv === undefined
+          ? { credentialId: old.credentialId }
+          : { credentialId: randomUUID() }),
       };
     });
   }
@@ -200,6 +348,11 @@ export function saveSettings(input: Record<string, unknown>) {
     !providers.some((p) => p.id === defaultProviderId)
   )
     throw Error("Invalid default provider");
+  if (
+    input.chat !== undefined &&
+    providers.find((p) => p.id === defaultProviderId)?.service
+  )
+    throw Error("Use native provider settings");
   if (input.chat !== undefined)
     providers = providers.map((p) =>
       p.id === defaultProviderId
@@ -227,4 +380,21 @@ export function saveSettings(input: Record<string, unknown>) {
     db.close();
   }
   return publicSettings();
+}
+
+// Rotate account identity before login so admitted runs never silently switch accounts.
+export function rotateProviderCredential(id: string): string {
+  const saved = loadProviders();
+  const p = saved.providers.find((p) => p.id === id);
+  if (!p) throw Error("Unknown provider");
+  p.credentialId = randomUUID();
+  const db = appDatabase();
+  try {
+    db.prepare("UPDATE settings SET value=? WHERE kind='providers'").run(
+      JSON.stringify(saved),
+    );
+  } finally {
+    db.close();
+  }
+  return p.credentialId;
 }

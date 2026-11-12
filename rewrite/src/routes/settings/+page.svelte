@@ -1,9 +1,13 @@
 <script lang="ts">
+  import ProviderAuth from "$lib/ProviderAuth.svelte";
   import { onMount } from "svelte";
   import { api } from "$lib/client";
   let settings: any;
+  const customAuthModes = ["none", "api_key"];
+  const authModes = (service:string) => service === "custom" ? customAuthModes : settings?.catalog.find((p:any)=>p.id===service)?.authModes??[];
   let keys = { chat: "", embedding: "" };
   let clear = { chat: false, embedding: false };
+  let providerEnv: Record<string, string> = {};
   let providerKeys: Record<string, string> = {};
   let clearProviderKeys: Record<string, boolean> = {};
   let error = "";
@@ -41,6 +45,12 @@
           name: p.name,
           baseUrl: p.baseUrl,
           modelId: p.modelId,
+          ...(p.service
+            ? { service: p.service, authMode: p.authMode, protocol: p.protocol }
+            : {}),
+          ...(providerEnv[p.id]
+            ? { credentialEnv: JSON.parse(providerEnv[p.id]) }
+            : {}),
           ...(clearProviderKeys[p.id]
             ? { apiKey: "" }
             : providerKeys[p.id]
@@ -49,6 +59,7 @@
         })),
       });
       providerKeys = {};
+      providerEnv = {};
       clearProviderKeys = {};
     }, "Providers saved");
   }
@@ -158,35 +169,150 @@
                 /></label
               >
               <label
+                >Model service<select
+                  aria-label="Model service"
+                  value={p.service ?? "legacy"}
+                  onchange={(e) => {
+                    const service = e.currentTarget.value;
+                    const preset = settings.catalog.find(
+                      (v: any) => v.id === service,
+                    );
+                    p.service = service === "legacy" ? undefined : service;
+                    p.authMode = preset?.authModes[0] ?? "none";
+                    p.baseUrl = preset?.baseUrl ?? "http://127.0.0.1:11434/v1";
+                    p.modelId = preset?.models[0]?.id ?? "local";
+                    providerKeys[p.id] = "";
+                    providerEnv[p.id] = "";
+                    settings.providers = settings.providers.map((v: any) =>
+                      v.id === p.id ? { ...p } : v,
+                    );
+                  }}
+                >
+                  {#if !p.service}<option value="legacy"
+                      >Custom endpoint (imported)</option
+                    >{/if}
+                  <option value="custom"
+                    >Custom endpoint / Ollama / LM Studio</option
+                  >
+                  {#each settings.catalog as preset}<option
+                      value={preset.id}
+                      disabled={!preset.models.length}
+                      >{preset.name}{preset.models.length
+                        ? ""
+                        : " (no chat models)"}</option
+                    >{/each}
+                </select></label
+              >
+              {#if p.service}
+                <label
+                  >Authentication<select
+                    aria-label="Authentication"
+                    value={p.authMode}
+                    onchange={(e) => {
+                      p.authMode = e.currentTarget.value;
+                      if (p.authMode === "oauth")
+                        p.baseUrl =
+                          settings.catalog.find((v: any) => v.id === p.service)
+                            ?.baseUrl ?? "";
+                      providerKeys[p.id] = "";
+                      providerEnv[p.id] = "";
+                      settings = { ...settings };
+                    }}
+                  >
+                    {#each authModes(p.service) as mode}<option
+                        value={mode}
+                        >{mode === "oauth"
+                          ? "Account login / OAuth"
+                          : mode === "ambient"
+                            ? "Server credentials (AWS / ADC / environment)"
+                            : mode === "none"
+                              ? "No authentication"
+                              : (settings.catalog.find(
+                                  (v: any) => v.id === p.service,
+                                )?.apiKeyLabel ?? "API key")}</option
+                      >{/each}
+                  </select></label
+                >
+              {/if}
+              {#if p.service === "custom"}<label
+                  >API protocol<select
+                    value={p.protocol}
+                    onchange={(e) => {
+                      p.protocol = e.currentTarget.value;
+                      settings = { ...settings };
+                    }}
+                    >{#each settings.customProtocols as protocol}<option
+                        value={protocol}>{protocol}</option
+                      >{/each}</select
+                  ></label
+                >{/if}
+              <label
                 >Base URL<input
                   bind:value={p.baseUrl}
-                  required
+                  disabled={p.authMode === "oauth"}
+                  required={!p.service || p.service === "custom"}
                   type="url"
+                  placeholder="Provider-managed endpoint"
                 /></label
               >
-              <label
-                >Default model ID<input
-                  bind:value={p.modelId}
-                  required
-                  maxlength="200"
-                /></label
-              >
-              <label
-                >API key<input
-                  type="password"
-                  bind:value={providerKeys[p.id]}
-                  autocomplete="new-password"
-                  placeholder={p.hasApiKey
-                    ? "Key saved · leave blank to keep"
-                    : "Optional API key"}
-                /></label
-              >
-              <label class="check"
-                ><input
-                  type="checkbox"
-                  bind:checked={clearProviderKeys[p.id]}
-                />Remove saved API key</label
-              >
+              {#if p.service && p.service !== "custom"}
+                <label
+                  >Default model ID<select
+                    aria-label="Default model ID"
+                    value={p.modelId}
+                    onchange={(e) => {
+                      p.modelId = e.currentTarget.value;
+                      settings = { ...settings };
+                    }}
+                    >{#each settings.catalog.find((v: any) => v.id === p.service)?.models ?? [] as model}<option
+                        value={model.id}>{model.name} · {model.id}</option
+                      >{/each}</select
+                  ></label
+                >
+              {:else}<label
+                  >Default model ID<input
+                    bind:value={p.modelId}
+                    required
+                    maxlength="200"
+                  /></label
+                >{/if}
+              {#if !p.service || p.authMode === "api_key"}
+                <label
+                  >API key<input
+                    type="password"
+                    bind:value={providerKeys[p.id]}
+                    autocomplete="new-password"
+                    placeholder={p.hasApiKey
+                      ? "Key saved · leave blank to keep"
+                      : "API key (or use guided credential setup)"}
+                  /></label
+                >
+                <label class="check"
+                  ><input
+                    type="checkbox"
+                    bind:checked={clearProviderKeys[p.id]}
+                  />Remove saved API key</label
+                >
+                {#if p.service && p.service !== "custom"}<details>
+                    <summary>Advanced provider configuration</summary>
+                    <p class="muted">
+                      Provider-scoped credential environment, such as Azure
+                      resource/deployment, AWS profile/region or Cloudflare
+                      account ID. Saved values stay private. Use guided setup
+                      for provider-specific prompts.
+                    </p>
+                    <label
+                      >Credential environment JSON<textarea
+                        bind:value={providerEnv[p.id]}
+                        placeholder={'{"AWS_REGION":"us-east-1"}'}
+                      ></textarea></label
+                    >
+                  </details>{/if}
+              {/if}
+              {#if p.service && p.service !== "custom"}{#key `${p.id}:${p.service}:${p.authMode}`}<ProviderAuth
+                    id={p.id}
+                    mode={p.authMode}
+                  />{/key}{/if}
               <button
                 type="button"
                 disabled={settings.providers.length === 1}
@@ -206,7 +332,9 @@
           choose another provider before sending again.
         </p>
         <label
-          >Default chat provider<select aria-label="Default chat provider" bind:value={settings.defaultProviderId}
+          >Default chat provider<select
+            aria-label="Default chat provider"
+            bind:value={settings.defaultProviderId}
             >{#each settings.providers as p}<option value={p.id}
                 >{p.name}</option
               >{/each}</select
@@ -221,6 +349,9 @@
                 {
                   id: crypto.randomUUID(),
                   name: "New provider",
+                  service: "custom",
+                  authMode: "api_key",
+                  protocol: "openai-completions",
                   baseUrl: "http://127.0.0.1:11434/v1",
                   modelId: "local",
                   hasApiKey: false,
@@ -268,7 +399,9 @@
           API key</label
         >
         <p class="muted">
-          Independent of chat. Changes require an explicit collection reindex.
+          Independent OpenAI-compatible embeddings endpoint. Chat subscriptions
+          and OAuth tokens are never used here. Changes require an explicit
+          collection reindex.
         </p>
         <button class="primary">Save embedding settings</button>
       </form>

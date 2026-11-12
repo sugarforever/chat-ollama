@@ -506,7 +506,7 @@ test("failed run shows an actionable status without exposing provider details", 
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(
     page.getByText(
-      "Run failed. Check your model settings, then send a new message.",
+      "Run failed. Check your provider authentication and model settings, then send a new message.",
       { exact: true },
     ),
   ).toBeVisible({ timeout: 25000 });
@@ -935,4 +935,39 @@ test("named providers can be saved in Settings and switched within a conversatio
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orchard answer" })).toHaveCount(2);
   await page.screenshot({ path: "test-results/provider-switch.png", fullPage: true });
+});
+
+// Verifies the real provider UI and official OAuth interaction without using a personal account.
+test('native service presets, secret setup and Codex subscription login are distinct',async({page})=>{
+ await login(page);await configure(page);
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ let card=page.getByRole('group',{name:'Provider New provider',exact:true});
+ await card.getByLabel('Provider name',{exact:true}).fill('Native account');
+ card=page.getByRole('group',{name:'Provider Native account',exact:true});
+ await card.getByLabel('Model service',{exact:true}).selectOption('anthropic');
+ await expect(card.getByLabel('Base URL',{exact:true})).toHaveValue('https://api.anthropic.com');
+ expect(await card.getByLabel('Default model ID',{exact:true}).locator('option').count()).toBeGreaterThan(5);
+ await card.getByLabel('API key',{exact:true}).fill('native-ui-secret');
+ await page.getByRole('button',{name:'Save providers',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('Providers saved');
+ await expect(card.getByLabel('API key',{exact:true})).toHaveValue('');
+ expect(JSON.stringify((await request(page,'/api/settings')).value)).not.toContain('native-ui-secret');
+ await expect(card.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await card.screenshot({path:'test-results/native-provider-api.png'});
+ await card.getByLabel('Model service',{exact:true}).selectOption('openai-codex');
+ await expect(card.getByLabel('Authentication',{exact:true})).toHaveValue('oauth');
+ await expect(card.getByLabel('API key',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Base URL',{exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'Save providers',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('Providers saved');
+ await card.getByRole('button',{name:'Connect account',exact:true}).click();
+ await expect(card.getByLabel('Select OpenAI Codex login method:',{exact:true})).toBeVisible();
+ await card.screenshot({path:'test-results/codex-oauth-login.png'});
+ await card.getByRole('button',{name:'Cancel login',exact:true}).click();
+ await expect(card.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+ await expect(page.getByText('Chat subscriptions and OAuth tokens are never used here.',{exact:false})).toBeVisible();
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await card.screenshot({path:'test-results/provider-oauth-mobile.png'});
 });

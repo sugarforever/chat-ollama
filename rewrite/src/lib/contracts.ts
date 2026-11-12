@@ -28,6 +28,9 @@ export type PublicProvider = {
   name: string;
   baseUrl: string;
   hasApiKey: boolean;
+  service?: string;
+  authMode?: 'api_key' | 'oauth' | 'ambient' | 'none';
+  protocol?: string;
 };
 export type ConversationConfig = {
   // Optional only for pre-provider catalogue records and older creation clients.

@@ -13,9 +13,9 @@
     "start": "node server.mjs"
   },
   "dependencies": {
-    "@earendil-works/chord": "1.4.0",
-    "@earendil-works/pi-ai": "1.4.0",
-    "@earendil-works/pi-durable": "1.4.0",
+    "@earendil-works/chord": "1.5.2",
+    "@earendil-works/pi-ai": "1.5.2",
+    "@earendil-works/pi-durable": "1.5.2",
     "@modelcontextprotocol/sdk": "1.25.3",
     "@sinclair/typebox": "0.34.41",
     "markdown-it": "15.0.3",
@@ -29,7 +29,7 @@
     "@sveltejs/vite-plugin-svelte": "6.2.1",
     "@types/markdown-it": "14.2.0",
     "@types/node": "24.10.1",
-    "esbuild": "0.27.0",
+    "esbuild": "0.28.2",
     "svelte": "5.45.6",
     "svelte-check": "4.3.4",
     "tsx": "4.20.6",
