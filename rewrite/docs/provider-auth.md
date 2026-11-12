@@ -14,7 +14,7 @@ The UI/catalog is derived from `builtinProviders()` on the server. It returns ch
 
 Settings has separate Providers, Embeddings, Knowledge and MCP server sections. Providers open as a searchable compact list with a default badge, selected model and credential status. Open a row to edit one provider; Save preserves blank credential fields, while Cancel discards that provider draft. Connecting an account opens a preparation window immediately, saves the form and automatically sends the window to the official login URL. OpenAI Codex defaults to browser login without a method-selection step. The app polls status and updates the connection after authorization. A blocked popup keeps an explicit login link; manual redirect input and device-code fallback are available under **Having trouble signing in?**. Removing a provider preserves conversation history but requires affected conversations to select a replacement.
 
-The add-provider catalog groups subscriptions and vendor credentials and uses the same server-provided catalog as the editor. It does not add a second provider inventory. Neutral provider initials are placeholders for the future app-wide visual design.
+The add-provider catalog groups subscriptions and vendor credentials and uses the same server-provided catalog as the editor. It does not add a second provider inventory. Provider logos are locally served SVGs from LobeHub Icons, with the upstream license and source revision in `static/provider-logos/`. Radius uses its official site icon because the pinned LobeHub collection does not include it. Custom endpoints use a generic endpoint icon; recognized Ollama and LM Studio configurations use their brand logos.
 
 ## Setup
 

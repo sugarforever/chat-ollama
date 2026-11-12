@@ -1000,6 +1000,8 @@ test('settings catalog selects subscription defaults and cancel discards only pr
   await page.screenshot({path:'test-results/settings-providers.png',fullPage:true});
   const before=(await request(page,'/api/settings')).value.providers.length;
   await page.getByRole('button',{name:'Add provider',exact:true}).click();
+  expect(await page.locator('.vendor img').count()).toBeGreaterThan(40);
+  await expect.poll(()=>page.locator('.vendor img').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth>0))).toBe(true);
   await page.screenshot({path:'test-results/settings-catalog.png',fullPage:true});
   await page.getByLabel('Find a vendor').fill('Codex');
   await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();

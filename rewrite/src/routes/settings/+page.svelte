@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProviderLogo from "$lib/ProviderLogo.svelte";
   import ProviderAuth from "$lib/ProviderAuth.svelte";
   import { onMount } from "svelte";
   import { api } from "$lib/client";
@@ -271,8 +272,13 @@
             <div class="provider-list">
               {#each settings.providers.filter( (p: any) => matches(p.name), ) as p}
                 <button class="provider-row" onclick={() => openProvider(p.id)}
-                  ><span class="provider-mark">{p.name.slice(0, 2)}</span><span
-                    class="provider-summary"
+                  ><span class="provider-mark"
+                    ><ProviderLogo
+                      service={p.service}
+                      name={p.name}
+                      baseUrl={p.baseUrl}
+                    /></span
+                  ><span class="provider-summary"
                     ><span class="provider-title"
                       >{p.name}
                       {#if p.id === settings.defaultProviderId}<small
@@ -334,7 +340,7 @@
                       class="vendor"
                       onclick={() => addProvider(preset, group.mode)}
                       ><span class="provider-mark"
-                        >{preset.name.slice(0, 2)}</span
+                        ><ProviderLogo service={preset.id} /></span
                       ><span>{preset.name}</span><span class="muted">›</span
                       ></button
                     >
@@ -349,7 +355,8 @@
                 >
               </h3>
               <button class="vendor" onclick={() => addProvider()}
-                >Custom endpoint <span aria-hidden="true">→</span></button
+                ><span class="provider-mark"><ProviderLogo /></span>Custom
+                endpoint <span aria-hidden="true">→</span></button
               >
             </div>
           {/if}
@@ -379,7 +386,15 @@
                     class="card stack"
                     aria-label={`Provider ${p.name}`}
                   >
-                    <legend>{p.name}</legend>
+                    <legend
+                      ><span class="legend-content"
+                        ><ProviderLogo
+                          service={p.service}
+                          name={p.name}
+                          baseUrl={p.baseUrl}
+                        />{p.name}</span
+                      ></legend
+                    >
                     <label
                       >Provider name<input
                         bind:value={p.name}
@@ -896,15 +911,20 @@
   .vendor:hover {
     background: #f1f3f6;
   }
+  .legend-content {
+    display: inline-flex;
+    gap: 10px;
+    align-items: center;
+  }
   .provider-mark {
     display: grid;
     place-items: center;
     width: 32px;
     height: 32px;
     flex-shrink: 0;
-    border: 1px solid #e3e5e9;
-    border-radius: 8px;
-    background: #f5f6f8;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: #555c6a;
     font-size: 12px;
     font-weight: 650;
