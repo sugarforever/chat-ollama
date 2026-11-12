@@ -554,7 +554,7 @@
                 ><span class="muted">Provider settings</span>
               </div>
               <p class="muted">
-                Manage this connection’s endpoint, model and credentials.
+                {creatingConnection ? "Set up this connection’s endpoint, model and credentials." : "Update this connection’s model and API key."}
               </p>
               <div class="grid">
                 {#each settings.providers.filter((p: any) => p.id === selected) as p (p.id)}
@@ -571,6 +571,7 @@
                         />{p.name}</span
                       ></legend
                     >
+                    {#if creatingConnection}
                     <label
                       >Provider name<Input
                         bind:value={p.name}
@@ -668,6 +669,14 @@
                         placeholder="Provider-managed endpoint"
                       /></label
                     >
+                    {:else}
+                      <dl class="connection-details">
+                        <div><dt>Model service</dt><dd>{settings.catalog.find((v: any) => v.id === p.service)?.name ?? "Custom endpoint"}</dd></div>
+                        <div><dt>Authentication</dt><dd>{p.authMode === "oauth" ? "Account login / OAuth" : p.authMode === "ambient" ? "Server credentials" : p.authMode === "none" ? "No authentication" : "API key"}</dd></div>
+                        <div><dt>Base URL</dt><dd>{p.baseUrl || "Provider-managed endpoint"}</dd></div>
+                        {#if (!p.service || p.service === "custom") && p.protocol}<div><dt>API protocol</dt><dd>{p.protocol}</dd></div>{/if}
+                      </dl>
+                    {/if}
                     {#if p.service && p.service !== "custom"}
                       <label
                         >Default model ID<NativeSelect class="w-full"
@@ -705,7 +714,7 @@
                           bind:checked={() => clearProviderKeys[p.id] ?? false, (checked) => clearProviderKeys[p.id] = checked}
                         />Remove saved API key</label
                       >
-                      {#if p.service && p.service !== "custom"}<details>
+                      {#if creatingConnection && p.service && p.service !== "custom"}<details>
                           <summary>Advanced provider configuration</summary>
                           <p class="muted">
                             Provider-scoped credential environment, such as
@@ -999,6 +1008,11 @@
 </AlertDialog.Root>
 
 <style>
+  .connection-details { display: grid; gap: 16px; margin: 0; }
+  .connection-details div { display: grid; gap: 4px; }
+  .connection-details dt { color: var(--muted); font-size: 12px; }
+  .connection-details dd { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+
   .settings-shell {
     max-width: none;
     padding: 0;

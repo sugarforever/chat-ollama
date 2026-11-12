@@ -969,7 +969,14 @@ test('native service presets, secret setup and Codex subscription login are dist
  expect(JSON.stringify((await request(page,'/api/settings')).value)).not.toContain('native-ui-secret');
  await expect(card.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
  await card.screenshot({path:'test-results/native-provider-api.png'});
- await card.getByLabel('Model service',{exact:true}).selectOption('openai-codex');
+ await expect(card.getByLabel('Model service',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Provider name',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Base URL',{exact:true})).toHaveCount(0);
+ await page.getByRole('link',{name:'Back to providers',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ card=page.getByRole('group',{name:'Provider OpenAI Codex',exact:true});
  await expect(card.getByLabel('Authentication',{exact:true})).toHaveValue('oauth');
  await expect(card.getByLabel('API key',{exact:true})).toHaveCount(0);
  await expect(card.getByLabel('Base URL',{exact:true})).toBeDisabled();
@@ -981,7 +988,7 @@ test('native service presets, secret setup and Codex subscription login are dist
  await expect(card.getByRole('alert')).toContainText('Cannot save providers');
  expect(loginRequests).toBe(0);
  await page.unroute('**/api/settings');
- // Switching service and connecting directly must save the new mode before login.
+ // Connecting a new subscription must save its configuration before login.
  const popupReady=page.waitForEvent('popup');
  await card.getByRole('button',{name:'Connect account',exact:true}).click();
  const popup=await popupReady;
@@ -1289,9 +1296,9 @@ test('provider routes preserve browser history and protect unsaved drafts', asyn
   const href = await page.locator('.provider-row').first().getAttribute('href');
   const other = await context.newPage();
   await other.goto(base + href);
-  await expect(other.getByLabel('Provider name', {exact:true})).toBeVisible();
+  await expect(other.getByLabel('Default model ID', {exact:true})).toBeVisible();
   await other.reload();
-  await expect(other.getByLabel('Provider name', {exact:true})).toBeVisible();
+  await expect(other.getByLabel('Default model ID', {exact:true})).toBeVisible();
   await other.goto(base + '/settings/providers/does-not-exist');
   await expect(other.getByRole('link', {name:'Back to providers', exact:true})).toBeVisible();
   await other.close();
@@ -1302,7 +1309,7 @@ test('saving a connection preserves other tabs and the global chat default', asy
   const initial = (await request(page, '/api/settings')).value;
   const id = initial.providers[0].id;
   await page.goto(base + '/settings/providers/' + encodeURIComponent(id));
-  await page.getByLabel('Provider name', {exact:true}).fill('Edited connection');
+  await page.getByLabel('Default model ID', {exact:true}).fill('edited-model');
   const added = {id:'other-tab-connection', name:'Other tab connection', baseUrl:modelUrl, modelId:'other-model'};
   const providers = initial.providers.filter((p:any)=>p.id!==added.id).map(({hasApiKey,...p}:any)=>p);
   await request(page, '/api/settings', {providers:[...providers, added], defaultProviderId:added.id});
@@ -1311,5 +1318,5 @@ test('saving a connection preserves other tabs and the global chat default', asy
   const latest = (await request(page, '/api/settings')).value;
   expect(latest.defaultProviderId).toBe(added.id);
   expect(latest.providers.find((p:any)=>p.id===added.id).name).toBe(added.name);
-  expect(latest.providers.find((p:any)=>p.id===id).name).toBe('Edited connection');
+  expect(latest.providers.find((p:any)=>p.id===id).modelId).toBe('edited-model');
 });
