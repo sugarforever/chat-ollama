@@ -48,6 +48,15 @@ This folder has its own workspace boundary and lockfile; do not install the lega
 
 Pinned runtime: `@earendil-works/pi-durable`, `@earendil-works/pi-ai`, and `@earendil-works/chord` **1.5.2**. Upstream requires Node >=22.19.0; Node 24 is the selected supported LTS line. SvelteKit 2.49.1, Svelte 5.45.6, adapter-node 5.5.7, Vite 7.2.2, TypeScript 5.9.3, and Vitest 4.0.13 are pinned. See pnpm-lock.yaml for transitive pins.
 
+Every conversation includes pi durable's native `read`, `write`, `edit`, and
+`bash` tools via its `CodingTools` extension. The tools use a persistent working
+directory at `DATA_DIR/sessions/workspaces/<conversation-id>`; existing
+conversations receive them when reopened after restarting the app. This working
+directory is not a sandbox: tools have the app process's filesystem, network,
+and process permissions (the `node` user in Docker). Native tools retain pi
+durable's interruption/replay behavior. Selected MCP tools and
+`search_knowledge` for selected knowledge bases remain available alongside them.
+
 The adapter exposes application snapshots, admission, Stop, subscriptions and close. pi types stay private. A process manager caches opening promises per conversation. Browser subscription cleanup cannot cancel agent work. SQLite WAL synchronous NORMAL protects against process crashes; no host-loss or power-loss guarantee is claimed.
 
 The release's packaged README/types are the API reference. Pi Durable 1.5.2 uses `observeCommits({advance,end})` for stored publications and `Conversation.watch()` for live progress. `Harness.resume()` starts pending work, `root.abort()` waits for idle, and `Harness.close()` preserves pending tasks. See [provider/authentication design and upgrade validation](docs/provider-auth.md). Unsafe tools interrupted mid-call produce interrupted results; only explicitly replay-safe tools rerun.
@@ -57,7 +66,14 @@ Tests use a real local HTTP model fixture, real pi SQLite storage, and separate 
 
 Chat HTTP commands are `POST /api/conversations` with `{providerId, modelId, knowledgeBaseIds, mcpServerIds}`, `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations/:id/messages` with `{requestId, content}`, and `POST /api/conversations/:id/stop`. `PATCH /api/conversations/:id` with `{providerId, modelId}` saves a new selection and returns the updated snapshot (200). It leaves history, knowledge and MCP selections intact, and may be used during a run. The selection applies to subsequent input. Missing/invalid fields return 400/INVALID_INPUT; an unknown or deleted provider returns 409/PROVIDER_NOT_FOUND without fallback. Creation returns 201; durable message admission returns 202 with `{id}`. Repeating an identical request ID returns that original ID, conflicting content returns 409/REQUEST_CONFLICT, and distinct input while running returns 409/BUSY. Stop waits for pi to reach idle; connected state observers can see cancelling while that happens.
 
-`GET /api/conversations/:id/events` sends application-owned `snapshot` envelopes as SSE `data:`. Every connection receives the current full state, including when Last-Event-ID is supplied. Slow clients retain only the newest pending snapshot. Revisions are process-local and are not resume cursors. The browser discards HTTP snapshot reads overtaken by SSE updates for the same selection, without comparing revisions across application restarts. The projection includes the saved `selection: {providerId, modelId}` (also published on selection changes), committed transcript, committed assistant partial text, tool output/status/uncertainty, and persisted run outcomes; it omits provider error details.
+Tool calls appear in request order as expandable transcript entries. Each entry
+keeps its identity from pending through completion so an expanded call stays
+open while the next call runs. Expanded entries show the exact bash command
+(or JSON input for other tools), output, and error status. Inputs and output
+remain available after reloading a conversation; older results whose requests
+are outside the loaded history window may have no input section.
+
+`GET /api/conversations/:id/events` sends application-owned `snapshot` envelopes as SSE `data:`. Every connection receives the current full state, including when Last-Event-ID is supplied. Slow clients retain only the newest pending snapshot. Revisions are process-local and are not resume cursors. The browser discards HTTP snapshot reads overtaken by SSE updates for the same selection, without comparing revisions across application restarts. The projection includes the saved `selection: {providerId, modelId}` (also published on selection changes), committed transcript, committed assistant partial text, tool inputs/output/status/errors/uncertainty, and persisted run outcomes; it omits provider error details.
 
 `DATA_DIR/sessions/catalogue.sqlite` stores conversation config and creation intent; each generated conversation ID has its own pi SQLite file alongside it. Startup completes interrupted creation before accepting HTTP. Unknown HTTP IDs never create session files. pi owns the single durable request receipt and user entry; the application has no second admission ledger or event journal. Authentication and same-origin mutation checks protect the application centrally.
 

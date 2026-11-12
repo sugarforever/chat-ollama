@@ -378,12 +378,26 @@
                 : entry.kind === "user"
                   ? "You"
                   : "Tool activity"}</strong
-            >{#if entry.kind === "tool"}<details>
+            >{#if entry.kind === "tool"}<details class:tool-error={entry.toolError}>
                 <summary
-                  >{entry.toolName ?? "Tool"} · {entry.toolStatus ??
+                  >{entry.toolName ?? "Tool"} · {entry.toolError ? "error" : entry.toolStatus ??
                     "done"}{entry.uncertain ? " · uncertain" : ""}</summary
                 >
-                <pre>{entry.content}</pre>
+                {#if entry.toolArguments}
+                  <div class="tool-section">
+                    <span class="tool-section-label">{entry.toolName === "bash" ? "Command" : "Input"}</span>
+                    <pre class="tool-input">{entry.toolName === "bash" && typeof entry.toolArguments.command === "string" ? entry.toolArguments.command : JSON.stringify(entry.toolArguments, null, 2)}</pre>
+                    {#if entry.toolName === "bash"}
+                      {#each Object.entries(entry.toolArguments).filter(([key]) => key !== "command") as [key, value]}
+                        <span class="tool-option">{key}: {JSON.stringify(value)}</span>
+                      {/each}
+                    {/if}
+                  </div>
+                {/if}
+                <div class="tool-section">
+                  <span class="tool-section-label">Output</span>
+                  {#if entry.content}<pre class="tool-output">{entry.content}</pre>{:else}<p class="muted">{entry.toolStatus === "done" ? "No output" : "Waiting for output…"}</p>{/if}
+                </div>
               </details>{:else}<div>
                 {@html render(entry.content, validSources)}
               </div>
