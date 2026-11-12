@@ -48,6 +48,15 @@ This folder has its own workspace boundary and lockfile; do not install the lega
 
 Pinned runtime: `@earendil-works/pi-durable`, `@earendil-works/pi-ai`, and `@earendil-works/chord` **1.5.2**. Upstream requires Node >=22.19.0; Node 24 is the selected supported LTS line. SvelteKit 2.49.1, Svelte 5.45.6, adapter-node 5.5.7, Vite 7.2.2, TypeScript 5.9.3, and Vitest 4.0.13 are pinned. See pnpm-lock.yaml for transitive pins.
 
+Every conversation includes pi durable's native `read`, `write`, `edit`, and
+`bash` tools via its `CodingTools` extension. The tools use a persistent working
+directory at `DATA_DIR/sessions/workspaces/<conversation-id>`; existing
+conversations receive them when reopened after restarting the app. This working
+directory is not a sandbox: tools have the app process's filesystem, network,
+and process permissions (the `node` user in Docker). Native tools retain pi
+durable's interruption/replay behavior. Selected MCP tools and
+`search_knowledge` for selected knowledge bases remain available alongside them.
+
 The adapter exposes application snapshots, admission, Stop, subscriptions and close. pi types stay private. A process manager caches opening promises per conversation. Browser subscription cleanup cannot cancel agent work. SQLite WAL synchronous NORMAL protects against process crashes; no host-loss or power-loss guarantee is claimed.
 
 The release's packaged README/types are the API reference. Pi Durable 1.5.2 uses `observeCommits({advance,end})` for stored publications and `Conversation.watch()` for live progress. `Harness.resume()` starts pending work, `root.abort()` waits for idle, and `Harness.close()` preserves pending tasks. See [provider/authentication design and upgrade validation](docs/provider-auth.md). Unsafe tools interrupted mid-call produce interrupted results; only explicitly replay-safe tools rerun.

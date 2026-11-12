@@ -1,3 +1,7 @@
+import { mkdir } from "node:fs/promises";
+import { dirname, basename, join } from "node:path";
+import { CodingTools } from "@earendil-works/pi-durable/tools";
+import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { createMcpTools, type RuntimeTool } from "../mcp/tools";
 import { openMcpBarrier } from "../mcp/barrier";
@@ -59,6 +63,8 @@ export async function openAgentSession(
     loadMcpConfigs?: () => McpConfig[];
   } = {},
 ): Promise<AgentSession> {
+  const workspace = join(dirname(file), "workspaces", basename(file, ".sqlite"));
+  await mkdir(workspace, { recursive: true });
   const barrier = openMcpBarrier(`${file}.mcp.sqlite`);
   const manifestFile = `${file}.mcp-tools.json`;
   function saveManifest() {
@@ -83,6 +89,7 @@ export async function openAgentSession(
     throw error;
   }
   const registry = createRegistry();
+  registry.install(CodingTools);
   let abortUncertainRun: () => Promise<void> = async () => {};
   const hooks = [
     hook(GenerationTask, {
@@ -122,7 +129,11 @@ export async function openAgentSession(
   const storage = await openNodeSqliteStorage(file);
   let harness;
   try {
-    harness = await Harness.open(storage, { models, registry }, context);
+    harness = await Harness.open(storage, {
+      models,
+      registry,
+      env: () => new NodeExecutionEnv({ cwd: workspace }),
+    }, context);
   } catch (error) {
     await storage.close(context);
     await mcp.close();
