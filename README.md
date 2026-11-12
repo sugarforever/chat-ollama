@@ -81,13 +81,13 @@ before uploading knowledge documents.
 
 Open **Settings**, add a named provider, choose its service and authentication
 mode, then select a model. API-key services have the official base URL preset;
-enter your key and click **Save providers**. Cloud providers offer guided credential
+enter your key and click **Save provider**. Cloud providers offer guided credential
 setup. For a Codex subscription, select **OpenAI Codex**, click **Connect
 account** (which saves the configuration), and complete the official browser or device login. OpenAI API keys and
 subscription accounts are separate connections. Custom endpoints remain available
 with their native API protocol. Secrets stay on the server.
 
-Choose a default provider for new conversations, or switch provider/model inside
+Choose the default provider on **Settings → Chat defaults**, or switch provider/model inside
 an existing conversation with **Apply to next message**. Active runs retain their
 captured configuration across restarts. Embeddings use a separate endpoint/key;
 chat subscription credentials do not apply. See the [provider and authentication

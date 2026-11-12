@@ -1,0 +1,35 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+@theme inline {
+ --color-background:var(--canvas);
+ --color-foreground:var(--text);
+ --color-card:var(--surface);
+ --color-card-foreground:var(--text);
+ --color-popover:var(--surface);
+ --color-popover-foreground:var(--text);
+ --color-primary:#315f49;
+ --color-primary-foreground:#fff;
+ --color-secondary:#edf0f3;
+ --color-secondary-foreground:#292c34;
+ --color-muted:#f3f4f6;
+ --color-muted-foreground:#676e7b;
+ --color-accent:#edf0f3;
+ --color-accent-foreground:#292c34;
+ --color-destructive:#a34038;
+ --color-border:#e1e3e8;
+ --color-input:#d5d9e0;
+ --color-ring:#527e68;
+ --radius-sm:6px;
+ --radius-md:8px;
+ --radius-lg:10px;
+ --radius-xl:12px;
+}
+
+:root {--secondary:#edf0f3;--foreground:#292c34;--primary:#315f49;--destructive:#a34038;}
+
+@layer base {
+  a[data-slot] { color: inherit; text-decoration: none; }
+  [data-slot] { box-sizing: border-box; border-color: var(--border); }
+}

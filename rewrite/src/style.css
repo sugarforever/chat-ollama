@@ -35,7 +35,7 @@ summary {
 :focus-visible {
   outline: 2px solid #527e68;
 }
-button,
+button:not([data-slot]),
 .button {
   display: inline-flex;
   align-items: center;
@@ -54,7 +54,7 @@ button,
     background 0.15s,
     border-color 0.15s;
 }
-button:hover,
+button:not([data-slot]):hover,
 .button:hover {
   background: #edf0f3;
   border-color: #cdd1d9;
@@ -85,7 +85,7 @@ button.subtle:hover {
   background: transparent;
   border-color: transparent;
 }
-input,
+input:not([data-slot]),
 textarea,
 select {
   border: 1px solid #d5d9e0;
@@ -137,7 +137,7 @@ h3 {
   font-size: 15px;
   font-weight: 600;
 }
-a {
+a:not([data-slot]) {
   color: var(--accent);
   text-underline-offset: 3px;
 }
@@ -187,12 +187,12 @@ a {
   border: 1px solid var(--border);
   border-radius: 12px;
 }
-.grid {
+.grid:not([data-slot]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
 }
-.grid > * {
+.grid:not([data-slot]) > * {
   min-width: 0;
 }
 .check {
@@ -861,7 +861,7 @@ pre {
   .composer-actions {
     justify-content: flex-start;
   }
-  .grid {
+  .grid:not([data-slot]) {
     grid-template-columns: 1fr;
   }
   .card {

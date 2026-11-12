@@ -1,12 +1,88 @@
 <script lang="ts">
+  import { beforeNavigate, goto } from "$app/navigation";
+  import { page } from "$app/stores";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import Input from "$lib/components/ui/input/input.svelte";
+  import Badge from "$lib/components/ui/badge/badge.svelte";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
+  import { ArrowLeft, Plus, Trash2, Save, X } from "@lucide/svelte";
   import ProviderLogo from "$lib/ProviderLogo.svelte";
   import ProviderAuth from "$lib/ProviderAuth.svelte";
   import { onMount } from "svelte";
   import { api } from "$lib/client";
   let settings: any;
-  let tab = "providers";
+  export let tab = "providers";
+  export let editorId = "";
+  export let newService = "";
+  export let newAuth = "";
+  export let draftId = "";
+  export let saved = false;
+  let creatingConnection = false;
+  let allowNavigation = false;
+  let discardOpen = false;
+  let removeOpen = false;
+  let pendingNavigation: (() => void) | undefined;
+  export function capture() {
+    return { query };
+  }
+  export function restore(state: { query?: string }) {
+    query = state?.query ?? "";
+  }
+  function isDirty() {
+    if (!settings || !snapshot) return false;
+    const initial = JSON.parse(snapshot);
+    if (selected)
+      return (
+        JSON.stringify(
+          settings.providers.find((p: any) => p.id === selected),
+        ) !==
+          JSON.stringify(
+            initial.providers.find((p: any) => p.id === selected),
+          ) ||
+        !!providerKeys[selected] ||
+        !!providerEnv[selected] ||
+        !!clearProviderKeys[selected]
+      );
+    if (tab === "chat")
+      return settings.defaultProviderId !== initial.defaultProviderId;
+    if (tab === "embeddings")
+      return (
+        JSON.stringify(settings.embedding) !==
+          JSON.stringify(initial.embedding) ||
+        !!keys.embedding ||
+        clear.embedding
+      );
+    if (tab === "tools") return replace && (replacement !== "[]" || confirm);
+    return false;
+  }
+  beforeNavigate((navigation) => {
+    if (allowNavigation || !isDirty()) return;
+    navigation.cancel();
+    if (navigation.willUnload) return;
+    const target = navigation.to?.url;
+    if (!target) return;
+    pendingNavigation =
+      navigation.type === "popstate" && navigation.delta
+        ? () => history.go(navigation.delta!)
+        : () => {
+            void goto(target);
+          };
+    discardOpen = true;
+  });
+  function discardChanges() {
+    allowNavigation = true;
+    discardOpen = false;
+    const go = pendingNavigation;
+    pendingNavigation = undefined;
+    go?.();
+  }
+  const providerHref = (id: string) =>
+    `/settings/providers/${encodeURIComponent(id)}`;
+  function newProviderHref(service = "custom", mode = "api_key") {
+    return `/settings/providers/new/${encodeURIComponent(service)}?${new URLSearchParams({ auth: mode, draft: crypto.randomUUID() })}`;
+  }
   let selected = "";
-  let catalogOpen = false;
+  export let catalogOpen = false;
   let query = "";
   let snapshot = "";
   let connection: Record<string, boolean> = {};
@@ -15,6 +91,8 @@
   let connectionsLoading = false;
   let connectionsQueued = false;
   function syncConnection(id: string, connected: boolean) {
+    if (connected && newService && !creatingConnection && selected)
+      void goto(providerHref(selected), { replaceState: true });
     if (connection[id] === connected) return;
     connectionRead++;
     connection = { ...connection, [id]: connected };
@@ -58,6 +136,11 @@
       name: "Providers",
       description: "Chat models & accounts",
     },
+    {
+      id: "chat",
+      name: "Chat defaults",
+      description: "New conversation defaults",
+    },
     { id: "embeddings", name: "Embeddings", description: "Search & retrieval" },
     {
       id: "knowledge",
@@ -66,38 +149,34 @@
     },
     { id: "tools", name: "MCP servers", description: "Tools & integrations" },
   ];
-  function openProvider(id: string) {
+  function initializeEditor() {
+    if (editorId) {
+      selected = editorId;
+    }
+    if (newService) {
+      const existing = settings.providers.find((p: any) => p.id === draftId);
+      if (existing) selected = existing.id;
+      else {
+        const preset = settings.catalog.find((p: any) => p.id === newService);
+        const p = {
+          id: draftId,
+          name: preset?.name ?? "New provider",
+          service: newService,
+          authMode: newAuth || preset?.authModes[0] || "api_key",
+          protocol: "openai-completions",
+          baseUrl: preset?.baseUrl ?? "http://127.0.0.1:11434/v1",
+          modelId: preset?.models[0]?.id ?? "local",
+          hasApiKey: false,
+        };
+        settings.providers = [...settings.providers, p];
+        selected = p.id;
+        creatingConnection = true;
+      }
+    }
     snapshot = JSON.stringify(settings);
-    selected = id;
-    notice = "";
-    error = "";
   }
   function closeProvider() {
-    if (selected && snapshot) settings = JSON.parse(snapshot);
-    snapshot = "";
-    selected = "";
-    providerKeys = {};
-    providerEnv = {};
-    clearProviderKeys = {};
-    error = "";
-    void refreshConnections();
-  }
-  function addProvider(preset?: any, mode?: string) {
-    snapshot = JSON.stringify(settings);
-    const p = {
-      id: crypto.randomUUID(),
-      name: preset?.name ?? "New provider",
-      service: preset?.id ?? "custom",
-      authMode: mode ?? preset?.authModes[0] ?? "api_key",
-      protocol: "openai-completions",
-      baseUrl: preset?.baseUrl ?? "http://127.0.0.1:11434/v1",
-      modelId: preset?.models[0]?.id ?? "local",
-      hasApiKey: false,
-    };
-    settings.providers = [...settings.providers, p];
-    selected = p.id;
-    catalogOpen = false;
-    query = "";
+    void goto("/settings/providers");
   }
   const matches = (name: string) =>
     name.toLowerCase().includes(query.toLowerCase());
@@ -137,34 +216,82 @@
       error = (e as Error).message;
     }
   }
+  function providerPatch(p: any) {
+    return {
+      id: p.id,
+      name: p.name,
+      baseUrl: p.baseUrl,
+      modelId: p.modelId,
+      ...(p.service
+        ? { service: p.service, authMode: p.authMode, protocol: p.protocol }
+        : {}),
+    };
+  }
   async function persistProviders() {
-    settings = await api("/api/settings", {
-      defaultProviderId: settings.defaultProviderId,
-      providers: settings.providers.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        baseUrl: p.baseUrl,
-        modelId: p.modelId,
-        ...(p.service
-          ? { service: p.service, authMode: p.authMode, protocol: p.protocol }
+    const p = settings.providers.find((p: any) => p.id === selected);
+    const latest = await api("/api/settings");
+    if (
+      !creatingConnection &&
+      !latest.providers.some((v: any) => v.id === p.id)
+    )
+      throw Error(
+        "This connection was removed in another tab. Return to Providers.",
+      );
+    const patch = {
+      ...providerPatch(p),
+      ...(providerEnv[p.id]
+        ? { credentialEnv: JSON.parse(providerEnv[p.id]) }
+        : {}),
+      ...(clearProviderKeys[p.id]
+        ? { apiKey: "" }
+        : providerKeys[p.id]
+          ? { apiKey: providerKeys[p.id] }
           : {}),
-        ...(providerEnv[p.id]
-          ? { credentialEnv: JSON.parse(providerEnv[p.id]) }
-          : {}),
-        ...(clearProviderKeys[p.id]
-          ? { apiKey: "" }
-          : providerKeys[p.id]
-            ? { apiKey: providerKeys[p.id] }
-            : {}),
-      })),
-    });
+    };
+    const providers = latest.providers
+      .filter((v: any) => v.id !== p.id)
+      .map(providerPatch);
+    const index = latest.providers.findIndex((v: any) => v.id === p.id);
+    providers.splice(index < 0 ? providers.length : index, 0, patch);
+    settings = await api("/api/settings", { providers });
+    creatingConnection = false;
     snapshot = JSON.stringify(settings);
     providerKeys = {};
     providerEnv = {};
     clearProviderKeys = {};
   }
   async function saveProviders() {
-    await run(persistProviders, "Providers saved");
+    const wasNew = creatingConnection;
+    await run(async () => {
+      await persistProviders();
+      if (wasNew)
+        await goto(`${providerHref(selected)}?saved=1`, { replaceState: true });
+    }, "Provider saved");
+  }
+  async function saveDefaults() {
+    await run(async () => {
+      settings = await api("/api/settings", {
+        defaultProviderId: settings.defaultProviderId,
+      });
+      snapshot = JSON.stringify(settings);
+    }, "Chat defaults saved");
+  }
+  async function removeProvider() {
+    await run(async () => {
+      const latest = await api("/api/settings");
+      const remaining = latest.providers.filter((p: any) => p.id !== selected);
+      if (!remaining.length)
+        throw Error("Keep at least one provider configuration.");
+      await api("/api/settings", {
+        providers: remaining.map(providerPatch),
+        defaultProviderId:
+          latest.defaultProviderId === selected
+            ? remaining[0].id
+            : latest.defaultProviderId,
+      });
+      allowNavigation = true;
+      await goto("/settings/providers", { replaceState: true });
+    }, "Provider removed");
   }
   async function saveEmbedding() {
     await run(async () => {
@@ -175,6 +302,7 @@
       if (clear.embedding) patch.apiKey = "";
       else if (keys.embedding) patch.apiKey = keys.embedding;
       settings = await api("/api/settings", { embedding: patch });
+      snapshot = JSON.stringify(settings);
       keys.embedding = "";
       clear.embedding = false;
       await loadCollections();
@@ -215,12 +343,17 @@
     }, "MCP configuration replaced");
   }
   onMount(() => {
-    void run(async () => {
-      settings = await api("/api/settings");
-      await refreshConnections();
-      servers = (await api("/api/mcp")).servers;
-      await loadCollections();
-    }, "");
+    void run(
+      async () => {
+        settings = await api("/api/settings");
+        initializeEditor();
+        if (saved) notice = "Provider saved";
+        await refreshConnections();
+        servers = (await api("/api/mcp")).servers;
+        await loadCollections();
+      },
+      saved ? "Provider saved" : "",
+    );
     const sync = () => {
       if (document.visibilityState === "visible") void refreshConnections();
     };
@@ -246,26 +379,27 @@
     <a class="back-link" href="/">← Back to chat</a>
     <h1>Settings</h1>
     <nav aria-label="Settings categories">
-      {#each tabs as item}<button
+      {#each tabs as item}<a
           class:active={tab === item.id}
           aria-label={item.name}
           aria-current={tab === item.id ? "page" : undefined}
-          onclick={() => {
-            closeProvider();
-            catalogOpen = false;
-            tab = item.id;
-            query = "";
-            notice = "";
-          }}><strong>{item.name}</strong><span>{item.description}</span></button
+          href={`/settings/${item.id}`}
+          ><strong>{item.name}</strong><span>{item.description}</span></a
         >{/each}
     </nav>
     <button
       class="logout"
-      onclick={() =>
-        run(async () => {
+      onclick={() => {
+        const logout = () => void run(async () => {
           await api("/api/auth/logout", {});
+          allowNavigation = true;
           location.href = "/login";
-        })}>Log out</button
+        });
+        if (isDirty()) {
+          pendingNavigation = logout;
+          discardOpen = true;
+        } else logout();
+      }}>Log out</button
     >
   </aside>
   <div class="settings-content">
@@ -288,20 +422,16 @@
               <div>
                 <h2>Providers</h2>
                 <p class="muted">
-                  Manage the models and accounts you use for chat.
+                  Your saved connections. Browse the catalog to add a built-in
+                  provider.
                 </p>
               </div>
-              <button
-                class="primary"
-                onclick={() => {
-                  catalogOpen = true;
-                  query = "";
-                }}>Add provider</button
+              <Button href="/settings/providers/new"
+                ><Plus />Add provider</Button
               >
             </div>
             <div class="list-toolbar">
-              <span class="muted">{settings.providers.length} configured</span
-              ><input
+              <span class="muted">{settings.providers.length} saved</span><Input
                 aria-label="Find a provider"
                 placeholder="Find a provider…"
                 bind:value={query}
@@ -309,7 +439,7 @@
             </div>
             <div class="provider-list">
               {#each settings.providers.filter( (p: any) => matches(p.name), ) as p}
-                <button class="provider-row" onclick={() => openProvider(p.id)}
+                <a class="provider-row" href={providerHref(p.id)}
                   ><span class="provider-mark"
                     ><ProviderLogo
                       service={p.service}
@@ -319,10 +449,10 @@
                   ><span class="provider-summary"
                     ><span class="provider-title"
                       >{p.name}
-                      {#if p.id === settings.defaultProviderId}<small
-                          >Default</small
-                        >{/if}{#if p.authMode === "oauth"}<small
-                          >Subscription</small
+                      {#if p.id === settings.defaultProviderId}<Badge
+                          variant="secondary">Default</Badge
+                        >{/if}{#if p.authMode === "oauth"}<Badge
+                          variant="secondary">Subscription</Badge
                         >{/if}</span
                     ><span class="muted">{p.modelId}</span></span
                   ><span class="provider-kind"
@@ -339,7 +469,7 @@
                               p.authMode !== "none"
                             ? "Needs setup"
                             : "Endpoint"}</span
-                  ><span aria-hidden="true">›</span></button
+                  ><span aria-hidden="true">›</span></a
                 >
               {:else}<p class="empty">No providers match “{query}”.</p>{/each}
             </div>
@@ -350,18 +480,23 @@
           {:else if catalogOpen}
             <div class="section-heading">
               <div>
-                <button
-                  class="text-button"
-                  onclick={() => {
-                    catalogOpen = false;
-                    query = "";
-                  }}>← Providers</button
+                <Button
+                  href="/settings/providers"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Back to providers"
+                  title="Back to providers"><ArrowLeft /></Button
                 >
                 <h2>Add a provider</h2>
+                <p class="muted">
+                  Choose a built-in service, then configure your own connection.
+                </p>
               </div>
-              <button onclick={() => addProvider()}>+ Custom provider</button>
+              <Button variant="outline" href={newProviderHref()}
+                ><Plus />Custom provider</Button
+              >
             </div>
-            <input
+            <Input
               class="catalog-search"
               aria-label="Find a vendor"
               placeholder="Find a vendor…"
@@ -374,13 +509,12 @@
                 </h3>
                 <div class="vendor-grid">
                   {#each settings.catalog.filter((p: any) => p.models.length && p.authModes.includes(group.mode) && matches(p.name)) as preset}
-                    <button
+                    <a
                       class="vendor"
-                      onclick={() => addProvider(preset, group.mode)}
+                      href={newProviderHref(preset.id, group.mode)}
                       ><span class="provider-mark"
                         ><ProviderLogo service={preset.id} /></span
-                      ><span>{preset.name}</span><span class="muted">›</span
-                      ></button
+                      ><span>{preset.name}</span><span class="muted">›</span></a
                     >
                   {:else}<p class="muted">No matching providers.</p>{/each}
                 </div>
@@ -392,9 +526,9 @@
                   >Ollama, LM Studio or a compatible endpoint</span
                 >
               </h3>
-              <button class="vendor" onclick={() => addProvider()}
+              <a class="vendor" href={newProviderHref()}
                 ><span class="provider-mark"><ProviderLogo /></span>Custom
-                endpoint <span aria-hidden="true">→</span></button
+                endpoint <span aria-hidden="true">→</span></a
               >
             </div>
           {/if}
@@ -407,16 +541,16 @@
               }}
             >
               <div class="section-heading">
-                <button
-                  type="button"
-                  class="text-button"
-                  onclick={closeProvider}>← Providers</button
+                <Button
+                  href="/settings/providers"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Back to providers"
+                  title="Back to providers"><ArrowLeft /></Button
                 ><span class="muted">Provider settings</span>
               </div>
               <p class="muted">
-                Defaults apply to new conversations. Editing a selected provider
-                applies to its next message. Active runs keep their captured
-                configuration.
+                Manage this connection’s endpoint, model and credentials.
               </p>
               <div class="grid">
                 {#each settings.providers.filter((p: any) => p.id === selected) as p (p.id)}
@@ -434,10 +568,10 @@
                       ></legend
                     >
                     <label
-                      >Provider name<input
+                      >Provider name<Input
                         bind:value={p.name}
                         required
-                        maxlength="100"
+                        maxlength={100}
                       /></label
                     >
                     <label
@@ -522,7 +656,7 @@
                         ></label
                       >{/if}
                     <label
-                      >Base URL<input
+                      >Base URL<Input
                         bind:value={p.baseUrl}
                         disabled={p.authMode === "oauth"}
                         required={!p.service || p.service === "custom"}
@@ -545,15 +679,15 @@
                         ></label
                       >
                     {:else}<label
-                        >Default model ID<input
+                        >Default model ID<Input
                           bind:value={p.modelId}
                           required
-                          maxlength="200"
+                          maxlength={200}
                         /></label
                       >{/if}
                     {#if !p.service || p.authMode === "api_key"}
                       <label
-                        >API key<input
+                        >API key<Input
                           type="password"
                           bind:value={providerKeys[p.id]}
                           autocomplete="new-password"
@@ -592,49 +726,59 @@
                           onStatus={(connected) =>
                             syncConnection(p.id, connected)}
                         />{/key}{/if}
-                    <button
-                      type="button"
-                      disabled={settings.providers.length === 1}
-                      onclick={() =>
-                        run(async () => {
-                          settings.providers = settings.providers.filter(
-                            (v: any) => v.id !== p.id,
-                          );
-                          if (settings.defaultProviderId === p.id)
-                            settings.defaultProviderId =
-                              settings.providers[0].id;
-                          try {
-                            await persistProviders();
-                            selected = "";
-                            snapshot = "";
-                          } catch (e) {
-                            settings = JSON.parse(snapshot);
-                            throw e;
-                          }
-                        }, "Provider removed")}>Remove provider</button
-                    >
+                    {#if !creatingConnection}<Button
+                        variant="destructive"
+                        size="icon"
+                        aria-label="Remove provider"
+                        title="Remove provider"
+                        disabled={settings.providers.length === 1}
+                        onclick={() => (removeOpen = true)}><Trash2 /></Button
+                      >{/if}
                   </fieldset>
                 {/each}
               </div>
-              <p class="muted">
-                Removing a provider takes effect immediately. Conversations
-                using it must choose another provider before sending again.
-              </p>
-              <label
-                >Default chat provider<select
-                  aria-label="Default chat provider"
-                  bind:value={settings.defaultProviderId}
-                  >{#each settings.providers as p}<option value={p.id}
-                      >{p.name}</option
-                    >{/each}</select
-                ></label
-              >
               <div class="row">
-                <button type="button" onclick={closeProvider}>Cancel</button>
-                <button class="primary">Save providers</button>
+                <Button
+                  href="/settings/providers"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Cancel"
+                  title="Cancel"><X /></Button
+                >
+                <Button
+                  type="submit"
+                  size="icon"
+                  aria-label="Save provider"
+                  title="Save provider"><Save /></Button
+                >
               </div>
             </form>
           {/if}
+        </section>
+      {:else if tab === "chat"}
+        <section>
+          <h2>Chat defaults</h2>
+          <p class="muted">
+            Choose the provider used when starting a new conversation. Existing
+            conversations keep their selection.
+          </p>
+          <form
+            class="card stack"
+            onsubmit={(e) => {
+              e.preventDefault();
+              void saveDefaults();
+            }}
+          >
+            <label
+              >Default chat provider<select
+                aria-label="Default chat provider"
+                bind:value={settings.defaultProviderId}
+                >{#each settings.providers as p}<option value={p.id}
+                    >{p.name}</option
+                  >{/each}</select
+              ></label
+            ><Button type="submit"><Save />Save chat defaults</Button>
+          </form>
         </section>
       {:else if tab === "embeddings"}
         <section>
@@ -652,20 +796,20 @@
           >
             <h3>Embedding endpoint</h3>
             <label
-              >Embedding base URL<input
+              >Embedding base URL<Input
                 bind:value={settings.embedding.baseUrl}
                 required
                 type="url"
               /></label
             >
             <label
-              >Embedding model ID<input
+              >Embedding model ID<Input
                 bind:value={settings.embedding.modelId}
                 required
               /></label
             >
             <label
-              >Embedding API key<input
+              >Embedding API key<Input
                 type="password"
                 bind:value={keys.embedding}
                 autocomplete="new-password"
@@ -701,7 +845,7 @@
             }}
           >
             <label
-              >Collection name<input
+              >Collection name<Input
                 bind:value={name}
                 required
                 placeholder="e.g. Research notes"
@@ -816,6 +960,41 @@
   </div>
 </main>
 
+<AlertDialog.Root bind:open={discardOpen}>
+  <AlertDialog.Content
+    ><AlertDialog.Header
+      ><AlertDialog.Title>Discard unsaved changes?</AlertDialog.Title
+      ><AlertDialog.Description
+        >Your edits have not been saved. Stay here to keep editing, or discard
+        them and continue.</AlertDialog.Description
+      ></AlertDialog.Header
+    ><AlertDialog.Footer
+      ><AlertDialog.Cancel onclick={() => (pendingNavigation = undefined)}
+        >Keep editing</AlertDialog.Cancel
+      ><AlertDialog.Action onclick={discardChanges}
+        >Discard changes</AlertDialog.Action
+      ></AlertDialog.Footer
+    ></AlertDialog.Content
+  >
+</AlertDialog.Root>
+<AlertDialog.Root bind:open={removeOpen}>
+  <AlertDialog.Content
+    ><AlertDialog.Header
+      ><AlertDialog.Title>Remove this provider?</AlertDialog.Title
+      ><AlertDialog.Description
+        >This removes the saved connection, not conversation history.
+        Conversations using it must choose another provider before sending
+        again.</AlertDialog.Description
+      ></AlertDialog.Header
+    ><AlertDialog.Footer
+      ><AlertDialog.Cancel>Cancel</AlertDialog.Cancel><AlertDialog.Action
+        onclick={() => void removeProvider()}
+        >Remove provider</AlertDialog.Action
+      ></AlertDialog.Footer
+    ></AlertDialog.Content
+  >
+</AlertDialog.Root>
+
 <style>
   .settings-shell {
     max-width: none;
@@ -851,7 +1030,11 @@
     display: grid;
     gap: 6px;
   }
-  nav button {
+  nav a {
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid transparent;
+    border-radius: 8px;
     text-align: left;
     background: transparent;
     border-color: transparent;
@@ -859,11 +1042,11 @@
     gap: 5px;
     padding: 12px;
   }
-  nav button span {
+  nav a span {
     font-size: 12px;
     color: #686d78;
   }
-  nav button.active {
+  nav a.active {
     background: white;
     border-color: #e1e3e8;
     box-shadow: 0 1px 2px #00000008;
@@ -911,7 +1094,7 @@
     margin-bottom: 8px;
     letter-spacing: -0.4px;
   }
-  .section-heading > button {
+  .section-heading > :global([data-slot="button"]) {
     white-space: nowrap;
   }
   .section-heading p {
@@ -924,7 +1107,7 @@
     align-items: center;
     margin-bottom: 14px;
   }
-  .list-toolbar input {
+  .list-toolbar :global(input) {
     width: 260px;
   }
   .provider-list {
@@ -934,6 +1117,8 @@
     overflow: hidden;
   }
   .provider-row {
+    text-decoration: none;
+    background: white;
     display: flex;
     gap: 16px;
     width: 100%;
@@ -987,14 +1172,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  small {
-    font-size: 10px;
-    color: #626978;
-    background: #eff1f5;
-    border-radius: 4px;
-    padding: 2px 5px;
-    font-weight: 500;
-  }
+
   .provider-kind {
     font-size: 12px;
     color: #686d78;
@@ -1004,13 +1182,8 @@
     margin-top: 18px;
     line-height: 1.6;
   }
-  .text-button {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    color: #626978;
-  }
-  .catalog-search {
+
+  :global(.catalog-search) {
     width: 100%;
     max-width: 420px;
     margin-bottom: 28px;
@@ -1033,6 +1206,7 @@
     gap: 8px 20px;
   }
   .vendor {
+    text-decoration: none;
     border: 0;
     background: transparent;
     display: flex;
@@ -1098,7 +1272,7 @@
       overflow: visible;
       gap: 4px;
     }
-    .settings-nav nav button {
+    .settings-nav nav a {
       white-space: nowrap;
       padding: 10px;
     }
@@ -1131,7 +1305,7 @@
     .section-heading h2 {
       font-size: 20px;
     }
-    .list-toolbar input {
+    .list-toolbar :global(input) {
       width: 200px;
     }
     .provider-kind {
@@ -1141,6 +1315,8 @@
       margin-right: 0;
     }
     .provider-row {
+      text-decoration: none;
+      background: white;
       padding: 16px 12px;
       gap: 10px;
     }
