@@ -3,6 +3,7 @@
   import { api } from "./client";
   export let id: string;
   export let mode: string;
+  export let beforeConnect: () => Promise<unknown> = async () => {};
   let status: any;
   let error = "";
   let value = "";
@@ -24,6 +25,7 @@
     error = "";
     busy = true;
     try {
+      if (action === "start") await beforeConnect();
       status = await api(`/api/providers/${id}/auth`, {
         action,
         type: mode,
@@ -48,7 +50,7 @@
 
 <div class="stack">
   <p class="muted">
-    Save provider settings before connecting. {mode === "ambient"
+    Connecting saves the current provider settings first. {mode === "ambient"
       ? "Uses credentials configured on the server."
       : status?.connected
         ? "Credentials saved on the server."

@@ -4,7 +4,10 @@
   import { api } from "$lib/client";
   let settings: any;
   const customAuthModes = ["none", "api_key"];
-  const authModes = (service:string) => service === "custom" ? customAuthModes : settings?.catalog.find((p:any)=>p.id===service)?.authModes??[];
+  const authModes = (service: string) =>
+    service === "custom"
+      ? customAuthModes
+      : (settings?.catalog.find((p: any) => p.id === service)?.authModes ?? []);
   let keys = { chat: "", embedding: "" };
   let clear = { chat: false, embedding: false };
   let providerEnv: Record<string, string> = {};
@@ -36,32 +39,33 @@
       error = (e as Error).message;
     }
   }
+  async function persistProviders() {
+    settings = await api("/api/settings", {
+      defaultProviderId: settings.defaultProviderId,
+      providers: settings.providers.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        baseUrl: p.baseUrl,
+        modelId: p.modelId,
+        ...(p.service
+          ? { service: p.service, authMode: p.authMode, protocol: p.protocol }
+          : {}),
+        ...(providerEnv[p.id]
+          ? { credentialEnv: JSON.parse(providerEnv[p.id]) }
+          : {}),
+        ...(clearProviderKeys[p.id]
+          ? { apiKey: "" }
+          : providerKeys[p.id]
+            ? { apiKey: providerKeys[p.id] }
+            : {}),
+      })),
+    });
+    providerKeys = {};
+    providerEnv = {};
+    clearProviderKeys = {};
+  }
   async function saveProviders() {
-    await run(async () => {
-      settings = await api("/api/settings", {
-        defaultProviderId: settings.defaultProviderId,
-        providers: settings.providers.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          baseUrl: p.baseUrl,
-          modelId: p.modelId,
-          ...(p.service
-            ? { service: p.service, authMode: p.authMode, protocol: p.protocol }
-            : {}),
-          ...(providerEnv[p.id]
-            ? { credentialEnv: JSON.parse(providerEnv[p.id]) }
-            : {}),
-          ...(clearProviderKeys[p.id]
-            ? { apiKey: "" }
-            : providerKeys[p.id]
-              ? { apiKey: providerKeys[p.id] }
-              : {}),
-        })),
-      });
-      providerKeys = {};
-      providerEnv = {};
-      clearProviderKeys = {};
-    }, "Providers saved");
+    await run(persistProviders, "Providers saved");
   }
   async function saveEmbedding() {
     await run(async () => {
@@ -219,8 +223,7 @@
                       settings = { ...settings };
                     }}
                   >
-                    {#each authModes(p.service) as mode}<option
-                        value={mode}
+                    {#each authModes(p.service) as mode}<option value={mode}
                         >{mode === "oauth"
                           ? "Account login / OAuth"
                           : mode === "ambient"
@@ -312,6 +315,7 @@
               {#if p.service && p.service !== "custom"}{#key `${p.id}:${p.service}:${p.authMode}`}<ProviderAuth
                     id={p.id}
                     mode={p.authMode}
+                    beforeConnect={persistProviders}
                   />{/key}{/if}
               <button
                 type="button"

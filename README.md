@@ -82,8 +82,8 @@ before uploading knowledge documents.
 Open **Settings**, add a named provider, choose its service and authentication
 mode, then select a model. API-key services have the official base URL preset;
 enter your key and click **Save providers**. Cloud providers offer guided credential
-setup. For a Codex subscription, select **OpenAI Codex**, save, click **Connect
-account**, and complete the official browser or device login. OpenAI API keys and
+setup. For a Codex subscription, select **OpenAI Codex**, click **Connect
+account** (which saves the configuration), and complete the official browser or device login. OpenAI API keys and
 subscription accounts are separate connections. Custom endpoints remain available
 with their native API protocol. Secrets stay on the server.
 

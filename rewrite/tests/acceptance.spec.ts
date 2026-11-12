@@ -959,8 +959,15 @@ test('native service presets, secret setup and Codex subscription login are dist
  await expect(card.getByLabel('Authentication',{exact:true})).toHaveValue('oauth');
  await expect(card.getByLabel('API key',{exact:true})).toHaveCount(0);
  await expect(card.getByLabel('Base URL',{exact:true})).toBeDisabled();
- await page.getByRole('button',{name:'Save providers',exact:true}).click();
- await expect(page.getByRole('status')).toContainText('Providers saved');
+ // A failed save must not start login against the old server-side service.
+ let loginRequests=0;
+ page.on('request',r=>{if(r.method()==='POST'&&r.url().includes('/api/providers/')&&r.url().endsWith('/auth'))loginRequests++;});
+ await page.route('**/api/settings',route=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:{message:'Cannot save providers'}})}));
+ await card.getByRole('button',{name:'Connect account',exact:true}).click();
+ await expect(card.getByRole('alert')).toContainText('Cannot save providers');
+ expect(loginRequests).toBe(0);
+ await page.unroute('**/api/settings');
+ // Switching service and connecting directly must save the new mode before login.
  await card.getByRole('button',{name:'Connect account',exact:true}).click();
  await expect(card.getByLabel('Select OpenAI Codex login method:',{exact:true})).toBeVisible();
  await card.screenshot({path:'test-results/codex-oauth-login.png'});
