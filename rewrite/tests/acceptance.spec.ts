@@ -140,8 +140,8 @@ async function killServer() {
 
 async function login(page: Page) {
   await page.goto(base);
-  await page.getByLabel("Password").fill("ui-password");
-  await page.getByRole("button", { name: "Log in", exact: true }).click();
+  await page.getByLabel("Password", {exact:true}).fill("ui-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "New conversation", exact: true }),
   ).toBeVisible();
@@ -174,18 +174,98 @@ async function configure(page: Page) {
   });
 }
 async function create(page: Page, collection?: string, mcp?: string) {
-  await page
-    .getByRole("button", { name: "New conversation", exact: true })
-    .click();
-  if (collection) await page.getByLabel(collection, { exact: true }).check();
-  if (mcp) await page.getByLabel(mcp, { exact: true }).check();
-  const previousUrl = page.url();
-  await page
-    .getByRole("button", { name: "Create conversation", exact: true })
-    .click();
-  await expect(page).not.toHaveURL(previousUrl);
+  if (collection || mcp) {
+    const settings = (await request(page, "/api/settings")).value;
+    const provider = settings.providers.find((p: any) => p.id === settings.defaultProviderId);
+    const collections = collection ? (await request(page, "/api/knowledge-bases")).value : [];
+    const result = await request(page, "/api/conversations", {
+      providerId: provider.id, modelId: provider.modelId,
+      knowledgeBaseIds: collection ? [collections.find((c: any) => c.name === collection).id] : [],
+      mcpServerIds: mcp ? [mcp] : [],
+    });
+    expect(result.status).toBe(201);
+    await page.goto(`${base}/?conversation=${result.value.id}`);
+  } else {
+    const created = page.waitForResponse(response =>
+      new URL(response.url()).pathname === '/api/conversations' && response.request().method() === 'POST');
+    const drawer = page.getByRole('dialog', {name:'Conversations',exact:true});
+    const navigation = await drawer.isVisible() ? drawer : page;
+    await navigation.getByRole("button", { name: "New conversation", exact: true }).click();
+    const response = await created;
+    expect(response.status()).toBe(201);
+    const conversation = await response.json();
+    await expect(page).toHaveURL(new RegExp(`conversation=${conversation.id}`));
+  }
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
+
+test("new conversation opens directly with the latest default on desktop and mobile", async ({page}) => {
+  await login(page);
+  await configure(page);
+  for (const width of [1280,390]) {
+    await page.setViewportSize({width,height:844});
+    if (width === 390) await page.getByRole('button',{name:'Open conversations',exact:true}).click();
+    const expectedModel = width === 390 ? 'second-model' : 'fixture';
+    await request(page,'/api/settings',{chat:{baseUrl:modelUrl, modelId:expectedModel, apiKey:'chat-secret'}});
+    const before = (await request(page,'/api/conversations')).value.length;
+    await create(page);
+    await expect(page.getByRole('region',{name:'New conversation settings'})).toHaveCount(0);
+    const id = new URL(page.url()).searchParams.get('conversation');
+    const snapshot = (await request(page,`/api/conversations/${id}`)).value;
+    expect(snapshot.selection.modelId).toBe(expectedModel);
+    const settings = (await request(page,'/api/settings')).value;
+    expect(snapshot.selection.providerId).toBe(settings.defaultProviderId);
+    expect((await request(page,'/api/conversations')).value).toHaveLength(before+1);
+  }
+});
+
+test("new conversation waits for initial history restoration", async ({page}) => {
+  await login(page); await configure(page); await create(page);
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => release = resolve);
+  await page.route('**/api/conversations', async route => {
+    if (route.request().method() === 'GET') await pending;
+    await route.continue();
+  });
+  await page.reload();
+  const trigger = page.getByRole('button',{name:'New conversation',exact:true});
+  await expect(trigger).toBeDisabled();
+  release();
+  await expect(trigger).toBeEnabled();
+  await page.unroute('**/api/conversations');
+  await create(page);
+});
+
+test("failed direct creation keeps the current chat and allows retry", async ({page}) => {
+  await login(page); await configure(page); await create(page);
+  const previous = page.url();
+  await page.route('**/api/conversations', route => route.request().method() === 'POST'
+    ? route.fulfill({status:503,json:{error:{code:'UNAVAILABLE',message:'Creation unavailable'}}})
+    : route.continue());
+  await page.getByRole('button',{name:'New conversation',exact:true}).click();
+  await expect(page.getByText('Creation unavailable',{exact:true})).toBeVisible();
+  await expect(page).toHaveURL(previous);
+  await expect(page.getByRole('button',{name:'New conversation',exact:true})).toBeEnabled();
+  await page.unroute('**/api/conversations');
+  await create(page);
+});
+
+test("conversation links restore snapshots through Back and Forward", async ({page}) => {
+  const {a,b} = await pair(page);
+  await page.getByLabel("Message",{exact:true}).fill("history navigation marker");
+  await page.getByRole("button",{name:"Send message",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Orchard answer",exact:true})).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(b));
+  await expect(page.getByLabel("Message",{exact:true})).toBeEnabled();
+  await expect(page.getByText("history navigation marker",{exact:true})).toHaveCount(0);
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(a));
+  await expect(page.getByText("history navigation marker",{exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("history navigation marker",{exact:true})).toBeVisible();
+});
+
 test("administrator opens responsive chat and independent secret-preserving settings", async ({
   page,
 }) => {
@@ -193,11 +273,11 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Settings", exact: true }),
+    page.getByRole("heading", { name: "Providers", exact: true }),
   ).toBeVisible();
   await page.locator(".provider-row").first().click();
   await page.getByLabel("Default model ID").selectOption("edited-model");
-  await expect(page.getByRole("status")).toContainText("Saved automatically");
+  await expect(page.getByRole("status")).toContainText("Saved");
   await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
   await page.getByRole("link", {name:"Embeddings",exact:true}).click();
   await expect(page.getByLabel("Embedding model ID")).toHaveValue(
@@ -222,7 +302,7 @@ test("administrator opens responsive chat and independent secret-preserving sett
     .getByLabel("I intend to replace all servers and their secrets")
     .check();
   await expect(page.getByRole("status")).toContainText(
-    "Saved automatically",
+    "Saved",
   );
   expect(JSON.stringify((await request(page, "/api/mcp")).value)).not.toContain(
     "mcp-secret",
@@ -266,11 +346,11 @@ test("upload indexing, scoped citations, expandable tools and hostile markdown",
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", {name:"Knowledge",exact:true}).click();
+  await page.getByRole("button", { name: "New collection" }).click();
   await page.getByLabel("Collection name").fill("Orchard");
-  await page.getByRole("button", { name: "Add collection" }).click();
-  const collection = page.locator("article").filter({
-    has: page.getByRole("heading", { name: "Orchard", exact: true }),
-  });
+  await page.getByRole("button", { name: "Create collection" }).click();
+  await page.locator(".collection-row").filter({hasText:"Orchard"}).click();
+  const collection = page.locator(".settings-content").filter({has:page.getByRole("heading",{name:"Orchard",exact:true})});
   await collection.getByLabel("Upload document").setInputFiles({
     name: "notes.md",
     mimeType: "text/markdown",
@@ -284,7 +364,7 @@ test("upload indexing, scoped citations, expandable tools and hostile markdown",
       query: "orchard",
     })
   ).value[0].sourceId;
-  await page.getByRole("link", { name: "Back to chat", exact: false }).click();
+  await page.getByRole("link", { name: "Back to conversations", exact: false }).click();
   await create(page, "Orchard");
   await page.getByLabel("Message", { exact: true }).fill("retrieve orchard");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
@@ -363,6 +443,18 @@ test("busy input, persisted partial reconnect and explicit Stop", async ({
     page.getByText("Persisted partial answer", { exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+  await expect(page.locator('.composer').getByRole('status')).toHaveText('Responding…');
+  await expect(page.getByLabel('Message',{exact:true})).toBeHidden();
+  await expect(page.getByRole('button',{name:'Stop',exact:true})).toHaveText('');
+  await expect(page.getByRole('button',{name:'Stop',exact:true})).toHaveCSS('animation-name','stop-pulse');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await expect(page.getByRole('button',{name:'Stop',exact:true})).toHaveCSS('animation-name','none');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.screenshot({path:'test-results/composer-working-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/composer-working-mobile.png',fullPage:true});
+
   await context.setOffline(true);
   await expect(
     page.getByText("Reconnecting — confirmed messages are saved"),
@@ -383,11 +475,11 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", {name:"Knowledge",exact:true}).click();
+  await page.getByRole("button", { name: "New collection" }).click();
   await page.getByLabel("Collection name").fill("Retry notes");
-  await page.getByRole("button", { name: "Add collection" }).click();
-  const collection = page.locator("article").filter({
-    has: page.getByRole("heading", { name: "Retry notes", exact: true }),
-  });
+  await page.getByRole("button", { name: "Create collection" }).click();
+  await page.locator(".collection-row").filter({hasText:"Retry notes"}).click();
+  const collection = page.locator(".settings-content").filter({has:page.getByRole("heading",{name:"Retry notes",exact:true})});
   embedding.fail(true);
   await collection.getByLabel("Upload document").setInputFiles({
     name: "retry.txt",
@@ -411,8 +503,9 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
   embedding.fail(false);
   await page.getByRole("link", {name:"Embeddings",exact:true}).click();
   await page.getByLabel("Embedding model ID").fill("changed-fixture");
-  await expect(page.getByRole("status")).toContainText("Saved automatically");
+  await expect(page.getByRole("status")).toContainText("Saved");
   await page.getByRole("link", {name:"Knowledge",exact:true}).click();
+  await page.locator(".collection-row").filter({hasText:"Retry notes"}).click();
   await expect(
     collection.getByText("Reindex required", { exact: true }),
   ).toBeVisible();
@@ -421,8 +514,10 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
     collection.getByText("Reindex required", { exact: true }),
   ).toHaveCount(0);
   await collection.getByRole("button", { name: "Delete document" }).click();
+  await page.getByRole("alertdialog").getByRole("button", {name:"Delete",exact:true}).click();
   await expect(collection.getByText("retry.txt")).toHaveCount(0);
   await collection.getByRole("button", { name: "Delete collection" }).click();
+  await page.getByRole("alertdialog").getByRole("button", {name:"Delete",exact:true}).click();
   await expect(
     page.getByRole("heading", { name: "Retry notes", exact: true }),
   ).toHaveCount(0);
@@ -491,7 +586,7 @@ test("reloading an older selected conversation keeps that conversation", async (
   await create(page);
   const buttons = page
     .getByRole("navigation", { name: "Conversations" })
-    .getByRole("button");
+    .getByRole("link");
   await buttons.nth((await buttons.count()) - 2).click();
   await expect(
     page.getByText("first conversation marker", { exact: true }),
@@ -547,7 +642,7 @@ async function pair(page: Page) {
   const b = new URL(page.url()).searchParams.get("conversation")!;
   const buttons = page
     .getByRole("navigation", { name: "Conversations" })
-    .getByRole("button");
+    .getByRole("link");
   await buttons.nth((await buttons.count()) - 2).click();
   await expect(page).toHaveURL(new RegExp(a));
   return { a, b, buttons };
@@ -555,7 +650,7 @@ async function pair(page: Page) {
 async function switchLast(page: Page) {
   const buttons = page
     .getByRole("navigation", { name: "Conversations" })
-    .getByRole("button");
+    .getByRole("link");
   await buttons.last().click();
   await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
 }
@@ -726,7 +821,7 @@ for (const phase of ["catalogue", "settings", "snapshot"])
     await delay.ready;
     await page.getByRole("link", { name: "Settings", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Settings", exact: true }),
+      page.getByRole("heading", { name: "Providers", exact: true }),
     ).toBeVisible();
     const done = page.waitForResponse((r) => r.url().endsWith(path));
     delay.release();
@@ -777,7 +872,7 @@ test("delayed source excerpt cannot open in a different conversation", async ({
   await create(page);
   const buttons = page
     .getByRole("navigation", { name: "Conversations" })
-    .getByRole("button");
+    .getByRole("link");
   await buttons.nth((await buttons.count()) - 2).click();
   await expect(
     page.getByRole("link", { name: "Notes", exact: true }),
@@ -910,12 +1005,12 @@ test("named providers can be saved in Settings and switched within a conversatio
   await page.getByRole("link", { name: "Add provider", exact: true }).click();
   await page.getByRole("link", {name:"Custom provider",exact:true}).click();
   const card = page.getByRole("group", { name: "Provider New provider", exact: true });
-  await card.getByLabel("Provider name", { exact: true }).fill("Second provider");
+  await card.getByLabel("Name", { exact: true }).fill("Second provider");
   const second = page.getByRole("group", { name: "Provider Second provider", exact: true });
   await second.getByLabel("Base URL", { exact: true }).fill(modelUrl);
   await second.getByLabel("API key", { exact: true }).fill("second-private-key");
   await second.getByLabel("Default model ID", { exact: true }).selectOption("second-model");
-  await expect(page.getByRole("status")).toContainText("Saved automatically");
+  await expect(page.getByRole("status")).toContainText("Saved");
   await expect(second.getByLabel("API key", { exact: true })).toHaveValue("");
   await page.reload();
   await expect(second.getByLabel("API key", { exact: true })).toHaveAttribute("placeholder", "Key saved · leave blank to keep");
@@ -923,20 +1018,20 @@ test("named providers can be saved in Settings and switched within a conversatio
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.getByRole("link", { name: "Back to chat", exact: false }).click();
+  await page.getByRole("link", { name: "Back to conversations", exact: false }).click();
   await create(page);
   const id = new URL(page.url()).searchParams.get("conversation");
   await page.getByLabel("Message", { exact: true }).fill("history before switching");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orchard answer" })).toBeVisible();
+  await expect(page.getByRole("button", {name:"Send message",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"Change model",exact:true}).click();
-  await page.getByLabel("Conversation provider", { exact: true }).selectOption({ label: "Second provider" });
-  await page.getByLabel("Conversation model ID", { exact: true }).fill("second-selected-model");
-  await page.getByRole("button", { name: "Apply to next message", exact: true }).click();
+  await page.getByRole('group',{name:'Second provider',exact:true}).getByRole('button',{name:'second-selected-model',exact:true}).click();
   await expect.poll(async () => (await request(page, `/api/conversations/${id}`)).value.selection.modelId).toBe("second-selected-model");
   await page.reload();
   await page.getByRole("button",{name:"Change model",exact:true}).click();
-  await expect(page.getByLabel("Conversation model ID", { exact: true })).toHaveValue("second-selected-model");
+  await expect(page.getByRole('group',{name:'Second provider',exact:true}).getByRole('button',{name:'second-selected-model',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.keyboard.press('Escape');
   await expect(page.getByText("history before switching", { exact: true })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("conversation")).toBe(id);
   await page.getByLabel("Message", { exact: true }).fill("history after switching");
@@ -961,13 +1056,13 @@ test('native service presets, secret setup and Codex subscription login are dist
  await expect(card.getByText('https://api.anthropic.com',{exact:true})).toBeVisible();
  await card.getByLabel('API key',{exact:true}).fill('native-ui-secret');
  await expect(card.getByLabel('Default model ID',{exact:true})).toHaveValue('claude-newly-released');
- await expect(page.getByRole('status')).toContainText('Saved automatically');
+ await expect(page.getByRole('status')).toContainText('Saved');
  await expect(card.getByLabel('API key',{exact:true})).toHaveValue('');
  expect(JSON.stringify((await request(page,'/api/settings')).value)).not.toContain('native-ui-secret');
  await expect(card.getByText('Connection verified',{exact:false})).toBeVisible();
  await card.screenshot({path:'test-results/native-provider-api.png'});
  await expect(card.getByLabel('Model service',{exact:true})).toHaveCount(0);
- await expect(card.getByLabel('Provider name',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Name',{exact:true})).toHaveValue('Anthropic');
  await expect(card.getByLabel('Base URL',{exact:true})).toHaveCount(0);
  await page.getByRole('link',{name:'Back to providers',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
@@ -1015,14 +1110,14 @@ test('settings catalog saves subscription defaults automatically and keeps secti
   await expect(page.getByLabel('Model service',{exact:true})).toHaveCount(0);
   await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
   await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
-  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect(page.getByRole('status')).toContainText('Saved');
   await expect.poll(async()=>(await request(page,'/api/settings')).value.providers.at(-1).modelId).toBe(await page.getByLabel('Default model ID',{exact:true}).inputValue());
   await page.getByRole('link',{name:'Back to providers',exact:true}).click();
   expect((await request(page,'/api/settings')).value.providers.length).toBe(before+1);
   await page.getByRole('link',{name:'Embeddings',exact:true}).click();
   await page.getByLabel('Embedding model ID').fill('saved-after-cancel');
-  await expect(page.getByRole('status')).toContainText('Saved automatically');
-  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect(page.getByRole('status')).toContainText('Saved');
+  await expect(page.getByRole('status')).toContainText('Saved');
   await page.getByRole('link',{name:'Providers',exact:true}).click();
   await page.getByRole('link',{name:'Embeddings',exact:true}).click();
   await expect(page.getByLabel('Embedding model ID')).toHaveValue('saved-after-cancel');
@@ -1183,13 +1278,13 @@ test('login, empty workspace and missing pages share the workspace design',async
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'test-results/login-mobile.png',fullPage:true});
- await page.getByLabel('Password').fill('incorrect-password');
- await page.getByRole('button',{name:'Log in',exact:true}).click();
+ await page.getByLabel('Password', {exact:true}).fill('incorrect-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('alert')).toContainText('Login failed');
  await page.route('**/api/conversations',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.continue());
- await page.getByLabel('Password').fill('ui-password');
- await page.getByRole('button',{name:'Log in',exact:true}).click();
- await expect(page.getByRole('heading',{name:'A place for your next idea.',exact:true})).toBeVisible();
+ await page.getByLabel('Password', {exact:true}).fill('ui-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'What’s on your mind?',exact:true})).toBeVisible();
  await page.screenshot({path:'test-results/workspace-empty-mobile.png',fullPage:true});
  await page.setViewportSize({width:1280,height:900});
  await page.screenshot({path:'test-results/workspace-empty-desktop.png',fullPage:true});
@@ -1201,23 +1296,17 @@ test('login, empty workspace and missing pages share the workspace design',async
  await expect(page.getByRole('button',{name:'New conversation',exact:true})).toBeVisible();
 });
 
-test('compact model controls preserve drafts and new conversation settings fit mobile',async({page})=>{
+test('compact model controls preserve drafts on mobile',async({page})=>{
  await login(page);await configure(page);
- await page.getByRole('button',{name:'New conversation',exact:true}).click();
- await page.screenshot({path:'test-results/new-conversation-desktop.png',fullPage:true});
+ await create(page);
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.screenshot({path:'test-results/new-conversation-mobile.png',fullPage:true});
- const previous=page.url();
- await page.getByRole('button',{name:'Create conversation',exact:true}).click();
- await expect(page).not.toHaveURL(previous);
  await page.getByLabel('Message',{exact:true}).fill('Help me plan a focused workday.');
- await expect(page.getByLabel('Conversation model ID',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('dialog',{name:'Choose provider and model',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Change model',exact:true}).click();
- await expect(page.getByLabel('Conversation model ID',{exact:true})).toBeVisible();
- await page.getByLabel('Conversation model ID',{exact:true}).focus();
+ await expect(page.getByRole('dialog',{name:'Choose provider and model',exact:true}).getByRole('searchbox')).toHaveCount(0);
  await page.keyboard.press('Escape');
- await expect(page.getByLabel('Conversation model ID',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('dialog',{name:'Choose provider and model',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Change model',exact:true})).toBeFocused();
  await expect(page.getByLabel('Message',{exact:true})).toHaveValue('Help me plan a focused workday.');
  await page.getByRole('button',{name:'Send message',exact:true}).click();
@@ -1231,9 +1320,13 @@ test('compact model controls preserve drafts and new conversation settings fit m
  expect(renamed.status).toBe(200);
  await page.setViewportSize({width:390,height:667});
  await page.reload();
- await expect(page.locator('.model-summary strong')).toHaveText('P'.repeat(100));
+ await expect(page.getByRole('button',{name:'Change model',exact:true})).toHaveText((await request(page,`/api/conversations/${new URL(page.url()).searchParams.get('conversation')}`)).value.selection.modelId);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await expect(page.getByRole('button',{name:'Send message',exact:true})).toBeInViewport();
+ await page.getByRole('button',{name:'Open conversations',exact:true}).click();
+ await page.getByRole('dialog',{name:'Conversations',exact:true}).getByRole('link',{name:'Settings',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Providers',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
 test('returning to Settings synchronizes account status after the provider editor closes',async({page})=>{
@@ -1245,7 +1338,7 @@ test('returning to Settings synchronizes account status after the provider edito
 
  let connected=false;let latency=0;
  await page.route('**/api/providers/*/auth',async r=>{if(latency)await new Promise(resolve=>setTimeout(resolve,latency));await r.fulfill({json:{connected,mode:'oauth'}});});
- await expect(page.getByRole('status')).toContainText('Saved automatically');
+ await expect(page.getByRole('status')).toContainText('Saved');
  await page.getByRole('link',{name:'Back to providers',exact:true}).click();
  const row=page.locator('.provider-row').filter({hasText:'OpenAI Codex'}).last();
  await expect(row).toContainText('Not connected');
@@ -1268,7 +1361,7 @@ test('provider routes preserve browser history and protect unsaved drafts', asyn
   await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
   await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
   const draftUrl = page.url();
-  await expect(page.getByLabel('Default chat provider', {exact:true})).toHaveCount(0);
+  await expect(page.getByRole('group', {name:'Default chat provider',exact:true})).toHaveCount(0);
   await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
   const editedModel=await page.getByLabel('Default model ID',{exact:true}).inputValue();
   await expect.poll(async()=>(await request(page, '/api/settings')).value.providers.at(-1).modelId).toBe(editedModel);
@@ -1280,10 +1373,9 @@ test('provider routes preserve browser history and protect unsaved drafts', asyn
   await page.reload();
   await expect(page).toHaveURL(draftUrl);
   expect((await request(page, '/api/settings')).value.providers.length).toBe(count+1);
-  await page.getByRole('link', {name:'Chat defaults', exact:true}).click();
-  await expect(page.getByLabel('Default chat provider', {exact:true})).toBeVisible();
-  await page.screenshot({path:'test-results/settings-chat-defaults.png',fullPage:true});
   await page.getByRole('link', {name:'Providers', exact:true}).click();
+  await expect(page.getByRole('group', {name:'Default chat provider',exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/providers-default.png',fullPage:true});
   const href = await page.locator('.provider-row').first().getAttribute('href');
   const other = await context.newPage();
   await other.goto(base + href);
@@ -1304,7 +1396,7 @@ test('saving a connection preserves other tabs and the global chat default', asy
   const providers = initial.providers.filter((p:any)=>p.id!==added.id).map(({hasApiKey,...p}:any)=>p);
   await request(page, '/api/settings', {providers:[...providers, added], defaultProviderId:added.id});
   await page.getByLabel('Default model ID', {exact:true}).selectOption('edited-model');
-   await expect(page.getByRole('status')).toContainText('Saved automatically');
+   await expect(page.getByRole('status')).toContainText('Saved');
   const latest = (await request(page, '/api/settings')).value;
   expect(latest.defaultProviderId).toBe(added.id);
   expect(latest.providers.find((p:any)=>p.id===added.id).name).toBe(added.name);
@@ -1349,7 +1441,7 @@ test('catalog provider automatically validates keys and ignores stale model disc
   releaseSlow();
   await page.screenshot({path:'test-results/provider-api-setup.png',fullPage:true});
   await page.getByLabel('Default model ID',{exact:true}).selectOption('kimi-previous');
-  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect(page.getByRole('status')).toContainText('Saved');
   await expect.poll(async()=>{const data=await (await page.request.get(base+'/api/settings')).json();return data.providers.find((p:any)=>p.service==='moonshotai')?.modelId;}).toBe('kimi-previous');
   await page.reload();
   await expect(page.getByLabel('Default model ID',{exact:true})).toHaveValue('kimi-previous');
@@ -1364,10 +1456,19 @@ test('remaining settings autosave defaults and validate embedding keys before pe
   const second={id:'auto-default',name:'Automatic default',baseUrl:modelUrl,modelId:'fixture'};
   await request(page,'/api/settings',{providers:[...initial.providers.map(({hasApiKey,...p}:any)=>p),second]});
   await page.goto(base+'/settings/chat');
-  await page.getByLabel('Default chat provider',{exact:true}).selectOption(second.id);
-  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect(page).toHaveURL(base+'/settings/providers');
+  await expect(page.getByRole('link',{name:'Chat defaults',exact:true})).toHaveCount(0);
+  const defaultButton = page.getByRole('button',{name:`Set ${second.name} as default`,exact:true});
+  await expect(defaultButton).toHaveText('Set default');
+  await expect(defaultButton).toHaveCSS('font-size','11px');
+  await defaultButton.click();
+  await expect(page.getByRole('status')).toContainText('Saved');
   await page.reload();
-  await expect(page.getByLabel('Default chat provider',{exact:true})).toHaveValue(second.id);
+  await expect(page.getByRole('button',{name:`Set ${second.name} as default`,exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('button',{name:`Set ${second.name} as default`,exact:true})).toHaveText('Default');
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/providers-default-mobile.png',fullPage:true});
   await page.getByRole('link',{name:'Embeddings',exact:true}).click();
   await expect(page.getByRole('button',{name:/Save/})).toHaveCount(0);
   const written:string[]=[];
@@ -1381,10 +1482,104 @@ test('remaining settings autosave defaults and validate embedding keys before pe
   expect(written).toEqual([]);
   embedding.fail(false);
   await page.getByLabel('Embedding API key',{exact:true}).fill('verified-key');
-  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect(page.getByRole('status')).toContainText('Saved');
   expect(written).toEqual(['verified-key']);
   expect(embedding.requests.at(-1)?.authorization).toBe('Bearer verified-key');
   await expect(page.getByLabel('Embedding API key',{exact:true})).toHaveValue('');
   await page.reload();
   await expect(page.getByLabel('Embedding API key',{exact:true})).toHaveAttribute('placeholder','Key saved · leave blank to keep');
+});
+
+
+test('button labels retain their theme colors across native and link controls', async ({page}) => {
+ await page.goto(`${base}/login`);
+ const submit = page.getByRole('button', {name:'Sign in', exact:true});
+ await expect(submit).toHaveCSS('color', 'rgb(255, 255, 255)');
+ const toggle = page.getByRole('button', {name:'Show password', exact:true});
+ await expect(toggle).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+ await toggle.evaluate((element: HTMLButtonElement) => element.disabled = true);
+ await expect(toggle).toHaveCSS('color', 'rgb(27, 27, 25)');
+ await login(page);
+ await page.goto(`${base}/settings/providers`);
+ await expect(page.getByRole('link', {name:'Add provider', exact:true})).toHaveCSS('color', 'rgb(255, 255, 255)');
+ await page.goto(`${base}/settings/tools`);
+ await expect(page.getByRole('button', {name:'Replace MCP configuration', exact:true})).toHaveCSS('color', 'rgb(27, 27, 25)');
+});
+
+
+test('model picker overlays chat and preserves the selection on failed save', async ({page}) => {
+ await login(page); await configure(page); await create(page);
+ await request(page,'/api/settings',{chat:{baseUrl:modelUrl,modelId:'second-model',apiKey:'chat-secret'}});
+ await page.reload();
+ const transcript = page.locator('.transcript');
+ const before = await transcript.boundingBox();
+ const chip = page.getByRole('button',{name:'Change model',exact:true});
+ await chip.click();
+ const picker = page.getByRole('dialog',{name:'Choose provider and model',exact:true});
+ await expect(picker).toBeVisible();
+ await expect(picker.getByRole('searchbox')).toHaveCount(0);
+ expect((await picker.boundingBox())!.width).toBeLessThanOrEqual(280);
+ await expect(picker.getByRole('button').first()).toHaveCSS('font-size','12px');
+ expect((await transcript.boundingBox())?.y).toBe(before?.y);
+ await page.screenshot({path:'test-results/model-picker-desktop.png',fullPage:true});
+ const settings = (await request(page,'/api/settings')).value;
+ const provider = settings.providers.find((p:any)=>p.id===settings.defaultProviderId);
+ const group = picker.getByRole('group',{name:provider.name,exact:true});
+ await expect(group.getByRole('button',{name:'fixture',exact:true})).toHaveAttribute('aria-pressed','true');
+ const original = await chip.innerText();
+ await page.route('**/api/conversations/*', route => route.request().method() === 'PATCH'
+   ? route.fulfill({status:503,json:{error:{message:'Model change unavailable'}}}) : route.continue());
+ await group.getByRole('button',{name:'second-model',exact:true}).click();
+ await expect(picker.getByRole('alert')).toContainText('Model change unavailable');
+ await expect(chip).toHaveText(original);
+ await page.unroute('**/api/conversations/*');
+ await group.getByRole('button',{name:'second-model',exact:true}).click();
+ await expect(picker).toHaveCount(0);
+ await expect(chip).toHaveText('second-model');
+ await expect(chip).toBeFocused();
+ await page.setViewportSize({width:390,height:844});
+ await chip.click();
+ const bounds = await picker.boundingBox();
+ expect(bounds!.x).toBeGreaterThanOrEqual(0);
+ expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+ await page.screenshot({path:'test-results/model-picker-mobile.png',fullPage:true});
+ await expect(picker.getByRole('link',{name:'Manage providers',exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(chip).toBeFocused();
+});
+
+
+test('composer sends with command or control Enter and preserves multiline and IME input', async ({page}) => {
+ await login(page); await configure(page); await create(page);
+ const message = page.getByLabel('Message',{exact:true});
+ let posts = 0;
+ page.on('request', request => { if(request.method()==='POST' && new URL(request.url()).pathname.endsWith('/messages')) posts++; });
+ await message.fill('Keyboard first line');
+ await message.press('Enter');
+ await message.press('Shift+Enter');
+ await expect(message).toHaveValue('Keyboard first line\n\n');
+ await message.dispatchEvent('keydown',{key:'Enter',code:'Enter',ctrlKey:true,isComposing:true});
+ expect(posts).toBe(0);
+ await message.press('Meta+Enter');
+ await expect(page.getByText('Keyboard first line',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Send message',exact:true})).toBeVisible();
+ await message.fill('Keyboard control message');
+ await message.press('Control+Enter');
+ await expect(page.getByText('Keyboard control message',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Send message',exact:true})).toBeVisible();
+ await message.fill('   ');
+ await message.press('Control+Enter');
+ expect(posts).toBe(2);
+ await expect(message).toHaveValue('   ');
+ let release!: () => void;
+ const pending = new Promise<void>(resolve => release = resolve);
+ await page.route('**/api/conversations/*/messages', async route => { await pending; await route.continue(); });
+ await message.fill('Keyboard repeated message');
+ await message.press('Meta+Enter');
+ await expect.poll(()=>posts).toBe(3);
+ await message.press('Control+Enter');
+ await message.dispatchEvent('keydown',{key:'Enter',ctrlKey:true,repeat:true});
+ release();
+ await expect(page.getByText('Keyboard repeated message',{exact:true})).toBeVisible();
+ expect(posts).toBe(3);
 });

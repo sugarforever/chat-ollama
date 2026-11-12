@@ -1,46 +1,26 @@
 <script lang="ts">
+  import ChatNavigation from "$lib/components/shell/ChatNavigation.svelte";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import Textarea from "$lib/components/ui/textarea/textarea.svelte";
+  import { SquarePen, ArrowUp, Square, LoaderCircle } from "@lucide/svelte";
   import AppIcon from "$lib/AppIcon.svelte";
-  import ProviderLogo from "$lib/ProviderLogo.svelte";
-  import { onMount } from "svelte";
+  import ModelSelector from "$lib/components/ModelSelector.svelte";
+  import { onMount, tick } from "svelte";
+  import { pushState, replaceState } from "$app/navigation";
   import MarkdownIt from "markdown-it";
   import { api } from "$lib/client";
   import type { ConversationSnapshot } from "$lib/contracts";
   let conversations: any[] = [];
-  let collections: any[] = [];
-  let servers: any[] = [];
-  let selectedCollections: string[] = [];
-  let selectedServers: string[] = [];
-  let modelId = "";
-  let providerId = "";
   let catalog: { id: string; models: { id: string; name: string }[] }[] = [];
-  const choices = (id: string) => {
-    const provider = providers.find(p => p.id === id);
-    return provider?.models?.map(id => ({ id, name: id })) ?? catalog.find(p => p.id === provider?.service)?.models ?? [];
-  };
   let providers: import("$lib/contracts").PublicProvider[] = [];
-  let conversationProvider = "";
-  let conversationModel = "";
   let current = "";
   let snapshot: ConversationSnapshot | undefined;
   let draft = "";
+  let sending = false;
   let error = "";
   let connection = "Connecting";
   let creating = false;
-  let editingModel = false;
-  let modelButton: HTMLButtonElement | undefined;
-  let newButton: HTMLButtonElement | undefined;
-  function closeModelEditor() {
-    editingModel = false;
-    modelButton?.focus();
-  }
-  function startCreation() {
-    editingModel = false;
-    creating = true;
-  }
-  function closeCreation() {
-    creating = false;
-    newButton?.focus();
-  }
+  let loading = true;
   let source: any;
   let stream: EventSource | undefined;
   let validSources = new Set<string>();
@@ -87,14 +67,6 @@
     expectedStreamUpdates = streamUpdates,
   ) {
     if (!active(own, id) || expectedStreamUpdates !== streamUpdates) return;
-    if (
-      next.selection &&
-      (snapshot?.selection?.providerId !== next.selection.providerId ||
-        snapshot?.selection?.modelId !== next.selection.modelId)
-    ) {
-      conversationProvider = next.selection.providerId;
-      conversationModel = next.selection.modelId;
-    }
     snapshot = next;
     void validateCitations();
   }
@@ -104,28 +76,27 @@
     applySnapshot(own, id, next, beforeRead);
   }
   async function refresh() {
-    const [nextConversations, nextCollections, nextMcp] = await Promise.all([
-      api("/api/conversations"),
-      api("/api/knowledge-bases"),
-      api("/api/mcp"),
-    ]);
-    if (disposed) return;
-    conversations = nextConversations;
-    collections = nextCollections;
-    servers = nextMcp.servers;
+    const nextConversations = await api("/api/conversations");
+    if (!disposed) conversations = nextConversations;
   }
-  async function open(id: string) {
+
+  async function open(
+    id: string,
+    navigation: "push" | "replace" | "none" = "push",
+  ) {
     if (disposed) return;
     const own = ++generation;
-    editingModel = false;
     stream?.close();
     if (current !== id) {
       snapshot = undefined;
       source = undefined;
       validSources = new Set();
     }
+    const changed = current !== id;
     current = id;
-    history.replaceState(null, "", `?conversation=${encodeURIComponent(id)}`);
+    const url = `/?conversation=${encodeURIComponent(id)}`;
+    if (navigation === "replace") replaceState(url, {});
+    else if (navigation === "push" && changed) pushState(url, {});
     connection = "Connecting";
     try {
       await readSnapshot(own, id);
@@ -169,47 +140,60 @@
       }
     }
   }
-  async function create() {
+  async function startCreation() {
+    if (creating || loading) return;
+    creating = true;
     const own = generation,
       id = current;
     error = "";
     try {
+      const settings = await api("/api/settings");
+      if (!active(own, id)) return;
+      providers = settings.providers;
+      catalog = settings.catalog;
+      const provider = settings.providers.find(
+        (provider: import("$lib/contracts").PublicProvider) =>
+          provider.id === settings.defaultProviderId,
+      );
+      if (!provider?.modelId)
+        throw new Error(
+          "Choose a default provider and model in Settings → Providers.",
+        );
       const c = await api("/api/conversations", {
-        providerId,
-        modelId,
-        knowledgeBaseIds: selectedCollections,
-        mcpServerIds: selectedServers,
+        providerId: provider.id,
+        modelId: provider.modelId,
+        knowledgeBaseIds: [],
+        mcpServerIds: [],
       });
       if (!active(own, id)) return;
-      creating = false;
       await refresh();
-      if (active(own, id)) await open(c.id);
+      if (active(own, id)) {
+        await open(c.id);
+        await tick();
+        document.getElementById("message")?.focus();
+      }
     } catch (e) {
       if (active(own, id)) error = (e as Error).message;
+    } finally {
+      creating = false;
     }
   }
-  async function selectModel(event: SubmitEvent) {
-    event.preventDefault();
+  async function selectModel(
+    selection: import("$lib/contracts").ProviderSelection,
+  ) {
     const own = generation,
       id = current;
-    error = "";
-    try {
-      const beforeRead = streamUpdates;
-      const next = await api(
-        `/api/conversations/${id}`,
-        { providerId: conversationProvider, modelId: conversationModel },
-        "PATCH",
-      );
-      applySnapshot(own, id, next, beforeRead);
-      if (active(own, id)) closeModelEditor();
-      const list = await api("/api/conversations");
-      if (active(own, id)) conversations = list;
-    } catch (e) {
-      if (active(own, id)) error = (e as Error).message;
-    }
+    const beforeRead = streamUpdates;
+    const next = await api(`/api/conversations/${id}`, selection, "PATCH");
+    if (!active(own, id)) return;
+    applySnapshot(own, id, next, beforeRead);
+    const list = await api("/api/conversations");
+    if (active(own, id)) conversations = list;
   }
   async function send(event: SubmitEvent) {
     event.preventDefault();
+    if (sending || busy || snapshot?.mcpUncertainty || !draft.trim()) return;
+    sending = true;
     const own = generation,
       id = current,
       content = draft;
@@ -224,6 +208,8 @@
       await readSnapshot(own, id);
     } catch (e) {
       if (active(own, id)) error = (e as Error).message;
+    } finally {
+      sending = false;
     }
   }
   async function action(name: string) {
@@ -264,8 +250,20 @@
       connection = "Reconnecting — confirmed messages are saved";
     };
     const online = () => {
-      if (!disposed && current) void open(current);
+      if (!disposed && current) void open(current, "none");
     };
+    const navigateHistory = () => {
+      const selected = new URLSearchParams(location.search).get("conversation");
+      if (selected && selected !== current) void open(selected, "none");
+      else if (!selected) {
+        generation++;
+        stream?.close();
+        current = "";
+        snapshot = undefined;
+        source = undefined;
+      }
+    };
+    window.addEventListener("popstate", navigateHistory);
     window.addEventListener("offline", offline);
     window.addEventListener("online", online);
     void (async () => {
@@ -276,8 +274,6 @@
         if (disposed || initial !== generation) return;
         providers = settings.providers;
         catalog = settings.catalog;
-        providerId = settings.defaultProviderId;
-        modelId = providers.find((p) => p.id === providerId)?.modelId ?? "";
         if (conversations.length) {
           const selected = new URLSearchParams(location.search).get(
             "conversation",
@@ -285,16 +281,20 @@
           await open(
             conversations.find((c) => c.id === selected)?.id ??
               conversations[conversations.length - 1].id,
+            "replace",
           );
         }
       } catch (e) {
         if (!disposed && initial === generation) error = (e as Error).message;
+      } finally {
+        if (!disposed) loading = false;
       }
     })();
     return () => {
       disposed = true;
       generation++;
       stream?.close();
+      window.removeEventListener("popstate", navigateHistory);
       window.removeEventListener("offline", offline);
       window.removeEventListener("online", online);
     };
@@ -306,207 +306,52 @@
   onkeydown={(e) => {
     if (e.key === "Escape") {
       source = undefined;
-      if (creating) closeCreation();
-      if (editingModel) closeModelEditor();
     }
   }}
 />
 <div class="shell">
-  <aside class="sidebar">
-    <a class="brand" href="/" aria-label="Chat Ollama home"
-      ><span class="brand-symbol"><AppIcon /></span>Chat Ollama</a
-    >
-    <button class="primary" bind:this={newButton} onclick={startCreation}
-      ><AppIcon name="plus" />New conversation</button
-    >
-    <div class="sidebar-label">Conversations</div>
-    <nav aria-label="Conversations">
-      {#each conversations as conversation, i}<button
-          class:active={current === conversation.id}
-          onclick={() => open(conversation.id)}
-          ><AppIcon /><span class="conversation-label"
-            ><span>Conversation {i + 1}</span><span class="muted"
-              >{conversation.config.modelId}</span
-            ></span
-          ></button
-        >{/each}
-    </nav>
-    <div class="sidebar-footer">
-      <a href="/settings"><AppIcon name="settings" />Settings</a><span
-        class="muted">Your private workspace</span
-      >
-    </div>
-  </aside>
+  <ChatNavigation
+    {conversations}
+    {current}
+    onselect={(id) => {
+      void open(id);
+    }}
+    onnew={startCreation}
+    creating={creating || loading}
+  />
   <main class="main">
     <header class="topbar">
-      <div class="breadcrumbs">
-        <span>Workspace</span><span>/</span><strong
-          >{creating
-            ? "New conversation"
-            : current
-              ? "Conversation"
-              : "Chat"}</strong
-        >
-      </div>
-      <span
-        class="status connection"
-        class:online={connection === "Connected" || !current}
-        >{current ? connection : "Private · persistent"}</span
+      <h1 class="top-title">
+        {current
+          ? `Conversation ${conversations.findIndex((c) => c.id === current) + 1}`
+          : "ChatOllama"}
+      </h1>
+      {#if snapshot?.selection}
+        {#key current}<ModelSelector
+            {providers}
+            {catalog}
+            selection={snapshot.selection}
+            onselect={selectModel}
+          />{/key}
+      {/if}
+      <Button
+        variant="ghost"
+        size="icon"
+        class="mobile-new"
+        aria-label="New conversation"
+        title="New conversation"
+        disabled={creating || loading}
+        onclick={startCreation}><SquarePen size={18} /></Button
       >
     </header>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <datalist id="new-model-options"
-      >{#each choices(providerId) as m}<option value={m.id}>{m.id}</option
-        >{/each}</datalist
-    >
-    <datalist id="conversation-model-options"
-      >{#each choices(conversationProvider) as m}<option value={m.id}
-          >{m.id}</option
-        >{/each}</datalist
-    >
-    {#if creating}<section
-        class="creation card stack"
-        aria-label="New conversation settings"
+    {#if current && connection !== "Connected"}<p
+        class="connection-line"
+        role="status"
       >
-        <div class="creation-heading">
-          <div>
-            <span class="eyebrow">CHAT</span>
-            <h1>New conversation</h1>
-            <p class="muted">
-              Choose a model, then add knowledge and tools if you need them.
-            </p>
-          </div>
-          <button
-            class="icon-button"
-            aria-label="Cancel new conversation"
-            onclick={closeCreation}><AppIcon name="close" /></button
-          >
-        </div>
-        <div class="creation-models">
-          <label
-            >Provider<select
-              aria-label="Provider"
-              bind:value={providerId}
-              onchange={() => {
-                modelId =
-                  providers.find((p) => p.id === providerId)?.modelId ?? "";
-              }}
-              >{#each providers as p}<option value={p.id}>{p.name}</option
-                >{/each}</select
-            ></label
-          >
-          <label
-            >Model ID<input
-              bind:value={modelId}
-              list="new-model-options"
-              required
-              maxlength="200"
-            /></label
-          >
-        </div>
-        <div class="creation-options">
-          <div class="option-group">
-            <h3><AppIcon name="book" />Knowledge collections</h3>
-            {#each collections as c}<label class="check"
-                ><input
-                  type="checkbox"
-                  bind:group={selectedCollections}
-                  value={c.id}
-                />{c.name}{c.needsReindex ? " · reindex required" : ""}</label
-              >{/each}{#if !collections.length}<p class="muted">
-                Add collections in Settings.
-              </p>{/if}
-          </div>
-          <div class="option-group">
-            <h3><AppIcon name="tools" />MCP servers</h3>
-            <p class="muted">
-              Selected servers may act without per-call approval.
-            </p>
-            {#each servers as s}<label class="check"
-                ><input
-                  type="checkbox"
-                  bind:group={selectedServers}
-                  value={s.id}
-                />{s.id}</label
-              >{/each}
-          </div>
-        </div>
-        <div class="row creation-actions">
-          <button class="primary" onclick={create}>Create conversation</button
-          ><button onclick={closeCreation}>Cancel</button>
-        </div>
-      </section>
-    {:else if snapshot}
-      <div class="model-toolbar">
-        <div class="model-summary">
-          <ProviderLogo
-            service={providers.find(
-              (p) => p.id === snapshot?.selection?.providerId,
-            )?.service}
-            name={providers.find(
-              (p) => p.id === snapshot?.selection?.providerId,
-            )?.name ?? ""}
-            baseUrl={providers.find(
-              (p) => p.id === snapshot?.selection?.providerId,
-            )?.baseUrl ?? ""}
-          /><span
-            ><strong
-              >{providers.find((p) => p.id === snapshot?.selection?.providerId)
-                ?.name ?? "Unavailable provider"}</strong
-            ><span class="muted">{snapshot.selection?.modelId}</span></span
-          >
-        </div>
-        <button
-          class="subtle"
-          bind:this={modelButton}
-          aria-expanded={editingModel}
-          aria-controls="model-editor"
-          onclick={() => (editingModel = !editingModel)}
-          >Change model<AppIcon name="chevron" size={14} /></button
-        >
-      </div>
-      {#if editingModel}<form
-          id="model-editor"
-          class="model-editor"
-          onsubmit={selectModel}
-        >
-          <label
-            >Conversation provider<select
-              aria-label="Conversation provider"
-              bind:value={conversationProvider}
-              onchange={() => {
-                conversationModel =
-                  providers.find((p) => p.id === conversationProvider)
-                    ?.modelId ?? "";
-              }}
-            >
-              {#if !providers.some((p) => p.id === conversationProvider)}<option
-                  value={conversationProvider}
-                  >Unavailable provider · choose another</option
-                >{/if}
-              {#each providers as p}<option value={p.id}>{p.name}</option
-                >{/each}
-            </select></label
-          >
-          <label
-            >Conversation model ID<input
-              bind:value={conversationModel}
-              list="conversation-model-options"
-              required
-              maxlength="200"
-            /></label
-          >
-          <button
-            disabled={!providers.some((p) => p.id === conversationProvider) ||
-              !conversationModel.trim()}>Apply to next message</button
-          >
-          <span class="muted"
-            >Saved: {providers.find(
-              (p) => p.id === snapshot?.selection?.providerId,
-            )?.name ?? "Unavailable provider"} · {snapshot.selection?.modelId}.
-            Changes apply to subsequent input.</span
-          >
-        </form>{/if}
+        <LoaderCircle size={14} class="animate-spin" />{connection}
+      </p>{/if}
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if snapshot}
       {#if snapshot.status === "failed"}
         <p class="error" role="status">
           Run failed. Check your provider authentication and model settings,
@@ -558,43 +403,70 @@
             Check the external system before continuing. Acknowledging does not
             repeat the action.
           </p>
-          <button disabled={busy} onclick={() => action("acknowledge")}
-            >I checked the outcome — acknowledge</button
+          <Button disabled={busy} onclick={() => action("acknowledge")}
+            >I checked the outcome — acknowledge</Button
           >
         </div>{/if}
-      <form class="composer stack" onsubmit={send}>
-        <label for="message" class="composer-label">Message</label><textarea
-          id="message"
-          bind:value={draft}
-          placeholder="Ask anything…"
-          disabled={busy || !!snapshot.mcpUncertainty}></textarea>
-        <div class="row composer-actions">
-          {#if busy}<button
+      <form class="composer-wrap" onsubmit={send}>
+        <div class="composer" class:working={busy}>
+          <label for="message" class="composer-label">Message</label><Textarea
+            id="message"
+            class={busy ? "composer-input-busy" : ""}
+            bind:value={draft}
+            placeholder="Message"
+            rows={1}
+            aria-keyshortcuts="Meta+Enter Control+Enter"
+            onkeydown={(event) => {
+              if (
+                event.key !== "Enter" ||
+                event.isComposing ||
+                event.keyCode === 229 ||
+                event.shiftKey ||
+                event.altKey ||
+                !(event.metaKey || event.ctrlKey)
+              )
+                return;
+              event.preventDefault();
+              if (!event.repeat) event.currentTarget.form?.requestSubmit();
+            }}
+            disabled={busy || !!snapshot.mcpUncertainty}
+          ></Textarea>
+          {#if busy}<div class="composer-progress" role="status">
+              <LoaderCircle size={14} class="animate-spin" aria-hidden="true" />
+              <span
+                >{snapshot.status === "cancelling"
+                  ? "Stopping…"
+                  : "Responding…"}</span
+              >
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
               type="button"
+              class="stop-button"
+              aria-label="Stop"
+              title="Stop"
               onclick={() => action("stop")}
-              disabled={snapshot.status === "cancelling"}>Stop</button
-            ><span class="muted"
-              >{snapshot.status === "cancelling"
-                ? "Stopping…"
-                : "Working…"}</span
-            >{:else}<button
-              class="primary"
-              disabled={!draft.trim() || !!snapshot.mcpUncertainty}
-              ><AppIcon name="send" size={16} />Send message</button
-            >{/if}<span class="muted composer-note"
-            >Work continues when you close this browser. Use Stop to cancel.</span
-          >
+              disabled={snapshot.status === "cancelling"}
+              ><Square size={12} fill="currentColor" /></Button
+            >
+          {:else}<Button
+              type="submit"
+              class="send-button"
+              aria-label="Send message"
+              title="Send message (⌘/Ctrl+Enter)"
+              disabled={sending || !draft.trim() || !!snapshot.mcpUncertainty}
+              ><ArrowUp size={20} /></Button
+            >{/if}
         </div>
       </form>{:else}<div class="workspace-empty">
-        <div class="empty-symbol"><AppIcon size={28} /></div>
-        <span class="eyebrow">YOUR WORKSPACE</span>
-        <h1>A place for your next idea.</h1>
-        <p class="muted">
-          Start a conversation with your models.<br />Bring your knowledge and
-          tools when you need them.
-        </p>
-        <button class="primary" onclick={startCreation}
-          >Start a conversation<AppIcon name="arrow" size={16} /></button
+        <h1>What’s on your mind?</h1>
+        <p class="muted">Start a conversation with your default model.</p>
+        <Button
+          class="primary"
+          disabled={creating || loading}
+          onclick={startCreation}
+          >Start a conversation<AppIcon name="arrow" size={16} /></Button
         ><a href="/settings" class="empty-settings"
           >Manage models and connections</a
         >
@@ -603,14 +475,14 @@
 </div>
 {#if source}<aside class="source" aria-label="Source excerpt">
     <div class="source-header">
-      <span class="eyebrow">KNOWLEDGE / SOURCE</span><button
+      <span class="eyebrow">KNOWLEDGE / SOURCE</span><Button
+        variant="ghost"
         class="subtle"
         onclick={() => (source = undefined)}
-        ><AppIcon name="close" size={16} />Close source</button
+        ><AppIcon name="close" size={16} />Close source</Button
       >
     </div>
     <h2>{source.title}</h2>
     {#if source.page}<p class="muted">Page {source.page}</p>{/if}
     <p style="white-space:pre-wrap">{source.text}</p>
-    <p class="muted">Source: {source.sourceId}</p>
   </aside>{/if}

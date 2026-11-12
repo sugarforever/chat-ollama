@@ -318,10 +318,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #edf6ef;
-    border: 1px solid #d4e6d9;
-    color: #315f49;
-    padding: 12px;
+    background: transparent;
+    border: 0;
+    color: var(--success);
+    padding: 8px 0;
     border-radius: 8px;
     font-size: 13px;
   }

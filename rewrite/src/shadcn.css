@@ -3,33 +3,44 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
 @theme inline {
- --color-background:var(--canvas);
- --color-foreground:var(--text);
- --color-card:var(--surface);
- --color-card-foreground:var(--text);
- --color-popover:var(--surface);
- --color-popover-foreground:var(--text);
- --color-primary:#315f49;
- --color-primary-foreground:#fff;
- --color-secondary:#edf0f3;
- --color-secondary-foreground:#292c34;
- --color-muted:#f3f4f6;
- --color-muted-foreground:#676e7b;
- --color-accent:#edf0f3;
- --color-accent-foreground:#292c34;
- --color-destructive:#a34038;
- --color-border:#e1e3e8;
- --color-input:#d5d9e0;
- --color-ring:#527e68;
- --radius-sm:6px;
- --radius-md:8px;
- --radius-lg:10px;
- --radius-xl:12px;
+  --color-background: var(--canvas);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: #1b1b19;
+  --color-primary-foreground: #fff;
+  --color-secondary: #efefec;
+  --color-secondary-foreground: #1b1b19;
+  --color-muted: #f7f7f5;
+  --color-muted-foreground: #5c5c57;
+  --color-accent: #efefec;
+  --color-accent-foreground: #1b1b19;
+  --color-destructive: #be3329;
+  --color-border: #e5e4e0;
+  --color-input: #d3d2cd;
+  --color-ring: #3346c9;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
 }
 
-:root {--secondary:#edf0f3;--foreground:#292c34;--primary:#315f49;--destructive:#a34038;}
+:root {
+  --secondary: #efefec;
+  --foreground: #1b1b19;
+  --primary: #1b1b19;
+  --destructive: #be3329;
+}
 
 @layer base {
-  a[data-slot] { color: inherit; text-decoration: none; }
-  [data-slot] { box-sizing: border-box; border-color: var(--border); }
+  a[data-slot] {
+    color: inherit;
+    text-decoration: none;
+  }
+  [data-slot] {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
 }

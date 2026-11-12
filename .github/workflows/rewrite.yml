@@ -27,14 +27,14 @@ jobs:
       - run: pnpm check
       - run: pnpm build
       - run: pnpm exec playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rewrite-test-results
+          path: rewrite/test-results/
       - run: docker compose config --quiet
         env:
           ADMIN_PASSWORD: ci-config-only
       - run: sh tests/container-smoke.sh
         env:
           COMPOSE_PROJECT_NAME: pi-rewrite-ci
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: rewrite-test-results
-          path: rewrite/test-results/
