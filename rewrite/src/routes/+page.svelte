@@ -355,12 +355,12 @@
     </header>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <datalist id="new-model-options"
-      >{#each choices(providerId) as m}<option value={m.id}>{m.name}</option
+      >{#each choices(providerId) as m}<option value={m.id}>{m.id}</option
         >{/each}</datalist
     >
     <datalist id="conversation-model-options"
       >{#each choices(conversationProvider) as m}<option value={m.id}
-          >{m.name}</option
+          >{m.id}</option
         >{/each}</datalist
     >
     {#if creating}<section

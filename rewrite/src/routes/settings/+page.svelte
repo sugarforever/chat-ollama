@@ -540,7 +540,7 @@
                             settings = { ...settings };
                           }}
                           >{#each settings.catalog.find((v: any) => v.id === p.service)?.models ?? [] as model}<option
-                              value={model.id}>{model.name} · {model.id}</option
+                              value={model.id}>{model.id}</option
                             >{/each}</select
                         ></label
                       >
