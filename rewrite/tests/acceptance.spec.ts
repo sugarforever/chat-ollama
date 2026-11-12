@@ -18,6 +18,10 @@ test.beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "ui-"));
   embedding = await embeddingServer();
   model = createServer(async (req, res) => {
+    if (req.method === "GET" && req.url?.endsWith("/models")) {
+      res.writeHead(200, {"content-type":"application/json"});
+      res.end(JSON.stringify({data:[{id:"fixture",created:1},{id:"second-model",created:2},{id:"edited-model",created:3},{id:"second-selected-model",created:4}]})); return;
+    }
     let raw = "";
     for await (const p of req) raw += p;
     const body = JSON.parse(raw);
@@ -87,7 +91,9 @@ test.beforeAll(async () => {
     } else
       emit({
         role: "assistant",
-        content: String(last).startsWith("history ")
+        content: String(last) === "Help me plan a focused workday."
+          ? "## A focused workday\nStart with one clear priority, then give it your best attention.\n\n- **Morning:** protect a 90-minute focus block.\n- **Afternoon:** group meetings and smaller tasks.\n- **Before you finish:** choose tomorrow’s first step."
+          : String(last).startsWith("history ")
           ? "## Orchard answer\nI can continue with the conversation history."
           : `## Orchard answer\nApples grow here. [Notes](/sources/${sourceId}) [Invented](/sources/invented) [Unsafe](javascript:alert(1))\n<script>window.attacked=true</script>`,
       });
@@ -187,23 +193,21 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Models", exact: true }),
+    page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Default model ID").fill("fixture");
-  await page
-    .getByRole("button", { name: "Save providers", exact: true })
-    .click();
-  await expect(page.getByRole("status")).toContainText("Providers saved");
+  await page.locator(".provider-row").first().click();
+  await page.getByLabel("Default model ID").selectOption("edited-model");
+  await expect(page.getByRole("status")).toContainText("Saved automatically");
+  await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
+  await page.getByRole("link", {name:"Embeddings",exact:true}).click();
   await expect(page.getByLabel("Embedding model ID")).toHaveValue(
     embedding.config.modelId,
   );
-  await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
+  await page.getByRole("link", {name:"MCP servers",exact:true}).click();
   await page
     .getByRole("button", { name: "Replace MCP configuration", exact: true })
     .click();
-  await expect(
-    page.getByRole("button", { name: "Save complete replacement" }),
-  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save complete replacement" })).toHaveCount(0);
   await page.getByLabel("Complete MCP configuration JSON").fill(
     JSON.stringify([
       {
@@ -217,9 +221,8 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await page
     .getByLabel("I intend to replace all servers and their secrets")
     .check();
-  await page.getByRole("button", { name: "Save complete replacement" }).click();
   await expect(page.getByRole("status")).toContainText(
-    "MCP configuration replaced",
+    "Saved automatically",
   );
   expect(JSON.stringify((await request(page, "/api/mcp")).value)).not.toContain(
     "mcp-secret",
@@ -240,7 +243,6 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await page
     .getByLabel("I intend to replace all servers and their secrets")
     .check();
-  await page.getByRole("button", { name: "Save complete replacement" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "not redacted presence flags",
   );
@@ -263,6 +265,7 @@ test("upload indexing, scoped citations, expandable tools and hostile markdown",
   await login(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("link", {name:"Knowledge",exact:true}).click();
   await page.getByLabel("Collection name").fill("Orchard");
   await page.getByRole("button", { name: "Add collection" }).click();
   const collection = page.locator("article").filter({
@@ -379,6 +382,7 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
   await login(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("link", {name:"Knowledge",exact:true}).click();
   await page.getByLabel("Collection name").fill("Retry notes");
   await page.getByRole("button", { name: "Add collection" }).click();
   const collection = page.locator("article").filter({
@@ -405,8 +409,10 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
   await expect(collection.getByText(/Rebuild warning/)).toBeVisible();
   await expect(collection.getByText("Ready · published")).toBeVisible();
   embedding.fail(false);
+  await page.getByRole("link", {name:"Embeddings",exact:true}).click();
   await page.getByLabel("Embedding model ID").fill("changed-fixture");
-  await page.getByRole("button", { name: "Save embedding settings" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved automatically");
+  await page.getByRole("link", {name:"Knowledge",exact:true}).click();
   await expect(
     collection.getByText("Reindex required", { exact: true }),
   ).toBeVisible();
@@ -506,7 +512,7 @@ test("failed run shows an actionable status without exposing provider details", 
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(
     page.getByText(
-      "Run failed. Check your model settings, then send a new message.",
+      "Run failed. Check your provider authentication and model settings, then send a new message.",
       { exact: true },
     ),
   ).toBeVisible({ timeout: 25000 });
@@ -720,7 +726,7 @@ for (const phase of ["catalogue", "settings", "snapshot"])
     await delay.ready;
     await page.getByRole("link", { name: "Settings", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Models", exact: true }),
+      page.getByRole("heading", { name: "Settings", exact: true }),
     ).toBeVisible();
     const done = page.waitForResponse((r) => r.url().endsWith(path));
     delay.release();
@@ -901,19 +907,19 @@ test("named providers can be saved in Settings and switched within a conversatio
   await login(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page.getByRole("link", { name: "Add provider", exact: true }).click();
+  await page.getByRole("link", {name:"Custom provider",exact:true}).click();
   const card = page.getByRole("group", { name: "Provider New provider", exact: true });
   await card.getByLabel("Provider name", { exact: true }).fill("Second provider");
   const second = page.getByRole("group", { name: "Provider Second provider", exact: true });
   await second.getByLabel("Base URL", { exact: true }).fill(modelUrl);
-  await second.getByLabel("Default model ID", { exact: true }).fill("second-model");
   await second.getByLabel("API key", { exact: true }).fill("second-private-key");
-  await page.getByRole("button", { name: "Save providers", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Providers saved");
+  await second.getByLabel("Default model ID", { exact: true }).selectOption("second-model");
+  await expect(page.getByRole("status")).toContainText("Saved automatically");
   await expect(second.getByLabel("API key", { exact: true })).toHaveValue("");
   await page.reload();
   await expect(second.getByLabel("API key", { exact: true })).toHaveAttribute("placeholder", "Key saved · leave blank to keep");
-  await page.locator("main.settings > section").first().screenshot({ path: "test-results/provider-settings.png" });
+  await page.locator(".settings-content > section").first().screenshot({ path: "test-results/provider-settings.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -923,11 +929,13 @@ test("named providers can be saved in Settings and switched within a conversatio
   await page.getByLabel("Message", { exact: true }).fill("history before switching");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orchard answer" })).toBeVisible();
+  await page.getByRole("button",{name:"Change model",exact:true}).click();
   await page.getByLabel("Conversation provider", { exact: true }).selectOption({ label: "Second provider" });
   await page.getByLabel("Conversation model ID", { exact: true }).fill("second-selected-model");
   await page.getByRole("button", { name: "Apply to next message", exact: true }).click();
   await expect.poll(async () => (await request(page, `/api/conversations/${id}`)).value.selection.modelId).toBe("second-selected-model");
   await page.reload();
+  await page.getByRole("button",{name:"Change model",exact:true}).click();
   await expect(page.getByLabel("Conversation model ID", { exact: true })).toHaveValue("second-selected-model");
   await expect(page.getByText("history before switching", { exact: true })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("conversation")).toBe(id);
@@ -935,4 +943,448 @@ test("named providers can be saved in Settings and switched within a conversatio
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orchard answer" })).toHaveCount(2);
   await page.screenshot({ path: "test-results/provider-switch.png", fullPage: true });
+});
+
+// Verifies the real provider UI and official OAuth interaction without using a personal account.
+test('native service presets, secret setup and Codex subscription login are distinct',async({page,context})=>{
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await login(page);await configure(page);
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Anthropic');
+ await page.locator('.vendor[href*="auth=api_key"]').filter({hasText:'Anthropic'}).click();
+ let card=page.getByRole('group',{name:'Provider Anthropic',exact:true});
+ const known=(await request(page,'/api/settings')).value.catalog.find((p:any)=>p.id==='anthropic').models[0].id;
+ await page.route('**/api/providers/models',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({models:[known,'claude-newly-released'],defaultModelId:'claude-newly-released'})}));
+ await expect(card.getByLabel('Model service',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Default model ID',{exact:true})).toHaveCount(0);
+ await expect(card.getByText('https://api.anthropic.com',{exact:true})).toBeVisible();
+ await card.getByLabel('API key',{exact:true}).fill('native-ui-secret');
+ await expect(card.getByLabel('Default model ID',{exact:true})).toHaveValue('claude-newly-released');
+ await expect(page.getByRole('status')).toContainText('Saved automatically');
+ await expect(card.getByLabel('API key',{exact:true})).toHaveValue('');
+ expect(JSON.stringify((await request(page,'/api/settings')).value)).not.toContain('native-ui-secret');
+ await expect(card.getByText('Connection verified',{exact:false})).toBeVisible();
+ await card.screenshot({path:'test-results/native-provider-api.png'});
+ await expect(card.getByLabel('Model service',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Provider name',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Base URL',{exact:true})).toHaveCount(0);
+ await page.getByRole('link',{name:'Back to providers',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+ card=page.getByRole('group',{name:'Provider OpenAI Codex',exact:true});
+ await expect(card.getByText('Account login / OAuth',{exact:true})).toBeVisible();
+ await expect(card.getByLabel('API key',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Base URL',{exact:true})).toHaveCount(0);
+ // A failed save must not start login against the old server-side service.
+ let loginRequests=0;
+ page.on('request',r=>{if(r.method()==='POST'&&r.url().includes('/api/providers/')&&r.url().endsWith('/auth'))loginRequests++;});
+ await page.route('**/api/settings',route=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:{message:'Cannot save providers'}})}));
+ await card.getByRole('button',{name:'Connect account',exact:true}).click();
+ await expect(card.getByRole('alert')).toContainText('Cannot save providers');
+ expect(loginRequests).toBe(0);
+ await page.unroute('**/api/settings');
+ // Connecting a new subscription must save its configuration before login.
+ const popupReady=page.waitForEvent('popup');
+ await card.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL(/^https:\/\/auth\.openai\.com\//);
+ await expect(card.getByRole('link',{name:'Open official login',exact:true})).toBeVisible();
+ await expect(card.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
+ await card.screenshot({path:'test-results/codex-oauth-login.png'});
+ await card.getByRole('button',{name:'Cancel login',exact:true}).click();
+ await expect(card.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await card.screenshot({path:'test-results/provider-oauth-mobile.png'});
+});
+
+test('settings catalog saves subscription defaults automatically and keeps sections independent', async({page})=>{
+  await login(page); await configure(page);
+  await page.getByRole('link',{name:'Settings',exact:true}).click();
+  await page.screenshot({path:'test-results/settings-providers.png',fullPage:true});
+  const before=(await request(page,'/api/settings')).value.providers.length;
+  await page.getByRole('link',{name:'Add provider',exact:true}).click();
+  await expect.poll(()=>page.locator('.vendor img').count()).toBeGreaterThan(10);
+  await expect.poll(()=>page.locator('.vendor img').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth>0))).toBe(true);
+  await page.screenshot({path:'test-results/settings-catalog.png',fullPage:true});
+  await page.getByLabel('Find a vendor').fill('Codex');
+  await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+  await expect(page.getByLabel('Model service',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
+  await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect.poll(async()=>(await request(page,'/api/settings')).value.providers.at(-1).modelId).toBe(await page.getByLabel('Default model ID',{exact:true}).inputValue());
+  await page.getByRole('link',{name:'Back to providers',exact:true}).click();
+  expect((await request(page,'/api/settings')).value.providers.length).toBe(before+1);
+  await page.getByRole('link',{name:'Embeddings',exact:true}).click();
+  await page.getByLabel('Embedding model ID').fill('saved-after-cancel');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await page.getByRole('link',{name:'Providers',exact:true}).click();
+  await page.getByRole('link',{name:'Embeddings',exact:true}).click();
+  await expect(page.getByLabel('Embedding model ID')).toHaveValue('saved-after-cancel');
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('link',{name:'Providers',exact:true}).click();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.getByRole('button',{name:'Log out',exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/settings-mobile.png',fullPage:true});
+});
+
+test('connect account opens official login automatically and completes without another app action', async({page,context})=>{
+ await page.addInitScript(()=>{
+  const open=window.open.bind(window);
+  window.open=(url,target,features)=>{(window as any).__authPopupFeatures=features;return open(url,target,features);};
+ });
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+ let flow:any;let connected=false;const answers:string[]=[];
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  if(body.action==='start') flow={id:'browser-flow',status:'pending',events:[],prompt:{id:'method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'},{id:'device_code',label:'Device code login (headless)'}]}};
+  if(body.action==='answer') {answers.push(body.value);flow={id:'browser-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=test',instructions:'A browser window should open. Complete login to finish.'}],prompt:{id:'manual',type:'manual_code',message:'Paste authorization code'}};}
+  await route.fulfill({json:{connected,mode:'oauth',...(flow?{flow:connected?{...flow,status:'connected',events:[],prompt:undefined}:flow}:{})}});
+ });
+ const popupReady=page.waitForEvent('popup',{timeout:5000});
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=test');
+ expect(answers).toEqual(['browser']);
+ expect(await page.evaluate(()=>(window as any).__authPopupFeatures)).toMatch(/popup=yes/);
+ expect(await popup.evaluate(()=>innerWidth)).toBeLessThanOrEqual(520);
+ expect(await popup.evaluate(()=>innerHeight)).toBeLessThanOrEqual(720);
+ expect(await popup.evaluate(()=>window.opener===null)).toBe(true);
+ await expect(page.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();
+ connected=true;
+ await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(page.getByText('Account connected.',{exact:true})).toBeVisible();
+ await page.getByRole('group',{name:'Provider OpenAI Codex',exact:true}).screenshot({path:'test-results/oauth-connected.png'});
+ await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+});
+
+
+test('blocked login windows retain an explicit official login fallback',async({page})=>{
+ await page.addInitScript(()=>{window.open=()=>null;});
+ await login(page);await configure(page);
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+ let pending=false;
+ await page.route('**/api/providers/*/auth',async route=>{
+  if(route.request().method()==='POST')pending=true;
+  await route.fulfill({json:{connected:false,mode:'oauth',...(pending?{flow:{id:'blocked-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=blocked'}]}}:{})}});
+ });
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ await expect(page.getByText('The sign-in window could not be opened.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Open official login',exact:true})).toHaveAttribute('href','https://auth.openai.com/oauth/authorize?state=blocked');
+});
+
+test('cancelled automatic method responses cannot redirect a restarted login',async({page,context})=>{
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+ let starts=0;let phase='idle';let release!:()=>void;let captured!:()=>void;
+ const held=new Promise<void>(r=>release=r);const ready=new Promise<void>(r=>captured=r);
+ const method={id:'old',status:'pending',events:[],prompt:{id:'old-method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'}]}};
+ const auth=(state:string)=>({id:state,status:'pending',events:[{type:'auth_url',url:`https://auth.openai.com/oauth/authorize?state=${state}`}]});
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  let flow:any;
+  if(body.action==='start'){starts++;phase=starts===1?'method':'new';flow=starts===1?{id:'old',status:'pending',events:[]}:auth('new');}
+  else if(body.action==='answer'){captured();await held;flow=auth('old');}
+  else if(body.action==='cancel'){phase='cancelled';flow={id:'old',status:'cancelled',events:[]};}
+  else flow=phase==='method'?method:phase==='new'?auth('new'):undefined;
+  await route.fulfill({json:{connected:false,mode:'oauth',...(flow?{flow}:{})}});
+ });
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ await ready;
+ await page.getByRole('button',{name:'Cancel login',exact:true}).click();
+ const popupReady=page.waitForEvent('popup');
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=new');
+ const returned=page.waitForResponse(r=>r.url().endsWith('/auth')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='answer');
+ release();await returned;
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>resolve(null))));
+ await expect(page.getByRole('link',{name:'Open official login',exact:true})).toHaveAttribute('href','https://auth.openai.com/oauth/authorize?state=new');
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=new');
+});
+
+test('automatic browser method selection retries a transient failure', async({page,context})=>{
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+ let flow:any;let connected=false;const answers:string[]=[];
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  if(body.action==='start') flow={id:'browser-flow',status:'pending',events:[],prompt:{id:'method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'},{id:'device_code',label:'Device code login (headless)'}]}};
+  if(body.action==='answer') {answers.push(body.value);if(answers.length===1){await route.fulfill({status:503,json:{error:{message:'Temporary login interruption'}}});return;}flow={id:'browser-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=test',instructions:'A browser window should open. Complete login to finish.'}],prompt:{id:'manual',type:'manual_code',message:'Paste authorization code'}};}
+  await route.fulfill({json:{connected,mode:'oauth',...(flow?{flow:connected?{...flow,status:'connected',events:[],prompt:undefined}:body.action==='start'?{...flow,prompt:undefined}:flow}:{})}});
+ });
+ const popupReady=page.waitForEvent('popup',{timeout:5000});
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=test');
+ expect(answers).toEqual(['browser','browser']);
+ expect(await popup.evaluate(()=>window.opener===null)).toBe(true);
+ await expect(page.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();
+ connected=true;
+ await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+});
+
+
+test('automatic browser method selection retries when start already contains a prompt', async({page,context})=>{
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+ let flow:any;let connected=false;const answers:string[]=[];
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  if(body.action==='start') flow={id:'browser-flow',status:'pending',events:[],prompt:{id:'method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'},{id:'device_code',label:'Device code login (headless)'}]}};
+  if(body.action==='answer') {answers.push(body.value);if(answers.length===1){await route.fulfill({status:503,json:{error:{message:'Temporary login interruption'}}});return;}flow={id:'browser-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=test',instructions:'A browser window should open. Complete login to finish.'}],prompt:{id:'manual',type:'manual_code',message:'Paste authorization code'}};}
+  await route.fulfill({json:{connected,mode:'oauth',...(flow?{flow:connected?{...flow,status:'connected',events:[],prompt:undefined}:flow}:{})}});
+ });
+ const popupReady=page.waitForEvent('popup',{timeout:5000});
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=test');
+ expect(answers).toEqual(['browser','browser']);
+ expect(await popup.evaluate(()=>window.opener===null)).toBe(true);
+ await expect(page.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();
+ connected=true;
+ await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+});
+
+
+test('login, empty workspace and missing pages share the workspace design',async({page})=>{
+ await page.goto(`${base}/login`);
+ await page.screenshot({path:'test-results/login-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/login-mobile.png',fullPage:true});
+ await page.getByLabel('Password').fill('incorrect-password');
+ await page.getByRole('button',{name:'Log in',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('Login failed');
+ await page.route('**/api/conversations',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.continue());
+ await page.getByLabel('Password').fill('ui-password');
+ await page.getByRole('button',{name:'Log in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'A place for your next idea.',exact:true})).toBeVisible();
+ await page.screenshot({path:'test-results/workspace-empty-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1280,height:900});
+ await page.screenshot({path:'test-results/workspace-empty-desktop.png',fullPage:true});
+ const response=await page.goto(`${base}/page-that-does-not-exist`);
+ expect(response?.status()).toBe(404);
+ await expect(page.getByRole('heading',{name:'This page isn’t here.',exact:true})).toBeVisible();
+ await page.screenshot({path:'test-results/error-page.png',fullPage:true});
+ await page.getByRole('link',{name:'Back to workspace',exact:true}).click();
+ await expect(page.getByRole('button',{name:'New conversation',exact:true})).toBeVisible();
+});
+
+test('compact model controls preserve drafts and new conversation settings fit mobile',async({page})=>{
+ await login(page);await configure(page);
+ await page.getByRole('button',{name:'New conversation',exact:true}).click();
+ await page.screenshot({path:'test-results/new-conversation-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/new-conversation-mobile.png',fullPage:true});
+ const previous=page.url();
+ await page.getByRole('button',{name:'Create conversation',exact:true}).click();
+ await expect(page).not.toHaveURL(previous);
+ await page.getByLabel('Message',{exact:true}).fill('Help me plan a focused workday.');
+ await expect(page.getByLabel('Conversation model ID',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Change model',exact:true}).click();
+ await expect(page.getByLabel('Conversation model ID',{exact:true})).toBeVisible();
+ await page.getByLabel('Conversation model ID',{exact:true}).focus();
+ await page.keyboard.press('Escape');
+ await expect(page.getByLabel('Conversation model ID',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Change model',exact:true})).toBeFocused();
+ await expect(page.getByLabel('Message',{exact:true})).toHaveValue('Help me plan a focused workday.');
+ await page.getByRole('button',{name:'Send message',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'A focused workday',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/chat-redesign-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1280,height:900});
+ await page.screenshot({path:'test-results/chat-redesign-desktop.png',fullPage:true});
+ const saved=(await request(page,'/api/settings')).value;
+ const renamed=await request(page,'/api/settings',{defaultProviderId:saved.defaultProviderId,providers:saved.providers.map(({hasApiKey,...provider}:any)=>({...provider,name:provider.id===saved.defaultProviderId?'P'.repeat(100):provider.name}))});
+ expect(renamed.status).toBe(200);
+ await page.setViewportSize({width:390,height:667});
+ await page.reload();
+ await expect(page.locator('.model-summary strong')).toHaveText('P'.repeat(100));
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(page.getByRole('button',{name:'Send message',exact:true})).toBeInViewport();
+});
+
+test('returning to Settings synchronizes account status after the provider editor closes',async({page})=>{
+ await login(page);await configure(page);
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('link',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+
+ let connected=false;let latency=0;
+ await page.route('**/api/providers/*/auth',async r=>{if(latency)await new Promise(resolve=>setTimeout(resolve,latency));await r.fulfill({json:{connected,mode:'oauth'}});});
+ await expect(page.getByRole('status')).toContainText('Saved automatically');
+ await page.getByRole('link',{name:'Back to providers',exact:true}).click();
+ const row=page.locator('.provider-row').filter({hasText:'OpenAI Codex'}).last();
+ await expect(row).toContainText('Not connected');
+ connected=true;
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(row).toContainText('Connected',{timeout:1500});
+ connected=false;
+ await expect(row).toContainText('Not connected',{timeout:5000});
+ latency=2300;connected=true;
+ await expect(row).toContainText('Connected',{timeout:8000});
+});
+
+test('provider routes preserve browser history and protect unsaved drafts', async ({page, context}) => {
+  await login(page); await configure(page);
+  await page.goto(base + '/settings');
+  await expect(page).toHaveURL(/\/settings\/providers$/);
+  const count = (await request(page, '/api/settings')).value.providers.length;
+  await page.getByRole('link', {name:'Add provider', exact:true}).click();
+  await page.getByLabel('Find a vendor').fill('Codex');
+  await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+  await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
+  const draftUrl = page.url();
+  await expect(page.getByLabel('Default chat provider', {exact:true})).toHaveCount(0);
+  await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
+  const editedModel=await page.getByLabel('Default model ID',{exact:true}).inputValue();
+  await expect.poll(async()=>(await request(page, '/api/settings')).value.providers.at(-1).modelId).toBe(editedModel);
+  await page.goBack();
+  await expect(page.getByLabel('Find a vendor')).toHaveValue('Codex');
+  await page.goForward();
+  await expect(page).toHaveURL(draftUrl);
+  await expect(page.getByLabel('Default model ID', {exact:true})).toHaveValue(editedModel);
+  await page.reload();
+  await expect(page).toHaveURL(draftUrl);
+  expect((await request(page, '/api/settings')).value.providers.length).toBe(count+1);
+  await page.getByRole('link', {name:'Chat defaults', exact:true}).click();
+  await expect(page.getByLabel('Default chat provider', {exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/settings-chat-defaults.png',fullPage:true});
+  await page.getByRole('link', {name:'Providers', exact:true}).click();
+  const href = await page.locator('.provider-row').first().getAttribute('href');
+  const other = await context.newPage();
+  await other.goto(base + href);
+  await expect(other.getByLabel('Default model ID', {exact:true})).toBeVisible();
+  await other.reload();
+  await expect(other.getByLabel('Default model ID', {exact:true})).toBeVisible();
+  await other.goto(base + '/settings/providers/does-not-exist');
+  await expect(other.getByRole('link', {name:'Back to providers', exact:true})).toBeVisible();
+  await other.close();
+});
+
+test('saving a connection preserves other tabs and the global chat default', async ({page}) => {
+  await login(page); await configure(page);
+  const initial = (await request(page, '/api/settings')).value;
+  const id = initial.providers[0].id;
+  await page.goto(base + '/settings/providers/' + encodeURIComponent(id));
+  const added = {id:'other-tab-connection', name:'Other tab connection', baseUrl:modelUrl, modelId:'other-model'};
+  const providers = initial.providers.filter((p:any)=>p.id!==added.id).map(({hasApiKey,...p}:any)=>p);
+  await request(page, '/api/settings', {providers:[...providers, added], defaultProviderId:added.id});
+  await page.getByLabel('Default model ID', {exact:true}).selectOption('edited-model');
+   await expect(page.getByRole('status')).toContainText('Saved automatically');
+  const latest = (await request(page, '/api/settings')).value;
+  expect(latest.defaultProviderId).toBe(added.id);
+  expect(latest.providers.find((p:any)=>p.id===added.id).name).toBe(added.name);
+  expect(latest.providers.find((p:any)=>p.id===id).modelId).toBe('edited-model');
+});
+
+test('catalog provider automatically validates keys and ignores stale model discovery', async ({page}) => {
+  await login(page); await configure(page);
+  const savedKeys:string[]=[];
+  await page.route('**/api/settings',async route=>{
+    if(route.request().method()==='POST') for(const p of route.request().postDataJSON().providers ?? []) if(p.apiKey) savedKeys.push(p.apiKey);
+    await route.continue();
+  });
+  let releaseSlow:()=>void=()=>{};
+  let slowStarted:()=>void=()=>{};
+  const slowSeen=new Promise<void>(r=>slowStarted=r);
+  await page.route('**/api/providers/models',async route=>{
+    const body=route.request().postDataJSON();
+    expect(body.service).toBe('moonshotai');
+    expect(body.baseUrl).toBe('https://api.moonshot.ai/v1');
+    if(body.apiKey==='bad') return route.fulfill({status:400,json:{error:{message:'Connection failed. Check the API key and endpoint, then retry.'}}});
+    if(body.apiKey==='slow') { slowStarted(); await new Promise<void>(r=>releaseSlow=r); await route.fulfill({json:{models:['stale-model'],defaultModelId:'stale-model'}}).catch(()=>{}); return; }
+    await route.fulfill({json:{models:['kimi-latest','kimi-previous'],defaultModelId:'kimi-latest'}});
+  });
+  await page.goto(base+'/settings/providers/new');
+  await expect(page.getByLabel('Find a vendor')).toBeVisible();
+  await expect(page.locator('.vendor').first()).toBeVisible();
+  await page.screenshot({path:'test-results/provider-two-categories.png',fullPage:true});
+  await page.goto(base+'/settings/providers/new/moonshotai?auth=api_key');
+  await expect(page.getByLabel('Model service',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Base URL',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('https://api.moonshot.ai/v1',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Default model ID',{exact:true})).toHaveCount(0);
+  await page.getByLabel('API key',{exact:true}).fill('bad');
+  await expect(page.getByRole('alert')).toContainText('Connection failed');
+  await expect(page.getByRole('button',{name:'Save provider',exact:true})).toHaveCount(0);
+  expect((await (await page.request.get(base+'/api/settings')).json()).providers.some((p:any)=>p.service==='moonshotai')).toBe(false);
+  await page.getByLabel('API key',{exact:true}).fill('slow');
+  await slowSeen;
+  await page.getByLabel('API key',{exact:true}).fill('good');
+  await expect(page.getByLabel('Default model ID',{exact:true})).toHaveValue('kimi-latest');
+  releaseSlow();
+  await page.screenshot({path:'test-results/provider-api-setup.png',fullPage:true});
+  await page.getByLabel('Default model ID',{exact:true}).selectOption('kimi-previous');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect.poll(async()=>{const data=await (await page.request.get(base+'/api/settings')).json();return data.providers.find((p:any)=>p.service==='moonshotai')?.modelId;}).toBe('kimi-previous');
+  await page.reload();
+  await expect(page.getByLabel('Default model ID',{exact:true})).toHaveValue('kimi-previous');
+  expect(savedKeys).toEqual(['good']);
+  await page.screenshot({path:'test-results/provider-auto-discovery.png',fullPage:true});
+});
+
+
+test('remaining settings autosave defaults and validate embedding keys before persistence', async ({page}) => {
+  await login(page); await configure(page);
+  const initial=(await request(page,'/api/settings')).value;
+  const second={id:'auto-default',name:'Automatic default',baseUrl:modelUrl,modelId:'fixture'};
+  await request(page,'/api/settings',{providers:[...initial.providers.map(({hasApiKey,...p}:any)=>p),second]});
+  await page.goto(base+'/settings/chat');
+  await page.getByLabel('Default chat provider',{exact:true}).selectOption(second.id);
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await page.reload();
+  await expect(page.getByLabel('Default chat provider',{exact:true})).toHaveValue(second.id);
+  await page.getByRole('link',{name:'Embeddings',exact:true}).click();
+  await expect(page.getByRole('button',{name:/Save/})).toHaveCount(0);
+  const written:string[]=[];
+  await page.route('**/api/settings',async route=>{
+    if(route.request().method()==='POST' && route.request().postDataJSON().embedding?.apiKey) written.push(route.request().postDataJSON().embedding.apiKey);
+    await route.continue();
+  });
+  embedding.fail(true);
+  await page.getByLabel('Embedding API key',{exact:true}).fill('invalid');
+  await expect(page.getByRole('alert')).toContainText('Embedding connection failed');
+  expect(written).toEqual([]);
+  embedding.fail(false);
+  await page.getByLabel('Embedding API key',{exact:true}).fill('verified-key');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  expect(written).toEqual(['verified-key']);
+  expect(embedding.requests.at(-1)?.authorization).toBe('Bearer verified-key');
+  await expect(page.getByLabel('Embedding API key',{exact:true})).toHaveValue('');
+  await page.reload();
+  await expect(page.getByLabel('Embedding API key',{exact:true})).toHaveAttribute('placeholder','Key saved · leave blank to keep');
 });

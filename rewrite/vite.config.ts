@@ -1,7 +1,8 @@
+import tailwindcss from "@tailwindcss/vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vitest/config";
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [tailwindcss(), sveltekit()],
   test: {
     fileParallelism: false,
     include: ["tests/**/*.spec.ts"],

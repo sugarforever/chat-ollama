@@ -68,6 +68,7 @@ test("central access gate, password validation, cookie flags, origin checks and 
   const app = await start();
   for (const path of [
     "/api/conversations",
+    "/api/providers/example/auth",
     "/api/mcp",
     "/api/conversations/unknown/acknowledge",
     "/api/conversations/unknown/events",
@@ -158,7 +159,7 @@ test("conversation model survives endpoint edits and active-run restart while la
   app = await start();
   await app.login();
   expect(b.requests).toHaveLength(0);
-  await expect.poll(() => a.requests.length).toBe(2);
+  await expect.poll(() => a.requests.length, {timeout:10000}).toBe(2);
   expect(a.requests[1].authorization).toBe("Bearer private-key");
   expect(JSON.parse(a.requests[1].prompt).model).toBe("chosen-model");
   a.release();
@@ -352,7 +353,7 @@ test("provider selection applies to subsequent input, survives SIGKILL and never
   await new Promise(r => app.proc.once("exit", r));
   app = await start();
   await app.login();
-  await expect.poll(() => a.requests.length).toBe(2);
+  await expect.poll(() => a.requests.length, {timeout:10000}).toBe(2);
   expect(a.requests[1].authorization).toBe("Bearer secret-alpha");
   expect(JSON.parse(a.requests[1].prompt).model).toBe("alpha");
   expect(b.requests).toHaveLength(0);

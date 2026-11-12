@@ -5,3 +5,6 @@ data/
 .env
 test-results/
 playwright-report/
+
+# Review screenshots are uploaded as PR attachments, never source assets.
+docs/images/*.png

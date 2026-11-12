@@ -25,9 +25,13 @@ export type ProviderSelection = { providerId: string; modelId: string };
 export type PublicProvider = {
   id: string;
   modelId: string;
+  models?: string[];
   name: string;
   baseUrl: string;
   hasApiKey: boolean;
+  service?: string;
+  authMode?: 'api_key' | 'oauth' | 'ambient' | 'none';
+  protocol?: string;
 };
 export type ConversationConfig = {
   // Optional only for pre-provider catalogue records and older creation clients.
