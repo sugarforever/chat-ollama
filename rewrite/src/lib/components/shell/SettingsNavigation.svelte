@@ -5,10 +5,8 @@
     Binary,
     Library,
     Plug,
-    LogOut,
   } from "@lucide/svelte";
-  import Button from "$lib/components/ui/button/button.svelte";
-  let { active, onlogout }: { active: string; onlogout: () => void } = $props();
+  let { active }: { active: string } = $props();
   const items = [
     { id: "providers", name: "Providers", icon: Cpu },
     { id: "embeddings", name: "Embeddings", icon: Binary },
@@ -29,7 +27,4 @@
         ><item.icon size={18} /><span>{item.name}</span></a
       >{/each}
   </nav>
-  <Button variant="ghost" class="settings-logout" onclick={onlogout}
-    ><LogOut size={18} />Log out</Button
-  >
 </aside>

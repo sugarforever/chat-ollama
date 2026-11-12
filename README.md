@@ -20,7 +20,6 @@ Edit `.env` before starting:
 
 | Variable | What to set |
 | --- | --- |
-| `ADMIN_PASSWORD` | A long, unique administrator password |
 | `ORIGIN` | The exact URL you will open, such as `http://localhost:3000` |
 | `CHAT_BASE_URL` | Your OpenAI-compatible chat endpoint, including `/v1` where required |
 | `CHAT_MODEL_ID` | A model ID available at that endpoint |
@@ -45,8 +44,9 @@ docker compose up --build -d
 docker compose logs -f app
 ```
 
-Open `http://localhost:3000` (or your configured `ORIGIN`) and sign in with
-`ADMIN_PASSWORD`. The default port binding is local-only. To use another local
+Open `http://localhost:3000` (or your configured `ORIGIN`) to use the workspace
+directly. There is no application login. Anyone with network access can use the
+app and its tools; the default port binding is local-only. To use another local
 port, set both `PORT=3001` and `ORIGIN=http://localhost:3001`.
 
 All application commands in this guide run from **`rewrite/`**, which has its
@@ -61,7 +61,6 @@ cd rewrite
 pnpm install
 pnpm build
 
-export ADMIN_PASSWORD='replace-with-a-long-unique-password'
 export ORIGIN='http://localhost:3000'
 export CHAT_BASE_URL='http://127.0.0.1:11434/v1'
 export CHAT_MODEL_ID='your-chat-model'
