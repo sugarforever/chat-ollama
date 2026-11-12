@@ -6,7 +6,6 @@ services:
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
     environment:
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
       ORIGIN: ${ORIGIN:-http://localhost:3000}
       DATA_DIR: /data
       CHAT_BASE_URL: ${CHAT_BASE_URL:-http://host.docker.internal:11434/v1}

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { embeddingServer } from "./fixtures/embedding-server";
 beforeAll(() => execFileSync("pnpm", ["build"], { stdio: "pipe" }), 120000);
-test("built authenticated knowledge API and startup scoped tool execute through a real pi run", async () => {
+test("built knowledge API and startup scoped tool execute through a real pi run", async () => {
   const directory = await mkdtemp(join(tmpdir(), "knowledge-http-"));
   const embedding = await embeddingServer();
   const prompts: any[] = [];
@@ -47,7 +47,6 @@ test("built authenticated knowledge API and startup scoped tool execute through 
     env: {
       ...process.env,
       DATA_DIR: directory,
-      ADMIN_PASSWORD: "knowledge-password",
     },
     stdio: ["ignore", "ignore", "pipe", "ipc"],
   });
@@ -59,13 +58,11 @@ test("built authenticated knowledge API and startup scoped tool execute through 
       child.once("exit", () => reject(Error(stderr)));
     });
     const base = `http://127.0.0.1:${port}`;
-    let cookie = "";
     const request = (path: string, data?: unknown, method?: string) =>
       fetch(base + path, {
         method: method ?? (data === undefined ? "GET" : "POST"),
         headers: {
           origin: base,
-          cookie,
           ...(data instanceof FormData
             ? {}
             : { "content-type": "application/json" }),
@@ -77,16 +74,6 @@ test("built authenticated knowledge API and startup scoped tool execute through 
               ? data
               : JSON.stringify(data),
       });
-    for (const p of [
-      "/api/knowledge-bases",
-      "/api/documents/unknown",
-      "/sources/unknown",
-    ])
-      expect((await request(p)).status).toBe(401);
-    const login = await request("/api/auth/login", {
-      password: "knowledge-password",
-    });
-    cookie = login.headers.get("set-cookie")!.split(";")[0];
     expect((await request("/api/knowledge-bases")).status).toBe(200);
     await request("/api/settings", {
       embedding: embedding.config,

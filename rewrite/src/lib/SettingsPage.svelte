@@ -620,21 +620,7 @@
 
 <svelte:head><title>Settings · Chat Ollama</title></svelte:head>
 <main class="settings settings-shell">
-  <SettingsNavigation
-    active={tab}
-    onlogout={() => {
-      const logout = () =>
-        void run(async () => {
-          await api("/api/auth/logout", {});
-          allowNavigation = true;
-          location.href = "/login";
-        });
-      if (isDirty()) {
-        pendingNavigation = logout;
-        discardOpen = true;
-      } else logout();
-    }}
-  />
+  <SettingsNavigation active={tab} />
   <div class="settings-content">
     {#if error}<p class="error" role="alert">{error}</p>{/if}{#if notice}<p
         role="status"

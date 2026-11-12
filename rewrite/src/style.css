@@ -681,12 +681,6 @@ pre {
   border-color: var(--border);
   font-weight: 500;
 }
-.settings-logout {
-  margin-top: auto;
-  justify-content: flex-start !important;
-  gap: 10px;
-  color: var(--muted);
-}
 .save-indicator {
   min-height: 30px;
   display: flex;
@@ -712,25 +706,6 @@ pre {
     opacity: 1;
     transform: scale(1);
   }
-}
-.login-page {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-.login {
-  width: 100%;
-  max-width: 320px;
-  border: 0;
-  padding: 0;
-}
-.login h1 {
-  font-size: 20px;
-  margin: 0 0 12px;
-}
-.login .password-field {
-  position: relative;
 }
 .password-field input {
   width: 100%;
@@ -864,10 +839,6 @@ pre {
   .settings-navigation nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
-  }
-  .settings-logout {
-    margin-top: 0;
-    align-self: flex-start;
   }
   [data-slot="button"],
   button:not([data-slot]),

@@ -10,10 +10,6 @@ export async function api(path: string, data?: unknown, method?: string) {
           ? data
           : JSON.stringify(data),
   });
-  if (response.status === 401) {
-    location.href = "/login";
-    throw Error("Login required");
-  }
   if (!response.ok) {
     const value = await response.json().catch(() => ({}));
     throw Error(value.error?.message ?? "Request failed");

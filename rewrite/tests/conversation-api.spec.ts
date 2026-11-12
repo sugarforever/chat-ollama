@@ -36,7 +36,6 @@ async function setup() {
         DATA_DIR: directory,
         CHAT_BASE_URL: model.baseUrl,
         CHAT_MODEL_ID: "fixture",
-        ADMIN_PASSWORD: "test-password",
       },
       stdio: ["ignore", "ignore", "pipe", "ipc"],
     });
@@ -53,12 +52,7 @@ async function setup() {
       }
     });
     const origin = `http://127.0.0.1:${port}`;
-    const login = await fetch(origin + "/api/auth/login", {
-      method: "POST",
-      headers: { origin, "content-type": "application/json" },
-      body: JSON.stringify({ password: "test-password" }),
-    });
-    const cookie = login.headers.get("set-cookie")!.split(";")[0];
+    const cookie = "";
     const url = origin + "/api/conversations";
     const request = (path = "", body?: unknown) =>
       fetch(

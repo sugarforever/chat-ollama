@@ -123,13 +123,13 @@ async function startServer() {
   let stderr = "";
   child = fork("server.mjs", [], {
     execArgv: [],
-    env: { ...process.env, DATA_DIR: dir, ADMIN_PASSWORD: "ui-password", HOST: "127.0.0.1", PORT: new URL(base).port, ORIGIN: base },
+    env: { ...process.env, DATA_DIR: dir, HOST: "127.0.0.1", PORT: new URL(base).port, ORIGIN: base },
     stdio: ["ignore", "ignore", "pipe", "ipc"],
   });
   child.stderr?.on("data", (data) => stderr += data);
   await expect.poll(async () => {
     if (child.exitCode !== null) throw Error(stderr);
-    try { return (await fetch(base + "/login")).status; } catch { return 0; }
+    try { return (await fetch(base + "/")).status; } catch { return 0; }
   }, {timeout: 20000}).toBe(200);
 }
 async function killServer() {
@@ -138,10 +138,8 @@ async function killServer() {
   await exited;
 }
 
-async function login(page: Page) {
+async function openWorkspace(page: Page) {
   await page.goto(base);
-  await page.getByLabel("Password", {exact:true}).fill("ui-password");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "New conversation", exact: true }),
   ).toBeVisible();
@@ -200,7 +198,7 @@ async function create(page: Page, collection?: string, mcp?: string) {
 }
 
 test("new conversation opens directly with the latest default on desktop and mobile", async ({page}) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   for (const width of [1280,390]) {
     await page.setViewportSize({width,height:844});
@@ -220,7 +218,7 @@ test("new conversation opens directly with the latest default on desktop and mob
 });
 
 test("new conversation waits for initial history restoration", async ({page}) => {
-  await login(page); await configure(page); await create(page);
+  await openWorkspace(page); await configure(page); await create(page);
   let release!: () => void;
   const pending = new Promise<void>(resolve => release = resolve);
   await page.route('**/api/conversations', async route => {
@@ -237,7 +235,7 @@ test("new conversation waits for initial history restoration", async ({page}) =>
 });
 
 test("failed direct creation keeps the current chat and allows retry", async ({page}) => {
-  await login(page); await configure(page); await create(page);
+  await openWorkspace(page); await configure(page); await create(page);
   const previous = page.url();
   await page.route('**/api/conversations', route => route.request().method() === 'POST'
     ? route.fulfill({status:503,json:{error:{code:'UNAVAILABLE',message:'Creation unavailable'}}})
@@ -269,7 +267,7 @@ test("conversation links restore snapshots through Back and Forward", async ({pa
 test("administrator opens responsive chat and independent secret-preserving settings", async ({
   page,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
@@ -342,7 +340,7 @@ test("administrator opens responsive chat and independent secret-preserving sett
 test("upload indexing, scoped citations, expandable tools and hostile markdown", async ({
   page,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", {name:"Knowledge",exact:true}).click();
@@ -434,7 +432,7 @@ test("busy input, persisted partial reconnect and explicit Stop", async ({
   page,
   context,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await create(page);
   await page.getByLabel("Message", { exact: true }).fill("hold");
@@ -471,7 +469,7 @@ test("busy input, persisted partial reconnect and explicit Stop", async ({
 test("failed upload retry, rebuild warning and explicit reindex", async ({
   page,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", {name:"Knowledge",exact:true}).click();
@@ -525,7 +523,7 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
 test("selected MCP unsafe action requires deliberate uncertainty acknowledgment after Stop", async ({
   page,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await request(
     page,
@@ -573,7 +571,7 @@ test("selected MCP unsafe action requires deliberate uncertainty acknowledgment 
 test("reloading an older selected conversation keeps that conversation", async ({
   page,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await create(page);
   await page
@@ -600,7 +598,7 @@ test("reloading an older selected conversation keeps that conversation", async (
 test("failed run shows an actionable status without exposing provider details", async ({
   page,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await create(page);
   await page.getByLabel("Message", { exact: true }).fill("fail model");
@@ -634,7 +632,7 @@ async function delayResponse(page: Page, pattern: string) {
   return { ready, release, delivered };
 }
 async function pair(page: Page) {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await create(page);
   const a = new URL(page.url()).searchParams.get("conversation")!;
@@ -683,7 +681,7 @@ test("delayed admission cannot clear a different conversation draft", async ({
 // A real GET captures running before SSE commits completion; network delivery is delayed.
 // Removing same-conversation stream ordering must hide the answer and disable the composer.
 test("delayed running GET cannot overwrite completed SSE state in the same conversation", async ({ page }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await create(page);
   const id = new URL(page.url()).searchParams.get("conversation")!;
@@ -719,7 +717,7 @@ test("delayed running GET cannot overwrite completed SSE state in the same conve
   }
 });
 test("delayed Stop GET cannot overwrite a subsequent run's SSE state", async ({ page }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await create(page);
   const id = new URL(page.url()).searchParams.get("conversation")!;
@@ -806,7 +804,7 @@ for (const phase of ["catalogue", "settings", "snapshot"])
         }
       };
     });
-    await login(page);
+    await openWorkspace(page);
     await configure(page);
     await create(page);
     const id = new URL(page.url()).searchParams.get("conversation")!;
@@ -832,7 +830,7 @@ for (const phase of ["catalogue", "settings", "snapshot"])
 test("delayed source excerpt cannot open in a different conversation", async ({
   page,
 }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   const c = (
     await request(page, "/api/knowledge-bases", { name: "Delayed sources" })
@@ -894,7 +892,7 @@ test("delayed source excerpt cannot open in a different conversation", async ({
 });
 
 test("SIGKILL resumes the admitted chat on the shipped entrypoint", async ({ page }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await create(page);
   const id = new URL(page.url()).searchParams.get("conversation")!;
@@ -938,7 +936,7 @@ test("SIGKILL resumes the admitted chat on the shipped entrypoint", async ({ pag
 });
 
 test("SIGKILL during embedding resumes indexing from the mounted data directory", async ({ page }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   const c = (await request(page, "/api/knowledge-bases", { name: "Crash indexing" })).value;
   const count = embedding.requests.length;
@@ -957,7 +955,7 @@ test("SIGKILL during embedding resumes indexing from the mounted data directory"
 });
 
 test("SIGKILL after external MCP effect preserves uncertainty without repeated dispatch", async ({ page }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   const effectFile = join(dir, "crash-effect.log");
   await request(page, "/api/mcp", { servers: [{ id: "crash-action", transport: "stdio", command: process.execPath,
@@ -983,7 +981,7 @@ test("SIGKILL after external MCP effect preserves uncertainty without repeated d
 
 
 test("selected MCP tool completes through the shipped HTTP server", async ({page}) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await request(page, "/api/mcp", { servers: [{id: "echo-server", transport: "stdio", command: process.execPath,
     args: ["--import", "tsx", join(process.cwd(), "tests/fixtures/mcp-server.ts")] }] }, "PUT");
@@ -999,7 +997,7 @@ test("selected MCP tool completes through the shipped HTTP server", async ({page
 
 // Catches forms that save only defaults, lose credentials, or create a new conversation on switch.
 test("named providers can be saved in Settings and switched within a conversation", async ({ page }) => {
-  await login(page);
+  await openWorkspace(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("link", { name: "Add provider", exact: true }).click();
@@ -1043,7 +1041,7 @@ test("named providers can be saved in Settings and switched within a conversatio
 // Verifies the real provider UI and official OAuth interaction without using a personal account.
 test('native service presets, secret setup and Codex subscription login are distinct',async({page,context})=>{
  await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Anthropic');
@@ -1097,7 +1095,7 @@ test('native service presets, secret setup and Codex subscription login are dist
 });
 
 test('settings catalog saves subscription defaults automatically and keeps sections independent', async({page})=>{
-  await login(page); await configure(page);
+  await openWorkspace(page); await configure(page);
   await page.getByRole('link',{name:'Settings',exact:true}).click();
   await page.screenshot({path:'test-results/settings-providers.png',fullPage:true});
   const before=(await request(page,'/api/settings')).value.providers.length;
@@ -1124,7 +1122,7 @@ test('settings catalog saves subscription defaults automatically and keeps secti
   await page.setViewportSize({width:390,height:844});
   await page.getByRole('link',{name:'Providers',exact:true}).click();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await expect(page.getByRole('button',{name:'Log out',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Log out',exact:true})).toHaveCount(0);
   await page.screenshot({path:'test-results/settings-mobile.png',fullPage:true});
 });
 
@@ -1133,7 +1131,7 @@ test('connect account opens official login automatically and completes without a
   const open=window.open.bind(window);
   window.open=(url,target,features)=>{(window as any).__authPopupFeatures=features;return open(url,target,features);};
  });
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
@@ -1167,7 +1165,7 @@ test('connect account opens official login automatically and completes without a
 
 test('blocked login windows retain an explicit official login fallback',async({page})=>{
  await page.addInitScript(()=>{window.open=()=>null;});
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
@@ -1183,7 +1181,7 @@ test('blocked login windows retain an explicit official login fallback',async({p
 });
 
 test('cancelled automatic method responses cannot redirect a restarted login',async({page,context})=>{
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
@@ -1217,7 +1215,7 @@ test('cancelled automatic method responses cannot redirect a restarted login',as
 });
 
 test('automatic browser method selection retries a transient failure', async({page,context})=>{
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
@@ -1245,7 +1243,7 @@ test('automatic browser method selection retries a transient failure', async({pa
 
 
 test('automatic browser method selection retries when start already contains a prompt', async({page,context})=>{
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
@@ -1272,18 +1270,11 @@ test('automatic browser method selection retries when start already contains a p
 });
 
 
-test('login, empty workspace and missing pages share the workspace design',async({page})=>{
- await page.goto(`${base}/login`);
- await page.screenshot({path:'test-results/login-desktop.png',fullPage:true});
+test('empty workspace and missing pages share the workspace design without login',async({page})=>{
+ await page.route('**/api/conversations',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.continue());
+ await page.goto(base);
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.screenshot({path:'test-results/login-mobile.png',fullPage:true});
- await page.getByLabel('Password', {exact:true}).fill('incorrect-password');
- await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await expect(page.getByRole('alert')).toContainText('Login failed');
- await page.route('**/api/conversations',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.continue());
- await page.getByLabel('Password', {exact:true}).fill('ui-password');
- await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('heading',{name:'What’s on your mind?',exact:true})).toBeVisible();
  await page.screenshot({path:'test-results/workspace-empty-mobile.png',fullPage:true});
  await page.setViewportSize({width:1280,height:900});
@@ -1297,7 +1288,7 @@ test('login, empty workspace and missing pages share the workspace design',async
 });
 
 test('compact model controls preserve drafts on mobile',async({page})=>{
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await create(page);
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -1330,7 +1321,7 @@ test('compact model controls preserve drafts on mobile',async({page})=>{
 });
 
 test('returning to Settings synchronizes account status after the provider editor closes',async({page})=>{
- await login(page);await configure(page);
+ await openWorkspace(page);await configure(page);
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
@@ -1352,7 +1343,7 @@ test('returning to Settings synchronizes account status after the provider edito
 });
 
 test('provider routes preserve browser history and protect unsaved drafts', async ({page, context}) => {
-  await login(page); await configure(page);
+  await openWorkspace(page); await configure(page);
   await page.goto(base + '/settings');
   await expect(page).toHaveURL(/\/settings\/providers$/);
   const count = (await request(page, '/api/settings')).value.providers.length;
@@ -1388,7 +1379,7 @@ test('provider routes preserve browser history and protect unsaved drafts', asyn
 });
 
 test('saving a connection preserves other tabs and the global chat default', async ({page}) => {
-  await login(page); await configure(page);
+  await openWorkspace(page); await configure(page);
   const initial = (await request(page, '/api/settings')).value;
   const id = initial.providers[0].id;
   await page.goto(base + '/settings/providers/' + encodeURIComponent(id));
@@ -1404,7 +1395,7 @@ test('saving a connection preserves other tabs and the global chat default', asy
 });
 
 test('catalog provider automatically validates keys and ignores stale model discovery', async ({page}) => {
-  await login(page); await configure(page);
+  await openWorkspace(page); await configure(page);
   const savedKeys:string[]=[];
   await page.route('**/api/settings',async route=>{
     if(route.request().method()==='POST') for(const p of route.request().postDataJSON().providers ?? []) if(p.apiKey) savedKeys.push(p.apiKey);
@@ -1451,7 +1442,7 @@ test('catalog provider automatically validates keys and ignores stale model disc
 
 
 test('remaining settings autosave defaults and validate embedding keys before persistence', async ({page}) => {
-  await login(page); await configure(page);
+  await openWorkspace(page); await configure(page);
   const initial=(await request(page,'/api/settings')).value;
   const second={id:'auto-default',name:'Automatic default',baseUrl:modelUrl,modelId:'fixture'};
   await request(page,'/api/settings',{providers:[...initial.providers.map(({hasApiKey,...p}:any)=>p),second]});
@@ -1492,14 +1483,7 @@ test('remaining settings autosave defaults and validate embedding keys before pe
 
 
 test('button labels retain their theme colors across native and link controls', async ({page}) => {
- await page.goto(`${base}/login`);
- const submit = page.getByRole('button', {name:'Sign in', exact:true});
- await expect(submit).toHaveCSS('color', 'rgb(255, 255, 255)');
- const toggle = page.getByRole('button', {name:'Show password', exact:true});
- await expect(toggle).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
- await toggle.evaluate((element: HTMLButtonElement) => element.disabled = true);
- await expect(toggle).toHaveCSS('color', 'rgb(27, 27, 25)');
- await login(page);
+ await openWorkspace(page);
  await page.goto(`${base}/settings/providers`);
  await expect(page.getByRole('link', {name:'Add provider', exact:true})).toHaveCSS('color', 'rgb(255, 255, 255)');
  await page.goto(`${base}/settings/tools`);
@@ -1508,7 +1492,7 @@ test('button labels retain their theme colors across native and link controls', 
 
 
 test('model picker overlays chat and preserves the selection on failed save', async ({page}) => {
- await login(page); await configure(page); await create(page);
+ await openWorkspace(page); await configure(page); await create(page);
  await request(page,'/api/settings',{chat:{baseUrl:modelUrl,modelId:'second-model',apiKey:'chat-secret'}});
  await page.reload();
  const transcript = page.locator('.transcript');
@@ -1550,7 +1534,7 @@ test('model picker overlays chat and preserves the selection on failed save', as
 
 
 test('composer sends with command or control Enter and preserves multiline and IME input', async ({page}) => {
- await login(page); await configure(page); await create(page);
+ await openWorkspace(page); await configure(page); await create(page);
  const message = page.getByLabel('Message',{exact:true});
  let posts = 0;
  page.on('request', request => { if(request.method()==='POST' && new URL(request.url()).pathname.endsWith('/messages')) posts++; });

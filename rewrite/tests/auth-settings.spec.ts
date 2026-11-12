@@ -3,7 +3,6 @@ import { execFileSync, fork } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { modelServer } from "./fixtures/model-server";
 const cleanup: (() => Promise<unknown>)[] = [];
 beforeAll(() => execFileSync("pnpm", ["build"], { stdio: "pipe" }), 120000);
@@ -20,7 +19,7 @@ async function setup() {
       env: {
         ...process.env,
         DATA_DIR: dir,
-        ADMIN_PASSWORD: "correct-password",
+        ADMIN_PASSWORD: "",
       },
       stdio: ["ignore", "ignore", "pipe", "ipc"],
     });
@@ -37,7 +36,6 @@ async function setup() {
       }
     });
     const base = `http://127.0.0.1:${port}`;
-    let cookie = "";
     const request = (
       path: string,
       data?: unknown,
@@ -47,58 +45,26 @@ async function setup() {
       fetch(base + path, {
         redirect: "manual",
         method: method ?? (data === undefined ? "GET" : "POST"),
-        headers: { cookie, origin, "content-type": "application/json" },
+        headers: { origin, "content-type": "application/json" },
         body: data === undefined ? undefined : JSON.stringify(data),
       });
     return {
       proc,
       request,
-      async login(password = "correct-password") {
-        const res = await request("/api/auth/login", { password });
-        cookie = res.headers.get("set-cookie")?.split(";")[0] || "";
-        return res;
-      },
     };
   }
   return { start, dir };
 }
-// Removing the central gate would expose existing APIs, future sources, and pages.
-test("central access gate, password validation, cookie flags, origin checks and logout", async () => {
-  const { start, dir } = await setup();
-  const app = await start();
-  for (const path of [
-    "/api/conversations",
-    "/api/providers/example/auth",
-    "/api/mcp",
-    "/api/conversations/unknown/acknowledge",
-    "/api/conversations/unknown/events",
-    "/sources/future",
-  ])
-    expect((await app.request(path)).status).toBe(401);
-  expect((await app.request("/")).status).toBe(303);
-  expect((await app.login("wrong")).status).toBe(401);
-  const login = await app.login();
-  expect(login.status).toBe(200);
-  expect(login.headers.get("set-cookie")).toMatch(/HttpOnly/i);
-  expect(login.headers.get("set-cookie")).toMatch(/SameSite=Strict/i);
-  expect((await app.request("/api/conversations")).status).toBe(200);
-  expect(
-    (await app.request("/api/settings", {}, "https://evil.test")).status,
-  ).toBe(403);
-  expect((await app.request("/api/auth/logout", {})).status).toBe(200);
-  expect((await app.request("/api/conversations")).status).toBe(401);
-  await app.login();
-  const db = new DatabaseSync(join(dir, "app.sqlite"));
-  db.exec("UPDATE admin_sessions SET expires=0");
-  db.close();
-  expect((await app.request("/api/conversations")).status).toBe(401);
-});
-test("failed logins are rate limited", async () => {
+test("pages and APIs work without a password or session while mutations require same origin", async () => {
   const { start } = await setup();
   const app = await start();
-  for (let i = 0; i < 5; i++)
-    expect((await app.login("wrong")).status).toBe(401);
-  expect((await app.login()).status).toBe(429);
+  expect((await app.request("/")).status).toBe(200);
+  expect((await app.request("/api/conversations")).status).toBe(200);
+  expect((await app.request("/api/settings")).status).toBe(200);
+  expect((await app.request("/api/mcp")).status).toBe(200);
+  expect((await app.request("/api/settings", {}, "https://evil.test")).status).toBe(403);
+  expect((await app.request("/api/settings", {}, "")).status).toBe(403);
+  expect((await app.request("/api/settings", {})).status).toBe(200);
 });
 // Real pi requests catch a settings-only implementation, key loss, or endpoint changes during a run.
 test("conversation model survives endpoint edits and active-run restart while later requests refresh URL and key", async () => {
@@ -110,7 +76,6 @@ test("conversation model survives endpoint edits and active-run restart while la
     () => b.close(),
   );
   let app = await start();
-  await app.login();
   const save = await app.request("/api/settings", {
     chat: { baseUrl: a.baseUrl, modelId: "fixture", apiKey: "private-key" },
     embedding: { baseUrl: b.baseUrl, modelId: "embed", apiKey: "embed-secret" },
@@ -127,7 +92,6 @@ test("conversation model survives endpoint edits and active-run restart while la
   app.proc.kill("SIGKILL");
   await new Promise((r) => app.proc.once("exit", r));
   app = await start();
-  await app.login();
   const settings = await (await app.request("/api/settings")).json();
   expect(settings.chat).toEqual({
     baseUrl: a.baseUrl,
@@ -157,7 +121,6 @@ test("conversation model survives endpoint edits and active-run restart while la
   app.proc.kill("SIGKILL");
   await new Promise((r) => app.proc.once("exit", r));
   app = await start();
-  await app.login();
   expect(b.requests).toHaveLength(0);
   await expect.poll(() => a.requests.length, {timeout:10000}).toBe(2);
   expect(a.requests[1].authorization).toBe("Bearer private-key");
@@ -201,13 +164,12 @@ test("conversation model survives endpoint edits and active-run restart while la
   expect(a.requests.length).toBeGreaterThan(before);
 });
 
-test("MCP settings and acknowledgement require login and keep credentials on the server", async () => {
+test("MCP settings and acknowledgement work without login and keep credentials on the server", async () => {
   const { start, dir } = await setup();
   const app = await start();
   expect(
     (await app.request("/api/conversations/unknown/acknowledge", {})).status,
-  ).toBe(401);
-  await app.login();
+  ).toBe(404);
   const saved = await app.request(
     "/api/mcp",
     {
@@ -270,7 +232,6 @@ test("MCP settings and acknowledgement require login and keep credentials on the
 test("MCP discovery failure and removal leave built HTTP settings available after restart", async () => {
   const { start } = await setup();
   let app = await start();
-  await app.login();
   await app.request(
     "/api/mcp",
     {
@@ -304,13 +265,11 @@ test("MCP discovery failure and removal leave built HTTP settings available afte
   app.proc.kill("SIGKILL");
   await new Promise((r) => app.proc.once("exit", r));
   app = await start();
-  await app.login();
   expect((await app.request("/api/settings")).status).toBe(200);
   await app.request("/api/mcp", { servers: [] }, undefined, "PUT");
   app.proc.kill("SIGKILL");
   await new Promise((r) => app.proc.once("exit", r));
   app = await start();
-  await app.login();
   expect((await app.request("/api/settings")).status).toBe(200);
   expect((await app.request(`/api/conversations/${id}`)).status).toBe(502);
 });
@@ -321,7 +280,6 @@ test("provider selection applies to subsequent input, survives SIGKILL and never
   const a = await modelServer(), b = await modelServer();
   cleanup.push(() => a.close(), () => b.close());
   let app = await start();
-  await app.login();
   const providers = [
     { id: "a", name: "Alpha", baseUrl: a.baseUrl, modelId: "alpha", apiKey: "secret-alpha" },
     { id: "b", name: "Beta", baseUrl: b.baseUrl, modelId: "beta", apiKey: "secret-beta" },
@@ -352,7 +310,6 @@ test("provider selection applies to subsequent input, survives SIGKILL and never
   app.proc.kill("SIGKILL");
   await new Promise(r => app.proc.once("exit", r));
   app = await start();
-  await app.login();
   await expect.poll(() => a.requests.length, {timeout:10000}).toBe(2);
   expect(a.requests[1].authorization).toBe("Bearer secret-alpha");
   expect(JSON.parse(a.requests[1].prompt).model).toBe("alpha");
@@ -377,7 +334,6 @@ test("provider selection applies to subsequent input, survives SIGKILL and never
   app.proc.kill("SIGKILL");
   await new Promise(r => app.proc.once("exit", r));
   app = await start();
-  await app.login();
   expect((await app.request(path)).status).toBe(200);
   const rejected = await app.request(path + "/messages", { requestId: "deleted", content: "No fallback" });
   expect(rejected.status).toBe(409);
