@@ -15,3 +15,14 @@ test("model discovery authenticates server-side, ranks creation times, and admit
   vi.stubGlobal("fetch",async()=>new Response("private upstream error",{status:401}));
   await expect(discoverModels({service:"moonshotai",apiKey:"bad-key"})).rejects.toThrow("Connection failed");
 });
+
+test("DeepSeek discovery distinguishes upstream rejection from network failure without exposing secrets", async () => {
+  vi.stubGlobal("fetch", async () => new Response("private upstream details", { status: 429 }));
+  await expect(discoverModels({ service: "deepseek", apiKey: "private-key" })).rejects.toMatchObject({
+    status: 502, message: "Provider rate limit reached. Wait a moment and retry.",
+  });
+  vi.stubGlobal("fetch", async () => { throw new TypeError("fetch failed with private-key"); });
+  await expect(discoverModels({ service: "deepseek", apiKey: "private-key" })).rejects.toMatchObject({
+    status: 502, message: "Cannot reach the provider from the server. Check the server network connection and retry.",
+  });
+});

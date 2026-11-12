@@ -1,6 +1,30 @@
 import { nativeProvider } from "./providers";
 import { loadProviders, resolveChatEndpoint } from "./settings";
 
+export class ModelDiscoveryError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+async function fetchModels(url: URL, headers: Record<string, string>) {
+  let response: Response;
+  try {
+    response = await fetch(url, { headers, redirect: "error", signal: AbortSignal.timeout(12000) });
+  } catch (error) {
+    throw new ModelDiscoveryError(502, error instanceof Error && error.name === "TimeoutError"
+      ? "Provider request timed out. Retry in a moment."
+      : "Cannot reach the provider from the server. Check the server network connection and retry.");
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    const message = response.status === 401 || response.status === 403
+      ? "Connection failed. The provider rejected the API key or denied access."
+      : response.status === 429 ? "Provider rate limit reached. Wait a moment and retry."
+      : response.status === 404 ? "The provider models endpoint was not found. Check the base URL."
+      : `Provider models request failed (HTTP ${response.status}). Retry or check the provider status.`;
+    throw new ModelDiscoveryError(response.status === 401 || response.status === 403 ? 400 : 502, message);
+  }
+  return response;
+}
+
 export async function discoverModels(input: Record<string, unknown>) {
   const service = typeof input.service === "string" ? input.service : "custom";
   const native = service === "custom" ? undefined : nativeProvider(service);
@@ -27,12 +51,10 @@ export async function discoverModels(input: Record<string, unknown>) {
   // OpenRouter publishes /models without authenticating; /key validates the credential.
   if (service === "openrouter") {
     const keyUrl = new URL(baseUrl.replace(/\/$/, "") + "/key");
-    const check = await fetch(keyUrl, { headers, redirect: "error", signal: AbortSignal.timeout(12000) });
-    if (!check.ok) throw Error("Connection failed");
+    const check = await fetchModels(keyUrl, headers);
     await check.body?.cancel();
   }
-  const response = await fetch(url, { headers, redirect: "error", signal: AbortSignal.timeout(12000) });
-  if (!response.ok) throw Error("Connection failed");
+  const response = await fetchModels(url, headers);
   const raw = await response.text();
   if (raw.length > 2_000_000) throw Error("Model response too large");
   const payload = JSON.parse(raw);
