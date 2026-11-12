@@ -534,6 +534,7 @@
                     {#if p.service && p.service !== "custom"}{#key `${p.id}:${p.service}:${p.authMode}`}<ProviderAuth
                           id={p.id}
                           mode={p.authMode}
+                          service={p.service}
                           beforeConnect={persistProviders}
                         />{/key}{/if}
                     <button

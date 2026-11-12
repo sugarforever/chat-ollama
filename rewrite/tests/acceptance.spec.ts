@@ -947,7 +947,8 @@ test("named providers can be saved in Settings and switched within a conversatio
 });
 
 // Verifies the real provider UI and official OAuth interaction without using a personal account.
-test('native service presets, secret setup and Codex subscription login are distinct',async({page})=>{
+test('native service presets, secret setup and Codex subscription login are distinct',async({page,context})=>{
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
  await login(page);await configure(page);
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('button',{name:'Add provider',exact:true}).click();
@@ -978,8 +979,12 @@ test('native service presets, secret setup and Codex subscription login are dist
  expect(loginRequests).toBe(0);
  await page.unroute('**/api/settings');
  // Switching service and connecting directly must save the new mode before login.
+ const popupReady=page.waitForEvent('popup');
  await card.getByRole('button',{name:'Connect account',exact:true}).click();
- await expect(card.getByLabel('Select OpenAI Codex login method:',{exact:true})).toBeVisible();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL(/^https:\/\/auth\.openai\.com\//);
+ await expect(card.getByRole('link',{name:'Open official login',exact:true})).toBeVisible();
+ await expect(card.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
  await card.screenshot({path:'test-results/codex-oauth-login.png'});
  await card.getByRole('button',{name:'Cancel login',exact:true}).click();
  await expect(card.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
@@ -1016,4 +1021,138 @@ test('settings catalog selects subscription defaults and cancel discards only pr
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await expect(page.getByRole('button',{name:'Log out',exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/settings-mobile.png',fullPage:true});
+});
+
+test('connect account opens official login automatically and completes without another app action', async({page,context})=>{
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ let flow:any;let connected=false;const answers:string[]=[];
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  if(body.action==='start') flow={id:'browser-flow',status:'pending',events:[],prompt:{id:'method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'},{id:'device_code',label:'Device code login (headless)'}]}};
+  if(body.action==='answer') {answers.push(body.value);flow={id:'browser-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=test',instructions:'A browser window should open. Complete login to finish.'}],prompt:{id:'manual',type:'manual_code',message:'Paste authorization code'}};}
+  await route.fulfill({json:{connected,mode:'oauth',...(flow?{flow:connected?{...flow,status:'connected',events:[],prompt:undefined}:flow}:{})}});
+ });
+ const popupReady=page.waitForEvent('popup',{timeout:5000});
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=test');
+ expect(answers).toEqual(['browser']);
+ expect(await popup.evaluate(()=>window.opener===null)).toBe(true);
+ await expect(page.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();
+ connected=true;
+ await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+});
+
+
+test('blocked login windows retain an explicit official login fallback',async({page})=>{
+ await page.addInitScript(()=>{window.open=()=>null;});
+ await login(page);await configure(page);
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ let pending=false;
+ await page.route('**/api/providers/*/auth',async route=>{
+  if(route.request().method()==='POST')pending=true;
+  await route.fulfill({json:{connected:false,mode:'oauth',...(pending?{flow:{id:'blocked-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=blocked'}]}}:{})}});
+ });
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ await expect(page.getByText('The sign-in window could not be opened.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Open official login',exact:true})).toHaveAttribute('href','https://auth.openai.com/oauth/authorize?state=blocked');
+});
+
+test('cancelled automatic method responses cannot redirect a restarted login',async({page,context})=>{
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ let starts=0;let phase='idle';let release!:()=>void;let captured!:()=>void;
+ const held=new Promise<void>(r=>release=r);const ready=new Promise<void>(r=>captured=r);
+ const method={id:'old',status:'pending',events:[],prompt:{id:'old-method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'}]}};
+ const auth=(state:string)=>({id:state,status:'pending',events:[{type:'auth_url',url:`https://auth.openai.com/oauth/authorize?state=${state}`}]});
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  let flow:any;
+  if(body.action==='start'){starts++;phase=starts===1?'method':'new';flow=starts===1?{id:'old',status:'pending',events:[]}:auth('new');}
+  else if(body.action==='answer'){captured();await held;flow=auth('old');}
+  else if(body.action==='cancel'){phase='cancelled';flow={id:'old',status:'cancelled',events:[]};}
+  else flow=phase==='method'?method:phase==='new'?auth('new'):undefined;
+  await route.fulfill({json:{connected:false,mode:'oauth',...(flow?{flow}:{})}});
+ });
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ await ready;
+ await page.getByRole('button',{name:'Cancel login',exact:true}).click();
+ const popupReady=page.waitForEvent('popup');
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=new');
+ const returned=page.waitForResponse(r=>r.url().endsWith('/auth')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='answer');
+ release();await returned;
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>resolve(null))));
+ await expect(page.getByRole('link',{name:'Open official login',exact:true})).toHaveAttribute('href','https://auth.openai.com/oauth/authorize?state=new');
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=new');
+});
+
+test('automatic browser method selection retries a transient failure', async({page,context})=>{
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ let flow:any;let connected=false;const answers:string[]=[];
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  if(body.action==='start') flow={id:'browser-flow',status:'pending',events:[],prompt:{id:'method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'},{id:'device_code',label:'Device code login (headless)'}]}};
+  if(body.action==='answer') {answers.push(body.value);if(answers.length===1){await route.fulfill({status:503,json:{error:{message:'Temporary login interruption'}}});return;}flow={id:'browser-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=test',instructions:'A browser window should open. Complete login to finish.'}],prompt:{id:'manual',type:'manual_code',message:'Paste authorization code'}};}
+  await route.fulfill({json:{connected,mode:'oauth',...(flow?{flow:connected?{...flow,status:'connected',events:[],prompt:undefined}:body.action==='start'?{...flow,prompt:undefined}:flow}:{})}});
+ });
+ const popupReady=page.waitForEvent('popup',{timeout:5000});
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=test');
+ expect(answers).toEqual(['browser','browser']);
+ expect(await popup.evaluate(()=>window.opener===null)).toBe(true);
+ await expect(page.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();
+ connected=true;
+ await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+});
+
+
+test('automatic browser method selection retries when start already contains a prompt', async({page,context})=>{
+ await login(page);await configure(page);
+ await context.route('https://auth.openai.com/**',r=>r.fulfill({contentType:'text/html',body:'<h1>OpenAI sign in</h1>'}));
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ let flow:any;let connected=false;const answers:string[]=[];
+ await page.route('**/api/providers/*/auth',async route=>{
+  const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+  if(body.action==='start') flow={id:'browser-flow',status:'pending',events:[],prompt:{id:'method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'},{id:'device_code',label:'Device code login (headless)'}]}};
+  if(body.action==='answer') {answers.push(body.value);if(answers.length===1){await route.fulfill({status:503,json:{error:{message:'Temporary login interruption'}}});return;}flow={id:'browser-flow',status:'pending',events:[{type:'auth_url',url:'https://auth.openai.com/oauth/authorize?state=test',instructions:'A browser window should open. Complete login to finish.'}],prompt:{id:'manual',type:'manual_code',message:'Paste authorization code'}};}
+  await route.fulfill({json:{connected,mode:'oauth',...(flow?{flow:connected?{...flow,status:'connected',events:[],prompt:undefined}:flow}:{})}});
+ });
+ const popupReady=page.waitForEvent('popup',{timeout:5000});
+ await page.getByRole('button',{name:'Connect account',exact:true}).click();
+ const popup=await popupReady;
+ await expect(popup).toHaveURL('https://auth.openai.com/oauth/authorize?state=test');
+ expect(answers).toEqual(['browser','browser']);
+ expect(await popup.evaluate(()=>window.opener===null)).toBe(true);
+ await expect(page.getByLabel('Select OpenAI Codex login method:',{exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();
+ connected=true;
+ await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
 });
