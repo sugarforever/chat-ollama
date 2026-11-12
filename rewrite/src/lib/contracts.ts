@@ -25,6 +25,7 @@ export type ProviderSelection = { providerId: string; modelId: string };
 export type PublicProvider = {
   id: string;
   modelId: string;
+  models?: string[];
   name: string;
   baseUrl: string;
   hasApiKey: boolean;

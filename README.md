@@ -79,13 +79,15 @@ before uploading knowledge documents.
 
 ### Configure models
 
-Open **Settings**, add a named provider, choose its service and authentication
-mode, then select a model. API-key services have the official base URL preset;
-enter your key and click **Save provider**. Cloud providers offer guided credential
-setup. For a Codex subscription, select **OpenAI Codex**, click **Connect
-account** (which saves the configuration), and complete the official browser or device login. OpenAI API keys and
-subscription accounts are separate connections. Custom endpoints remain available
-with their native API protocol. Secrets stay on the server.
+Open **Settings → Providers → Add provider** and choose an API provider or a
+ChatGPT/Claude subscription. The catalog choice fixes the service. For API
+providers, enter your API key; the app automatically checks the connection and
+loads models from the provider's models endpoint. The newest model by release
+timestamp is selected initially; choose another if desired, then **Save provider**.
+Providers without timestamps keep their returned order. For subscriptions, click
+**Connect account** and complete official sign-in/authorization in the popup.
+Custom OpenAI-compatible endpoints can be configured separately. Secrets stay
+on the server.
 
 Choose the default provider on **Settings → Chat defaults**, or switch provider/model inside
 an existing conversation with **Apply to next message**. Active runs retain their

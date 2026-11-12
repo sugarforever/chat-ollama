@@ -9,7 +9,7 @@
   import Input from "$lib/components/ui/input/input.svelte";
   import Badge from "$lib/components/ui/badge/badge.svelte";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
-  import { ArrowLeft, Plus, Trash2, Save, X } from "@lucide/svelte";
+  import { ArrowLeft, Plus, Trash2, Save, X, CheckCircle2, LoaderCircle, RotateCw } from "@lucide/svelte";
   import ProviderLogo from "$lib/ProviderLogo.svelte";
   import ProviderAuth from "$lib/ProviderAuth.svelte";
   import { onMount } from "svelte";
@@ -32,16 +32,17 @@
   export function restore(state: { query?: string }) {
     query = state?.query ?? "";
   }
+  const editableProvider = (p: any) => p ? (({ models, ...value }) => value)(p) : p;
   function isDirty() {
     if (!settings || !snapshot) return false;
     const initial = JSON.parse(snapshot);
     if (selected)
       return (
         JSON.stringify(
-          settings.providers.find((p: any) => p.id === selected),
+          editableProvider(settings.providers.find((p: any) => p.id === selected)),
         ) !==
           JSON.stringify(
-            initial.providers.find((p: any) => p.id === selected),
+            editableProvider(initial.providers.find((p: any) => p.id === selected)),
           ) ||
         !!providerKeys[selected] ||
         !!providerEnv[selected] ||
@@ -85,6 +86,51 @@
   function newProviderHref(service = "custom", mode = "api_key") {
     return `/settings/providers/new/${encodeURIComponent(service)}?${new URLSearchParams({ auth: mode, draft: crypto.randomUUID() })}`;
   }
+  let discoveryState = "idle";
+  let discoveryError = "";
+  let modelOptions: string[] = [];
+  let discoverySignature = "";
+  let discoveryTimer: ReturnType<typeof setTimeout>;
+  let discoveryAbort: AbortController | undefined;
+  let discoveryGeneration = 0;
+  function usesDiscovery(p: any) {
+    return p && p.authMode !== "oauth" && p.authMode !== "ambient" && (!p.service || p.service === "custom" || settings?.catalog.find((v: any) => v.id === p.service)?.apiSetup);
+  }
+  function scheduleDiscovery(p: any, key: string, clearing: boolean) {
+    const signature = JSON.stringify([p?.id, p?.service, p?.baseUrl, p?.authMode, key, clearing]);
+    if (signature === discoverySignature) return;
+    discoverySignature = signature;
+    clearTimeout(discoveryTimer);
+    discoveryAbort?.abort();
+    const generation = ++discoveryGeneration;
+    modelOptions = [];
+    discoveryError = "";
+    discoveryState = "idle";
+    if (!usesDiscovery(p) || clearing || (!key.trim() && !p.hasApiKey && p.authMode !== "none" && p.service)) return;
+    discoveryState = "loading";
+    discoveryTimer = setTimeout(async () => {
+      discoveryAbort = new AbortController();
+      try {
+        const response = await fetch("/api/providers/models", {
+          method: "POST", headers: { "content-type": "application/json" }, signal: discoveryAbort.signal,
+          body: JSON.stringify({ id: creatingConnection ? undefined : p.id, service: p.service ?? "custom", baseUrl: p.baseUrl, authMode: p.authMode ?? (p.hasApiKey || key ? "api_key" : "none"), protocol: p.protocol, apiKey: key }),
+        });
+        const result = await response.json();
+        if (generation !== discoveryGeneration) return;
+        if (!response.ok) throw Error(result.error?.message ?? "Connection failed. Check your API key.");
+        modelOptions = result.models;
+        p.models = result.models;
+        if (creatingConnection || !modelOptions.includes(p.modelId)) p.modelId = result.defaultModelId;
+        settings = { ...settings };
+        discoveryState = "success";
+      } catch (e) {
+        if (generation !== discoveryGeneration) return;
+        discoveryState = "error";
+        discoveryError = (e as Error).message;
+      }
+    }, 600);
+  }
+  $: if (settings && selected) scheduleDiscovery(settings.providers.find((p: any) => p.id === selected), providerKeys[selected] ?? "", clearProviderKeys[selected] ?? false);
   let selected = "";
   export let catalogOpen = false;
   let query = "";
@@ -226,6 +272,7 @@
       name: p.name,
       baseUrl: p.baseUrl,
       modelId: p.modelId,
+      ...(p.models ? { models: p.models } : {}),
       ...(p.service
         ? { service: p.service, authMode: p.authMode, protocol: p.protocol }
         : {}),
@@ -265,6 +312,11 @@
     clearProviderKeys = {};
   }
   async function saveProviders() {
+    const provider = settings.providers.find((p: any) => p.id === selected);
+    if (usesDiscovery(provider) && discoveryState !== "success" && !clearProviderKeys[selected]) {
+      error = "Connect with a valid API key and load models before saving.";
+      return;
+    }
     const wasNew = creatingConnection;
     await run(async () => {
       await persistProviders();
@@ -371,6 +423,9 @@
       connectionsActive = false;
       connectionRead++;
       clearInterval(timer);
+      clearTimeout(discoveryTimer);
+      discoveryAbort?.abort();
+      discoveryGeneration++;
       window.removeEventListener("focus", sync);
       document.removeEventListener("visibilitychange", sync);
     };
@@ -506,35 +561,24 @@
               placeholder="Find a vendor…"
               bind:value={query}
             />
-            {#each [{ name: "Subscriptions", description: "Sign in with your account", mode: "oauth" }, { name: "Vendors", description: "Connect with your own credentials", mode: "api_key" }] as group}
+            {#each [{ name: "Subscriptions", description: "Sign in with your account", mode: "oauth" }, { name: "API providers", description: "Connect with an API key", mode: "api_key" }] as group}
               <div class="catalog-group">
                 <h3>
                   {group.name}<span class="muted">{group.description}</span>
                 </h3>
                 <div class="vendor-grid">
-                  {#each settings.catalog.filter((p: any) => p.models.length && p.authModes.includes(group.mode) && matches(p.name)) as preset}
+                  {#each settings.catalog.filter((p: any) => p.models.length && (group.mode === "oauth" ? ["openai-codex", "anthropic"].includes(p.id) : p.apiSetup) && p.authModes.includes(group.mode) && matches(p.name + (p.id === "anthropic" ? " Claude" : p.id === "openai-codex" ? " ChatGPT" : ""))) as preset}
                     <a
                       class="vendor"
                       href={newProviderHref(preset.id, group.mode)}
                       ><span class="provider-mark"
                         ><ProviderLogo service={preset.id} /></span
-                      ><span>{preset.name}</span><span class="muted">›</span></a
+                      ><span>{group.mode === "oauth" ? (preset.id === "openai-codex" ? "ChatGPT (Codex)" : "Claude") : preset.name}</span><span class="muted">›</span></a
                     >
                   {:else}<p class="muted">No matching providers.</p>{/each}
                 </div>
               </div>
             {/each}
-            <div class="catalog-group">
-              <h3>
-                Local & custom<span class="muted"
-                  >Ollama, LM Studio or a compatible endpoint</span
-                >
-              </h3>
-              <a class="vendor" href={newProviderHref()}
-                ><span class="provider-mark"><ProviderLogo /></span>Custom
-                endpoint <span aria-hidden="true">→</span></a
-              >
-            </div>
           {/if}
           {#if selected}
             <form
@@ -571,133 +615,22 @@
                         />{p.name}</span
                       ></legend
                     >
-                    {#if creatingConnection}
-                    <label
-                      >Provider name<Input
-                        bind:value={p.name}
-                        required
-                        maxlength={100}
-                      /></label
-                    >
-                    <label
-                      >Model service<NativeSelect class="w-full"
-                        aria-label="Model service"
-                        value={p.service ?? "legacy"}
-                        onchange={(e) => {
-                          const service = e.currentTarget.value;
-                          const preset = settings.catalog.find(
-                            (v: any) => v.id === service,
-                          );
-                          p.service =
-                            service === "legacy" ? undefined : service;
-                          p.authMode = preset?.authModes[0] ?? "none";
-                          p.baseUrl =
-                            preset?.baseUrl ?? "http://127.0.0.1:11434/v1";
-                          p.modelId = preset?.models[0]?.id ?? "local";
-                          providerKeys[p.id] = "";
-                          providerEnv[p.id] = "";
-                          settings.providers = settings.providers.map(
-                            (v: any) => (v.id === p.id ? { ...p } : v),
-                          );
-                        }}
-                      >
-                        {#if !p.service}<option value="legacy"
-                            >Custom endpoint (imported)</option
-                          >{/if}
-                        <option value="custom"
-                          >Custom endpoint / Ollama / LM Studio</option
-                        >
-                        {#each settings.catalog as preset}<option
-                            value={preset.id}
-                            disabled={!preset.models.length}
-                            >{preset.name}{preset.models.length
-                              ? ""
-                              : " (no chat models)"}</option
-                          >{/each}
-                      </NativeSelect></label
-                    >
-                    {#if p.service}
-                      <label
-                        >Authentication<NativeSelect class="w-full"
-                          aria-label="Authentication"
-                          value={p.authMode}
-                          onchange={(e) => {
-                            p.authMode = e.currentTarget.value;
-                            if (p.authMode === "oauth")
-                              p.baseUrl =
-                                settings.catalog.find(
-                                  (v: any) => v.id === p.service,
-                                )?.baseUrl ?? "";
-                            providerKeys[p.id] = "";
-                            providerEnv[p.id] = "";
-                            settings = { ...settings };
-                          }}
-                        >
-                          {#each authModes(p.service) as mode}<option
-                              value={mode}
-                              >{mode === "oauth"
-                                ? "Account login / OAuth"
-                                : mode === "ambient"
-                                  ? "Server credentials (AWS / ADC / environment)"
-                                  : mode === "none"
-                                    ? "No authentication"
-                                    : (settings.catalog.find(
-                                        (v: any) => v.id === p.service,
-                                      )?.apiKeyLabel ?? "API key")}</option
-                            >{/each}
-                        </NativeSelect></label
-                      >
-                    {/if}
-                    {#if p.service === "custom"}<label
-                        >API protocol<NativeSelect class="w-full"
-                          value={p.protocol}
-                          onchange={(e) => {
-                            p.protocol = e.currentTarget.value;
-                            settings = { ...settings };
-                          }}
-                          >{#each settings.customProtocols as protocol}<option
-                              value={protocol}>{protocol}</option
-                            >{/each}</NativeSelect
-                        ></label
-                      >{/if}
-                    <label
-                      >Base URL<Input
-                        bind:value={p.baseUrl}
-                        disabled={p.authMode === "oauth"}
-                        required={!p.service || p.service === "custom"}
-                        type="url"
-                        placeholder="Provider-managed endpoint"
-                      /></label
-                    >
+                    {#if creatingConnection && p.service === "custom"}
+                      <label>Provider name<Input bind:value={p.name} required maxlength={100} /></label>
+                      <label>Base URL<Input bind:value={p.baseUrl} required type="url" /></label>
+                      <label>Authentication<NativeSelect class="w-full" aria-label="Authentication" bind:value={p.authMode}><option value="api_key">API key</option><option value="none">No authentication (local endpoint)</option></NativeSelect></label>
                     {:else}
                       <dl class="connection-details">
-                        <div><dt>Model service</dt><dd>{settings.catalog.find((v: any) => v.id === p.service)?.name ?? "Custom endpoint"}</dd></div>
-                        <div><dt>Authentication</dt><dd>{p.authMode === "oauth" ? "Account login / OAuth" : p.authMode === "ambient" ? "Server credentials" : p.authMode === "none" ? "No authentication" : "API key"}</dd></div>
+                        {#if !creatingConnection || p.authMode === "oauth"}<div><dt>Model service</dt><dd>{settings.catalog.find((v: any) => v.id === p.service)?.name ?? "Custom endpoint"}</dd></div>
+                        <div><dt>Authentication</dt><dd>{p.authMode === "oauth" ? "Account login / OAuth" : p.authMode === "ambient" ? "Server credentials" : p.authMode === "none" ? "No authentication" : "API key"}</dd></div>{/if}
                         <div><dt>Base URL</dt><dd>{p.baseUrl || "Provider-managed endpoint"}</dd></div>
-                        {#if (!p.service || p.service === "custom") && p.protocol}<div><dt>API protocol</dt><dd>{p.protocol}</dd></div>{/if}
                       </dl>
                     {/if}
-                    {#if p.service && p.service !== "custom"}
-                      <label
-                        >Default model ID<NativeSelect class="w-full"
-                          aria-label="Default model ID"
-                          value={p.modelId}
-                          onchange={(e) => {
-                            p.modelId = e.currentTarget.value;
-                            settings = { ...settings };
-                          }}
-                          >{#each settings.catalog.find((v: any) => v.id === p.service)?.models ?? [] as model}<option
-                              value={model.id}>{model.id}</option
-                            >{/each}</NativeSelect
-                        ></label
-                      >
-                    {:else}<label
-                        >Default model ID<Input
-                          bind:value={p.modelId}
-                          required
-                          maxlength={200}
-                        /></label
-                      >{/if}
+                    {#if !usesDiscovery(p)}
+                      <label>Default model ID<NativeSelect class="w-full" aria-label="Default model ID" bind:value={p.modelId}>
+                        {#each settings.catalog.find((v: any) => v.id === p.service)?.models ?? [] as model}<option value={model.id}>{model.id}</option>{/each}
+                      </NativeSelect></label>
+                    {/if}
                     {#if !p.service || p.authMode === "api_key"}
                       <label
                         >API key<Input
@@ -706,31 +639,23 @@
                           autocomplete="new-password"
                           placeholder={p.hasApiKey
                             ? "Key saved · leave blank to keep"
-                            : "API key (or use guided credential setup)"}
+                            : "Enter API key"}
                         /></label
                       >
-                      <label class="check"
+                      {#if p.hasApiKey}<label class="check"
                         ><Checkbox
                           bind:checked={() => clearProviderKeys[p.id] ?? false, (checked) => clearProviderKeys[p.id] = checked}
                         />Remove saved API key</label
-                      >
-                      {#if creatingConnection && p.service && p.service !== "custom"}<details>
-                          <summary>Advanced provider configuration</summary>
-                          <p class="muted">
-                            Provider-scoped credential environment, such as
-                            Azure resource/deployment, AWS profile/region or
-                            Cloudflare account ID. Saved values stay private.
-                            Use guided setup for provider-specific prompts.
-                          </p>
-                          <label
-                            >Credential environment JSON<Textarea
-                              bind:value={providerEnv[p.id]}
-                              placeholder={'{"AWS_REGION":"us-east-1"}'}
-                            ></Textarea></label
-                          >
-                        </details>{/if}
+                      >{/if}
                     {/if}
-                    {#if p.service && p.service !== "custom"}{#key `${p.id}:${p.service}:${p.authMode}`}<ProviderAuth
+                    {#if usesDiscovery(p)}
+                      {#if discoveryState === "loading"}<p class="discovery-message" aria-live="polite"><LoaderCircle size={16} class="animate-spin" />Testing connection and loading models…</p>
+                      {:else if discoveryState === "error"}<div class="discovery-message"><p class="error" role="alert">{discoveryError}</p><Button variant="ghost" size="icon" aria-label="Retry connection" title="Retry connection" onclick={() => { discoverySignature = ""; scheduleDiscovery(p, providerKeys[p.id] ?? "", false); }}><RotateCw /></Button></div>
+                      {:else if discoveryState === "success"}<p class="discovery-message" aria-live="polite"><CheckCircle2 size={16} />Connection verified · {modelOptions.length} models</p>
+                      {:else}<p class="muted">Enter your API key to connect and load available models.</p>{/if}
+                      {#if discoveryState === "success"}<label>Default model ID<NativeSelect class="w-full" aria-label="Default model ID" bind:value={p.modelId}>{#each modelOptions as id}<option value={id}>{id}</option>{/each}</NativeSelect></label>{/if}
+                    {/if}
+                    {#if p.service && p.service !== "custom" && !usesDiscovery(p)}{#key `${p.id}:${p.service}:${p.authMode}`}<ProviderAuth
                           id={p.id}
                           mode={p.authMode}
                           service={p.service}
@@ -760,6 +685,7 @@
                 <Button
                   type="submit"
                   size="icon"
+                  disabled={usesDiscovery(settings.providers.find((p: any) => p.id === selected)) && discoveryState !== "success" && !clearProviderKeys[selected]}
                   aria-label="Save provider"
                   title="Save provider"><Save /></Button
                 >
@@ -1008,6 +934,8 @@
 </AlertDialog.Root>
 
 <style>
+  .discovery-message { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .discovery-message p { margin: 0; }
   .connection-details { display: grid; gap: 16px; margin: 0; }
   .connection-details div { display: grid; gap: 4px; }
   .connection-details dt { color: var(--muted); font-size: 12px; }

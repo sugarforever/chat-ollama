@@ -18,6 +18,10 @@ test.beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "ui-"));
   embedding = await embeddingServer();
   model = createServer(async (req, res) => {
+    if (req.method === "GET" && req.url?.endsWith("/models")) {
+      res.writeHead(200, {"content-type":"application/json"});
+      res.end(JSON.stringify({data:[{id:"fixture",created:1},{id:"second-model",created:2},{id:"edited-model",created:3},{id:"second-selected-model",created:4}]})); return;
+    }
     let raw = "";
     for await (const p of req) raw += p;
     const body = JSON.parse(raw);
@@ -192,7 +196,7 @@ test("administrator opens responsive chat and independent secret-preserving sett
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
   await page.locator(".provider-row").first().click();
-  await page.getByLabel("Default model ID").fill("fixture");
+  await page.getByLabel("Default model ID").selectOption("fixture");
   await page
     .getByRole("button", { name: "Save provider", exact: true })
     .click();
@@ -916,8 +920,8 @@ test("named providers can be saved in Settings and switched within a conversatio
   await card.getByLabel("Provider name", { exact: true }).fill("Second provider");
   const second = page.getByRole("group", { name: "Provider Second provider", exact: true });
   await second.getByLabel("Base URL", { exact: true }).fill(modelUrl);
-  await second.getByLabel("Default model ID", { exact: true }).fill("second-model");
   await second.getByLabel("API key", { exact: true }).fill("second-private-key");
+  await second.getByLabel("Default model ID", { exact: true }).selectOption("second-model");
   await page.getByRole("button", { name: "Save provider", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Provider saved");
   await expect(second.getByLabel("API key", { exact: true })).toHaveValue("");
@@ -955,19 +959,21 @@ test('native service presets, secret setup and Codex subscription login are dist
  await login(page);await configure(page);
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
- await page.getByRole('link',{name:'Custom provider',exact:true}).click();
- let card=page.getByRole('group',{name:'Provider New provider',exact:true});
- await card.getByLabel('Provider name',{exact:true}).fill('Native account');
- card=page.getByRole('group',{name:'Provider Native account',exact:true});
- await card.getByLabel('Model service',{exact:true}).selectOption('anthropic');
- await expect(card.getByLabel('Base URL',{exact:true})).toHaveValue('https://api.anthropic.com');
- expect(await card.getByLabel('Default model ID',{exact:true}).locator('option').count()).toBeGreaterThan(5);
+ await page.getByLabel('Find a vendor').fill('Anthropic');
+ await page.locator('.vendor[href*="auth=api_key"]').filter({hasText:'Anthropic'}).click();
+ let card=page.getByRole('group',{name:'Provider Anthropic',exact:true});
+ const known=(await request(page,'/api/settings')).value.catalog.find((p:any)=>p.id==='anthropic').models[0].id;
+ await page.route('**/api/providers/models',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({models:[known,'claude-newly-released'],defaultModelId:'claude-newly-released'})}));
+ await expect(card.getByLabel('Model service',{exact:true})).toHaveCount(0);
+ await expect(card.getByLabel('Default model ID',{exact:true})).toHaveCount(0);
+ await expect(card.getByText('https://api.anthropic.com',{exact:true})).toBeVisible();
  await card.getByLabel('API key',{exact:true}).fill('native-ui-secret');
+ await expect(card.getByLabel('Default model ID',{exact:true})).toHaveValue('claude-newly-released');
  await page.getByRole('button',{name:'Save provider',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Provider saved');
  await expect(card.getByLabel('API key',{exact:true})).toHaveValue('');
  expect(JSON.stringify((await request(page,'/api/settings')).value)).not.toContain('native-ui-secret');
- await expect(card.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(card.getByText('Connection verified',{exact:false})).toBeVisible();
  await card.screenshot({path:'test-results/native-provider-api.png'});
  await expect(card.getByLabel('Model service',{exact:true})).toHaveCount(0);
  await expect(card.getByLabel('Provider name',{exact:true})).toHaveCount(0);
@@ -975,11 +981,11 @@ test('native service presets, secret setup and Codex subscription login are dist
  await page.getByRole('link',{name:'Back to providers',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
- await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
  card=page.getByRole('group',{name:'Provider OpenAI Codex',exact:true});
- await expect(card.getByLabel('Authentication',{exact:true})).toHaveValue('oauth');
+ await expect(card.getByText('Account login / OAuth',{exact:true})).toBeVisible();
  await expect(card.getByLabel('API key',{exact:true})).toHaveCount(0);
- await expect(card.getByLabel('Base URL',{exact:true})).toBeDisabled();
+ await expect(card.getByLabel('Base URL',{exact:true})).toHaveCount(0);
  // A failed save must not start login against the old server-side service.
  let loginRequests=0;
  page.on('request',r=>{if(r.method()==='POST'&&r.url().includes('/api/providers/')&&r.url().endsWith('/auth'))loginRequests++;});
@@ -1010,14 +1016,14 @@ test('settings catalog selects subscription defaults and cancel discards only pr
   await page.screenshot({path:'test-results/settings-providers.png',fullPage:true});
   const before=(await request(page,'/api/settings')).value.providers.length;
   await page.getByRole('link',{name:'Add provider',exact:true}).click();
-  await expect.poll(()=>page.locator('.vendor img').count()).toBeGreaterThan(40);
+  await expect.poll(()=>page.locator('.vendor img').count()).toBeGreaterThan(10);
   await expect.poll(()=>page.locator('.vendor img').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth>0))).toBe(true);
   await page.screenshot({path:'test-results/settings-catalog.png',fullPage:true});
   await page.getByLabel('Find a vendor').fill('Codex');
-  await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
-  await expect(page.getByLabel('Model service',{exact:true})).toHaveValue('openai-codex');
-  await expect(page.getByLabel('Authentication',{exact:true})).toHaveValue('oauth');
-  await page.getByLabel('Provider name',{exact:true}).fill('Discard this draft');
+  await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+  await expect(page.getByLabel('Model service',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
+  await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
   await page.getByRole('link',{name:'Cancel',exact:true}).click();
   await page.getByRole('button',{name:'Discard changes',exact:true}).click();
   await expect(page.getByRole('link',{name:/Discard this draft/})).toHaveCount(0);
@@ -1046,7 +1052,7 @@ test('connect account opens official login automatically and completes without a
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
- await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
  let flow:any;let connected=false;const answers:string[]=[];
  await page.route('**/api/providers/*/auth',async route=>{
   const body=route.request().method()==='POST'?route.request().postDataJSON():{};
@@ -1079,7 +1085,7 @@ test('blocked login windows retain an explicit official login fallback',async({p
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
- await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
  let pending=false;
  await page.route('**/api/providers/*/auth',async route=>{
   if(route.request().method()==='POST')pending=true;
@@ -1096,7 +1102,7 @@ test('cancelled automatic method responses cannot redirect a restarted login',as
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
- await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
  let starts=0;let phase='idle';let release!:()=>void;let captured!:()=>void;
  const held=new Promise<void>(r=>release=r);const ready=new Promise<void>(r=>captured=r);
  const method={id:'old',status:'pending',events:[],prompt:{id:'old-method',type:'select',message:'Select OpenAI Codex login method:',options:[{id:'browser',label:'Browser login (default)'}]}};
@@ -1130,7 +1136,7 @@ test('automatic browser method selection retries a transient failure', async({pa
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
- await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
  let flow:any;let connected=false;const answers:string[]=[];
  await page.route('**/api/providers/*/auth',async route=>{
   const body=route.request().method()==='POST'?route.request().postDataJSON():{};
@@ -1158,7 +1164,7 @@ test('automatic browser method selection retries when start already contains a p
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
- await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
  let flow:any;let connected=false;const answers:string[]=[];
  await page.route('**/api/providers/*/auth',async route=>{
   const body=route.request().method()==='POST'?route.request().postDataJSON():{};
@@ -1244,14 +1250,14 @@ test('returning to Settings synchronizes account status after the provider edito
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('link',{name:'Add provider',exact:true}).click();
  await page.getByLabel('Find a vendor').fill('Codex');
- await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
- await page.getByLabel('Provider name',{exact:true}).fill('Callback sync account');
+ await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+
  let connected=false;let latency=0;
  await page.route('**/api/providers/*/auth',async r=>{if(latency)await new Promise(resolve=>setTimeout(resolve,latency));await r.fulfill({json:{connected,mode:'oauth'}});});
  await page.getByRole('button',{name:'Save provider',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Provider saved');
  await page.getByRole('link',{name:'Back to providers',exact:true}).click();
- const row=page.locator('.provider-row').filter({hasText:'Callback sync account'});
+ const row=page.locator('.provider-row').filter({hasText:'OpenAI Codex'}).last();
  await expect(row).toContainText('Not connected');
  connected=true;
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
@@ -1269,23 +1275,25 @@ test('provider routes preserve browser history and protect unsaved drafts', asyn
   const count = (await request(page, '/api/settings')).value.providers.length;
   await page.getByRole('link', {name:'Add provider', exact:true}).click();
   await page.getByLabel('Find a vendor').fill('Codex');
-  await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
-  await expect(page.getByLabel('Authentication', {exact:true})).toHaveValue('oauth');
+  await page.locator('.vendor').filter({hasText:'ChatGPT (Codex)'}).click();
+  await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
   const draftUrl = page.url();
   await expect(page.getByLabel('Default chat provider', {exact:true})).toHaveCount(0);
-  await page.getByLabel('Provider name', {exact:true}).fill('Unsaved browser draft');
+  const originalModel=await page.getByLabel('Default model ID',{exact:true}).inputValue();
+  await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
+  const editedModel=await page.getByLabel('Default model ID',{exact:true}).inputValue();
   await page.goBack();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   await page.screenshot({path:'test-results/provider-unsaved-dialog.png',fullPage:true});
   await page.getByRole('button', {name:'Keep editing', exact:true}).click();
   await expect(page).toHaveURL(draftUrl);
-  await expect(page.getByLabel('Provider name', {exact:true})).toHaveValue('Unsaved browser draft');
+  await expect(page.getByLabel('Default model ID', {exact:true})).toHaveValue(editedModel);
   await page.goBack();
   await page.getByRole('button', {name:'Discard changes', exact:true}).click();
   await expect(page.getByLabel('Find a vendor')).toHaveValue('Codex');
   await page.goForward();
   await expect(page).toHaveURL(draftUrl);
-  await expect(page.getByLabel('Provider name', {exact:true})).not.toHaveValue('Unsaved browser draft');
+  await expect(page.getByLabel('Default model ID', {exact:true})).toHaveValue(originalModel);
   await page.reload();
   await expect(page).toHaveURL(draftUrl);
   expect((await request(page, '/api/settings')).value.providers.length).toBe(count);
@@ -1309,7 +1317,7 @@ test('saving a connection preserves other tabs and the global chat default', asy
   const initial = (await request(page, '/api/settings')).value;
   const id = initial.providers[0].id;
   await page.goto(base + '/settings/providers/' + encodeURIComponent(id));
-  await page.getByLabel('Default model ID', {exact:true}).fill('edited-model');
+  await page.getByLabel('Default model ID', {exact:true}).selectOption('edited-model');
   const added = {id:'other-tab-connection', name:'Other tab connection', baseUrl:modelUrl, modelId:'other-model'};
   const providers = initial.providers.filter((p:any)=>p.id!==added.id).map(({hasApiKey,...p}:any)=>p);
   await request(page, '/api/settings', {providers:[...providers, added], defaultProviderId:added.id});
@@ -1319,4 +1327,42 @@ test('saving a connection preserves other tabs and the global chat default', asy
   expect(latest.defaultProviderId).toBe(added.id);
   expect(latest.providers.find((p:any)=>p.id===added.id).name).toBe(added.name);
   expect(latest.providers.find((p:any)=>p.id===id).modelId).toBe('edited-model');
+});
+
+test('catalog provider automatically validates keys and ignores stale model discovery', async ({page}) => {
+  await login(page); await configure(page);
+  let releaseSlow:()=>void=()=>{};
+  let slowStarted:()=>void=()=>{};
+  const slowSeen=new Promise<void>(r=>slowStarted=r);
+  await page.route('**/api/providers/models',async route=>{
+    const body=route.request().postDataJSON();
+    expect(body.service).toBe('moonshotai');
+    expect(body.baseUrl).toBe('https://api.moonshot.ai/v1');
+    if(body.apiKey==='bad') return route.fulfill({status:400,json:{error:{message:'Connection failed. Check the API key and endpoint, then retry.'}}});
+    if(body.apiKey==='slow') { slowStarted(); await new Promise<void>(r=>releaseSlow=r); await route.fulfill({json:{models:['stale-model'],defaultModelId:'stale-model'}}).catch(()=>{}); return; }
+    await route.fulfill({json:{models:['kimi-latest','kimi-previous'],defaultModelId:'kimi-latest'}});
+  });
+  await page.goto(base+'/settings/providers/new');
+  await expect(page.getByLabel('Find a vendor')).toBeVisible();
+  await expect(page.locator('.vendor').first()).toBeVisible();
+  await page.screenshot({path:'test-results/provider-two-categories.png',fullPage:true});
+  await page.goto(base+'/settings/providers/new/moonshotai?auth=api_key');
+  await expect(page.getByLabel('Model service',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Base URL',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('https://api.moonshot.ai/v1',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Default model ID',{exact:true})).toHaveCount(0);
+  await page.getByLabel('API key',{exact:true}).fill('bad');
+  await expect(page.getByRole('alert')).toContainText('Connection failed');
+  await expect(page.getByRole('button',{name:'Save provider',exact:true})).toBeDisabled();
+  await page.getByLabel('API key',{exact:true}).fill('slow');
+  await slowSeen;
+  await page.getByLabel('API key',{exact:true}).fill('good');
+  await expect(page.getByLabel('Default model ID',{exact:true})).toHaveValue('kimi-latest');
+  releaseSlow();
+  await page.screenshot({path:'test-results/provider-api-setup.png',fullPage:true});
+  await page.getByLabel('Default model ID',{exact:true}).selectOption('kimi-previous');
+  await page.getByRole('button',{name:'Save provider',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Provider saved');
+  await expect(page.getByLabel('Default model ID',{exact:true})).toHaveValue('kimi-previous');
+  await page.screenshot({path:'test-results/provider-auto-discovery.png',fullPage:true});
 });

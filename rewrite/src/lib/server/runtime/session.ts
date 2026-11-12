@@ -26,6 +26,7 @@ export type ChatEndpointConfig = {
   baseUrl: string;
   apiKey: string;
   modelId: string;
+  models?: string[];
   useAmbientCredentials?: boolean;
   service?: string;
   authMode?: import("../providers").AuthMode;

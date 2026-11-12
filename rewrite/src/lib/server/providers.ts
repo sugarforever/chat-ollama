@@ -21,6 +21,7 @@ export function providerCatalog() {
     id: p.id,
     name: p.name,
     baseUrl: p.baseUrl ?? "",
+    apiSetup: !!p.baseUrl && !!p.auth.apiKey && ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"].includes(p.getModels()[0]?.api ?? ""),
     authModes: [
       ...(p.auth.apiKey ? ["api_key", "ambient"] : []),
       ...(p.auth.oauth ? ["oauth"] : []),
@@ -35,10 +36,15 @@ export function captureModel(
   id: string,
   baseUrl: string,
   protocol: CustomProtocol = "openai-completions",
+  discoveredModels: string[] = [],
 ): Model<Api> {
   if (service !== "custom") {
     const provider = nativeProvider(service);
-    const model = provider.getModels().find((m) => m.id === id);
+    const models = provider.getModels();
+    const model = models.find((m) => m.id === id) ??
+      (discoveredModels.includes(id) && models[0] && ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"].includes(models[0].api)
+        ? { ...captureModel("custom", id, baseUrl, models[0].api as CustomProtocol), provider: service }
+        : undefined);
     if (!model)
       throw new ApiError(
         400,

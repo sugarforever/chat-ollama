@@ -137,6 +137,7 @@ export function resolveChatEndpoint(
       selection.modelId,
       provider.baseUrl,
       provider.protocol,
+      provider.models,
     ),
   };
 }
@@ -314,7 +315,9 @@ export function saveSettings(input: Record<string, unknown>) {
           ))
       )
         throw Error("Invalid provider credential configuration");
-      captureModel(p.service, p.modelId, baseUrl, protocol);
+      const models = p.models ?? (same ? old?.models : undefined);
+      if (models !== undefined && (!Array.isArray(models) || models.length > 2000 || models.some((id: unknown) => typeof id !== "string" || !id || id.length > 200))) throw Error("Invalid models");
+      captureModel(p.service, p.modelId, baseUrl, protocol, models);
       return {
         ...endpoint,
         id: p.id,
@@ -322,6 +325,7 @@ export function saveSettings(input: Record<string, unknown>) {
         service: p.service,
         authMode,
         protocol,
+        ...(models ? { models } : {}),
         ...(authMode === "api_key" &&
         p.service === "amazon-bedrock" &&
         p.apiKey === undefined &&

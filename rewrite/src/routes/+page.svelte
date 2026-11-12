@@ -13,9 +13,10 @@
   let modelId = "";
   let providerId = "";
   let catalog: { id: string; models: { id: string; name: string }[] }[] = [];
-  const choices = (id: string) =>
-    catalog.find((p) => p.id === providers.find((p) => p.id === id)?.service)
-      ?.models ?? [];
+  const choices = (id: string) => {
+    const provider = providers.find(p => p.id === id);
+    return provider?.models?.map(id => ({ id, name: id })) ?? catalog.find(p => p.id === provider?.service)?.models ?? [];
+  };
   let providers: import("$lib/contracts").PublicProvider[] = [];
   let conversationProvider = "";
   let conversationModel = "";
