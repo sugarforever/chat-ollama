@@ -1053,6 +1053,8 @@ test('connect account opens official login automatically and completes without a
  await expect(page.getByLabel('Paste authorization code',{exact:true})).not.toBeVisible();
  connected=true;
  await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
+ await expect(page.getByText('Account connected.',{exact:true})).toBeVisible();
+ await page.getByRole('group',{name:'Provider OpenAI Codex',exact:true}).screenshot({path:'test-results/oauth-connected.png'});
  await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
 });
 
@@ -1221,4 +1223,27 @@ test('compact model controls preserve drafts and new conversation settings fit m
  await expect(page.locator('.model-summary strong')).toHaveText('P'.repeat(100));
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await expect(page.getByRole('button',{name:'Send message',exact:true})).toBeInViewport();
+});
+
+test('returning to Settings synchronizes account status after the provider editor closes',async({page})=>{
+ await login(page);await configure(page);
+ await page.getByRole('link',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ await page.getByLabel('Find a vendor').fill('Codex');
+ await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+ await page.getByLabel('Provider name',{exact:true}).fill('Callback sync account');
+ let connected=false;let latency=0;
+ await page.route('**/api/providers/*/auth',async r=>{if(latency)await new Promise(resolve=>setTimeout(resolve,latency));await r.fulfill({json:{connected,mode:'oauth'}});});
+ await page.getByRole('button',{name:'Save providers',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('Providers saved');
+ await page.getByRole('button',{name:'← Providers',exact:true}).click();
+ const row=page.locator('.provider-row').filter({hasText:'Callback sync account'});
+ await expect(row).toContainText('Not connected');
+ connected=true;
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(row).toContainText('Connected',{timeout:1500});
+ connected=false;
+ await expect(row).toContainText('Not connected',{timeout:5000});
+ latency=2300;connected=true;
+ await expect(row).toContainText('Connected',{timeout:8000});
 });

@@ -10,23 +10,47 @@
   let query = "";
   let snapshot = "";
   let connection: Record<string, boolean> = {};
+  let connectionRead = 0;
+  let connectionsActive = true;
+  let connectionsLoading = false;
+  let connectionsQueued = false;
+  function syncConnection(id: string, connected: boolean) {
+    if (connection[id] === connected) return;
+    connectionRead++;
+    connection = { ...connection, [id]: connected };
+  }
   async function refreshConnections() {
-    if (!settings) return;
-    const entries = await Promise.all(
-      settings.providers
-        .filter((p: any) => p.service && p.service !== "custom")
-        .map(async (p: any) => {
-          try {
-            return [
-              p.id,
-              (await api(`/api/providers/${p.id}/auth`)).connected,
-            ] as const;
-          } catch {
-            return [p.id, false] as const;
-          }
-        }),
-    );
-    connection = Object.fromEntries(entries);
+    if (!settings || !connectionsActive) return;
+    if (connectionsLoading) {
+      connectionsQueued = true;
+      return;
+    }
+    connectionsLoading = true;
+    const read = ++connectionRead;
+    try {
+      const entries = await Promise.all(
+        settings.providers
+          .filter((p: any) => p.service && p.service !== "custom")
+          .map(async (p: any) => {
+            try {
+              return [
+                p.id,
+                (await api(`/api/providers/${p.id}/auth`)).connected,
+              ] as const;
+            } catch {
+              return [p.id, connection[p.id] ?? false] as const;
+            }
+          }),
+      );
+      if (connectionsActive && read === connectionRead)
+        connection = Object.fromEntries(entries);
+    } finally {
+      connectionsLoading = false;
+      if (connectionsQueued && connectionsActive) {
+        connectionsQueued = false;
+        void refreshConnections();
+      }
+    }
   }
   const tabs = [
     {
@@ -197,8 +221,22 @@
       servers = (await api("/api/mcp")).servers;
       await loadCollections();
     }, "");
-    timer = setInterval(() => void loadCollections().catch(() => {}), 2000);
-    return () => clearInterval(timer);
+    const sync = () => {
+      if (document.visibilityState === "visible") void refreshConnections();
+    };
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    timer = setInterval(() => {
+      void loadCollections().catch(() => {});
+      void refreshConnections();
+    }, 2000);
+    return () => {
+      connectionsActive = false;
+      connectionRead++;
+      clearInterval(timer);
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
   });
 </script>
 
@@ -551,6 +589,8 @@
                           mode={p.authMode}
                           service={p.service}
                           beforeConnect={persistProviders}
+                          onStatus={(connected) =>
+                            syncConnection(p.id, connected)}
                         />{/key}{/if}
                     <button
                       type="button"

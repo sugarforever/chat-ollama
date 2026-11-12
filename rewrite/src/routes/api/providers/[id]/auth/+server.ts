@@ -9,7 +9,9 @@ import {
   disconnectProvider,
 } from "$lib/server/provider-auth";
 export const GET = ({ params }: { params: { id: string } }) =>
-  api(() => json(authStatus(params.id)));
+  api(() =>
+    json(authStatus(params.id), { headers: { "cache-control": "no-store" } }),
+  );
 export const POST = ({
   params,
   request,

@@ -4,6 +4,7 @@
   export let id: string;
   export let mode: string;
   export let service = "";
+  export let onStatus: (connected: boolean) => void = () => {};
   export let beforeConnect: () => Promise<unknown> = async () => {};
   let status: any;
   let error = "";
@@ -31,6 +32,7 @@
   async function receive(next: any, current = generation): Promise<void> {
     if (current !== generation) return;
     status = next;
+    onStatus(!!next.connected);
     if (!loginRequested) return;
     if (next.flow?.status === "pending") {
       const prompt = next.flow.prompt;
@@ -142,9 +144,16 @@
   const safe = (url: string) => (/^https?:\/\//.test(url) ? url : undefined);
   onMount(() => {
     void refresh();
+    const sync = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
     const timer = setInterval(() => void refresh(), 1000);
     return () => {
       clearInterval(timer);
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
       generation++;
       loginRequested = false;
       if (!openedUrl) closeLoginWindow();
@@ -160,6 +169,21 @@
         ? "Credentials saved on the server."
         : "Not connected."}
   </p>
+  {#if mode === "oauth" && status?.connected}<p
+      class="connection-success"
+      role="status"
+      aria-live="polite"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg
+      >Account connected.
+    </p>{/if}
   {#if mode !== "ambient"}
     <div class="row">
       <button
@@ -269,3 +293,17 @@
     </p>{/if}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 </div>
+
+<style>
+  .connection-success {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #edf6ef;
+    border: 1px solid #d4e6d9;
+    color: #315f49;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+</style>
