@@ -10,9 +10,15 @@ Checked on 2026-11-12 against [release v1.5.2](https://github.com/earendil-works
 
 The UI/catalog is derived from `builtinProviders()` on the server. It returns chat models only, including their real IDs and protocols. We do not maintain a second model/provider directory. TypeSafe currently has classifiers but no chat models and appears disabled. Image/classifier generation is outside this text-chat app.
 
+## Settings navigation
+
+Settings has separate Providers, Embeddings, Knowledge and MCP server sections. Providers open as a searchable compact list with a default badge, selected model and credential status. Open a row to edit one provider; Save preserves blank credential fields, while Cancel discards that provider draft. Connecting an account saves the form before starting login. Removing a provider preserves conversation history but requires affected conversations to select a replacement.
+
+The add-provider catalog groups subscriptions and vendor credentials and uses the same server-provided catalog as the editor. It does not add a second provider inventory. Neutral provider initials are placeholders for the future app-wide visual design.
+
 ## Setup
 
-1. Add a named provider in Settings, choose its service and authentication mode, and select a model. Mainstream services have the official endpoint preset. Providers such as Azure, Cloudflare, Vertex, Bedrock and OpenCode own endpoint construction; a blank base URL means provider-managed, not missing OpenAI configuration.
+1. Open **Settings → Providers → Add provider**. Choose an account under **Subscriptions**, a native service under **Vendors**, or **Custom provider** for Ollama, LM Studio and compatible endpoints. The selected entry presets its service and authentication mode. Select a model in the individual provider editor. Mainstream services have the official endpoint preset. Providers such as Azure, Cloudflare, Vertex, Bedrock and OpenCode own endpoint construction; a blank base URL means provider-managed, not missing OpenAI configuration.
 2. For simple API-key services, enter the key and save. For cloud credentials, choose **Guided credential setup** after saving. It renders pi-ai's official text, secret and method-selection prompts. Advanced provider-scoped environment JSON supports configuration such as Azure deployment mappings, Cloudflare account/gateway IDs, AWS region/profile and Google project/location/credential-file paths. Stored values are never sent back to the browser.
 3. For account login, select the OAuth mode and use **Connect account**. Connecting saves the current provider form before starting login; save failures stop the login request. Follow the official link or device-code instructions, and submit the requested code/redirect URL if prompted. No browser cookies are collected. Pending login has a 15-minute timeout; Cancel closes the official flow. A process restart cancels pending interaction; start login again. Completed credentials persist.
 4. Select provider/model when creating a conversation, or apply a new selection inside an existing conversation. Built-in model IDs are validated against the installed official catalog. Custom endpoints permit arbitrary model IDs.

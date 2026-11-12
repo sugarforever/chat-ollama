@@ -187,17 +187,20 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Models", exact: true }),
+    page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
+  await page.locator(".provider-row").first().click();
   await page.getByLabel("Default model ID").fill("fixture");
   await page
     .getByRole("button", { name: "Save providers", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText("Providers saved");
+  await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
+  await page.getByRole("button", {name:"Embeddings",exact:true}).click();
   await expect(page.getByLabel("Embedding model ID")).toHaveValue(
     embedding.config.modelId,
   );
-  await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
+  await page.getByRole("button", {name:"MCP servers",exact:true}).click();
   await page
     .getByRole("button", { name: "Replace MCP configuration", exact: true })
     .click();
@@ -263,6 +266,7 @@ test("upload indexing, scoped citations, expandable tools and hostile markdown",
   await login(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", {name:"Knowledge",exact:true}).click();
   await page.getByLabel("Collection name").fill("Orchard");
   await page.getByRole("button", { name: "Add collection" }).click();
   const collection = page.locator("article").filter({
@@ -379,6 +383,7 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
   await login(page);
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", {name:"Knowledge",exact:true}).click();
   await page.getByLabel("Collection name").fill("Retry notes");
   await page.getByRole("button", { name: "Add collection" }).click();
   const collection = page.locator("article").filter({
@@ -405,8 +410,10 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
   await expect(collection.getByText(/Rebuild warning/)).toBeVisible();
   await expect(collection.getByText("Ready · published")).toBeVisible();
   embedding.fail(false);
+  await page.getByRole("button", {name:"Embeddings",exact:true}).click();
   await page.getByLabel("Embedding model ID").fill("changed-fixture");
   await page.getByRole("button", { name: "Save embedding settings" }).click();
+  await page.getByRole("button", {name:"Knowledge",exact:true}).click();
   await expect(
     collection.getByText("Reindex required", { exact: true }),
   ).toBeVisible();
@@ -720,7 +727,7 @@ for (const phase of ["catalogue", "settings", "snapshot"])
     await delay.ready;
     await page.getByRole("link", { name: "Settings", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Models", exact: true }),
+      page.getByRole("heading", { name: "Settings", exact: true }),
     ).toBeVisible();
     const done = page.waitForResponse((r) => r.url().endsWith(path));
     delay.release();
@@ -902,6 +909,7 @@ test("named providers can be saved in Settings and switched within a conversatio
   await configure(page);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page.getByRole("button", {name:"+ Custom provider",exact:true}).click();
   const card = page.getByRole("group", { name: "Provider New provider", exact: true });
   await card.getByLabel("Provider name", { exact: true }).fill("Second provider");
   const second = page.getByRole("group", { name: "Provider Second provider", exact: true });
@@ -912,8 +920,9 @@ test("named providers can be saved in Settings and switched within a conversatio
   await expect(page.getByRole("status")).toContainText("Providers saved");
   await expect(second.getByLabel("API key", { exact: true })).toHaveValue("");
   await page.reload();
+  await page.getByRole("button",{name:/Second provider.*second-model/}).click();
   await expect(second.getByLabel("API key", { exact: true })).toHaveAttribute("placeholder", "Key saved · leave blank to keep");
-  await page.locator("main.settings > section").first().screenshot({ path: "test-results/provider-settings.png" });
+  await page.locator(".settings-content > section").first().screenshot({ path: "test-results/provider-settings.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -942,6 +951,7 @@ test('native service presets, secret setup and Codex subscription login are dist
  await login(page);await configure(page);
  await page.getByRole('link',{name:'Settings',exact:true}).click();
  await page.getByRole('button',{name:'Add provider',exact:true}).click();
+ await page.getByRole('button',{name:'+ Custom provider',exact:true}).click();
  let card=page.getByRole('group',{name:'Provider New provider',exact:true});
  await card.getByLabel('Provider name',{exact:true}).fill('Native account');
  card=page.getByRole('group',{name:'Provider Native account',exact:true});
@@ -973,8 +983,37 @@ test('native service presets, secret setup and Codex subscription login are dist
  await card.screenshot({path:'test-results/codex-oauth-login.png'});
  await card.getByRole('button',{name:'Cancel login',exact:true}).click();
  await expect(card.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
- await expect(page.getByText('Chat subscriptions and OAuth tokens are never used here.',{exact:false})).toBeVisible();
+
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await card.screenshot({path:'test-results/provider-oauth-mobile.png'});
+});
+
+test('settings catalog selects subscription defaults and cancel discards only provider drafts', async({page})=>{
+  await login(page); await configure(page);
+  await page.getByRole('link',{name:'Settings',exact:true}).click();
+  await page.screenshot({path:'test-results/settings-providers.png',fullPage:true});
+  const before=(await request(page,'/api/settings')).value.providers.length;
+  await page.getByRole('button',{name:'Add provider',exact:true}).click();
+  await page.screenshot({path:'test-results/settings-catalog.png',fullPage:true});
+  await page.getByLabel('Find a vendor').fill('Codex');
+  await page.locator('.vendor').filter({hasText:'OpenAI Codex'}).click();
+  await expect(page.getByLabel('Model service',{exact:true})).toHaveValue('openai-codex');
+  await expect(page.getByLabel('Authentication',{exact:true})).toHaveValue('oauth');
+  await page.getByLabel('Provider name',{exact:true}).fill('Discard this draft');
+  await page.getByRole('button',{name:'Cancel',exact:true}).click();
+  await expect(page.getByRole('button',{name:/Discard this draft/})).toHaveCount(0);
+  expect((await request(page,'/api/settings')).value.providers.length).toBe(before);
+  await page.getByRole('button',{name:'Embeddings',exact:true}).click();
+  await page.getByLabel('Embedding model ID').fill('saved-after-cancel');
+  await page.getByRole('button',{name:'Save embedding settings'}).click();
+  await expect(page.getByRole('status')).toContainText('Embedding settings saved');
+  await page.getByRole('button',{name:'Providers',exact:true}).click();
+  await page.getByRole('button',{name:'Embeddings',exact:true}).click();
+  await expect(page.getByLabel('Embedding model ID')).toHaveValue('saved-after-cancel');
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'Providers',exact:true}).click();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.getByRole('button',{name:'Log out',exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/settings-mobile.png',fullPage:true});
 });

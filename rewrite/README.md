@@ -144,7 +144,7 @@ concurrent native chat responsiveness. See `docs/build-evidence.md` for results.
 
 ## Browser interface validation
 
-Settings at `/settings` manage named chat providers and an independent embedding endpoint. Blank API key fields preserve saved credentials; a separate checkbox explicitly removes them. Knowledge collections support uploads, statuses, retries, deletion and explicit reindexing. A failed compatible rebuild displays its warning separately while published content remains ready.
+Settings at `/settings` separate Providers, Embeddings, Knowledge and MCP servers. The searchable provider list opens one editor at a time; **Add provider** groups subscription logins, native vendor credentials and local/custom endpoints. Cancel discards the provider draft. Settings also manage an independent embedding endpoint. Blank API key fields preserve saved credentials; a separate checkbox explicitly removes them. Knowledge collections support uploads, statuses, retries, deletion and explicit reindexing. A failed compatible rebuild displays its warning separately while published content remains ready.
 
 The MCP editor replaces the complete global server list. It starts with a blank replacement and requires explicit acknowledgment: saved secrets are never fetched or filled into the editor. Supply every intended server and its full credentials; redacted presence flags are rejected. Select knowledge collections and MCP servers when creating a conversation.
 
