@@ -21,7 +21,7 @@ body {
 button,
 input,
 textarea,
-select {
+select:not([data-slot]) {
   font: inherit;
 }
 button,
@@ -86,8 +86,8 @@ button.subtle:hover {
   border-color: transparent;
 }
 input:not([data-slot]),
-textarea,
-select {
+textarea:not([data-slot]),
+select:not([data-slot]) {
   border: 1px solid #d5d9e0;
   border-radius: 8px;
   padding: 10px 12px;

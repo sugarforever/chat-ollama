@@ -1,5 +1,5 @@
 These components were generated from the official shadcn-svelte registry using
-`pnpm dlx shadcn-svelte@latest add button input badge alert-dialog`.
+`pnpm dlx shadcn-svelte@latest add button input badge alert-dialog native-select checkbox textarea`.
 
 Registry: https://shadcn-svelte.com/registry
 Documentation: https://shadcn-svelte.com/docs

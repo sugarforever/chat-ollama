@@ -27,4 +27,4 @@
 - Independent review identified cloud-auth/select defaults and partial-credential/disconnect isolation bugs; regression tests now pass and focused re-review found no remaining P1/P2 credential/snapshot blockers.
 - 1.4.0 to 1.5.2 SIGKILL upgrade experiment resumed the captured request with original credentials.
 - User Chrome: independent dev server at http://127.0.0.1:3012 with DATA_DIR provider-auth-review; confirmed built-in service presets, model selectors and official Codex browser/device login prompt. Personal subscription authorization remains a user handoff.
-- Screenshots saved under rewrite/docs/images for PR review. Original 3010 still responds HTTP 200.
+- Screenshots uploaded as GitHub attachments in the PR description. Original 3010 still responds HTTP 200.

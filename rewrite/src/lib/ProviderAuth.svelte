@@ -1,4 +1,8 @@
 <script lang="ts">
+  import NativeSelect from "$lib/components/ui/native-select/native-select.svelte";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import Input from "$lib/components/ui/input/input.svelte";
+
   import { onMount } from "svelte";
   import { api } from "./client";
   export let id: string;
@@ -201,17 +205,17 @@
     </p>{/if}
   {#if mode !== "ambient"}
     <div class="row">
-      <button
+      <Button variant="outline"
         type="button"
         disabled={busy || status?.flow?.status === "pending"}
         onclick={() => command("start")}
         >{mode === "oauth"
           ? "Connect account"
-          : "Guided credential setup"}</button
-      ><button
+          : "Guided credential setup"}</Button
+      ><Button variant="outline"
         type="button"
         disabled={busy}
-        onclick={() => command("disconnect")}>Disconnect</button
+        onclick={() => command("disconnect")}>Disconnect</Button
       >
     </div>
   {/if}
@@ -253,36 +257,36 @@
             sign-in window.
           </p>
           <label
-            >{status.flow.prompt.message}<input
+            >{status.flow.prompt.message}<Input
               type="password"
               bind:value
               autocomplete="off"
               placeholder={status.flow.prompt.placeholder ?? ""}
             /></label
           >
-          <button
+          <Button variant="outline"
             type="button"
             disabled={busy}
-            onclick={() => command("answer")}>Submit redirect URL</button
+            onclick={() => command("answer")}>Submit redirect URL</Button
           >
-          {#if service === "openai-codex"}<button
+          {#if service === "openai-codex"}<Button variant="outline"
               type="button"
               disabled={busy}
               onclick={() => command("start", "device_code")}
-              >Use device code instead</button
+              >Use device code instead</Button
             >{/if}
         </details>
       {:else}
         <label
           >{status.flow.prompt.message}
-          {#if status.flow.prompt.type === "select"}<select
+          {#if status.flow.prompt.type === "select"}<NativeSelect class="w-full"
               aria-label={status.flow.prompt.message}
               bind:value
               >{#each status.flow.prompt.options as option}<option
                   value={option.id}>{option.label}</option
-                >{/each}</select
+                >{/each}</NativeSelect
             >
-          {:else}<input
+          {:else}<Input
               type={status.flow.prompt.type === "secret" ||
               status.flow.prompt.type === "manual_code"
                 ? "password"
@@ -291,15 +295,15 @@
               placeholder={status.flow.prompt.placeholder ?? ""}
               autocomplete="off"
             />{/if}
-        </label><button
+        </label><Button variant="outline"
           type="button"
           disabled={busy}
-          onclick={() => command("answer")}>Continue login</button
+          onclick={() => command("answer")}>Continue login</Button
         >
       {/if}
     {/if}
-    <button type="button" disabled={busy} onclick={() => command("cancel")}
-      >Cancel login</button
+    <Button variant="outline" type="button" disabled={busy} onclick={() => command("cancel")}
+      >Cancel login</Button
     >
   {:else if status?.flow?.status === "failed" || status?.flow?.status === "cancelled"}<p
       role="status"

@@ -1,4 +1,8 @@
 <script lang="ts">
+  import NativeSelect from "$lib/components/ui/native-select/native-select.svelte";
+  import Checkbox from "$lib/components/ui/checkbox/checkbox.svelte";
+  import Textarea from "$lib/components/ui/textarea/textarea.svelte";
+
   import { beforeNavigate, goto } from "$app/navigation";
   import { page } from "$app/stores";
   import Button from "$lib/components/ui/button/button.svelte";
@@ -387,7 +391,7 @@
           ><strong>{item.name}</strong><span>{item.description}</span></a
         >{/each}
     </nav>
-    <button
+    <Button variant="outline"
       class="logout"
       onclick={() => {
         const logout = () => void run(async () => {
@@ -399,7 +403,7 @@
           pendingNavigation = logout;
           discardOpen = true;
         } else logout();
-      }}>Log out</button
+      }}>Log out</Button
     >
   </aside>
   <div class="settings-content">
@@ -575,7 +579,7 @@
                       /></label
                     >
                     <label
-                      >Model service<select
+                      >Model service<NativeSelect class="w-full"
                         aria-label="Model service"
                         value={p.service ?? "legacy"}
                         onchange={(e) => {
@@ -609,11 +613,11 @@
                               ? ""
                               : " (no chat models)"}</option
                           >{/each}
-                      </select></label
+                      </NativeSelect></label
                     >
                     {#if p.service}
                       <label
-                        >Authentication<select
+                        >Authentication<NativeSelect class="w-full"
                           aria-label="Authentication"
                           value={p.authMode}
                           onchange={(e) => {
@@ -640,11 +644,11 @@
                                         (v: any) => v.id === p.service,
                                       )?.apiKeyLabel ?? "API key")}</option
                             >{/each}
-                        </select></label
+                        </NativeSelect></label
                       >
                     {/if}
                     {#if p.service === "custom"}<label
-                        >API protocol<select
+                        >API protocol<NativeSelect class="w-full"
                           value={p.protocol}
                           onchange={(e) => {
                             p.protocol = e.currentTarget.value;
@@ -652,7 +656,7 @@
                           }}
                           >{#each settings.customProtocols as protocol}<option
                               value={protocol}>{protocol}</option
-                            >{/each}</select
+                            >{/each}</NativeSelect
                         ></label
                       >{/if}
                     <label
@@ -666,7 +670,7 @@
                     >
                     {#if p.service && p.service !== "custom"}
                       <label
-                        >Default model ID<select
+                        >Default model ID<NativeSelect class="w-full"
                           aria-label="Default model ID"
                           value={p.modelId}
                           onchange={(e) => {
@@ -675,7 +679,7 @@
                           }}
                           >{#each settings.catalog.find((v: any) => v.id === p.service)?.models ?? [] as model}<option
                               value={model.id}>{model.id}</option
-                            >{/each}</select
+                            >{/each}</NativeSelect
                         ></label
                       >
                     {:else}<label
@@ -697,9 +701,8 @@
                         /></label
                       >
                       <label class="check"
-                        ><input
-                          type="checkbox"
-                          bind:checked={clearProviderKeys[p.id]}
+                        ><Checkbox
+                          bind:checked={() => clearProviderKeys[p.id] ?? false, (checked) => clearProviderKeys[p.id] = checked}
                         />Remove saved API key</label
                       >
                       {#if p.service && p.service !== "custom"}<details>
@@ -711,10 +714,10 @@
                             Use guided setup for provider-specific prompts.
                           </p>
                           <label
-                            >Credential environment JSON<textarea
+                            >Credential environment JSON<Textarea
                               bind:value={providerEnv[p.id]}
                               placeholder={'{"AWS_REGION":"us-east-1"}'}
-                            ></textarea></label
+                            ></Textarea></label
                           >
                         </details>{/if}
                     {/if}
@@ -770,12 +773,12 @@
             }}
           >
             <label
-              >Default chat provider<select
+              >Default chat provider<NativeSelect class="w-full"
                 aria-label="Default chat provider"
                 bind:value={settings.defaultProviderId}
                 >{#each settings.providers as p}<option value={p.id}
                     >{p.name}</option
-                  >{/each}</select
+                  >{/each}</NativeSelect
               ></label
             ><Button type="submit"><Save />Save chat defaults</Button>
           </form>
@@ -819,7 +822,7 @@
               /></label
             >
             <label class="check"
-              ><input type="checkbox" bind:checked={clear.embedding} />Remove
+              ><Checkbox bind:checked={clear.embedding} />Remove
               saved API key</label
             >
             <p class="muted">
@@ -827,7 +830,7 @@
               subscriptions and OAuth tokens are never used here. Changes
               require an explicit collection reindex.
             </p>
-            <button class="primary">Save embedding settings</button>
+            <Button type="submit" variant="default">Save embedding settings</Button>
           </form>
         </section>
       {:else if tab === "knowledge"}
@@ -850,7 +853,7 @@
                 required
                 placeholder="e.g. Research notes"
               /></label
-            ><button class="primary">Add collection</button>
+            ><Button type="submit" variant="default">Add collection</Button>
           </form>
           {#each collections as c}<article class="card stack">
               <div class="row" style="justify-content:space-between">
@@ -869,20 +872,20 @@
                 </p>{/if}
               <div class="row">
                 <label
-                  >Upload document<input
+                  >Upload document<Input
                     type="file"
                     accept=".pdf,.md,.markdown,.txt"
                     onchange={(e) => upload(c.id, e)}
                   /></label
-                ><button
+                ><Button variant="outline"
                   disabled={c.indexing}
                   onclick={() =>
                     mutate(`/api/knowledge-bases/${c.id}/reindex`, {})}
-                  >Reindex collection</button
-                ><button
+                  >Reindex collection</Button
+                ><Button variant="outline"
                   onclick={() =>
                     mutate(`/api/knowledge-bases/${c.id}`, undefined, "DELETE")}
-                  >Delete collection</button
+                  >Delete collection</Button
                 >
               </div>
               <p class="muted">
@@ -896,14 +899,14 @@
                       >{d.status === "ready"
                         ? "Ready · published"
                         : d.status}</span
-                    >{#if d.status === "failed"}<button
+                    >{#if d.status === "failed"}<Button variant="outline"
                         onclick={() =>
                           mutate(`/api/documents/${d.id}/retry`, {})}
-                        >Retry document</button
-                      >{/if}<button
+                        >Retry document</Button
+                      >{/if}<Button variant="outline"
                       onclick={() =>
                         mutate(`/api/documents/${d.id}`, undefined, "DELETE")}
-                      >Delete document</button
+                      >Delete document</Button
                     >
                   </div>
                   {#if d.error}<p
@@ -930,29 +933,29 @@
                   ? " · secrets saved"
                   : ""}
               </p>
-            </div>{/each}<button onclick={() => (replace = !replace)}
-            >Replace MCP configuration</button
+            </div>{/each}<Button variant="outline" onclick={() => (replace = !replace)}
+            >Replace MCP configuration</Button
           >{#if replace}<p class="notice">
               This replaces every server and all secrets. Existing secrets are
               hidden and cannot be copied back. Include every server and
               credential you want to keep. An empty list removes all servers.
             </p>
             <label
-              >Complete MCP configuration JSON<textarea
-                rows="10"
+              >Complete MCP configuration JSON<Textarea
+                rows={10}
                 bind:value={replacement}
                 placeholder={'[{"id":"tools","transport":"http","url":"https://example.com/mcp","headers":{}}]'}
-              ></textarea></label
+              ></Textarea></label
             >
             <p class="muted">
               HTTP: id, transport, url, headers. Stdio: id, transport, command,
               args, env. Put credentials in headers or env.
             </p>
             <label class="check"
-              ><input type="checkbox" bind:checked={confirm} />I intend to
+              ><Checkbox bind:checked={confirm} />I intend to
               replace all servers and their secrets</label
-            ><button disabled={!confirm} onclick={saveMcp}
-              >Save complete replacement</button
+            ><Button variant="outline" disabled={!confirm} onclick={saveMcp}
+              >Save complete replacement</Button
             >{/if}
         </section>
       {/if}
@@ -1051,7 +1054,7 @@
     border-color: #e1e3e8;
     box-shadow: 0 1px 2px #00000008;
   }
-  .logout {
+  .settings-nav :global(.logout) {
     margin-top: auto;
     text-align: left;
     background: transparent;
@@ -1283,7 +1286,7 @@
       position: relative;
       height: auto;
     }
-    .logout {
+    .settings-nav :global(.logout) {
       position: absolute;
       top: 8px;
       right: 16px;
