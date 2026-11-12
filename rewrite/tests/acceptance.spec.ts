@@ -87,7 +87,9 @@ test.beforeAll(async () => {
     } else
       emit({
         role: "assistant",
-        content: String(last).startsWith("history ")
+        content: String(last) === "Help me plan a focused workday."
+          ? "## A focused workday\nStart with one clear priority, then give it your best attention.\n\n- **Morning:** protect a 90-minute focus block.\n- **Afternoon:** group meetings and smaller tasks.\n- **Before you finish:** choose tomorrow’s first step."
+          : String(last).startsWith("history ")
           ? "## Orchard answer\nI can continue with the conversation history."
           : `## Orchard answer\nApples grow here. [Notes](/sources/${sourceId}) [Invented](/sources/invented) [Unsafe](javascript:alert(1))\n<script>window.attacked=true</script>`,
       });
@@ -932,11 +934,13 @@ test("named providers can be saved in Settings and switched within a conversatio
   await page.getByLabel("Message", { exact: true }).fill("history before switching");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orchard answer" })).toBeVisible();
+  await page.getByRole("button",{name:"Change model",exact:true}).click();
   await page.getByLabel("Conversation provider", { exact: true }).selectOption({ label: "Second provider" });
   await page.getByLabel("Conversation model ID", { exact: true }).fill("second-selected-model");
   await page.getByRole("button", { name: "Apply to next message", exact: true }).click();
   await expect.poll(async () => (await request(page, `/api/conversations/${id}`)).value.selection.modelId).toBe("second-selected-model");
   await page.reload();
+  await page.getByRole("button",{name:"Change model",exact:true}).click();
   await expect(page.getByLabel("Conversation model ID", { exact: true })).toHaveValue("second-selected-model");
   await expect(page.getByText("history before switching", { exact: true })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("conversation")).toBe(id);
@@ -1157,4 +1161,64 @@ test('automatic browser method selection retries when start already contains a p
  connected=true;
  await expect(page.getByText('Credentials saved on the server.',{exact:false})).toBeVisible();
  await expect(page.getByRole('button',{name:'Connect account',exact:true})).toBeEnabled();
+});
+
+
+test('login, empty workspace and missing pages share the workspace design',async({page})=>{
+ await page.goto(`${base}/login`);
+ await page.screenshot({path:'test-results/login-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/login-mobile.png',fullPage:true});
+ await page.getByLabel('Password').fill('incorrect-password');
+ await page.getByRole('button',{name:'Log in',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('Login failed');
+ await page.route('**/api/conversations',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.continue());
+ await page.getByLabel('Password').fill('ui-password');
+ await page.getByRole('button',{name:'Log in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'A place for your next idea.',exact:true})).toBeVisible();
+ await page.screenshot({path:'test-results/workspace-empty-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1280,height:900});
+ await page.screenshot({path:'test-results/workspace-empty-desktop.png',fullPage:true});
+ const response=await page.goto(`${base}/page-that-does-not-exist`);
+ expect(response?.status()).toBe(404);
+ await expect(page.getByRole('heading',{name:'This page isn’t here.',exact:true})).toBeVisible();
+ await page.screenshot({path:'test-results/error-page.png',fullPage:true});
+ await page.getByRole('link',{name:'Back to workspace',exact:true}).click();
+ await expect(page.getByRole('button',{name:'New conversation',exact:true})).toBeVisible();
+});
+
+test('compact model controls preserve drafts and new conversation settings fit mobile',async({page})=>{
+ await login(page);await configure(page);
+ await page.getByRole('button',{name:'New conversation',exact:true}).click();
+ await page.screenshot({path:'test-results/new-conversation-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/new-conversation-mobile.png',fullPage:true});
+ const previous=page.url();
+ await page.getByRole('button',{name:'Create conversation',exact:true}).click();
+ await expect(page).not.toHaveURL(previous);
+ await page.getByLabel('Message',{exact:true}).fill('Help me plan a focused workday.');
+ await expect(page.getByLabel('Conversation model ID',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Change model',exact:true}).click();
+ await expect(page.getByLabel('Conversation model ID',{exact:true})).toBeVisible();
+ await page.getByLabel('Conversation model ID',{exact:true}).focus();
+ await page.keyboard.press('Escape');
+ await expect(page.getByLabel('Conversation model ID',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Change model',exact:true})).toBeFocused();
+ await expect(page.getByLabel('Message',{exact:true})).toHaveValue('Help me plan a focused workday.');
+ await page.getByRole('button',{name:'Send message',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'A focused workday',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/chat-redesign-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1280,height:900});
+ await page.screenshot({path:'test-results/chat-redesign-desktop.png',fullPage:true});
+ const saved=(await request(page,'/api/settings')).value;
+ const renamed=await request(page,'/api/settings',{defaultProviderId:saved.defaultProviderId,providers:saved.providers.map(({hasApiKey,...provider}:any)=>({...provider,name:provider.id===saved.defaultProviderId?'P'.repeat(100):provider.name}))});
+ expect(renamed.status).toBe(200);
+ await page.setViewportSize({width:390,height:667});
+ await page.reload();
+ await expect(page.locator('.model-summary strong')).toHaveText('P'.repeat(100));
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(page.getByRole('button',{name:'Send message',exact:true})).toBeInViewport();
 });
