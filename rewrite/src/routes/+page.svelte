@@ -1,7 +1,17 @@
 <script lang="ts">
+  import ChatNavigation from "$lib/components/shell/ChatNavigation.svelte";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import {
+    SquarePen,
+    ChevronDown,
+    ArrowUp,
+    Square,
+    LoaderCircle,
+  } from "@lucide/svelte";
   import AppIcon from "$lib/AppIcon.svelte";
   import ProviderLogo from "$lib/ProviderLogo.svelte";
   import { onMount } from "svelte";
+  import { pushState, replaceState } from "$app/navigation";
   import MarkdownIt from "markdown-it";
   import { api } from "$lib/client";
   import type { ConversationSnapshot } from "$lib/contracts";
@@ -14,8 +24,12 @@
   let providerId = "";
   let catalog: { id: string; models: { id: string; name: string }[] }[] = [];
   const choices = (id: string) => {
-    const provider = providers.find(p => p.id === id);
-    return provider?.models?.map(id => ({ id, name: id })) ?? catalog.find(p => p.id === provider?.service)?.models ?? [];
+    const provider = providers.find((p) => p.id === id);
+    return (
+      provider?.models?.map((id) => ({ id, name: id })) ??
+      catalog.find((p) => p.id === provider?.service)?.models ??
+      []
+    );
   };
   let providers: import("$lib/contracts").PublicProvider[] = [];
   let conversationProvider = "";
@@ -27,13 +41,16 @@
   let connection = "Connecting";
   let creating = false;
   let editingModel = false;
-  let modelButton: HTMLButtonElement | undefined;
-  let newButton: HTMLButtonElement | undefined;
+  let modelButton: HTMLButtonElement | null = null;
+  let newButton: HTMLElement | undefined;
   function closeModelEditor() {
     editingModel = false;
     modelButton?.focus();
   }
-  function startCreation() {
+  function startCreation(trigger?: HTMLElement | MouseEvent) {
+    const control =
+      trigger instanceof HTMLElement ? trigger : trigger?.currentTarget;
+    if (control instanceof HTMLElement) newButton = control;
     editingModel = false;
     creating = true;
   }
@@ -114,7 +131,10 @@
     collections = nextCollections;
     servers = nextMcp.servers;
   }
-  async function open(id: string) {
+  async function open(
+    id: string,
+    navigation: "push" | "replace" | "none" = "push",
+  ) {
     if (disposed) return;
     const own = ++generation;
     editingModel = false;
@@ -124,8 +144,11 @@
       source = undefined;
       validSources = new Set();
     }
+    const changed = current !== id;
     current = id;
-    history.replaceState(null, "", `?conversation=${encodeURIComponent(id)}`);
+    const url = `/?conversation=${encodeURIComponent(id)}`;
+    if (navigation === "replace") replaceState(url, {});
+    else if (navigation === "push" && changed) pushState(url, {});
     connection = "Connecting";
     try {
       await readSnapshot(own, id);
@@ -264,8 +287,21 @@
       connection = "Reconnecting — confirmed messages are saved";
     };
     const online = () => {
-      if (!disposed && current) void open(current);
+      if (!disposed && current) void open(current, "none");
     };
+    const navigateHistory = () => {
+      const selected = new URLSearchParams(location.search).get("conversation");
+      creating = false;
+      if (selected && selected !== current) void open(selected, "none");
+      else if (!selected) {
+        generation++;
+        stream?.close();
+        current = "";
+        snapshot = undefined;
+        source = undefined;
+      }
+    };
+    window.addEventListener("popstate", navigateHistory);
     window.addEventListener("offline", offline);
     window.addEventListener("online", online);
     void (async () => {
@@ -285,6 +321,7 @@
           await open(
             conversations.find((c) => c.id === selected)?.id ??
               conversations[conversations.length - 1].id,
+            "replace",
           );
         }
       } catch (e) {
@@ -295,6 +332,7 @@
       disposed = true;
       generation++;
       stream?.close();
+      window.removeEventListener("popstate", navigateHistory);
       window.removeEventListener("offline", offline);
       window.removeEventListener("online", online);
     };
@@ -312,48 +350,65 @@
   }}
 />
 <div class="shell">
-  <aside class="sidebar">
-    <a class="brand" href="/" aria-label="Chat Ollama home"
-      ><span class="brand-symbol"><AppIcon /></span>Chat Ollama</a
-    >
-    <button class="primary" bind:this={newButton} onclick={startCreation}
-      ><AppIcon name="plus" />New conversation</button
-    >
-    <div class="sidebar-label">Conversations</div>
-    <nav aria-label="Conversations">
-      {#each conversations as conversation, i}<button
-          class:active={current === conversation.id}
-          onclick={() => open(conversation.id)}
-          ><AppIcon /><span class="conversation-label"
-            ><span>Conversation {i + 1}</span><span class="muted"
-              >{conversation.config.modelId}</span
-            ></span
-          ></button
-        >{/each}
-    </nav>
-    <div class="sidebar-footer">
-      <a href="/settings"><AppIcon name="settings" />Settings</a><span
-        class="muted">Your private workspace</span
-      >
-    </div>
-  </aside>
+  <ChatNavigation
+    {conversations}
+    {current}
+    onselect={(id) => {
+      creating = false;
+      void open(id);
+    }}
+    onnew={startCreation}
+  />
   <main class="main">
     <header class="topbar">
-      <div class="breadcrumbs">
-        <span>Workspace</span><span>/</span><strong
-          >{creating
-            ? "New conversation"
-            : current
-              ? "Conversation"
-              : "Chat"}</strong
+      <h1 class="top-title">
+        {creating
+          ? "New conversation"
+          : current
+            ? `Conversation ${conversations.findIndex((c) => c.id === current) + 1}`
+            : "ChatOllama"}
+      </h1>
+      {#if snapshot && !creating}
+        <Button
+          variant="outline"
+          class="model-chip"
+          bind:ref={modelButton}
+          aria-label="Change model"
+          title="Change model"
+          aria-expanded={editingModel}
+          aria-controls="model-editor"
+          onclick={() => (editingModel = !editingModel)}
         >
-      </div>
-      <span
-        class="status connection"
-        class:online={connection === "Connected" || !current}
-        >{current ? connection : "Private · persistent"}</span
+          <ProviderLogo
+            service={providers.find(
+              (p) => p.id === snapshot?.selection?.providerId,
+            )?.service}
+            name={providers.find(
+              (p) => p.id === snapshot?.selection?.providerId,
+            )?.name ?? ""}
+            baseUrl={providers.find(
+              (p) => p.id === snapshot?.selection?.providerId,
+            )?.baseUrl ?? ""}
+          />
+          <span class="truncate">{snapshot.selection?.modelId}</span
+          ><ChevronDown size={14} />
+        </Button>
+      {/if}
+      <Button
+        variant="ghost"
+        size="icon"
+        class="mobile-new"
+        aria-label="New conversation"
+        title="New conversation"
+        onclick={startCreation}><SquarePen size={18} /></Button
       >
     </header>
+    {#if current && connection !== "Connected"}<p
+        class="connection-line"
+        role="status"
+      >
+        <LoaderCircle size={14} class="animate-spin" />{connection}
+      </p>{/if}
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <datalist id="new-model-options"
       >{#each choices(providerId) as m}<option value={m.id}>{m.id}</option
@@ -370,7 +425,6 @@
       >
         <div class="creation-heading">
           <div>
-            <span class="eyebrow">CHAT</span>
             <h1>New conversation</h1>
             <p class="muted">
               Choose a model, then add knowledge and tools if you need them.
@@ -437,34 +491,6 @@
         </div>
       </section>
     {:else if snapshot}
-      <div class="model-toolbar">
-        <div class="model-summary">
-          <ProviderLogo
-            service={providers.find(
-              (p) => p.id === snapshot?.selection?.providerId,
-            )?.service}
-            name={providers.find(
-              (p) => p.id === snapshot?.selection?.providerId,
-            )?.name ?? ""}
-            baseUrl={providers.find(
-              (p) => p.id === snapshot?.selection?.providerId,
-            )?.baseUrl ?? ""}
-          /><span
-            ><strong
-              >{providers.find((p) => p.id === snapshot?.selection?.providerId)
-                ?.name ?? "Unavailable provider"}</strong
-            ><span class="muted">{snapshot.selection?.modelId}</span></span
-          >
-        </div>
-        <button
-          class="subtle"
-          bind:this={modelButton}
-          aria-expanded={editingModel}
-          aria-controls="model-editor"
-          onclick={() => (editingModel = !editingModel)}
-          >Change model<AppIcon name="chevron" size={14} /></button
-        >
-      </div>
       {#if editingModel}<form
           id="model-editor"
           class="model-editor"
@@ -562,37 +588,42 @@
             >I checked the outcome — acknowledge</button
           >
         </div>{/if}
-      <form class="composer stack" onsubmit={send}>
-        <label for="message" class="composer-label">Message</label><textarea
-          id="message"
-          bind:value={draft}
-          placeholder="Ask anything…"
-          disabled={busy || !!snapshot.mcpUncertainty}></textarea>
-        <div class="row composer-actions">
-          {#if busy}<button
+      <form class="composer-wrap" onsubmit={send}>
+        {#if busy}<p class="status-line" role="status">
+            <LoaderCircle size={14} class="animate-spin" />{snapshot.status ===
+            "cancelling"
+              ? "Stopping…"
+              : "Working…"}
+          </p>{/if}
+        <div class="composer">
+          <label for="message" class="composer-label">Message</label><textarea
+            id="message"
+            bind:value={draft}
+            placeholder="Message"
+            rows="1"
+            disabled={busy || !!snapshot.mcpUncertainty}
+          ></textarea>
+          {#if busy}<Button
               type="button"
+              class="send-button"
+              aria-label="Stop"
+              title="Stop"
               onclick={() => action("stop")}
-              disabled={snapshot.status === "cancelling"}>Stop</button
-            ><span class="muted"
-              >{snapshot.status === "cancelling"
-                ? "Stopping…"
-                : "Working…"}</span
-            >{:else}<button
-              class="primary"
+              disabled={snapshot.status === "cancelling"}
+              ><Square size={15} fill="currentColor" /></Button
+            >
+          {:else}<Button
+              type="submit"
+              class="send-button"
+              aria-label="Send message"
+              title="Send message"
               disabled={!draft.trim() || !!snapshot.mcpUncertainty}
-              ><AppIcon name="send" size={16} />Send message</button
-            >{/if}<span class="muted composer-note"
-            >Work continues when you close this browser. Use Stop to cancel.</span
-          >
+              ><ArrowUp size={20} /></Button
+            >{/if}
         </div>
       </form>{:else}<div class="workspace-empty">
-        <div class="empty-symbol"><AppIcon size={28} /></div>
-        <span class="eyebrow">YOUR WORKSPACE</span>
-        <h1>A place for your next idea.</h1>
-        <p class="muted">
-          Start a conversation with your models.<br />Bring your knowledge and
-          tools when you need them.
-        </p>
+        <h1>What’s on your mind?</h1>
+        <p class="muted">Choose a model to start a conversation.</p>
         <button class="primary" onclick={startCreation}
           >Start a conversation<AppIcon name="arrow" size={16} /></button
         ><a href="/settings" class="empty-settings"
@@ -612,5 +643,4 @@
     <h2>{source.title}</h2>
     {#if source.page}<p class="muted">Page {source.page}</p>{/if}
     <p style="white-space:pre-wrap">{source.text}</p>
-    <p class="muted">Source: {source.sourceId}</p>
   </aside>{/if}

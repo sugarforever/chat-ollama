@@ -1,5 +1,7 @@
 <script lang="ts">
-  import AppIcon from "$lib/AppIcon.svelte";
+  import { Eye, EyeOff } from "@lucide/svelte";
+  import Button from "$lib/components/ui/button/button.svelte";
+  let showPassword = false;
   let password = "";
   let error = "";
   let busy = false;
@@ -25,29 +27,35 @@
 
 <svelte:head><title>Log in · Chat Ollama</title></svelte:head>
 <main class="login-page">
-  <div class="login-brand brand">
-    <span class="brand-symbol"><AppIcon /></span>Chat Ollama
-  </div>
-  <section class="login card stack">
-    <div class="login-icon"><AppIcon name="lock" size={24} /></div>
-    <div>
-      <span class="eyebrow">YOUR PRIVATE WORKSPACE</span>
-      <h1>Welcome back.</h1>
-      <p class="muted">Sign in to your conversations, models and knowledge.</p>
-    </div>
+  <section class="login stack">
+    <h1>ChatOllama</h1>
     <form class="stack" onsubmit={submit}>
-      <label
-        >Password<input
-          type="password"
+      <label for="password">Password</label>
+      <div class="password-field">
+        <input
+          id="password"
+          type={showPassword ? "text" : "password"}
           bind:value={password}
           autocomplete="current-password"
+          aria-invalid={!!error}
+          aria-describedby={error ? "login-error" : undefined}
           required
-        /></label
-      ><button class="primary" disabled={busy}
-        >{busy ? "Logging in…" : "Log in"}</button
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={showPassword ? "Hide password" : "Show password"}
+          data-tip={showPassword ? "Hide password" : "Show password"}
+          onclick={() => (showPassword = !showPassword)}
+          >{#if showPassword}<EyeOff size={18} />{:else}<Eye
+              size={18}
+            />{/if}</Button
+        >
+      </div>
+      {#if error}<p id="login-error" class="error" role="alert">{error}</p>{/if}
+      <Button type="submit" disabled={busy}
+        >{busy ? "Signing in…" : "Sign in"}</Button
       >
     </form>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
   </section>
-  <p class="login-footer">Your models. Your knowledge. Your workspace.</p>
 </main>

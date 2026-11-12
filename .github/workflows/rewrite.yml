@@ -34,7 +34,7 @@ jobs:
         env:
           COMPOSE_PROJECT_NAME: pi-rewrite-ci
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: rewrite-test-results
           path: rewrite/test-results/
