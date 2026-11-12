@@ -19,6 +19,10 @@ const publicErrors: Record<string, [number, string]> = {
     409,
     "Acknowledge the uncertain MCP action before continuing",
   ],
+  PROVIDER_NOT_FOUND: [
+    409,
+    "Selected provider is unavailable; choose a provider in this conversation",
+  ],
   INVALID_ID: [400, "Invalid conversation ID"],
   INVALID_INPUT: [400, "Invalid request input"],
   NOT_FOUND: [404, "Conversation not found"],
@@ -78,9 +82,34 @@ export function config(value: Record<string, unknown>): ConversationConfig {
       "Invalid conversation configuration",
     );
   }
+  if (
+    value.providerId !== undefined &&
+    (typeof value.providerId !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,100}$/.test(value.providerId))
+  )
+    throw new ApiError(400, "INVALID_INPUT", "Invalid provider");
   return {
+    ...(value.providerId === undefined
+      ? {}
+      : { providerId: value.providerId as string }),
     modelId: value.modelId,
     knowledgeBaseIds: value.knowledgeBaseIds,
     mcpServerIds: value.mcpServerIds,
   };
+}
+
+export function selection(value: Record<string, unknown>) {
+  if (
+    typeof value.providerId !== "string" ||
+    !/^[a-zA-Z0-9_-]{1,100}$/.test(value.providerId) ||
+    typeof value.modelId !== "string" ||
+    !value.modelId.trim() ||
+    value.modelId.length > 200
+  )
+    throw new ApiError(
+      400,
+      "INVALID_INPUT",
+      "Invalid provider and model selection",
+    );
+  return { providerId: value.providerId, modelId: value.modelId };
 }

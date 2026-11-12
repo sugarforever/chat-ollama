@@ -1,6 +1,6 @@
 import { knowledge } from "./knowledge";
 import { loadMcpServers } from "./mcp/config";
-import { loadChatConfig } from "./settings";
+import { loadChatConfig, loadProviders, resolveChatEndpoint } from "./settings";
 import { resolve } from "node:path";
 import { createSessionManager } from "./runtime/manager";
 // SvelteKit routes and the custom Node entrypoint are separate bundles.
@@ -13,7 +13,8 @@ async function start() {
   const manager = createSessionManager({
     directory: resolve(process.env.DATA_DIR || "data", "sessions"),
     endpoint: loadChatConfig(),
-    loadEndpoint: loadChatConfig,
+    resolveEndpoint: resolveChatEndpoint,
+    defaultProviderId: () => loadProviders().defaultProviderId,
     loadMcpConfigs: loadMcpServers,
     createTools: (config) =>
       config.knowledgeBaseIds.length

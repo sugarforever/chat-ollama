@@ -9,6 +9,10 @@
   let selectedCollections: string[] = [];
   let selectedServers: string[] = [];
   let modelId = "";
+  let providerId = "";
+  let providers: import("$lib/contracts").PublicProvider[] = [];
+  let conversationProvider = "";
+  let conversationModel = "";
   let current = "";
   let snapshot: ConversationSnapshot | undefined;
   let draft = "";
@@ -61,6 +65,14 @@
     expectedStreamUpdates = streamUpdates,
   ) {
     if (!active(own, id) || expectedStreamUpdates !== streamUpdates) return;
+    if (
+      next.selection &&
+      (snapshot?.selection?.providerId !== next.selection.providerId ||
+        snapshot?.selection?.modelId !== next.selection.modelId)
+    ) {
+      conversationProvider = next.selection.providerId;
+      conversationModel = next.selection.modelId;
+    }
     snapshot = next;
     void validateCitations();
   }
@@ -140,6 +152,7 @@
     error = "";
     try {
       const c = await api("/api/conversations", {
+        providerId,
         modelId,
         knowledgeBaseIds: selectedCollections,
         mcpServerIds: selectedServers,
@@ -148,6 +161,25 @@
       creating = false;
       await refresh();
       if (active(own, id)) await open(c.id);
+    } catch (e) {
+      if (active(own, id)) error = (e as Error).message;
+    }
+  }
+  async function selectModel(event: SubmitEvent) {
+    event.preventDefault();
+    const own = generation,
+      id = current;
+    error = "";
+    try {
+      const beforeRead = streamUpdates;
+      const next = await api(
+        `/api/conversations/${id}`,
+        { providerId: conversationProvider, modelId: conversationModel },
+        "PATCH",
+      );
+      applySnapshot(own, id, next, beforeRead);
+      const list = await api("/api/conversations");
+      if (active(own, id)) conversations = list;
     } catch (e) {
       if (active(own, id)) error = (e as Error).message;
     }
@@ -218,7 +250,9 @@
         if (disposed || initial !== generation) return;
         const settings = await api("/api/settings");
         if (disposed || initial !== generation) return;
-        modelId = settings.chat.modelId;
+        providers = settings.providers;
+        providerId = settings.defaultProviderId;
+        modelId = providers.find((p) => p.id === providerId)?.modelId ?? "";
         if (conversations.length) {
           const selected = new URLSearchParams(location.search).get(
             "conversation",
@@ -272,7 +306,25 @@
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     {#if creating}<section class="empty card stack">
         <h1>New conversation</h1>
-        <label>Model ID<input bind:value={modelId} /></label>
+        <label
+          >Provider<select
+            aria-label="Provider"
+            bind:value={providerId}
+            onchange={() => {
+              modelId =
+                providers.find((p) => p.id === providerId)?.modelId ?? "";
+            }}
+            >{#each providers as p}<option value={p.id}>{p.name}</option
+              >{/each}</select
+          ></label
+        >
+        <label
+          >Model ID<input
+            bind:value={modelId}
+            required
+            maxlength="200"
+          /></label
+        >
         <div>
           <h3>Knowledge collections</h3>
           {#each collections as c}<label class="check"
@@ -304,6 +356,46 @@
         </div>
       </section>
     {:else if snapshot}
+      <form
+        class="row"
+        style="padding:16px 24px;flex-wrap:wrap"
+        onsubmit={selectModel}
+      >
+        <label
+          >Conversation provider<select
+            aria-label="Conversation provider"
+            bind:value={conversationProvider}
+            onchange={() => {
+              conversationModel =
+                providers.find((p) => p.id === conversationProvider)?.modelId ??
+                "";
+            }}
+          >
+            {#if !providers.some((p) => p.id === conversationProvider)}<option
+                value={conversationProvider}
+                >Unavailable provider · choose another</option
+              >{/if}
+            {#each providers as p}<option value={p.id}>{p.name}</option>{/each}
+          </select></label
+        >
+        <label
+          >Conversation model ID<input
+            bind:value={conversationModel}
+            required
+            maxlength="200"
+          /></label
+        >
+        <button
+          disabled={!providers.some((p) => p.id === conversationProvider) ||
+            !conversationModel.trim()}>Apply to next message</button
+        >
+        <span class="muted"
+          >Saved: {providers.find(
+            (p) => p.id === snapshot?.selection?.providerId,
+          )?.name ?? "Unavailable provider"} · {snapshot.selection?.modelId}.
+          Changes apply to subsequent input.</span
+        >
+      </form>
       {#if snapshot.status === "failed"}
         <p class="error" role="status">
           Run failed. Check your model settings, then send a new message.
@@ -363,7 +455,8 @@
           id="message"
           bind:value={draft}
           placeholder="Ask anything…"
-          disabled={busy || !!snapshot.mcpUncertainty}></textarea>
+          disabled={busy || !!snapshot.mcpUncertainty}
+        ></textarea>
         <div class="row">
           {#if busy}<button
               type="button"

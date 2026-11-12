@@ -17,13 +17,14 @@ import {
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { projectState } from "./projection";
 import { ApiError } from "../errors";
-import type { ConversationSnapshot } from "../../contracts";
+import type { ConversationSnapshot, ProviderSelection } from "../../contracts";
 export type ChatEndpointConfig = {
   baseUrl: string;
   apiKey: string;
   modelId: string;
 };
 export interface AgentSession {
+  configurationChanged(): void;
   snapshot(): Promise<ConversationSnapshot>;
   submit(requestId: string, content: string): Promise<{ id: string }>;
   stop(): Promise<void>;
@@ -37,6 +38,7 @@ export async function openAgentSession(
   endpoint: ChatEndpointConfig,
   loadEndpoint?: () => ChatEndpointConfig,
   toolOptions: {
+    selection?: () => ProviderSelection;
     mcpServerIds?: string[];
     mcpConfigs?: McpConfig[];
     tools?: RuntimeTool[];
@@ -180,6 +182,7 @@ export async function openAgentSession(
         result.mcpUncertainty = uncertainty;
         result.status = "interrupted";
       }
+      if (toolOptions.selection) result.selection = toolOptions.selection();
       return result;
     }
     function publish() {
@@ -231,6 +234,7 @@ export async function openAgentSession(
     harness.resume();
     let admissionLine: Promise<unknown> = Promise.resolve();
     return {
+      configurationChanged: publish,
       async snapshot() {
         return structuredClone(snapshot());
       },

@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { ConversationConfig } from "../../contracts";
+import type { ConversationConfig, ProviderSelection } from "../../contracts";
 import { openCatalogue } from "../db";
 import { ApiError, validateConversationId } from "../errors";
 import {
@@ -16,6 +16,8 @@ export function createSessionManager(options: {
   directory: string;
   endpoint: ChatEndpointConfig;
   loadEndpoint?: () => ChatEndpointConfig;
+  resolveEndpoint?: (selection: ProviderSelection) => ChatEndpointConfig;
+  defaultProviderId?: () => string;
   mcpConfigs?: McpConfig[];
   loadMcpConfigs?: () => McpConfig[];
   tools?: RuntimeTool[];
@@ -25,9 +27,16 @@ export function createSessionManager(options: {
 }) {
   const sessions = new Map<string, Promise<AgentSession>>();
   let closed = false;
-  const catalogue = mkdir(options.directory, { recursive: true }).then(() =>
-    openCatalogue(join(options.directory, "catalogue.sqlite")),
-  );
+  const catalogue = mkdir(options.directory, { recursive: true }).then(() => {
+    const db = openCatalogue(join(options.directory, "catalogue.sqlite"));
+    // One-time upgrade: legacy records are pinned, never tied to changing defaults.
+    if (options.resolveEndpoint)
+      for (const row of db.list()) {
+        if (!row.config.providerId)
+          db.configure(row.id, { ...row.config, providerId: "legacy" });
+      }
+    return db;
+  });
   async function openSession(id: string): Promise<AgentSession> {
     if (closed) throw new Error("Runtime is closed");
     validateConversationId(id);
@@ -39,6 +48,9 @@ export function createSessionManager(options: {
       // Internal explicit creation for runtime consumers; HTTP reads use getSession.
       if (!row) {
         db.insert(id, {
+          ...(options.defaultProviderId
+            ? { providerId: options.defaultProviderId() }
+            : {}),
           modelId: options.endpoint.modelId,
           knowledgeBaseIds: [],
           mcpServerIds: [],
@@ -46,9 +58,34 @@ export function createSessionManager(options: {
         row = db.get(id)!;
       }
       const endpointFile = join(options.directory, `${id}.endpoint.json`);
-      const initial = existsSync(endpointFile)
-        ? JSON.parse(readFileSync(endpointFile, "utf8"))
-        : { ...options.endpoint, modelId: row.config.modelId };
+      const currentConfig = () => db.get(id)!.config;
+      const selectedEndpoint = () => {
+        const config = currentConfig();
+        return options.resolveEndpoint
+          ? options.resolveEndpoint({
+              providerId: config.providerId!,
+              modelId: config.modelId,
+            })
+          : {
+              ...(options.loadEndpoint?.() ?? options.endpoint),
+              modelId: config.modelId,
+            };
+      };
+      let initial: ChatEndpointConfig;
+      if (existsSync(endpointFile))
+        initial = JSON.parse(readFileSync(endpointFile, "utf8"));
+      else {
+        try {
+          initial = selectedEndpoint();
+        } catch (error) {
+          // No captured run exists. Keep idle history readable and allow selection repair.
+          if (
+            !(error instanceof ApiError && error.code === "PROVIDER_NOT_FOUND")
+          )
+            throw error;
+          initial = { ...options.endpoint, modelId: row.config.modelId };
+        }
+      }
       const mcpFile = join(options.directory, `${id}.mcp.json`);
       const hasManifest = existsSync(
         join(options.directory, `${id}.sqlite.mcp-tools.json`),
@@ -65,12 +102,9 @@ export function createSessionManager(options: {
         id,
         join(options.directory, `${id}.sqlite`),
         initial,
-        options.loadEndpoint
+        options.loadEndpoint || options.resolveEndpoint
           ? () => {
-              const endpoint = {
-                ...options.loadEndpoint!(),
-                modelId: row!.config.modelId,
-              };
+              const endpoint = selectedEndpoint();
               writeFileSync(`${endpointFile}.tmp`, JSON.stringify(endpoint), {
                 mode: 0o600,
               });
@@ -80,6 +114,15 @@ export function createSessionManager(options: {
             }
           : undefined,
         {
+          selection: options.resolveEndpoint
+            ? () => {
+                const config = currentConfig();
+                return {
+                  providerId: config.providerId!,
+                  modelId: config.modelId,
+                };
+              }
+            : undefined,
           mcpServerIds: row.config.mcpServerIds,
           mcpConfigs,
           tools: [
@@ -112,6 +155,16 @@ export function createSessionManager(options: {
   return {
     openSession,
     async createConversation(config: ConversationConfig) {
+      if (options.resolveEndpoint) {
+        config = {
+          ...config,
+          providerId: config.providerId ?? options.defaultProviderId!(),
+        };
+        options.resolveEndpoint({
+          providerId: config.providerId!,
+          modelId: config.modelId,
+        });
+      }
       const selected = options.loadMcpConfigs?.() ?? options.mcpConfigs ?? [];
       if (
         config.mcpServerIds.some(
@@ -125,6 +178,28 @@ export function createSessionManager(options: {
       (await catalogue).insert(id, config);
       await openSession(id);
       return { id };
+    },
+    async selectModel(id: string, selection: ProviderSelection) {
+      validateConversationId(id);
+      const db = await catalogue;
+      const row = db.get(id);
+      if (!row) throw new ApiError(404, "NOT_FOUND", "Conversation not found");
+      if (
+        !selection ||
+        typeof selection.providerId !== "string" ||
+        !/^[a-zA-Z0-9_-]{1,100}$/.test(selection.providerId) ||
+        typeof selection.modelId !== "string" ||
+        !selection.modelId.trim() ||
+        selection.modelId.length > 200
+      )
+        throw new ApiError(400, "INVALID_INPUT", "Invalid selection");
+      if (!options.resolveEndpoint)
+        throw new ApiError(400, "INVALID_INPUT", "Providers are unavailable");
+      options.resolveEndpoint(selection);
+      db.configure(id, { ...row.config, ...selection });
+      const session = await openSession(id);
+      session.configurationChanged();
+      return session.snapshot();
     },
     async getSession(id: string) {
       validateConversationId(id);
