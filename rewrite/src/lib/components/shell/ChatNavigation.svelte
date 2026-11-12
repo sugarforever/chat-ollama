@@ -7,11 +7,13 @@
     current,
     onselect,
     onnew,
+    creating = false,
   }: {
     conversations: { id: string }[];
     current: string;
     onselect: (id: string) => void;
-    onnew: (trigger: HTMLElement) => void;
+    onnew: () => void;
+    creating?: boolean;
   } = $props();
   let open = $state(false);
 </script>
@@ -24,12 +26,10 @@
       size="icon"
       aria-label="New conversation"
       data-tip="New conversation"
-      onclick={(event) => {
-        const trigger = open
-          ? (document.getElementById("history-trigger") as HTMLButtonElement)
-          : event.currentTarget;
+      disabled={creating}
+      onclick={() => {
         open = false;
-        onnew(trigger);
+        onnew();
       }}><SquarePen size={18} /></Button
     >
   </div>

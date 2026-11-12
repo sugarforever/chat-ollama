@@ -2,7 +2,6 @@
   import {
     ArrowLeft,
     Cpu,
-    MessageSquare,
     Binary,
     Library,
     Plug,
@@ -12,7 +11,6 @@
   let { active, onlogout }: { active: string; onlogout: () => void } = $props();
   const items = [
     { id: "providers", name: "Providers", icon: Cpu },
-    { id: "chat", name: "Chat defaults", icon: MessageSquare },
     { id: "embeddings", name: "Embeddings", icon: Binary },
     { id: "knowledge", name: "Knowledge", icon: Library },
     { id: "tools", name: "MCP servers", icon: Plug },

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { Eye, EyeOff } from "@lucide/svelte";
   import Button from "$lib/components/ui/button/button.svelte";
+  import { onMount } from "svelte";
+  let ready = false;
+  onMount(() => { ready = true; });
   let showPassword = false;
   let password = "";
   let error = "";
@@ -40,6 +43,7 @@
           aria-invalid={!!error}
           aria-describedby={error ? "login-error" : undefined}
           required
+          disabled={!ready}
         />
         <Button
           variant="ghost"
@@ -53,7 +57,7 @@
         >
       </div>
       {#if error}<p id="login-error" class="error" role="alert">{error}</p>{/if}
-      <Button type="submit" disabled={busy}
+      <Button type="submit" disabled={!ready || busy}
         >{busy ? "Signing in…" : "Sign in"}</Button
       >
     </form>

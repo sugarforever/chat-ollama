@@ -41,6 +41,11 @@ input,
 textarea,
 select {
   font: inherit;
+}
+button:not([data-slot]),
+input:not([data-slot]),
+textarea:not([data-slot]),
+select:not([data-slot]) {
   color: inherit;
 }
 :focus-visible {
@@ -358,8 +363,12 @@ pre {
   text-overflow: ellipsis;
   flex: 1;
 }
-.model-chip {
-  max-width: min(55%, 360px);
+[data-slot="button"].model-chip {
+  max-width: min(55%, 280px);
+  min-height: 32px;
+  height: 32px;
+  gap: 6px;
+  font-size: 12px;
   font-family: var(--font-mono);
 }
 .model-chip img,
@@ -437,18 +446,6 @@ pre {
 .creation-actions {
   border-top: 1px solid var(--border);
   padding-top: 20px;
-}
-.model-editor {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: end;
-  padding: 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--sidebar);
-}
-.model-editor > .muted {
-  grid-column: 1/-1;
 }
 .transcript {
   flex: 1;
@@ -563,15 +560,49 @@ pre {
 .send-button {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 50%;
 }
-.status-line {
+.composer .composer-input-busy {
+  display: none;
+}
+.composer-progress {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-height: 36px;
+  min-width: 0;
   color: var(--muted);
   font-size: 12.5px;
-  margin: 0 0 8px;
+}
+.composer.working {
+  align-items: center;
+}
+.composer .stop-button {
+  flex-shrink: 0;
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--text);
+  background: var(--canvas);
+  font-size: 12px;
+  animation: stop-pulse 1.8s ease-in-out infinite;
+}
+.composer .stop-button:hover {
+  background: var(--sidebar);
+}
+.composer .stop-button:disabled {
+  animation: none;
+}
+@keyframes stop-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(51 70 201 / 0); }
+  50% { box-shadow: 0 0 0 4px rgb(51 70 201 / 0.1); }
+}
+@media (max-width: 767px) {
+  .composer-progress { min-height: 44px; }
+  .composer .stop-button { width: 44px; min-height: 44px; }
 }
 .empty {
   margin: 8vh auto;
@@ -772,7 +803,9 @@ pre {
   .topbar:has(.model-chip) .top-title {
     display: none;
   }
-  .model-chip {
+  [data-slot="button"].model-chip {
+    min-height: 44px;
+    height: 44px;
     max-width: calc(100% - 52px);
     flex: 1;
   }
@@ -803,16 +836,8 @@ pre {
   }
   .creation-models,
   .creation-options,
-  .model-editor,
   .grid:not([data-slot]) {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .main:has(.model-editor) {
-    overflow: auto;
-  }
-  .main:has(.model-editor) .transcript {
-    flex: none;
-    min-height: 120px;
   }
   .source {
     inset: auto 0 0;
@@ -884,7 +909,6 @@ pre {
 }
 
 input[type="url"],
-.model-editor input,
 .creation-models input,
 select[aria-label="Default model ID"],
 textarea[placeholder^="["] {

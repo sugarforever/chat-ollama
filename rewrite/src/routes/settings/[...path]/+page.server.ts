@@ -11,7 +11,8 @@ export const load = ({
 }) => {
   const parts = params.path.split("/");
   const tab = parts[0];
-  if (!["providers", "chat", "embeddings", "knowledge", "tools"].includes(tab))
+  if (tab === "chat" && parts.length === 1) redirect(303, "/settings/providers");
+  if (!["providers", "embeddings", "knowledge", "tools"].includes(tab))
     error(404, "Settings page not found");
   let editorId = "",
     newService = "",

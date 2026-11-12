@@ -1,6 +1,5 @@
 <script lang="ts">
   import KnowledgeCollections from "$lib/components/KnowledgeCollections.svelte";
-  import ProviderDefaults from "$lib/components/ProviderDefaults.svelte";
   import SettingsNavigation from "$lib/components/shell/SettingsNavigation.svelte";
   import SaveIndicator from "$lib/components/common/SaveIndicator.svelte";
   import NativeSelect from "$lib/components/ui/native-select/native-select.svelte";
@@ -62,7 +61,7 @@
         !!providerKeys[selected] ||
         !!providerEnv[selected]
       );
-    if (tab === "chat")
+    if (tab === "providers" && !selected && !catalogOpen)
       return settings.defaultProviderId !== initial.defaultProviderId;
     if (tab === "embeddings")
       return (
@@ -232,25 +231,6 @@
       }
     }
   }
-  const tabs = [
-    {
-      id: "providers",
-      name: "Providers",
-      description: "Chat models & accounts",
-    },
-    {
-      id: "chat",
-      name: "Chat defaults",
-      description: "New conversation defaults",
-    },
-    { id: "embeddings", name: "Embeddings", description: "Search & retrieval" },
-    {
-      id: "knowledge",
-      name: "Knowledge",
-      description: "Collections & documents",
-    },
-    { id: "tools", name: "MCP servers", description: "Tools & integrations" },
-  ];
   function initializeEditor() {
     if (editorId) {
       selected = editorId;
@@ -469,7 +449,7 @@
   let sectionSaving = false;
   let sectionTimer: ReturnType<typeof setTimeout>;
   function sectionDraft() {
-    if (tab === "chat")
+    if (tab === "providers" && !selected && !catalogOpen)
       return { defaultProviderId: settings.defaultProviderId };
     if (tab === "embeddings")
       return {
@@ -492,7 +472,7 @@
     sectionSaveState = "pending";
     sectionTimer = setTimeout(
       () => void persistSection(),
-      tab === "chat" ? 0 : 600,
+      tab === "providers" ? 0 : 600,
     );
   }
   async function persistSection() {
@@ -532,7 +512,7 @@
         }
       } else {
         let patch: any;
-        if (tab === "chat")
+        if (tab === "providers" && !selected && !catalogOpen)
           patch = { defaultProviderId: draft.defaultProviderId };
         else {
           const url = new URL(draft.baseUrl!);
@@ -681,35 +661,59 @@
                 bind:value={query}
               />
             </div>
-            <div class="provider-list">
+            <div
+              class="provider-list"
+              role="group"
+              aria-label="Default chat provider"
+            >
               {#each settings.providers.filter( (p: any) => matches(p.name), ) as p}
-                <a class="provider-row" href={providerHref(p.id)}
-                  ><span class="provider-mark"
-                    ><ProviderLogo
-                      service={p.service}
-                      name={p.name}
-                      baseUrl={p.baseUrl}
-                    /></span
-                  ><span class="provider-summary"
-                    ><span class="provider-title">{p.name} </span><span
-                      class="muted">{p.modelId}</span
-                    ></span
-                  ><span class="provider-kind"
-                    >{p.authMode === "oauth"
-                      ? connection[p.id]
-                        ? "Connected"
-                        : "Not connected"
-                      : p.authMode === "ambient"
-                        ? "Server credentials"
-                        : p.hasApiKey || connection[p.id]
-                          ? "Credentials saved"
-                          : p.service &&
-                              p.service !== "custom" &&
-                              p.authMode !== "none"
-                            ? "Needs setup"
-                            : "Endpoint"}</span
-                  ><span aria-hidden="true">›</span></a
-                >
+                <div class="provider-list-item">
+                  <a class="provider-row" href={providerHref(p.id)}
+                    ><span class="provider-mark"
+                      ><ProviderLogo
+                        service={p.service}
+                        name={p.name}
+                        baseUrl={p.baseUrl}
+                      /></span
+                    ><span class="provider-summary"
+                      ><span class="provider-title">{p.name}</span><span
+                        class="muted">{p.modelId}</span
+                      ></span
+                    ><span class="provider-kind"
+                      >{p.authMode === "oauth"
+                        ? connection[p.id]
+                          ? "Connected"
+                          : "Not connected"
+                        : p.authMode === "ambient"
+                          ? "Server credentials"
+                          : p.hasApiKey || connection[p.id]
+                            ? "Credentials saved"
+                            : p.service &&
+                                p.service !== "custom" &&
+                                p.authMode !== "none"
+                              ? "Needs setup"
+                              : "Endpoint"}</span
+                    ><span aria-hidden="true">›</span></a
+                  >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="default-provider-action"
+                    aria-label={`Set ${p.name} as default`}
+                    aria-pressed={settings.defaultProviderId === p.id}
+                    title={settings.defaultProviderId === p.id
+                      ? "Default for new conversations"
+                      : "Use for new conversations"}
+                    disabled={!p.modelId}
+                    onclick={() => {
+                      settings.defaultProviderId = p.id;
+                    }}
+                  >
+                    {settings.defaultProviderId === p.id
+                      ? "Default"
+                      : "Set default"}
+                  </Button>
+                </div>
               {:else}<p class="empty">No providers match “{query}”.</p>{/each}
             </div>
             <p class="muted list-note">
@@ -982,14 +986,6 @@
             </form>
           {/if}
         </section>
-      {:else if tab === "chat"}
-        <section>
-          <h2>Chat defaults</h2>
-          <ProviderDefaults
-            providers={settings.providers}
-            bind:value={settings.defaultProviderId}
-          />
-        </section>
       {:else if tab === "embeddings"}
         <section>
           <h2>Embeddings</h2>
@@ -1088,10 +1084,12 @@
             >{/if}
         </section>
       {/if}
-      {#if ["chat", "embeddings", "tools"].includes(tab)}
+      {#if ["embeddings", "tools"].includes(tab) || (tab === "providers" && !selected && !catalogOpen)}
         <SaveIndicator
           state={sectionSaveState}
-          hint="Changes save automatically. Embedding API keys save only after a successful test. MCP replacement requires acknowledgement."
+          hint={tab === "providers"
+            ? "The default applies to new conversations. Existing chats keep their model."
+            : "Changes save automatically. Embedding API keys save only after a successful test. MCP replacement requires acknowledgement."}
           onretry={() => {
             sectionAttempt = "";
             void persistSection();
@@ -1213,6 +1211,32 @@
     border-radius: 12px;
     overflow: hidden;
   }
+  .provider-list-item {
+    display: flex;
+    align-items: center;
+    padding-right: 12px;
+  }
+  .provider-list-item:hover,
+  .provider-list-item:focus-within {
+    background: var(--sidebar);
+  }
+  .provider-list-item .provider-row {
+    flex: 1;
+    min-width: 0;
+  }
+  :global(.default-provider-action) {
+    color: var(--muted);
+    background: transparent;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 400;
+    min-width: 78px;
+    padding: 4px 8px;
+  }
+  :global(.default-provider-action[aria-pressed="true"]) {
+    color: var(--accent);
+    font-weight: 500;
+  }
   .provider-row {
     text-decoration: none;
     display: flex;
@@ -1223,10 +1247,9 @@
     padding: 16px;
     color: inherit;
   }
-  .provider-row + .provider-row {
+  .provider-list-item + .provider-list-item {
     border-top: 1px solid var(--border);
   }
-  .provider-row:hover,
   .vendor:hover {
     background: var(--sidebar);
   }
