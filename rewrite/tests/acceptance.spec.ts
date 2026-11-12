@@ -196,11 +196,8 @@ test("administrator opens responsive chat and independent secret-preserving sett
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
   await page.locator(".provider-row").first().click();
-  await page.getByLabel("Default model ID").selectOption("fixture");
-  await page
-    .getByRole("button", { name: "Save provider", exact: true })
-    .click();
-  await expect(page.getByRole("status")).toContainText("Provider saved");
+  await page.getByLabel("Default model ID").selectOption("edited-model");
+  await expect(page.getByRole("status")).toContainText("Saved automatically");
   await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
   await page.getByRole("link", {name:"Embeddings",exact:true}).click();
   await expect(page.getByLabel("Embedding model ID")).toHaveValue(
@@ -922,8 +919,7 @@ test("named providers can be saved in Settings and switched within a conversatio
   await second.getByLabel("Base URL", { exact: true }).fill(modelUrl);
   await second.getByLabel("API key", { exact: true }).fill("second-private-key");
   await second.getByLabel("Default model ID", { exact: true }).selectOption("second-model");
-  await page.getByRole("button", { name: "Save provider", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Provider saved");
+  await expect(page.getByRole("status")).toContainText("Saved automatically");
   await expect(second.getByLabel("API key", { exact: true })).toHaveValue("");
   await page.reload();
   await expect(second.getByLabel("API key", { exact: true })).toHaveAttribute("placeholder", "Key saved · leave blank to keep");
@@ -969,8 +965,7 @@ test('native service presets, secret setup and Codex subscription login are dist
  await expect(card.getByText('https://api.anthropic.com',{exact:true})).toBeVisible();
  await card.getByLabel('API key',{exact:true}).fill('native-ui-secret');
  await expect(card.getByLabel('Default model ID',{exact:true})).toHaveValue('claude-newly-released');
- await page.getByRole('button',{name:'Save provider',exact:true}).click();
- await expect(page.getByRole('status')).toContainText('Provider saved');
+ await expect(page.getByRole('status')).toContainText('Saved automatically');
  await expect(card.getByLabel('API key',{exact:true})).toHaveValue('');
  expect(JSON.stringify((await request(page,'/api/settings')).value)).not.toContain('native-ui-secret');
  await expect(card.getByText('Connection verified',{exact:false})).toBeVisible();
@@ -1010,7 +1005,7 @@ test('native service presets, secret setup and Codex subscription login are dist
  await card.screenshot({path:'test-results/provider-oauth-mobile.png'});
 });
 
-test('settings catalog selects subscription defaults and cancel discards only provider drafts', async({page})=>{
+test('settings catalog saves subscription defaults automatically and keeps sections independent', async({page})=>{
   await login(page); await configure(page);
   await page.getByRole('link',{name:'Settings',exact:true}).click();
   await page.screenshot({path:'test-results/settings-providers.png',fullPage:true});
@@ -1024,10 +1019,10 @@ test('settings catalog selects subscription defaults and cancel discards only pr
   await expect(page.getByLabel('Model service',{exact:true})).toHaveCount(0);
   await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
   await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
-  await page.getByRole('link',{name:'Cancel',exact:true}).click();
-  await page.getByRole('button',{name:'Discard changes',exact:true}).click();
-  await expect(page.getByRole('link',{name:/Discard this draft/})).toHaveCount(0);
-  expect((await request(page,'/api/settings')).value.providers.length).toBe(before);
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect.poll(async()=>(await request(page,'/api/settings')).value.providers.at(-1).modelId).toBe(await page.getByLabel('Default model ID',{exact:true}).inputValue());
+  await page.getByRole('link',{name:'Back to providers',exact:true}).click();
+  expect((await request(page,'/api/settings')).value.providers.length).toBe(before+1);
   await page.getByRole('link',{name:'Embeddings',exact:true}).click();
   await page.getByLabel('Embedding model ID').fill('saved-after-cancel');
   await page.getByRole('button',{name:'Save embedding settings'}).click();
@@ -1254,8 +1249,7 @@ test('returning to Settings synchronizes account status after the provider edito
 
  let connected=false;let latency=0;
  await page.route('**/api/providers/*/auth',async r=>{if(latency)await new Promise(resolve=>setTimeout(resolve,latency));await r.fulfill({json:{connected,mode:'oauth'}});});
- await page.getByRole('button',{name:'Save provider',exact:true}).click();
- await expect(page.getByRole('status')).toContainText('Provider saved');
+ await expect(page.getByRole('status')).toContainText('Saved automatically');
  await page.getByRole('link',{name:'Back to providers',exact:true}).click();
  const row=page.locator('.provider-row').filter({hasText:'OpenAI Codex'}).last();
  await expect(row).toContainText('Not connected');
@@ -1279,24 +1273,17 @@ test('provider routes preserve browser history and protect unsaved drafts', asyn
   await expect(page.getByText('Account login / OAuth',{exact:true})).toBeVisible();
   const draftUrl = page.url();
   await expect(page.getByLabel('Default chat provider', {exact:true})).toHaveCount(0);
-  const originalModel=await page.getByLabel('Default model ID',{exact:true}).inputValue();
   await page.getByLabel('Default model ID',{exact:true}).selectOption({index:1});
   const editedModel=await page.getByLabel('Default model ID',{exact:true}).inputValue();
+  await expect.poll(async()=>(await request(page, '/api/settings')).value.providers.at(-1).modelId).toBe(editedModel);
   await page.goBack();
-  await expect(page.getByRole('alertdialog')).toBeVisible();
-  await page.screenshot({path:'test-results/provider-unsaved-dialog.png',fullPage:true});
-  await page.getByRole('button', {name:'Keep editing', exact:true}).click();
-  await expect(page).toHaveURL(draftUrl);
-  await expect(page.getByLabel('Default model ID', {exact:true})).toHaveValue(editedModel);
-  await page.goBack();
-  await page.getByRole('button', {name:'Discard changes', exact:true}).click();
   await expect(page.getByLabel('Find a vendor')).toHaveValue('Codex');
   await page.goForward();
   await expect(page).toHaveURL(draftUrl);
-  await expect(page.getByLabel('Default model ID', {exact:true})).toHaveValue(originalModel);
+  await expect(page.getByLabel('Default model ID', {exact:true})).toHaveValue(editedModel);
   await page.reload();
   await expect(page).toHaveURL(draftUrl);
-  expect((await request(page, '/api/settings')).value.providers.length).toBe(count);
+  expect((await request(page, '/api/settings')).value.providers.length).toBe(count+1);
   await page.getByRole('link', {name:'Chat defaults', exact:true}).click();
   await expect(page.getByLabel('Default chat provider', {exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/settings-chat-defaults.png',fullPage:true});
@@ -1317,12 +1304,11 @@ test('saving a connection preserves other tabs and the global chat default', asy
   const initial = (await request(page, '/api/settings')).value;
   const id = initial.providers[0].id;
   await page.goto(base + '/settings/providers/' + encodeURIComponent(id));
-  await page.getByLabel('Default model ID', {exact:true}).selectOption('edited-model');
   const added = {id:'other-tab-connection', name:'Other tab connection', baseUrl:modelUrl, modelId:'other-model'};
   const providers = initial.providers.filter((p:any)=>p.id!==added.id).map(({hasApiKey,...p}:any)=>p);
   await request(page, '/api/settings', {providers:[...providers, added], defaultProviderId:added.id});
-  await page.getByRole('button', {name:'Save provider', exact:true}).click();
-  await expect(page.getByRole('status')).toContainText('Provider saved');
+  await page.getByLabel('Default model ID', {exact:true}).selectOption('edited-model');
+   await expect(page.getByRole('status')).toContainText('Saved automatically');
   const latest = (await request(page, '/api/settings')).value;
   expect(latest.defaultProviderId).toBe(added.id);
   expect(latest.providers.find((p:any)=>p.id===added.id).name).toBe(added.name);
@@ -1331,6 +1317,11 @@ test('saving a connection preserves other tabs and the global chat default', asy
 
 test('catalog provider automatically validates keys and ignores stale model discovery', async ({page}) => {
   await login(page); await configure(page);
+  const savedKeys:string[]=[];
+  await page.route('**/api/settings',async route=>{
+    if(route.request().method()==='POST') for(const p of route.request().postDataJSON().providers ?? []) if(p.apiKey) savedKeys.push(p.apiKey);
+    await route.continue();
+  });
   let releaseSlow:()=>void=()=>{};
   let slowStarted:()=>void=()=>{};
   const slowSeen=new Promise<void>(r=>slowStarted=r);
@@ -1353,7 +1344,8 @@ test('catalog provider automatically validates keys and ignores stale model disc
   await expect(page.getByLabel('Default model ID',{exact:true})).toHaveCount(0);
   await page.getByLabel('API key',{exact:true}).fill('bad');
   await expect(page.getByRole('alert')).toContainText('Connection failed');
-  await expect(page.getByRole('button',{name:'Save provider',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Save provider',exact:true})).toHaveCount(0);
+  expect((await (await page.request.get(base+'/api/settings')).json()).providers.some((p:any)=>p.service==='moonshotai')).toBe(false);
   await page.getByLabel('API key',{exact:true}).fill('slow');
   await slowSeen;
   await page.getByLabel('API key',{exact:true}).fill('good');
@@ -1361,8 +1353,10 @@ test('catalog provider automatically validates keys and ignores stale model disc
   releaseSlow();
   await page.screenshot({path:'test-results/provider-api-setup.png',fullPage:true});
   await page.getByLabel('Default model ID',{exact:true}).selectOption('kimi-previous');
-  await page.getByRole('button',{name:'Save provider',exact:true}).click();
-  await expect(page.getByRole('status')).toContainText('Provider saved');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect.poll(async()=>{const data=await (await page.request.get(base+'/api/settings')).json();return data.providers.find((p:any)=>p.service==='moonshotai')?.modelId;}).toBe('kimi-previous');
+  await page.reload();
   await expect(page.getByLabel('Default model ID',{exact:true})).toHaveValue('kimi-previous');
+  expect(savedKeys).toEqual(['good']);
   await page.screenshot({path:'test-results/provider-auto-discovery.png',fullPage:true});
 });

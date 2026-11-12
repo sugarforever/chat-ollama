@@ -9,7 +9,7 @@
   import Input from "$lib/components/ui/input/input.svelte";
   import Badge from "$lib/components/ui/badge/badge.svelte";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
-  import { ArrowLeft, Plus, Trash2, Save, X, CheckCircle2, LoaderCircle, RotateCw } from "@lucide/svelte";
+  import { ArrowLeft, Plus, Trash2, Save, CheckCircle2, LoaderCircle, RotateCw } from "@lucide/svelte";
   import ProviderLogo from "$lib/ProviderLogo.svelte";
   import ProviderAuth from "$lib/ProviderAuth.svelte";
   import { onMount } from "svelte";
@@ -45,8 +45,7 @@
             editableProvider(initial.providers.find((p: any) => p.id === selected)),
           ) ||
         !!providerKeys[selected] ||
-        !!providerEnv[selected] ||
-        !!clearProviderKeys[selected]
+        !!providerEnv[selected]
       );
     if (tab === "chat")
       return settings.defaultProviderId !== initial.defaultProviderId;
@@ -96,8 +95,8 @@
   function usesDiscovery(p: any) {
     return p && p.authMode !== "oauth" && p.authMode !== "ambient" && (!p.service || p.service === "custom" || settings?.catalog.find((v: any) => v.id === p.service)?.apiSetup);
   }
-  function scheduleDiscovery(p: any, key: string, clearing: boolean) {
-    const signature = JSON.stringify([p?.id, p?.service, p?.baseUrl, p?.authMode, key, clearing]);
+  function scheduleDiscovery(p: any, key: string) {
+    const signature = JSON.stringify([p?.id, p?.service, p?.baseUrl, p?.authMode, key]);
     if (signature === discoverySignature) return;
     discoverySignature = signature;
     clearTimeout(discoveryTimer);
@@ -106,7 +105,8 @@
     modelOptions = [];
     discoveryError = "";
     discoveryState = "idle";
-    if (!usesDiscovery(p) || clearing || (!key.trim() && !p.hasApiKey && p.authMode !== "none" && p.service)) return;
+    if (key.trim()) providerSaveState = "idle";
+    if (!usesDiscovery(p) || (!key.trim() && !p.hasApiKey && p.authMode !== "none" && p.service)) return;
     discoveryState = "loading";
     discoveryTimer = setTimeout(async () => {
       discoveryAbort = new AbortController();
@@ -119,8 +119,10 @@
         if (generation !== discoveryGeneration) return;
         if (!response.ok) throw Error(result.error?.message ?? "Connection failed. Check your API key.");
         modelOptions = result.models;
-        p.models = result.models;
-        if (creatingConnection || !modelOptions.includes(p.modelId)) p.modelId = result.defaultModelId;
+        const target = settings.providers.find((v: any) => v.id === p.id);
+        if (!target) return;
+        target.models = result.models;
+        if (creatingConnection || !modelOptions.includes(target.modelId)) target.modelId = result.defaultModelId;
         settings = { ...settings };
         discoveryState = "success";
       } catch (e) {
@@ -130,7 +132,7 @@
       }
     }, 600);
   }
-  $: if (settings && selected) scheduleDiscovery(settings.providers.find((p: any) => p.id === selected), providerKeys[selected] ?? "", clearProviderKeys[selected] ?? false);
+  $: if (settings && selected) scheduleDiscovery(settings.providers.find((p: any) => p.id === selected), providerKeys[selected] ?? "");
   let selected = "";
   export let catalogOpen = false;
   let query = "";
@@ -239,7 +241,6 @@
   let clear = { chat: false, embedding: false };
   let providerEnv: Record<string, string> = {};
   let providerKeys: Record<string, string> = {};
-  let clearProviderKeys: Record<string, boolean> = {};
   let error = "";
   let notice = "";
   let collections: any[] = [];
@@ -279,7 +280,9 @@
     };
   }
   async function persistProviders() {
-    const p = settings.providers.find((p: any) => p.id === selected);
+    const p = { ...settings.providers.find((p: any) => p.id === selected) };
+    const submittedKey = providerKeys[p.id];
+    const submittedEnv = providerEnv[p.id];
     const latest = await api("/api/settings");
     if (
       !creatingConnection &&
@@ -290,40 +293,54 @@
       );
     const patch = {
       ...providerPatch(p),
-      ...(providerEnv[p.id]
-        ? { credentialEnv: JSON.parse(providerEnv[p.id]) }
+      ...(submittedEnv
+        ? { credentialEnv: JSON.parse(submittedEnv) }
         : {}),
-      ...(clearProviderKeys[p.id]
-        ? { apiKey: "" }
-        : providerKeys[p.id]
-          ? { apiKey: providerKeys[p.id] }
-          : {}),
+      ...(submittedKey ? { apiKey: submittedKey } : {}),
     };
     const providers = latest.providers
       .filter((v: any) => v.id !== p.id)
       .map(providerPatch);
     const index = latest.providers.findIndex((v: any) => v.id === p.id);
     providers.splice(index < 0 ? providers.length : index, 0, patch);
-    settings = await api("/api/settings", { providers });
+    const result = await api("/api/settings", { providers });
+    const current = settings.providers.find((v: any) => v.id === p.id);
+    snapshot = JSON.stringify(result);
+    const changed = JSON.stringify(current) !== JSON.stringify(p);
+    settings = changed ? { ...result, providers: result.providers.map((v: any) => v.id === p.id ? { ...v, ...current, hasApiKey: v.hasApiKey } : v) } : result;
     creatingConnection = false;
-    snapshot = JSON.stringify(settings);
-    providerKeys = {};
-    providerEnv = {};
-    clearProviderKeys = {};
+    if (providerKeys[p.id] === submittedKey) providerKeys = { ...providerKeys, [p.id]: "" };
+    if (providerEnv[p.id] === submittedEnv) providerEnv = { ...providerEnv, [p.id]: "" };
   }
-  async function saveProviders() {
-    const provider = settings.providers.find((p: any) => p.id === selected);
-    if (usesDiscovery(provider) && discoveryState !== "success" && !clearProviderKeys[selected]) {
-      error = "Connect with a valid API key and load models before saving.";
-      return;
-    }
-    const wasNew = creatingConnection;
-    await run(async () => {
-      await persistProviders();
-      if (wasNew)
-        await goto(`${providerHref(selected)}?saved=1`, { replaceState: true });
-    }, "Provider saved");
+  let providerSaving = false;
+  let providerSaveQueued = false;
+  let providerSaveState = "idle";
+  let providerSaveAttempt = "";
+  function autoSaveProvider() {
+    const p = settings?.providers.find((v: any) => v.id === selected);
+    if (!p || tab !== "providers" || (!isDirty() && !(creatingConnection && (!usesDiscovery(p) || discoveryState === "success")))) return;
+    if (usesDiscovery(p) && discoveryState !== "success") return;
+    const signature = JSON.stringify([p, providerKeys[p.id], providerEnv[p.id]]);
+    if (signature === providerSaveAttempt) return;
+    if (providerSaving) { providerSaveQueued = true; return; }
+    providerSaveAttempt = signature;
+    providerSaving = true;
+    providerSaveState = "saving";
+    error = "";
+    void persistProviders().then(() => {
+      providerSaveState = "saved";
+    }).catch((e) => {
+      providerSaveState = "error";
+      error = (e as Error).message;
+    }).finally(() => {
+      providerSaving = false;
+      if (providerSaveQueued) {
+        providerSaveQueued = false;
+        autoSaveProvider();
+      }
+    });
   }
+  $: if (settings && selected && snapshot && providerKeys && providerEnv && discoveryState) autoSaveProvider();
   async function saveDefaults() {
     await run(async () => {
       settings = await api("/api/settings", {
@@ -585,7 +602,7 @@
               class="stack"
               onsubmit={(e) => {
                 e.preventDefault();
-                void saveProviders();
+                autoSaveProvider();
               }}
             >
               <div class="section-heading">
@@ -642,15 +659,10 @@
                             : "Enter API key"}
                         /></label
                       >
-                      {#if p.hasApiKey}<label class="check"
-                        ><Checkbox
-                          bind:checked={() => clearProviderKeys[p.id] ?? false, (checked) => clearProviderKeys[p.id] = checked}
-                        />Remove saved API key</label
-                      >{/if}
                     {/if}
                     {#if usesDiscovery(p)}
                       {#if discoveryState === "loading"}<p class="discovery-message" aria-live="polite"><LoaderCircle size={16} class="animate-spin" />Testing connection and loading models…</p>
-                      {:else if discoveryState === "error"}<div class="discovery-message"><p class="error" role="alert">{discoveryError}</p><Button variant="ghost" size="icon" aria-label="Retry connection" title="Retry connection" onclick={() => { discoverySignature = ""; scheduleDiscovery(p, providerKeys[p.id] ?? "", false); }}><RotateCw /></Button></div>
+                      {:else if discoveryState === "error"}<div class="discovery-message"><p class="error" role="alert">{discoveryError}</p><Button variant="ghost" size="icon" aria-label="Retry connection" title="Retry connection" onclick={() => { discoverySignature = ""; scheduleDiscovery(p, providerKeys[p.id] ?? ""); }}><RotateCw /></Button></div>
                       {:else if discoveryState === "success"}<p class="discovery-message" aria-live="polite"><CheckCircle2 size={16} />Connection verified · {modelOptions.length} models</p>
                       {:else}<p class="muted">Enter your API key to connect and load available models.</p>{/if}
                       {#if discoveryState === "success"}<label>Default model ID<NativeSelect class="w-full" aria-label="Default model ID" bind:value={p.modelId}>{#each modelOptions as id}<option value={id}>{id}</option>{/each}</NativeSelect></label>{/if}
@@ -674,22 +686,12 @@
                   </fieldset>
                 {/each}
               </div>
-              <div class="row">
-                <Button
-                  href="/settings/providers"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Cancel"
-                  title="Cancel"><X /></Button
-                >
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={usesDiscovery(settings.providers.find((p: any) => p.id === selected)) && discoveryState !== "success" && !clearProviderKeys[selected]}
-                  aria-label="Save provider"
-                  title="Save provider"><Save /></Button
-                >
-              </div>
+              <p class="discovery-message" role="status" aria-live="polite" title="Changes save automatically. API keys save only after the connection test succeeds.">
+                {#if providerSaveState === "saving"}<LoaderCircle size={16} class="animate-spin" />Saving…
+                {:else if providerSaveState === "saved"}<CheckCircle2 size={16} class="saved-check" />Saved automatically
+                {:else if providerSaveState === "error"}Changes couldn’t be saved.<Button variant="ghost" size="icon" aria-label="Retry saving" title="Retry saving" onclick={() => { providerSaveAttempt = ""; autoSaveProvider(); }}><RotateCw /></Button>
+                {:else}Changes save automatically. API keys save after verification.{/if}
+              </p>
             </form>
           {/if}
         </section>
@@ -934,6 +936,10 @@
 </AlertDialog.Root>
 
 <style>
+  :global(.saved-check) { animation: saved-pop 240ms ease-out; }
+  @keyframes saved-pop { from { opacity: 0; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) { :global(.saved-check) { animation: none; } }
+
   .discovery-message { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .discovery-message p { margin: 0; }
   .connection-details { display: grid; gap: 16px; margin: 0; }
