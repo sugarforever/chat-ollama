@@ -31,6 +31,8 @@ The upstream factories expose OAuth for Anthropic, OpenAI, OpenAI Codex, GitHub 
 
 New custom endpoints use OpenAI-compatible Chat Completions and a models endpoint; existing custom protocol configurations are preserved. Ollama and LM Studio can use Chat Completions with the local `/v1` URL. Local keyless endpoints use a non-secret placeholder if the SDK requires a key. Built-in services retain mixed-protocol dispatch and model metadata (limits, reasoning, costs, compatibility flags); selecting OpenRouter, Copilot, OpenCode or Cloudflare does not force every model through Chat Completions. OAuth uses the official service endpoint to prevent redirecting subscription tokens to a custom host.
 
+Settings also autosave chat defaults and embedding URL/model edits (after a short typing pause). New embedding keys are tested with a single embedding request before persistence; failed tests retain the draft and the previous saved configuration. MCP JSON saves automatically after the full-replacement confirmation is checked; invalid JSON and redacted secret-presence flags cannot replace existing servers. Each section shows saving, saved and retry states. Collection creation/deletion, uploads and reindexing remain explicit actions.
+
 ## Persistence, switching and errors
 
 - Credentials and endpoint snapshots reside under the private `DATA_DIR` (directory 0700, files 0600). Keep this directory private and backed up; stored secrets are not encrypted at rest.

@@ -9,7 +9,7 @@
   import Input from "$lib/components/ui/input/input.svelte";
   import Badge from "$lib/components/ui/badge/badge.svelte";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
-  import { ArrowLeft, Plus, Trash2, Save, CheckCircle2, LoaderCircle, RotateCw } from "@lucide/svelte";
+  import { ArrowLeft, Plus, Trash2, CheckCircle2, LoaderCircle, RotateCw } from "@lucide/svelte";
   import ProviderLogo from "$lib/ProviderLogo.svelte";
   import ProviderAuth from "$lib/ProviderAuth.svelte";
   import { onMount } from "svelte";
@@ -341,14 +341,6 @@
     });
   }
   $: if (settings && selected && snapshot && providerKeys && providerEnv && discoveryState) autoSaveProvider();
-  async function saveDefaults() {
-    await run(async () => {
-      settings = await api("/api/settings", {
-        defaultProviderId: settings.defaultProviderId,
-      });
-      snapshot = JSON.stringify(settings);
-    }, "Chat defaults saved");
-  }
   async function removeProvider() {
     await run(async () => {
       const latest = await api("/api/settings");
@@ -365,21 +357,6 @@
       allowNavigation = true;
       await goto("/settings/providers", { replaceState: true });
     }, "Provider removed");
-  }
-  async function saveEmbedding() {
-    await run(async () => {
-      const patch: any = {
-        baseUrl: settings.embedding.baseUrl,
-        modelId: settings.embedding.modelId,
-      };
-      if (clear.embedding) patch.apiKey = "";
-      else if (keys.embedding) patch.apiKey = keys.embedding;
-      settings = await api("/api/settings", { embedding: patch });
-      snapshot = JSON.stringify(settings);
-      keys.embedding = "";
-      clear.embedding = false;
-      await loadCollections();
-    }, "Embedding settings saved. Reindex collections explicitly before searching with the new configuration.");
   }
   async function upload(id: string, event: Event) {
     const input = event.target as HTMLInputElement;
@@ -399,27 +376,104 @@
       await loadCollections();
     });
   }
-  async function saveMcp() {
-    await run(async () => {
-      const next = JSON.parse(replacement);
-      if (
-        !Array.isArray(next) ||
-        next.some((s) => "hasHeaders" in s || "hasEnvironment" in s)
-      )
-        throw Error(
-          "Provide complete server configurations, not redacted presence flags.",
-        );
-      servers = (await api("/api/mcp", { servers: next }, "PUT")).servers;
-      replacement = "[]";
-      replace = false;
-      confirm = false;
-    }, "MCP configuration replaced");
+  let sectionReady = false;
+  let sectionSaveState = "idle";
+  let sectionSaved = "";
+  let sectionScheduled = "";
+  let sectionAttempt = "";
+  let sectionSaving = false;
+  let sectionTimer: ReturnType<typeof setTimeout>;
+  function sectionDraft() {
+    if (tab === "chat") return { defaultProviderId: settings.defaultProviderId };
+    if (tab === "embeddings") return {
+      baseUrl: settings.embedding.baseUrl,
+      modelId: settings.embedding.modelId,
+      apiKey: keys.embedding,
+      removeKey: clear.embedding,
+    };
+    if (tab === "tools") return { replacement, confirm, replace };
+    return null;
   }
+  function scheduleSectionSave() {
+    const draft = sectionDraft();
+    if (!draft) return;
+    const signature = JSON.stringify(draft);
+    if (signature === sectionScheduled) return;
+    sectionScheduled = signature;
+    clearTimeout(sectionTimer);
+    if (signature === sectionSaved) return;
+    sectionSaveState = "pending";
+    sectionTimer = setTimeout(() => void persistSection(), tab === "chat" ? 0 : 600);
+  }
+  async function persistSection() {
+    if (sectionSaving) return;
+    const draft = sectionDraft();
+    const signature = JSON.stringify(draft);
+    if (!draft || signature === sectionSaved || signature === sectionAttempt) return;
+    if (tab === "tools" && (!draft.replace || !draft.confirm)) return;
+    sectionSaving = true;
+    sectionAttempt = signature;
+    sectionSaveState = "saving";
+    error = "";
+    let savedSignature = signature;
+    try {
+      if (tab === "tools") {
+        const next = JSON.parse(draft.replacement!);
+        if (!Array.isArray(next) || next.some((s) => !s || typeof s !== "object" || "hasHeaders" in s || "hasEnvironment" in s))
+          throw Error("Provide complete server configurations, not redacted presence flags.");
+        servers = (await api("/api/mcp", { servers: next }, "PUT")).servers;
+        if (JSON.stringify(sectionDraft()) === signature) {
+          replacement = "[]";
+          replace = false;
+          confirm = false;
+          savedSignature = JSON.stringify(sectionDraft());
+        }
+      } else {
+        let patch: any;
+        if (tab === "chat") patch = { defaultProviderId: draft.defaultProviderId };
+        else {
+          const url = new URL(draft.baseUrl!);
+          if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash || !draft.modelId?.trim())
+            throw Error("Enter a valid embedding URL and model ID.");
+          patch = { embedding: { baseUrl: draft.baseUrl, modelId: draft.modelId } };
+          if (draft.removeKey) patch.embedding.apiKey = "";
+          else if (draft.apiKey) {
+            await api("/api/settings/embedding-test", { baseUrl: draft.baseUrl, modelId: draft.modelId, apiKey: draft.apiKey });
+            // A key is saved only if the tested draft is still current.
+            if (JSON.stringify(sectionDraft()) !== signature) return;
+            patch.embedding.apiKey = draft.apiKey;
+          }
+        }
+        const result = await api("/api/settings", patch);
+        snapshot = JSON.stringify(result);
+        if (JSON.stringify(sectionDraft()) === signature) {
+          settings = result;
+          if (tab === "embeddings") { keys.embedding = ""; clear.embedding = false; }
+          savedSignature = JSON.stringify(sectionDraft());
+        }
+      }
+      sectionSaveState = "saved";
+      sectionSaved = savedSignature;
+    } catch (e) {
+      sectionSaveState = "error";
+      error = e instanceof SyntaxError ? "Enter valid JSON to save the MCP configuration." : (e as Error).message;
+    } finally {
+      sectionSaving = false;
+      if (JSON.stringify(sectionDraft()) !== signature && JSON.stringify(sectionDraft()) !== sectionSaved) {
+        sectionScheduled = "";
+        scheduleSectionSave();
+      }
+    }
+  }
+  $: if (sectionReady && settings && keys && clear && replacement !== undefined && confirm !== undefined && replace !== undefined) scheduleSectionSave();
   onMount(() => {
     void run(
       async () => {
         settings = await api("/api/settings");
         initializeEditor();
+        sectionSaved = JSON.stringify(sectionDraft());
+        sectionScheduled = sectionSaved;
+        sectionReady = true;
         if (saved) notice = "Provider saved";
         await refreshConnections();
         servers = (await api("/api/mcp")).servers;
@@ -440,6 +494,7 @@
       connectionsActive = false;
       connectionRead++;
       clearInterval(timer);
+      clearTimeout(sectionTimer);
       clearTimeout(discoveryTimer);
       discoveryAbort?.abort();
       discoveryGeneration++;
@@ -706,7 +761,7 @@
             class="card stack"
             onsubmit={(e) => {
               e.preventDefault();
-              void saveDefaults();
+              void persistSection();
             }}
           >
             <label
@@ -717,7 +772,7 @@
                     >{p.name}</option
                   >{/each}</NativeSelect
               ></label
-            ><Button type="submit"><Save />Save chat defaults</Button>
+            >
           </form>
         </section>
       {:else if tab === "embeddings"}
@@ -731,7 +786,7 @@
             style="margin-top:24px"
             onsubmit={(e) => {
               e.preventDefault();
-              void saveEmbedding();
+              void persistSection();
             }}
           >
             <h3>Embedding endpoint</h3>
@@ -767,7 +822,7 @@
               subscriptions and OAuth tokens are never used here. Changes
               require an explicit collection reindex.
             </p>
-            <Button type="submit" variant="default">Save embedding settings</Button>
+
           </form>
         </section>
       {:else if tab === "knowledge"}
@@ -891,10 +946,18 @@
             <label class="check"
               ><Checkbox bind:checked={confirm} />I intend to
               replace all servers and their secrets</label
-            ><Button variant="outline" disabled={!confirm} onclick={saveMcp}
-              >Save complete replacement</Button
             >{/if}
         </section>
+      {/if}
+      {#if ["chat", "embeddings", "tools"].includes(tab)}
+        <p class="discovery-message" role="status" aria-live="polite" title="Changes save automatically. Embedding API keys save only after a successful connection test.">
+          {#if sectionSaveState === "saving"}<LoaderCircle size={16} class="animate-spin" />{tab === "embeddings" && keys.embedding ? "Testing connection and saving…" : "Saving…"}
+          {:else if sectionSaveState === "saved"}<CheckCircle2 size={16} class="saved-check" />Saved automatically
+          {:else if sectionSaveState === "error"}Changes couldn’t be saved.<Button variant="ghost" size="icon" aria-label="Retry saving" title="Retry saving" onclick={() => { sectionAttempt = ""; void persistSection(); }}><RotateCw /></Button>
+          {:else if tab === "tools" && replace && !confirm}Confirm replacement to save valid edits automatically.
+          {:else if sectionSaveState === "pending"}Changes will save automatically…
+          {:else}Changes save automatically.{/if}
+        </p>
       {/if}
     {:else}<p class="muted">Loading settings…</p>{/if}
   </div>

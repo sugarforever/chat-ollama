@@ -207,9 +207,7 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await page
     .getByRole("button", { name: "Replace MCP configuration", exact: true })
     .click();
-  await expect(
-    page.getByRole("button", { name: "Save complete replacement" }),
-  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save complete replacement" })).toHaveCount(0);
   await page.getByLabel("Complete MCP configuration JSON").fill(
     JSON.stringify([
       {
@@ -223,9 +221,8 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await page
     .getByLabel("I intend to replace all servers and their secrets")
     .check();
-  await page.getByRole("button", { name: "Save complete replacement" }).click();
   await expect(page.getByRole("status")).toContainText(
-    "MCP configuration replaced",
+    "Saved automatically",
   );
   expect(JSON.stringify((await request(page, "/api/mcp")).value)).not.toContain(
     "mcp-secret",
@@ -246,7 +243,6 @@ test("administrator opens responsive chat and independent secret-preserving sett
   await page
     .getByLabel("I intend to replace all servers and their secrets")
     .check();
-  await page.getByRole("button", { name: "Save complete replacement" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "not redacted presence flags",
   );
@@ -415,7 +411,7 @@ test("failed upload retry, rebuild warning and explicit reindex", async ({
   embedding.fail(false);
   await page.getByRole("link", {name:"Embeddings",exact:true}).click();
   await page.getByLabel("Embedding model ID").fill("changed-fixture");
-  await page.getByRole("button", { name: "Save embedding settings" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved automatically");
   await page.getByRole("link", {name:"Knowledge",exact:true}).click();
   await expect(
     collection.getByText("Reindex required", { exact: true }),
@@ -1025,8 +1021,8 @@ test('settings catalog saves subscription defaults automatically and keeps secti
   expect((await request(page,'/api/settings')).value.providers.length).toBe(before+1);
   await page.getByRole('link',{name:'Embeddings',exact:true}).click();
   await page.getByLabel('Embedding model ID').fill('saved-after-cancel');
-  await page.getByRole('button',{name:'Save embedding settings'}).click();
-  await expect(page.getByRole('status')).toContainText('Embedding settings saved');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
   await page.getByRole('link',{name:'Providers',exact:true}).click();
   await page.getByRole('link',{name:'Embeddings',exact:true}).click();
   await expect(page.getByLabel('Embedding model ID')).toHaveValue('saved-after-cancel');
@@ -1359,4 +1355,36 @@ test('catalog provider automatically validates keys and ignores stale model disc
   await expect(page.getByLabel('Default model ID',{exact:true})).toHaveValue('kimi-previous');
   expect(savedKeys).toEqual(['good']);
   await page.screenshot({path:'test-results/provider-auto-discovery.png',fullPage:true});
+});
+
+
+test('remaining settings autosave defaults and validate embedding keys before persistence', async ({page}) => {
+  await login(page); await configure(page);
+  const initial=(await request(page,'/api/settings')).value;
+  const second={id:'auto-default',name:'Automatic default',baseUrl:modelUrl,modelId:'fixture'};
+  await request(page,'/api/settings',{providers:[...initial.providers.map(({hasApiKey,...p}:any)=>p),second]});
+  await page.goto(base+'/settings/chat');
+  await page.getByLabel('Default chat provider',{exact:true}).selectOption(second.id);
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  await page.reload();
+  await expect(page.getByLabel('Default chat provider',{exact:true})).toHaveValue(second.id);
+  await page.getByRole('link',{name:'Embeddings',exact:true}).click();
+  await expect(page.getByRole('button',{name:/Save/})).toHaveCount(0);
+  const written:string[]=[];
+  await page.route('**/api/settings',async route=>{
+    if(route.request().method()==='POST' && route.request().postDataJSON().embedding?.apiKey) written.push(route.request().postDataJSON().embedding.apiKey);
+    await route.continue();
+  });
+  embedding.fail(true);
+  await page.getByLabel('Embedding API key',{exact:true}).fill('invalid');
+  await expect(page.getByRole('alert')).toContainText('Embedding connection failed');
+  expect(written).toEqual([]);
+  embedding.fail(false);
+  await page.getByLabel('Embedding API key',{exact:true}).fill('verified-key');
+  await expect(page.getByRole('status')).toContainText('Saved automatically');
+  expect(written).toEqual(['verified-key']);
+  expect(embedding.requests.at(-1)?.authorization).toBe('Bearer verified-key');
+  await expect(page.getByLabel('Embedding API key',{exact:true})).toHaveValue('');
+  await page.reload();
+  await expect(page.getByLabel('Embedding API key',{exact:true})).toHaveAttribute('placeholder','Key saved · leave blank to keep');
 });
