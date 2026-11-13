@@ -281,3 +281,8 @@ in backups alongside the rest of `DATA_DIR`. Conversation skill-context
 snapshots live in `DATA_DIR/sessions/*.skills.json`. The Node server defaults
 `BODY_SIZE_LIMIT` to 22 MiB for multipart skill uploads; if you override it or
 use a reverse proxy, allow at least 22 MiB to use the full import limit.
+
+Skill storage follows the application's single-process deployment requirement.
+Each skill directory is published atomically. A process crash during a multi-skill
+installation can leave a subset installed; refresh the installed list before
+retrying the remaining skills.

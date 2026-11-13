@@ -178,3 +178,19 @@ test("rejects aggregate upload limits, malformed YAML and duplicate skill names"
       discoverSkills([file("SKILL.md", `---\n${yaml}\n---\ntext`)]),
     ).toThrow();
 });
+
+test("rejects Unicode-equivalent filenames before APFS can overwrite supporting content", () => {
+  expect(() =>
+    discoverSkills([
+      skill("", "one"),
+      file("é.txt", "composed"),
+      file("e\u0301.txt", "decomposed"),
+    ]),
+  ).toThrow();
+  expect(() =>
+    discoverSkills([
+      skill("café", "one"),
+      file("cafe\u0301/note.txt", "different spelling"),
+    ]),
+  ).toThrow();
+});

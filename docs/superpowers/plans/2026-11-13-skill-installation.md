@@ -123,3 +123,23 @@
 - [x] Run `pnpm check`, then `pnpm build`, then `pnpm test`; report every failure by name.
 - [x] Run `pnpm exec playwright test tests/acceptance.spec.ts` after build/tests finish. Inspect desktop/mobile screenshots outside Git and release browser automation control.
 - [x] Review the diff against issue #787; commit only this feature's files and report validation evidence and any remaining limitations.
+
+## Implementation decisions
+
+- Ruling: Use cached transient user context, because pi durable 1.5.2 supports message hooks but not system messages in beforeRequest. Cost if wrong: weaker contextual precedence; user instructions explicitly take priority.
+- Ruling: Increase default request-body allowance from 10 MiB plus overhead to 22 MiB for skill directory uploads; individual knowledge-file limits remain in their existing handler. Cost if wrong: larger requests can consume more memory.
+- Final: Ruling: Third-party skill instruction quality/dependencies are supplied by their publishers — document trust/dependency requirements and preserve source links. Cost if wrong: imported skills may need extra software or fail their own tasks.
+- Final: Ruling: External model behavior remains provider-dependent — verify skill metadata/native reads with actual pi runtime and local protocol fixture, leave provider implementation unchanged. Cost if wrong: a provider/model may choose not to use a matching skill.
+- Final: Ruling: Browser visuals judged by direct desktop/mobile screenshot inspection plus containment regression — fixed catalog-source class collision. Cost if wrong: untested viewport differences may remain.
+- Final: Ruling: Multi-process storage remains unsupported, matching the existing README. Publication is atomic per skill; a process crash may install only part of a batch, now documented. Cost if wrong: users must refresh and retry remaining skills after a crash.
+
+Independent review found one P2 Unicode filename collision on APFS. A failing regression test reproduced it; collision keys now use NFC normalization before case folding for both leaf paths and directory prefixes. No minor findings were deferred.
+
+## Final validation
+
+- Node 24.7.0; `pnpm check`: 0 errors, 0 warnings.
+- `pnpm build`: passed.
+- `pnpm test`: 104 tests passed across 20 files.
+- `pnpm exec playwright test tests/acceptance.spec.ts`: 44 passed, including directory upload, selection, duplicate rejection, refresh, removal, source link containment, and desktop/mobile screenshots.
+- Live GitHub discovery: all eight catalog entries succeeded.
+- Review screenshots remain in ignored `rewrite/test-results/`; no images staged or committed.

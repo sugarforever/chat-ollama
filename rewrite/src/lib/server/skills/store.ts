@@ -51,7 +51,7 @@ export function discoverSkills(files: SkillFile[]): SkillCandidate[] {
   for (const file of files) {
     validateSkillPath(file.path);
     // Case-insensitive duplicates cannot be represented reliably across platforms.
-    const key = file.path.toLowerCase();
+    const key = file.path.normalize("NFC").toLowerCase();
     if (seen.has(key)) skillError();
     seen.add(key);
     bytes += file.content.byteLength;
@@ -101,7 +101,7 @@ export function discoverSkills(files: SkillFile[]): SkillCandidate[] {
     const segments = file.path.split("/");
     for (let length = 1; length <= segments.length; length++) {
       const prefix = segments.slice(0, length).join("/"),
-        key = prefix.toLowerCase();
+        key = prefix.normalize("NFC").toLowerCase();
       if (
         (spelling.has(key) && spelling.get(key) !== prefix) ||
         (length < segments.length && seen.has(key))
