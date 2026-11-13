@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ConversationTurn from "$lib/components/ConversationTurn.svelte";
+  import { conversationTurns } from "$lib/tool-activity";
   import ChatNavigation from "$lib/components/shell/ChatNavigation.svelte";
   import Button from "$lib/components/ui/button/button.svelte";
   import Textarea from "$lib/components/ui/textarea/textarea.svelte";
@@ -56,6 +58,7 @@
     return md.renderer.render(tokens, md.options, {});
   }
   $: busy = snapshot?.status === "running" || snapshot?.status === "cancelling";
+  $: turns = conversationTurns(snapshot?.entries.filter(e => e.content || e.kind === "tool") ?? [], busy);
   let disposed = false;
   function active(own: number, id: string) {
     return !disposed && own === generation && id === current;
@@ -369,40 +372,9 @@
         role="log"
         aria-label="Conversation messages"
       >
-        {#each snapshot.entries.filter((e) => e.content || e.kind === "tool") as entry (entry.id)}<article
-            class="entry {entry.kind}"
-          >
-            <strong class="role"
-              >{entry.kind === "assistant"
-                ? "Assistant"
-                : entry.kind === "user"
-                  ? "You"
-                  : "Tool activity"}</strong
-            >{#if entry.kind === "tool"}<details class:tool-error={entry.toolError}>
-                <summary
-                  >{entry.toolName ?? "Tool"} · {entry.toolError ? "error" : entry.toolStatus ??
-                    "done"}{entry.uncertain ? " · uncertain" : ""}</summary
-                >
-                {#if entry.toolArguments}
-                  <div class="tool-section">
-                    <span class="tool-section-label">{entry.toolName === "bash" ? "Command" : "Input"}</span>
-                    <pre class="tool-input">{entry.toolName === "bash" && typeof entry.toolArguments.command === "string" ? entry.toolArguments.command : JSON.stringify(entry.toolArguments, null, 2)}</pre>
-                    {#if entry.toolName === "bash"}
-                      {#each Object.entries(entry.toolArguments).filter(([key]) => key !== "command") as [key, value]}
-                        <span class="tool-option">{key}: {JSON.stringify(value)}</span>
-                      {/each}
-                    {/if}
-                  </div>
-                {/if}
-                <div class="tool-section">
-                  <span class="tool-section-label">Output</span>
-                  {#if entry.content}<pre class="tool-output">{entry.content}</pre>{:else}<p class="muted">{entry.toolStatus === "done" ? "No output" : "Waiting for output…"}</p>{/if}
-                </div>
-              </details>{:else}<div>
-                {@html render(entry.content, validSources)}
-              </div>
-              {#if entry.partial}<span class="muted">Writing…</span>{/if}{/if}
-          </article>{/each}{#if !snapshot.entries.length}<div class="empty">
+        {#each turns as turn (turn.id)}
+          <ConversationTurn {turn} {render} {validSources} />
+        {/each}{#if !snapshot.entries.length}<div class="empty">
             <h1>What’s on your mind?</h1>
             <p class="muted">
               Ask a question, explore an idea, or search your selected

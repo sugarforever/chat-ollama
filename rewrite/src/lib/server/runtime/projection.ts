@@ -30,7 +30,8 @@ export function projectState(raw: ProjectionInput): ConversationSnapshot {
       });
       continue;
     }
-    if (content || kind === 'user') entries.push({ id: String(entry.id), kind, content });
+    const timestamp = entry.model?.find(message => 'timestamp' in message)?.timestamp;
+    if (content || kind === 'user') entries.push({ id: String(entry.id), kind, content, ...(typeof timestamp === 'number' ? { timestamp } : {}) });
     if (kind === 'assistant') {
       for (const message of entry.model ?? []) {
         if (message.role !== 'assistant') continue;

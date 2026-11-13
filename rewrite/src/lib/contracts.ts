@@ -14,6 +14,7 @@ export type PublicEntry = {
   uncertain?: boolean;
   toolStatus?: "pending" | "running" | "done";
   partial?: boolean;
+  timestamp?: number;
 };
 export type ConversationSnapshot = {
   id: string;
