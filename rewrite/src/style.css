@@ -890,32 +890,33 @@ textarea[placeholder^="["] {
   font-family: var(--font-mono);
 }
 
-/* Each tool request stays in the transcript as its output streams and settles. */
-.entry.tool {
-  border-inline-start: 2px solid var(--border);
-  padding-inline-start: 16px;
-  margin-bottom: 14px;
-}
-.tool-section {
-  margin-top: 14px;
-  min-width: 0;
-}
-.tool-section-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-.tool-option {
-  display: inline-block;
-  margin-right: 12px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.entry .tool-input {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.tool-section pre { color: var(--text); }
-.tool-error summary { color: var(--destructive); }
+/* Codex-style activity disclosures: turn, command group, then individual call. */
+.turn-activity { margin: 8px 0 24px; min-width: 0; }
+.turn-activity summary { list-style: none; cursor: pointer; }
+.turn-activity summary::-webkit-details-marker { display: none; }
+.turn-activity summary:focus-visible { border-radius: 4px; }
+.work-summary { display: flex; align-items: center; gap: 8px; padding: 0 0 12px; color: var(--muted); border-bottom: 1px solid var(--border); }
+.activity-count { margin-left: auto; font-size: 12px; }
+.activity-history { padding-top: 20px; }
+.tool-group { margin: 0 0 20px; min-width: 0; }
+.tool-group > summary { display: flex; align-items: center; gap: 8px; color: var(--muted); padding: 4px 0; }
+.tool-history { padding-top: 4px; }
+.entry.tool { border: 0; padding: 0; margin: 0; min-width: 0; }
+.entry .tool-call { padding: 0; }
+.tool-call > summary { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 0; color: var(--muted); }
+.tool-call summary svg { flex-shrink: 0; }
+.tool-preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
+.tool-call > summary .disclosure-chevron { opacity: 0; }
+.tool-call > summary:hover .disclosure-chevron,
+.tool-call > summary:focus-visible .disclosure-chevron,
+.tool-call[open] > summary .disclosure-chevron { opacity: 1; }
+.disclosure-chevron { transform: rotate(-90deg); flex-shrink: 0; }
+details[open] > summary > .disclosure-chevron { transform: rotate(0deg); }
+.tool-console { margin: 8px 0 12px; border: 1px solid var(--border); border-radius: 12px; background: #f2f3f3; padding: 12px 14px; max-height: 360px; overflow: auto; }
+.tool-console-title { display: block; color: var(--muted); margin-bottom: 14px; font-size: 13px; }
+.entry .tool-console pre { background: none; border: 0; padding: 0; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
+.entry .tool-console .tool-output { margin-top: 12px; }
+.tool-option { display: inline-block; margin: 6px 12px 0 0; font-size: 11px; color: var(--muted); }
+.tool-empty { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+.tool-uncertain { font-size: 11px; color: var(--warning); }
+.tool-error > summary { color: var(--destructive); }

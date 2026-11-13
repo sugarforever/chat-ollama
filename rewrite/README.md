@@ -65,12 +65,14 @@ Tests use a real local HTTP model fixture, real pi SQLite storage, and separate 
 
 Chat HTTP commands are `POST /api/conversations` with `{providerId, modelId, knowledgeBaseIds, mcpServerIds}`, `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations/:id/messages` with `{requestId, content}`, and `POST /api/conversations/:id/stop`. `PATCH /api/conversations/:id` with `{providerId, modelId}` saves a new selection and returns the updated snapshot (200). It leaves history, knowledge and MCP selections intact, and may be used during a run. The selection applies to subsequent input. Missing/invalid fields return 400/INVALID_INPUT; an unknown or deleted provider returns 409/PROVIDER_NOT_FOUND without fallback. Creation returns 201; durable message admission returns 202 with `{id}`. Repeating an identical request ID returns that original ID, conflicting content returns 409/REQUEST_CONFLICT, and distinct input while running returns 409/BUSY. Stop waits for pi to reach idle; connected state observers can see cancelling while that happens.
 
-Tool calls appear in request order as expandable transcript entries. Each entry
-keeps its identity from pending through completion so an expanded call stays
-open while the next call runs. Expanded entries show the exact bash command
-(or JSON input for other tools), output, and error status. Inputs and output
-remain available after reloading a conversation; older results whose requests
-are outside the loaded history window may have no input section.
+Each turn presents a Codex-style expandable activity history above its final
+answer. The history contains command groups with a persistent row for every
+call in request order. Rows preview the actual command or file operation;
+expanding a row opens a shell-style panel with the full input, output, and
+error status. Collapsing a turn or group keeps collecting calls, and expanding
+it reveals the full loaded history. Open rows retain their state as new calls
+arrive. Existing saved requests supply commands after reload; older results
+whose requests are outside the loaded history window may have no input panel.
 
 `GET /api/conversations/:id/events` sends application-owned `snapshot` envelopes as SSE `data:`. Every connection receives the current full state, including when Last-Event-ID is supplied. Slow clients retain only the newest pending snapshot. Revisions are process-local and are not resume cursors. The browser discards HTTP snapshot reads overtaken by SSE updates for the same selection, without comparing revisions across application restarts. The projection includes the saved `selection: {providerId, modelId}` (also published on selection changes), committed transcript, committed assistant partial text, tool inputs/output/status/errors/uncertainty, and persisted run outcomes; it omits provider error details.
 

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { fork, type ChildProcess } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { embeddingServer } from "./fixtures/embedding-server";
@@ -40,9 +40,9 @@ test.beforeAll(async () => {
       );
     if (String(last).includes("native waterfall")) {
       const count = body.messages.filter((m: any) => m.role === "tool").length;
-      if (count < 2) {
-        const command = count === 0 ? "printf first" : "printf second; sleep 3; printf finished; exit 1";
-        emit({ role: "assistant", tool_calls: [{ index: 0, id: `native-${count}`, type: "function", function: { name: "bash", arguments: JSON.stringify({ command, timeout: 10 }) } }] });
+      if (count < 3) {
+        const command = count === 0 ? "printf first" : count === 1 ? "printf second; while [ ! -f continue-tools ]; do sleep 0.1; done; printf finished; exit 1" : "printf third";
+        emit({ role: "assistant", tool_calls: [{ index: 0, id: `native-${count}`, type: "function", function: { name: "bash", arguments: JSON.stringify({ command, timeout: 60 }) } }] });
         emit({}, "tool_calls");
       } else {
         emit({ role: "assistant", content: "Waterfall complete" });
@@ -382,8 +382,8 @@ test("upload indexing, scoped citations, expandable tools and hostile markdown",
   await expect(
     page.getByRole("heading", { name: "Orchard answer" }),
   ).toBeVisible();
-  await page.locator("summary").click();
-  await expect(page.locator("details")).toHaveAttribute("open", "");
+  await page.locator(".tool-call > summary").click();
+  await expect(page.locator(".tool-call")).toHaveAttribute("open", "");
   await expect(
     page.getByRole("link", { name: "Notes", exact: true }),
   ).toBeVisible();
@@ -562,13 +562,13 @@ test("selected MCP unsafe action requires deliberate uncertainty acknowledgment 
   await create(page, undefined, "action-fixture");
   await page.getByLabel("Message", { exact: true }).fill("effect");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
-  await expect(page.locator("summary")).toContainText("running");
+  await expect(page.locator(".tool-call > summary")).toContainText("Running");
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(
     page.getByText("An external action has an uncertain outcome."),
   ).toBeVisible();
   await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
-  await page.locator("summary").click();
+  await page.locator(".tool-call > summary").click();
   await page.screenshot({
     path: "test-results/tool-uncertain-desktop.png",
     fullPage: true,
@@ -1003,8 +1003,8 @@ test("selected MCP tool completes through the shipped HTTP server", async ({page
   await page.getByLabel("Message", {exact: true}).fill("echo MCP");
   await page.getByRole("button", {name: "Send message", exact: true}).click();
   await expect(page.getByRole("heading", {name: "Orchard answer"})).toBeVisible();
-  await page.locator("summary").click();
-  await expect(page.locator("details")).toContainText("MCP completed");
+  await page.locator(".tool-call > summary").click();
+  await expect(page.locator(".tool-call")).toContainText("MCP completed");
   await expect(page.getByLabel("Message", {exact: true})).toBeEnabled();
 });
 
@@ -1583,36 +1583,55 @@ test('composer sends with command or control Enter and preserves multiline and I
 
 
 test("native tool waterfall preserves expanded cards, exact commands and errors through completion and reload", async ({page}) => {
-  await login(page);
+  await page.goto(base);
   await configure(page);
   await create(page);
   await page.getByLabel("Message", {exact:true}).fill("native waterfall");
   await page.getByRole("button", {name:"Send message",exact:true}).click();
   const cards = page.locator(".entry.tool details");
   await expect(cards).toHaveCount(2);
-  await expect(cards.nth(1).locator("summary")).toContainText("running");
+  await expect(cards.nth(1).locator("summary")).toContainText("Running");
   await cards.nth(0).locator("summary").click();
   await cards.nth(1).locator("summary").click();
-  await expect(cards.nth(0).locator(".tool-input")).toHaveText("printf first");
+  await expect(cards.nth(0).locator(".tool-input")).toHaveText("$ printf first");
   await expect(cards.nth(0).locator(".tool-output")).toHaveText("first");
-  await expect(cards.nth(1).locator(".tool-input")).toHaveText("printf second; sleep 3; printf finished; exit 1");
-  await expect(cards.nth(1)).toContainText("timeout: 10");
+  await expect(cards.nth(1).locator(".tool-input")).toHaveText("$ printf second; while [ ! -f continue-tools ]; do sleep 0.1; done; printf finished; exit 1");
+  await expect(cards.nth(1)).toContainText("timeout: 60");
+  // Collapsed history must collect the third call without replacing the first two.
+  const work = page.locator('.turn-activity');
+  await work.locator('.work-summary').click();
+  const conversationId = new URL(page.url()).searchParams.get('conversation')!;
+  await writeFile(join(dir, 'sessions', 'workspaces', conversationId, 'continue-tools'), '');
   await expect(page.getByText("Waterfall complete", {exact:true})).toBeVisible();
-  await expect(cards).toHaveCount(2);
-  await expect(cards.nth(1).locator("summary")).toContainText("error");
+  await expect(cards).toHaveCount(3);
+  await expect(work.locator('.work-summary')).toContainText('3 tool calls');
+  await work.locator('.work-summary').click();
+  await expect(cards.nth(2).locator('summary')).toContainText('Ran printf third');
+  const commandGroup = page.locator('.tool-group');
+  await expect(commandGroup.locator(':scope > summary')).toContainText('Ran commands');
+  await commandGroup.locator(':scope > summary').click();
+  await expect(cards.nth(0)).not.toBeVisible();
+  await commandGroup.locator(':scope > summary').click();
+  await expect(cards.nth(1).locator("summary")).toContainText("Failed");
   await expect(cards.nth(1)).toHaveAttribute("open", "");
   await expect(cards.nth(0)).toHaveAttribute("open", "");
   await expect(cards.nth(1).locator(".tool-output")).toContainText("secondfinished");
-  await page.screenshot({path:"test-results/native-tool-waterfall-desktop.png",fullPage:true});
+  await cards.nth(0).locator('summary').click();
+  await cards.nth(1).locator('summary').click();
+  await page.setViewportSize({width:1280,height:900});
+  await page.screenshot({path:"test-results/activity-history-desktop.png",fullPage:true});
+  await cards.nth(0).locator('summary').click();
+  await page.screenshot({path:"test-results/activity-shell-desktop.png",fullPage:true});
   await page.reload();
-  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(3);
   await cards.nth(0).locator("summary").click();
   await cards.nth(1).locator("summary").click();
-  await expect(cards.nth(0).locator(".tool-input")).toHaveText("printf first");
-  await expect(cards.nth(1).locator(".tool-input")).toHaveText("printf second; sleep 3; printf finished; exit 1");
-  await expect(cards.nth(1).locator("summary")).toContainText("error");
+  await expect(cards.nth(0).locator(".tool-input")).toHaveText("$ printf first");
+  await expect(cards.nth(1).locator(".tool-input")).toHaveText("$ printf second; while [ ! -f continue-tools ]; do sleep 0.1; done; printf finished; exit 1");
+  await expect(cards.nth(1).locator("summary")).toContainText("Failed");
   await page.setViewportSize({width:390,height:844});
   await expect(cards.nth(1).locator(".tool-input")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({path:"test-results/native-tool-waterfall-mobile.png",fullPage:true});
+  await cards.nth(1).locator('summary').click();
+  await page.screenshot({path:"test-results/activity-history-mobile.png",fullPage:true});
 });
