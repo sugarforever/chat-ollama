@@ -15,7 +15,9 @@ export function acquireBackendOwner(directory) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   directory = realpathSync(directory);
   const file = join(directory, ".backend-lock.sqlite");
-  const db = new DatabaseSync(file);
+  // Let simultaneous first launches finish SQLite's initial lock negotiation;
+  // with an immediate busy result, both contenders can give up without an owner.
+  const db = new DatabaseSync(file, { timeout: 1000 });
   chmodSync(file, 0o600);
   try {
     db.exec("BEGIN EXCLUSIVE");

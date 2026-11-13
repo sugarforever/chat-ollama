@@ -74,6 +74,16 @@ test("process death releases ownership without deleting a lock file", async () =
   expect((await childOwner(path)).result).toBe("owned");
 });
 
+test("simultaneous first launches elect exactly one owner", async () => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const path = await directory();
+    const contenders = await Promise.all([childOwner(path), childOwner(path)]);
+    expect(contenders.map(({ result }) => result).sort()).toEqual([
+      "BACKEND_IN_USE", "owned",
+    ]);
+  }
+});
+
 test("discovery credentials are private and removed before releasing ownership", async () => {
   const path = await directory();
   const owner = acquireBackendOwner(path);
