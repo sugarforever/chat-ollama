@@ -241,3 +241,43 @@ On a disposable Docker host, `sh tests/container-smoke.sh` builds the image in a
 ### Workspace interface
 
 The rewrite uses one neutral workspace style across chat, settings and error recovery pages. Chat keeps model selection in a compact **Change model** editor, with keyboard focus returned after applying or pressing Escape. On mobile the transcript scrolls independently while the composer remains visible. Provider logos are served locally. New-conversation setup, tool activity and source excerpts use the same controls and surfaces as Settings.
+
+### Agent Skills
+
+Open **Settings → Skills** to install reusable Agent Skills. **Select folder**
+opens your computer's directory picker and uploads the selected folder's files,
+including references, scripts and assets. A folder may contain one skill or many
+nested skills. ChatOllama finds each `SKILL.md` and lets you select which skills to
+install; supporting files belong to their nearest skill folder.
+
+You can also paste a public HTTPS GitHub repository URL or a
+`https://github.com/owner/repo/tree/ref/folder` URL. Branches containing slashes
+are supported (the longest matching ref wins); imports record the resolved
+commit URL. Private repositories and other Git hosts are not supported yet.
+The **Popular skills** catalog includes document skills, frontend design and
+skill creation from [Anthropic](https://github.com/anthropics/skills), plus React
+and web design guidance from [Vercel](https://github.com/vercel-labs/agent-skills).
+Each catalog entry links to its source and installs with one click.
+
+Every skill needs YAML frontmatter with a lowercase, hyphenated `name` (up to
+64 characters) and a nonempty `description`. Import limits are 100 skills,
+1,000 files, 20 MiB total, 5 MiB per file and 128 KiB per `SKILL.md`. Previewed
+imports expire after 30 minutes; at most 10 previews may be pending. Duplicate
+names fail without replacing existing skills; remove a skill before installing
+a replacement. Repository symlinks and submodules are rejected. Importing does
+not execute scripts or install system dependencies. Some third-party skills
+require additional runtimes, packages, API keys or external services.
+
+Installed skill names, descriptions and file locations are available to all
+conversations on their next message, including existing conversations. The
+agent reads matching instructions with its native file tools on demand. Active
+runs retain their discovery context; later messages refresh it. Removal stops
+advertising a skill, while previous transcript content remains in history.
+Third-party skill instructions and scripts have the same filesystem/process
+access as other native agent tools when used; install sources you trust.
+
+Skills and staged uploads live under `DATA_DIR/skills/`, which must be included
+in backups alongside the rest of `DATA_DIR`. Conversation skill-context
+snapshots live in `DATA_DIR/sessions/*.skills.json`. The Node server defaults
+`BODY_SIZE_LIMIT` to 22 MiB for multipart skill uploads; if you override it or
+use a reverse proxy, allow at least 22 MiB to use the full import limit.

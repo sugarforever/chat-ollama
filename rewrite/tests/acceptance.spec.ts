@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { fork, type ChildProcess } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { embeddingServer } from "./fixtures/embedding-server";
@@ -1656,4 +1656,40 @@ test("native tool waterfall preserves expanded cards, exact commands and errors 
   });
   expect(reduced).toEqual({open:true, animations:0});
 
+});
+
+
+test("Skills installs selected skills from a local folder and persists across refresh", async ({ page }) => {
+  const folder = join(dir, "skill-bundle");
+  for (const name of ["browser-one", "browser-two"]) {
+    await mkdir(join(folder, name, "references"), { recursive: true });
+    await writeFile(join(folder, name, "SKILL.md"), `---\nname: ${name}\ndescription: Help with ${name}\n---\nRead references/note.txt`);
+    await writeFile(join(folder, name, "references/note.txt"), "Supporting instructions");
+  }
+  await page.goto(base + "/settings/skills");
+  await expect(page.getByRole("heading", { name: "Skills", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Popular skills" })).toBeVisible();
+  const sourceLink = page.getByRole("link", { name: "anthropics/skills/tree/main/skills/pdf", exact: false });
+  const sourceBounds = await sourceLink.boundingBox();
+  const cardBounds = await sourceLink.locator("..").boundingBox();
+  expect(sourceBounds!.y).toBeGreaterThanOrEqual(cardBounds!.y);
+  expect(sourceBounds!.y + sourceBounds!.height).toBeLessThanOrEqual(cardBounds!.y + cardBounds!.height);
+  await page.getByLabel("Select skill folder").setInputFiles(folder);
+  await expect(page.getByRole("checkbox", { name: "Install browser-one" })).toBeChecked();
+  await page.getByRole("checkbox", { name: "Install browser-two" }).uncheck();
+  await page.getByRole("button", { name: "Install selected (1)" }).click();
+  await expect(page.getByRole("status")).toContainText("Installed 1 skill");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Remove browser-one" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove browser-two" })).toHaveCount(0);
+  await page.getByLabel("Select skill folder").setInputFiles(folder);
+  await page.getByRole("button", { name: "Install selected (2)" }).click();
+  await expect(page.getByRole("alert")).toContainText("already exists");
+  await page.screenshot({ path: "test-results/skills-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "test-results/skills-mobile.png", fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Remove browser-one" }).click();
+  await page.getByRole("button", { name: "Remove skill", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove browser-one" })).toHaveCount(0);
 });

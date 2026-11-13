@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { startup } from "./build/startup.js";
 const runtime = await startup();
 // Multipart overhead plus the application-enforced 10 MiB file limit.
-process.env.BODY_SIZE_LIMIT ||= String(10 * 1024 * 1024 + 65536);
+process.env.BODY_SIZE_LIMIT ||= String(22 * 1024 * 1024);
 const { handler } = await import("./build/handler.js");
 const server = createServer(handler);
 server.listen(Number(process.env.PORT || 3000), process.env.HOST || "0.0.0.0");
