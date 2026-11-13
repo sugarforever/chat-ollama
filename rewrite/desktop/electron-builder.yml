@@ -1,0 +1,41 @@
+appId: org.chatollama.desktop
+productName: ChatOllama
+directories:
+  app: .desktop/app
+  output: release
+asar: true
+files:
+  - "*.cjs"
+  - "*.mjs"
+  - package.json
+  - "!node_modules{,/**/*}"
+extraResources:
+  - from: .desktop/backend
+    to: backend
+    filter:
+      - "**/*"
+      - "!node_modules/.cache/**"
+  # electron-builder excludes a top-level node_modules directory from generic
+  # resource mappings. Map it explicitly so plain Node can resolve dependencies.
+  - from: .desktop/backend/node_modules
+    to: backend/node_modules
+    filter:
+      - "**/*"
+  - from: .desktop/runtime
+    to: runtime
+npmRebuild: false
+mac:
+  icon: desktop/icon.icns
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  binaries:
+    - Contents/Resources/runtime/bin/node
+  target:
+    - dmg
+    - zip
+artifactName: ChatOllama-${version}-${arch}.${ext}
+publish:
+  provider: github
+  owner: sugarforever
+  repo: chat-ollama
+  releaseType: draft

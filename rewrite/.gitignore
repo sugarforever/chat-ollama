@@ -8,3 +8,7 @@ playwright-report/
 
 # Review screenshots are uploaded as PR attachments, never source assets.
 docs/images/*.png
+
+# Desktop staging and release artifacts
+.desktop/
+release/

@@ -1,0 +1,100 @@
+name: Desktop macOS
+on:
+  pull_request:
+    paths:
+      - "rewrite/**"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Build signed/notarized artifacts and upload to a draft release (run on desktop-v* tag)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: rewrite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+          cache-dependency-path: rewrite/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm build
+      - run: pnpm test
+      - name: Set release version
+        if: ${{ inputs.release }}
+        run: |
+          case "$GITHUB_REF" in refs/tags/desktop-v*) ;; *) echo 'Select a desktop-v* tag for a release'; exit 1;; esac
+          echo "CHATOLLAMA_DESKTOP_VERSION=${GITHUB_REF_NAME#desktop-v}" >> "$GITHUB_ENV"
+      - run: node desktop/prepare.mjs ${{ matrix.arch }}
+      - name: Unsigned validation package
+        if: ${{ !inputs.release }}
+        run: pnpm exec electron-builder --config desktop/electron-builder.yml --mac --${{ matrix.arch }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Signed and notarized release package
+        if: ${{ inputs.release }}
+        run: |
+          case "$GITHUB_REF" in refs/tags/desktop-v*) ;; *) echo 'Select a desktop-v* tag for a release'; exit 1;; esac
+          test -n "$CSC_LINK" && test -n "$CSC_KEY_PASSWORD"
+          test -n "$APPLE_ID" && test -n "$APPLE_APP_SPECIFIC_PASSWORD" && test -n "$APPLE_TEAM_ID"
+          pnpm exec electron-builder --config desktop/electron-builder.yml --mac --${{ matrix.arch }} --config.forceCodeSigning=true --config.mac.notarize=true --publish never
+          spctl --assess --type execute --verbose release/mac*/ChatOllama.app
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - run: pnpm desktop:smoke "release/${{ matrix.arch == 'arm64' && 'mac-arm64' || 'mac' }}/ChatOllama.app/Contents/MacOS/ChatOllama"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-smoke-${{ matrix.arch }}
+          path: rewrite/test-results/desktop-smoke.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos-${{ matrix.arch }}
+          path: |
+            rewrite/release/*.dmg
+            rewrite/release/*.zip
+            rewrite/release/*.blockmap
+  draft-release:
+    if: ${{ inputs.release }}
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-macos-*
+          merge-multiple: true
+          path: artifacts
+      - name: Upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --notes 'ChatOllama macOS desktop. See rewrite/docs/desktop.md for requirements and limitations.'
+          test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" = true
+          gh release upload "$GITHUB_REF_NAME" artifacts/* --clobber
