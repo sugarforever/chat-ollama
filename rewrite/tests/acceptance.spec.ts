@@ -1634,4 +1634,26 @@ test("native tool waterfall preserves expanded cards, exact commands and errors 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await cards.nth(1).locator('summary').click();
   await page.screenshot({path:"test-results/activity-history-mobile.png",fullPage:true});
+  // All disclosure levels animate and settle to native closed states.
+  for (const panel of [cards.nth(0), page.locator('.tool-group'), page.locator('.turn-activity')]) {
+    const duration = await panel.evaluate((node) => {
+      node.querySelector('summary')!.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+      return node.getAnimations().find(animation => animation.effect instanceof KeyframeEffect && animation.effect.target === node)?.effect?.getTiming().duration;
+    });
+    expect(duration).toBe(180);
+    await expect(panel).not.toHaveAttribute('open', '');
+    await panel.locator(':scope > summary').click();
+    await expect.poll(() => panel.evaluate(node => node.getAnimations().length)).toBe(0);
+  }
+  await cards.nth(0).evaluate(node => {
+    for (let i = 0; i < 3; i++) node.querySelector('summary')!.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+  });
+  await expect(cards.nth(0)).not.toHaveAttribute('open', '');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  const reduced = await cards.nth(0).evaluate(node => {
+    node.querySelector('summary')!.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+    return {open: (node as HTMLDetailsElement).open, animations: node.getAnimations().length};
+  });
+  expect(reduced).toEqual({open:true, animations:0});
+
 });

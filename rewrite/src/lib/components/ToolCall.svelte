@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { smoothDisclosure } from '$lib/disclosure';
   import { ChevronDown, SquareTerminal, Wrench, LoaderCircle } from '@lucide/svelte';
   import type { PublicEntry } from '$lib/contracts';
   import { toolLabel } from '$lib/tool-activity';
@@ -8,7 +9,7 @@
 </script>
 
 <article class="entry tool">
-  <details class="tool-call" class:tool-error={entry.toolError}>
+  <details use:smoothDisclosure class="tool-call" class:tool-error={entry.toolError}>
     <summary>
       {#if running}<LoaderCircle size={16} class="animate-spin" />{:else if shell}<SquareTerminal size={16} />{:else}<Wrench size={16} />{/if}
       <span class="tool-preview">{toolLabel(entry)}</span>

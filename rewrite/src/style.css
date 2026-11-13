@@ -920,3 +920,13 @@ details[open] > summary > .disclosure-chevron { transform: rotate(0deg); }
 .tool-empty { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
 .tool-uncertain { font-size: 11px; color: var(--warning); }
 .tool-error > summary { color: var(--destructive); }
+
+/* Keep chevrons in sync with the target while native details animate closed. */
+.disclosure-chevron {
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1), opacity 120ms ease;
+}
+details[data-expanded="false"] > summary > .disclosure-chevron { transform: rotate(-90deg); }
+details[data-expanded="true"] > summary > .disclosure-chevron { transform: rotate(0deg); }
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-chevron { transition: none; }
+}

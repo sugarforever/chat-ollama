@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { smoothDisclosure } from '$lib/disclosure';
   import { ChevronDown, SquareTerminal, LoaderCircle } from '@lucide/svelte';
   import { activityBlocks, type ConversationTurn } from '$lib/tool-activity';
   import ToolCall from './ToolCall.svelte';
@@ -13,7 +14,7 @@
   <article class="entry user"><strong class="role">You</strong><div>{@html render(turn.user.content, validSources)}</div></article>
 {/if}
 {#if tools.length}
-  <details class="turn-activity" open>
+  <details use:smoothDisclosure class="turn-activity" open>
     <summary class="work-summary">
       <span>{turn.active ? 'Working…' : turn.durationSeconds ? `Worked for ${turn.durationSeconds}s` : 'Worked'}</span>
       <ChevronDown size={16} class="disclosure-chevron" />
@@ -22,7 +23,7 @@
     <div class="activity-history">
       {#each blocks as block (block.id)}
         {#if block.kind === 'tools'}
-          <details class="tool-group" open>
+          <details use:smoothDisclosure class="tool-group" open>
             <summary>
               {#if block.entries.some(entry => entry.toolStatus !== 'done')}<LoaderCircle size={16} class="animate-spin" />{:else}<SquareTerminal size={16} />{/if}
               <span>{block.entries.every(entry => entry.toolName === 'bash') ? (block.entries.some(entry => entry.toolStatus !== 'done') ? 'Running commands' : 'Ran commands') : 'Tool calls'}</span>
