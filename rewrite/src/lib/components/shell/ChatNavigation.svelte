@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from "$app/paths";
   import { Dialog } from "bits-ui";
   import { Menu, SquarePen, Settings, X } from "@lucide/svelte";
   import Button from "$lib/components/ui/button/button.svelte";
@@ -20,7 +21,10 @@
 
 {#snippet navigation()}
   <div class="sidebar-heading">
-    <a href="/" class="brand">ChatOllama</a>
+    <a href="/" class="brand">
+      <img src={`${base}/logo.svg`} alt="" width="32" height="32" />
+      ChatOllama
+    </a>
     <Button
       variant="ghost"
       size="icon"
