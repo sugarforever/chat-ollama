@@ -243,12 +243,16 @@ pre {
 }
 .brand {
   display: flex;
+  gap: 8px;
   align-items: center;
   color: var(--text) !important;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.3px;
   text-decoration: none;
+}
+.brand img {
+  flex-shrink: 0;
 }
 .shell {
   display: grid;
