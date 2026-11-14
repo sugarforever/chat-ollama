@@ -49,7 +49,8 @@ if (local && process.connected) process.on("disconnect", () => void shutdown());
 try {
   const { startup } = await import("./build/startup.js");
   runtime = await startup();
-  process.env.BODY_SIZE_LIMIT ||= String(10 * 1024 * 1024 + 65536);
+  // Allow multipart overhead around the 20 MiB skill import limit.
+  process.env.BODY_SIZE_LIMIT ||= String(22 * 1024 * 1024);
   let handler;
   server = createServer((request, response) => {
     if (closing) {

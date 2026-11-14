@@ -1,3 +1,4 @@
+import { skillStore } from "./skills/store";
 import { knowledge } from "./knowledge";
 import { loadMcpServers } from "./mcp/config";
 import { loadChatConfig, loadProviders, resolveChatEndpoint } from "./settings";
@@ -16,6 +17,7 @@ async function start() {
     resolveEndpoint: resolveChatEndpoint,
     defaultProviderId: () => loadProviders().defaultProviderId,
     loadMcpConfigs: loadMcpServers,
+    loadSkillContext: () => skillStore().context(),
     createTools: (config) =>
       config.knowledgeBaseIds.length
         ? [sources.createKnowledgeTool(config.knowledgeBaseIds)]

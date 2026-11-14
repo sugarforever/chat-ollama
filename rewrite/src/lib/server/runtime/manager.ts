@@ -20,6 +20,7 @@ export function createSessionManager(options: {
   defaultProviderId?: () => string;
   mcpConfigs?: McpConfig[];
   loadMcpConfigs?: () => McpConfig[];
+  loadSkillContext?: () => string;
   tools?: RuntimeTool[];
   createTools?: (
     config: ConversationConfig,
@@ -123,6 +124,7 @@ export function createSessionManager(options: {
                 };
               }
             : undefined,
+          loadSkillContext: options.loadSkillContext,
           mcpServerIds: row.config.mcpServerIds,
           mcpConfigs,
           tools: [

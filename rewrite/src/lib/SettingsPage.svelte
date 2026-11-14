@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Skills from "$lib/components/Skills.svelte";
   import KnowledgeCollections from "$lib/components/KnowledgeCollections.svelte";
   import SettingsNavigation from "$lib/components/shell/SettingsNavigation.svelte";
   import SaveIndicator from "$lib/components/common/SaveIndicator.svelte";
@@ -1030,6 +1031,8 @@
           onupload={upload}
           onmutate={mutate}
         />
+      {:else if tab === "skills"}
+        <Skills />
       {:else if tab === "tools"}
         <section class="card stack">
           <h2>MCP servers</h2>

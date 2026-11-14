@@ -5,12 +5,14 @@
     Binary,
     Library,
     Plug,
+    BookOpen,
   } from "@lucide/svelte";
   let { active }: { active: string } = $props();
   const items = [
     { id: "providers", name: "Providers", icon: Cpu },
     { id: "embeddings", name: "Embeddings", icon: Binary },
     { id: "knowledge", name: "Knowledge", icon: Library },
+    { id: "skills", name: "Skills", icon: BookOpen },
     { id: "tools", name: "MCP servers", icon: Plug },
   ];
 </script>

@@ -3,6 +3,14 @@ import { ApiError } from "./errors";
 import type { ConversationConfig } from "../contracts";
 
 const publicErrors: Record<string, [number, string]> = {
+  INVALID_SKILL: [400, "No valid skills found, or invalid skill files. Each skill needs SKILL.md with name and description frontmatter; paths must be relative and unique."],
+  SKILL_URL: [400, "Enter a public HTTPS GitHub repository or tree/folder URL without credentials, query or fragment."],
+  SKILL_LIMIT: [413, "Skill resource limit exceeded: 1,000 files, 100 skills, 20 MiB total, 5 MiB per file and 128 KiB per SKILL.md."],
+  SKILL_CONFLICT: [409, "A skill with this name already exists. Remove it before installing a replacement; names within an import must also be unique."],
+  SKILL_IMPORT_EXPIRED: [410, "Skill preview expired or unavailable. Select the folder or repository again."],
+  SKILL_NOT_FOUND: [404, "Skill not found"],
+  SKILL_BUSY: [429, "Too many pending skill imports. Try again after previews expire in 30 minutes."],
+  SKILL_REPOSITORY: [502, "Cannot read this GitHub repository or folder. Check that it is public and the URL/ref exists. GitHub may be rate limiting requests; try again later."],
   KNOWLEDGE_NOT_FOUND: [404, "Knowledge source or collection not found"],
   REINDEX_REQUIRED: [
     409,

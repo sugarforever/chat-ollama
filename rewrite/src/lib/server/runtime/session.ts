@@ -61,9 +61,14 @@ export async function openAgentSession(
     mcpConfigs?: McpConfig[];
     tools?: RuntimeTool[];
     loadMcpConfigs?: () => McpConfig[];
+    loadSkillContext?: () => string;
   } = {},
 ): Promise<AgentSession> {
-  const workspace = join(dirname(file), "workspaces", basename(file, ".sqlite"));
+  const workspace = join(
+    dirname(file),
+    "workspaces",
+    basename(file, ".sqlite"),
+  );
   await mkdir(workspace, { recursive: true });
   const barrier = openMcpBarrier(`${file}.mcp.sqlite`);
   const manifestFile = `${file}.mcp-tools.json`;
@@ -88,12 +93,18 @@ export async function openAgentSession(
     barrier.close();
     throw error;
   }
+  // Keep the active run's skill discovery context stable across crash recovery.
+  const skillContextFile = `${file}.skills.json`;
+  let skillContext =
+    toolOptions.loadSkillContext && existsSync(skillContextFile)
+      ? (JSON.parse(readFileSync(skillContextFile, "utf8")) as string)
+      : "";
   const registry = createRegistry();
   registry.install(CodingTools);
   let abortUncertainRun: () => Promise<void> = async () => {};
   const hooks = [
     hook(GenerationTask, {
-      async beforeRequest(_request, _api, hookContext) {
+      async beforeRequest(request, _api, hookContext) {
         if (barrier.uncertainty()) {
           // Conversation.abort waits for idle; never await our own task here.
           void abortUncertainRun().catch(() => {});
@@ -108,7 +119,14 @@ export async function openAgentSession(
             "Acknowledge the uncertain MCP action before continuing",
           );
         }
-        return undefined;
+        return skillContext
+          ? {
+              messages: [
+                { role: "user" as const, content: skillContext, timestamp: 0 },
+                ...request.messages,
+              ],
+            }
+          : undefined;
       },
     }),
   ];
@@ -129,11 +147,15 @@ export async function openAgentSession(
   const storage = await openNodeSqliteStorage(file);
   let harness;
   try {
-    harness = await Harness.open(storage, {
-      models,
-      registry,
-      env: () => new NodeExecutionEnv({ cwd: workspace }),
-    }, context);
+    harness = await Harness.open(
+      storage,
+      {
+        models,
+        registry,
+        env: () => new NodeExecutionEnv({ cwd: workspace }),
+      },
+      context,
+    );
   } catch (error) {
     await storage.close(context);
     await mcp.close();
@@ -317,6 +339,18 @@ export async function openAgentSession(
                 "Connect this provider in Settings before sending",
               );
             }
+          }
+          if (
+            toolOptions.loadSkillContext &&
+            !["running", "cancelling"].includes(snapshot().status)
+          ) {
+            skillContext = toolOptions.loadSkillContext();
+            writeFileSync(
+              `${skillContextFile}.tmp`,
+              JSON.stringify(skillContext),
+              { mode: 0o600 },
+            );
+            renameSync(`${skillContextFile}.tmp`, skillContextFile);
           }
           try {
             const admission = await root.submit(
