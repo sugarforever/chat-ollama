@@ -244,6 +244,16 @@ The rewrite uses one neutral workspace style across chat, settings and error rec
 
 ### Agent Skills
 
+Skills are installed into one global inventory. In a conversation, open **Skills**
+in the header to view the inventory and turn individual skills off or on. All
+global skills are available by default, including newly installed skills.
+Exclusions are saved only for that conversation and survive restarts. Changes
+can be made once the response and queued messages finish, and apply to the next
+message. Active runs retain their captured discovery context.
+Excluding a skill does not delete it, erase prior messages, or restrict native
+filesystem tools from reading files. Use **Manage global skills** to install or
+remove skills for the whole instance.
+
 Open **Settings → Skills** to install reusable Agent Skills. **Select folder**
 opens your computer's directory picker and uploads the selected folder's files,
 including references, scripts and assets. A folder may contain one skill or many
