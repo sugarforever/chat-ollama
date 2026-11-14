@@ -1709,3 +1709,36 @@ test("Skills installs selected skills from a local folder and persists across re
   await page.getByRole("button", { name: "Remove skill", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove browser-one" })).toHaveCount(0);
 });
+
+test('desktop account login hands the official URL to the system browser once', async ({ page, context }) => {
+  await page.addInitScript(() => {
+    const state = window as Window & {
+      chatOllamaDesktop?: { openExternal(url: string): Promise<void> };
+      openedDesktopUrls?: string[];
+    };
+    state.openedDesktopUrls = [];
+    state.chatOllamaDesktop = {
+      async openExternal(url) { state.openedDesktopUrls!.push(url); },
+    };
+    window.open = () => { throw new Error('Desktop login must use the system browser'); };
+  });
+  await openWorkspace(page);
+  await configure(page);
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await page.getByRole('link', { name: 'Add provider', exact: true }).click();
+  await page.getByLabel('Find a vendor').fill('Codex');
+  await page.locator('.vendor').filter({ hasText: 'ChatGPT (Codex)' }).click();
+  let pending = false;
+  await page.route('**/api/providers/*/auth', async route => {
+    if (route.request().method() === 'POST') pending = true;
+    await route.fulfill({ json: { connected: false, mode: 'oauth', ...(pending ? {
+      flow: { id: 'desktop-flow', status: 'pending', events: [{ type: 'auth_url', url: 'https://auth.openai.com/oauth/authorize?state=desktop' }] },
+    } : {}) } });
+  });
+  await page.getByRole('button', { name: 'Connect account', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).openedDesktopUrls)).toEqual([
+    'https://auth.openai.com/oauth/authorize?state=desktop',
+  ]);
+  await expect(page.getByText('The sign-in window could not be opened.', { exact: false })).toHaveCount(0);
+  expect(context.pages()).toHaveLength(1);
+});

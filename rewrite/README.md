@@ -286,3 +286,8 @@ Skill storage follows the application's single-process deployment requirement.
 Each skill directory is published atomically. A process crash during a multi-skill
 installation can leave a subset installed; refresh the installed list before
 retrying the remaining skills.
+
+## Desktop application (macOS)
+
+The Electron shell reuses this application and bundles its Node 24 backend.
+See [desktop development, data ownership, packaging and release instructions](docs/desktop.md).
