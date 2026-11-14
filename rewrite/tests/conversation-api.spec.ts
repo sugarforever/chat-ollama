@@ -84,7 +84,7 @@ async function setup() {
   return { directory, model, start };
 }
 // Catches ignoring request content on retry, non-atomic busy admission, and metadata lost after admission.
-test("HTTP admission deduplicates, rejects conflicts and concurrent distinct requests, and survives SIGKILL", async () => {
+test("HTTP admission deduplicates, rejects conflicts, queues concurrent distinct requests, and survives SIGKILL", async () => {
   const { model, start } = await setup();
   const app = await start();
   const id = await app.create();
@@ -93,7 +93,7 @@ test("HTTP admission deduplicates, rejects conflicts and concurrent distinct req
       app.request(`/${id}/messages`, { requestId, content: requestId }),
     ),
   );
-  expect(responses.map((x) => x.status).sort()).toEqual([202, 409]);
+  expect(responses.map((x) => x.status).sort()).toEqual([202, 202]);
   const accepted = responses.findIndex((x) => x.status === 202);
   const requestId = ["first", "second"][accepted];
   const admission = await responses[accepted].json();
@@ -115,6 +115,11 @@ test("HTTP admission deduplicates, rejects conflicts and concurrent distinct req
     () => model.requests.length,
     (n) => n === 1,
   );
+  const pending = await until(async () => (await app.request(`/${id}`)).json(), x => x.queue?.length === 1);
+  const queuedId = pending.queue[0].id;
+  expect((await app.request(`/${id}/messages/${queuedId}/steer`, {})).status).toBe(200);
+  expect((await app.request(`/${id}/messages/${queuedId}/steer`, {})).status).toBe(200);
+  expect((await app.request(`/${id}/messages/unknown/steer`, {})).status).toBe(409);
   app.proc.kill("SIGKILL");
   await new Promise((r) => app.proc.once("exit", r));
   const restarted = await start();
@@ -134,8 +139,8 @@ test("HTTP admission deduplicates, rejects conflicts and concurrent distinct req
       x.status === "idle" &&
       x.entries.some((e: any) => e.content === "Recovered answer"),
   );
-  expect(done.entries.filter((e: any) => e.kind === "user")).toHaveLength(1);
-  expect(model.requests.length).toBeLessThanOrEqual(2);
+  expect(done.entries.filter((e: any) => e.kind === "user")).toHaveLength(2);
+  expect(model.requests.length).toBeLessThanOrEqual(3);
   const finalRetry = await restarted.request(`/${id}/messages`, {
     requestId,
     content: requestId,

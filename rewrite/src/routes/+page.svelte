@@ -20,6 +20,7 @@
   let draft = "";
   let sending = false;
   let error = "";
+  let steering = "";
   let connection = "Connecting";
   let creating = false;
   let loading = true;
@@ -195,7 +196,7 @@
   }
   async function send(event: SubmitEvent) {
     event.preventDefault();
-    if (sending || busy || snapshot?.mcpUncertainty || !draft.trim()) return;
+    if (sending || snapshot?.status === "cancelling" || snapshot?.mcpUncertainty || !draft.trim()) return;
     sending = true;
     const own = generation,
       id = current,
@@ -214,6 +215,20 @@
     } finally {
       sending = false;
     }
+  }
+  async function steer(submissionId: string) {
+    const own = generation, id = current;
+    steering = submissionId;
+    error = "";
+    try {
+      await api(`/api/conversations/${id}/messages/${submissionId}/steer`, {});
+      if (active(own, id)) await readSnapshot(own, id);
+    } catch (e) {
+      if (active(own, id)) {
+        error = (e as Error).message;
+        await readSnapshot(own, id);
+      }
+    } finally { steering = ""; }
   }
   async function action(name: string) {
     const own = generation,
@@ -394,12 +409,25 @@
           >
         </div>{/if}
       <form class="composer-wrap" onsubmit={send}>
+        {#if snapshot.queue?.length}
+          <section class="message-queue" aria-label="Queued messages">
+            <div class="queue-heading"><strong>Queued messages · {snapshot.queue.length}</strong><span>{busy ? "Sent after this response" : "Paused — send a message to resume"}</span></div>
+            <ul>{#each snapshot.queue as message (message.id)}
+              <li><p>{message.content}</p>
+                {#if message.mode === "steer"}<span class="queue-status" role="status">Steering at next boundary</span>
+                {:else}<Button type="button" variant="outline" size="sm" disabled={!busy || !!steering || snapshot.status === "cancelling" || !!snapshot.mcpUncertainty} onclick={() => steer(message.id)}>Steer</Button>{/if}
+              </li>
+            {/each}</ul>
+            {#if !busy}<Button type="button" variant="outline" size="sm" onclick={() => action("stop")}>Clear queue</Button>{/if}
+            <p class="queue-hint">Steer guides the current response after its next model or tool step. Stop clears the queue.</p>
+          </section>
+        {/if}
+        {#if busy}<div class="composer-progress" role="status"><LoaderCircle size={14} class="animate-spin" aria-hidden="true" /><span>{snapshot.status === "cancelling" ? "Stopping…" : "Responding… You can queue another message."}</span></div>{/if}
         <div class="composer" class:working={busy}>
           <label for="message" class="composer-label">Message</label><Textarea
             id="message"
-            class={busy ? "composer-input-busy" : ""}
             bind:value={draft}
-            placeholder="Message"
+            placeholder={busy ? "Queue a message, or steer the response…" : "Message"}
             rows={1}
             aria-keyshortcuts="Meta+Enter Control+Enter"
             onkeydown={(event) => {
@@ -415,17 +443,9 @@
               event.preventDefault();
               if (!event.repeat) event.currentTarget.form?.requestSubmit();
             }}
-            disabled={busy || !!snapshot.mcpUncertainty}
+            disabled={snapshot.status === "cancelling" || !!snapshot.mcpUncertainty}
           ></Textarea>
-          {#if busy}<div class="composer-progress" role="status">
-              <LoaderCircle size={14} class="animate-spin" aria-hidden="true" />
-              <span
-                >{snapshot.status === "cancelling"
-                  ? "Stopping…"
-                  : "Responding…"}</span
-              >
-            </div>
-            <Button
+          {#if busy}<Button
               variant="outline"
               size="icon"
               type="button"
@@ -436,14 +456,14 @@
               disabled={snapshot.status === "cancelling"}
               ><Square size={12} fill="currentColor" /></Button
             >
-          {:else}<Button
+          {/if}<Button
               type="submit"
               class="send-button"
-              aria-label="Send message"
-              title="Send message (⌘/Ctrl+Enter)"
-              disabled={sending || !draft.trim() || !!snapshot.mcpUncertainty}
+              aria-label={busy ? "Queue message" : "Send message"}
+              title={busy ? "Queue message (⌘/Ctrl+Enter)" : "Send message (⌘/Ctrl+Enter)"}
+              disabled={sending || snapshot.status === "cancelling" || !draft.trim() || !!snapshot.mcpUncertainty}
               ><ArrowUp size={20} /></Button
-            >{/if}
+            >
         </div>
       </form>{:else}<div class="workspace-empty">
         <h1>What’s on your mind?</h1>

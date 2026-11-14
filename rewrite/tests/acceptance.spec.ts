@@ -453,9 +453,17 @@ test("busy input, persisted partial reconnect and explicit Stop", async ({
   await expect(
     page.getByText("Persisted partial answer", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
-  await expect(page.locator('.composer').getByRole('status')).toHaveText('Responding…');
-  await expect(page.getByLabel('Message',{exact:true})).toBeHidden();
+  await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+  await expect(page.locator('.composer-wrap').getByRole('status')).toHaveText('Responding… You can queue another message.');
+  await page.getByLabel('Message', {exact:true}).fill('Use a concise table');
+  await page.getByRole('button', {name:'Queue message', exact:true}).click();
+  const queue = page.getByRole('region', {name:'Queued messages'});
+  await expect(queue.getByText('Use a concise table', {exact:true})).toBeVisible();
+  await queue.getByRole('button', {name:'Steer', exact:true}).click();
+  await expect(queue.getByText('Steering at next boundary')).toBeVisible();
+  await page.getByLabel('Message', {exact:true}).fill('Include a short example');
+  await page.getByRole('button', {name:'Queue message', exact:true}).click();
+  await expect(queue.getByRole('button', {name:'Steer', exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Stop',exact:true})).toHaveText('');
   await expect(page.getByRole('button',{name:'Stop',exact:true})).toHaveCSS('animation-name','stop-pulse');
   await page.emulateMedia({reducedMotion:'reduce'});
@@ -475,7 +483,9 @@ test("busy input, persisted partial reconnect and explicit Stop", async ({
   await expect(
     page.getByText("Persisted partial answer", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("region", {name:"Queued messages"})).toContainText("Use a concise table");
   await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.getByRole("region", {name:"Queued messages"})).toHaveCount(0);
   await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
   held();
 });
@@ -744,12 +754,12 @@ test("delayed Stop GET cannot overwrite a subsequent run's SSE state", async ({ 
     await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
     await page.getByLabel("Message", { exact: true }).fill("hold subsequent action run");
     await page.getByRole("button", { name: "Send message", exact: true }).click();
-    await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
     await expect(page.getByText("Persisted partial answer", { exact: true })).toHaveCount(2);
     delay.release();
     await delay.delivered;
     await settle(page);
-    await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
     await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
   } finally {
     delay.release();
