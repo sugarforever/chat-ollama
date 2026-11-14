@@ -44,6 +44,8 @@ export type ConversationConfig = {
   modelId: string;
   knowledgeBaseIds: string[];
   mcpServerIds: string[];
+  // Missing on older conversations means all global skills are available.
+  excludedSkillIds?: string[];
 };
 export type StateEvent = { type: "snapshot"; snapshot: ConversationSnapshot };
 export type SearchHit = {

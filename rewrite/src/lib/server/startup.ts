@@ -17,7 +17,7 @@ async function start() {
     resolveEndpoint: resolveChatEndpoint,
     defaultProviderId: () => loadProviders().defaultProviderId,
     loadMcpConfigs: loadMcpServers,
-    loadSkillContext: () => skillStore().context(),
+    loadSkillContext: (config) => skillStore().context(config.excludedSkillIds),
     createTools: (config) =>
       config.knowledgeBaseIds.length
         ? [sources.createKnowledgeTool(config.knowledgeBaseIds)]

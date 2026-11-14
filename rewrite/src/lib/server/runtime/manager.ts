@@ -20,7 +20,7 @@ export function createSessionManager(options: {
   defaultProviderId?: () => string;
   mcpConfigs?: McpConfig[];
   loadMcpConfigs?: () => McpConfig[];
-  loadSkillContext?: () => string;
+  loadSkillContext?: (config: ConversationConfig) => string;
   tools?: RuntimeTool[];
   createTools?: (
     config: ConversationConfig,
@@ -124,7 +124,9 @@ export function createSessionManager(options: {
                 };
               }
             : undefined,
-          loadSkillContext: options.loadSkillContext,
+          loadSkillContext: options.loadSkillContext
+            ? () => options.loadSkillContext!(currentConfig())
+            : undefined,
           mcpServerIds: row.config.mcpServerIds,
           mcpConfigs,
           tools: [
@@ -180,6 +182,32 @@ export function createSessionManager(options: {
       (await catalogue).insert(id, config);
       await openSession(id);
       return { id };
+    },
+    async getSkillExclusions(id: string) {
+      validateConversationId(id);
+      const row = (await catalogue).get(id);
+      if (!row) throw new ApiError(404, "NOT_FOUND", "Conversation not found");
+      return row.config.excludedSkillIds ?? [];
+    },
+    async setSkillExclusions(id: string, excludedSkillIds: unknown) {
+      validateConversationId(id);
+      if (
+        !Array.isArray(excludedSkillIds) || excludedSkillIds.length > 1000 ||
+        !excludedSkillIds.every(value => typeof value === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value))
+      ) throw new ApiError(400, "INVALID_INPUT", "Invalid skill exclusions");
+      const db = await catalogue;
+      const row = db.get(id);
+      if (!row) throw new ApiError(404, "NOT_FOUND", "Conversation not found");
+      const opened = sessions.get(id);
+      if (opened) {
+        const snapshot = await (await opened).snapshot();
+        if (["running", "cancelling"].includes(snapshot.status) || snapshot.queue?.length)
+          throw new ApiError(409, "BUSY", "Wait for the current run and queued messages");
+      }
+      const excluded = [...new Set(excludedSkillIds.map(value => value.toLowerCase()))] as string[];
+      db.configure(id, { ...db.get(id)!.config, excludedSkillIds: excluded });
+      return excluded;
     },
     async selectModel(id: string, selection: ProviderSelection) {
       validateConversationId(id);

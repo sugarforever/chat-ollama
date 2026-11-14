@@ -6,6 +6,7 @@
   import Textarea from "$lib/components/ui/textarea/textarea.svelte";
   import { SquarePen, ArrowUp, Square, LoaderCircle } from "@lucide/svelte";
   import AppIcon from "$lib/AppIcon.svelte";
+  import ConversationSkills from "$lib/components/ConversationSkills.svelte";
   import ModelSelector from "$lib/components/ModelSelector.svelte";
   import { onMount, tick } from "svelte";
   import { pushState, replaceState } from "$app/navigation";
@@ -344,6 +345,7 @@
           ? `Conversation ${conversations.findIndex((c) => c.id === current) + 1}`
           : "ChatOllama"}
       </h1>
+      {#if snapshot}{#key current}<ConversationSkills conversationId={current} busy={busy || !!snapshot.queue?.length} />{/key}{/if}
       {#if snapshot?.selection}
         {#key current}<ModelSelector
             {providers}
