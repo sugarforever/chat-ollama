@@ -71,6 +71,7 @@ export function projectState(raw: ProjectionInput): ConversationSnapshot {
   const uncertain = entries.slice(lastUser + 1).some(entry => entry.uncertain);
   let status: ConversationSnapshot['status'] = 'idle';
   if (raw.live?.run) status = raw.abortRequested ? 'cancelling' : 'running';
+  else if (raw.live?.runFailure && raw.live.runFailure.reason !== "aborted") status = ["orphaned", "interrupted"].includes(raw.live.runFailure.reason) ? "interrupted" : "failed";
   else if (raw.latest?.status === 'unanswered' && raw.latest.reason !== 'aborted') status = ['orphaned', 'interrupted'].includes(raw.latest.reason) ? 'interrupted' : 'failed';
   else if (uncertain) status = 'interrupted';
   return { id: raw.id, revision: raw.revision, status, entries };

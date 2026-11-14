@@ -566,9 +566,6 @@ pre {
   height: 36px;
   border-radius: 50%;
 }
-.composer .composer-input-busy {
-  display: none;
-}
 .composer-progress {
   display: flex;
   align-items: center;
@@ -934,3 +931,13 @@ details[data-expanded="true"] > summary > .disclosure-chevron { transform: rotat
 @media (prefers-reduced-motion: reduce) {
   .disclosure-chevron { transition: none; }
 }
+
+.message-queue { border: 1px solid var(--input); border-radius: 12px; background: var(--canvas); margin-bottom: 10px; padding: 12px 14px; max-height: 240px; overflow-y: auto; }
+.queue-heading { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; font-size: 12px; }
+.queue-heading span, .queue-hint, .queue-status { color: var(--muted); font-size: 12px; }
+.message-queue ul { list-style: none; padding: 0; margin: 6px 0; }
+.message-queue li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--input); }
+.message-queue li p { flex: 1; min-width: 0; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; max-height: 84px; overflow-y: auto; }
+.message-queue li button, .queue-status { flex-shrink: 0; }
+.queue-status { max-width: 110px; }
+.queue-hint { margin: 8px 0 0; line-height: 1.5; }

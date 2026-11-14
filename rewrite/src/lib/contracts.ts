@@ -16,7 +16,9 @@ export type PublicEntry = {
   partial?: boolean;
   timestamp?: number;
 };
+export type QueuedMessage = { id: string; content: string; mode: "followUp" | "steer" };
 export type ConversationSnapshot = {
+  queue?: QueuedMessage[];
   id: string;
   revision: string;
   selection?: ProviderSelection;

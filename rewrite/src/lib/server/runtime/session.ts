@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { dirname, basename, join } from "node:path";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
@@ -19,6 +20,10 @@ import {
   hook,
   GenerationTask,
   ConversationBusy,
+  InboxDoc,
+  LiveDoc,
+  defineDoc,
+  type InboxState,
   type LiveState,
   type SubmissionRecord,
 } from "@earendil-works/pi-durable";
@@ -26,6 +31,13 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { projectState } from "./projection";
 import { ApiError } from "../errors";
 import type { ConversationSnapshot, ProviderSelection } from "../../contracts";
+// Fingerprints survive native withdrawal, when a queued input has no transcript entry.
+const InputReceipts = defineDoc({
+  kind: "app.input-receipts", version: 1, scope: "conversation", history: "latest", fork: "initial",
+  initial: () => ({ hashes: {} as Record<string, string> }),
+  checkpointWhen: () => true,
+});
+const fingerprint = (value: string) => createHash("sha256").update(value).digest("hex");
 export type ChatEndpointConfig = {
   baseUrl: string;
   apiKey: string;
@@ -45,6 +57,7 @@ export interface AgentSession {
   configurationChanged(): void;
   snapshot(): Promise<ConversationSnapshot>;
   submit(requestId: string, content: string): Promise<{ id: string }>;
+  steer(submissionId: string): Promise<void>;
   stop(): Promise<void>;
   acknowledgeInterruption(): Promise<void>;
   watch(listener: (snapshot: ConversationSnapshot) => void): () => void;
@@ -199,6 +212,12 @@ export async function openAgentSession(
         latest,
         abortRequested: live?.run && cancelling.has(live.run.taskId),
       });
+      result.queue = ((view.docs["pi.inbox"] as InboxState | undefined)?.items ?? [])
+        .flatMap(item => item.mode === "write" ? [] : [{
+          id: String(item.id),
+          content: typeof item.content === "string" ? item.content : item.content.map(part => "text" in part ? part.text : "").join(""),
+          mode: item.mode,
+        }]);
       const uncertainty = barrier.uncertainty();
       if (uncertainty) {
         result.mcpUncertainty = uncertainty;
@@ -265,27 +284,22 @@ export async function openAgentSession(
       },
       submit(requestId, content) {
         const admitted = admissionLine.then(async () => {
-          // pi commits the request ID and immutable user entry together. There is no
-          // application admission write to lose if the process dies after submit.
-          const previous = await storage.submissionByRequest(
-            root.id,
-            requestId,
-            context,
-          );
-          if (previous) {
-            const entry =
-              previous.entry === undefined
-                ? undefined
-                : await storage.entry(previous.entry, context);
-            const original = entry?.entry.model?.[0]?.content;
-            if (previous.type !== "input" || original !== content)
-              throw new ApiError(
-                409,
-                "REQUEST_CONFLICT",
-                "Request ID was already used with different content",
-              );
+          // Read receipts and native input content on pi’s transaction line so a
+          // boundary cannot place or withdraw the item between these reads.
+          const previous = await root.commit(async tx => {
+            const previous = await tx.submissionByRequest(root.id, requestId);
+            if (!previous) return undefined;
+            const receipts = await tx.doc(InputReceipts, root.id);
+            const saved = receipts.hashes[fingerprint(requestId)];
+            const entry = previous.entry === undefined ? undefined : await tx.entry(previous.entry);
+            const inbox = await tx.doc(InboxDoc, root.id);
+            const queued = inbox.items.find(item => item.id === previous.id);
+            const original = entry?.model?.[0]?.content ?? (queued && queued.mode !== "write" ? queued.content : undefined);
+            if (previous.type !== "input" || (saved ? saved !== fingerprint(content) : original !== content))
+              throw new ApiError(409, "REQUEST_CONFLICT", "Request ID was already used with different content");
             return { id: String(previous.id) };
-          }
+          }, context);
+          if (previous) return previous;
           if (barrier.uncertainty())
             throw new ApiError(
               409,
@@ -353,11 +367,13 @@ export async function openAgentSession(
             renameSync(`${skillContextFile}.tmp`, skillContextFile);
           }
           try {
-            const admission = await root.submit(
-              { type: "input", requestId, content, whenBusy: "reject" },
-              context,
-            );
-            return { id: String(admission.id) };
+            return await root.commit(async tx => {
+              const receipts = await tx.doc(InputReceipts, root.id);
+              const submissionId = await root.submit(tx,
+                { type: "input", requestId, content, whenBusy: "followUp" });
+              receipts.hashes[fingerprint(requestId)] = fingerprint(content);
+              return { id: String(submissionId) };
+            }, context);
           } catch (error) {
             if (error instanceof ConversationBusy)
               throw new ApiError(409, "BUSY", "Conversation is busy");
@@ -376,6 +392,21 @@ export async function openAgentSession(
           );
         barrier.acknowledge();
         publish();
+      },
+      async steer(submissionId) {
+        if (barrier.uncertainty())
+          throw new ApiError(409, "MCP_UNCERTAIN", "Acknowledge the uncertain MCP action first");
+        // Serialize against pi boundary placement: promote the existing item without
+        // withdrawing/re-admitting it or changing its deduplication identity.
+        await root.commit(async tx => {
+          const live = await tx.doc(LiveDoc, root.id);
+          const inbox = await tx.doc(InboxDoc, root.id);
+          const item = inbox.items.find(item => String(item.id) === submissionId);
+          if (!item || item.mode === "write")
+            throw new ApiError(409, "NOT_QUEUED", "This message has already left the queue");
+          if (!live.run) throw new ApiError(409, "NOT_RUNNING", "Send another message to resume the paused queue");
+          item.mode = "steer";
+        }, context);
       },
       async stop() {
         await root.abort(context);

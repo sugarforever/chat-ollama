@@ -38,6 +38,8 @@ const publicErrors: Record<string, [number, string]> = {
   INVALID_INPUT: [400, "Invalid request input"],
   NOT_FOUND: [404, "Conversation not found"],
   BUSY: [409, "Conversation is busy"],
+  NOT_QUEUED: [409, "This message has already left the queue"],
+  NOT_RUNNING: [409, "Send another message to resume the paused queue"],
   REQUEST_CONFLICT: [409, "Request ID was already used with different content"],
 };
 
