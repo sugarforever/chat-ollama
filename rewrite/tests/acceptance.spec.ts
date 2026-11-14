@@ -1689,6 +1689,22 @@ test("Skills installs selected skills from a local folder and persists across re
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "test-results/skills-mobile.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.getByRole("button", { name: "Remove browser-one" }).click();
+    const dialog = page.getByRole("alertdialog");
+    const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
+    const remove = dialog.getByRole("button", { name: "Remove skill", exact: true });
+    await expect(cancel).toBeVisible();
+    const cancelBox = await cancel.boundingBox();
+    const removeBox = await remove.boundingBox();
+    expect(cancelBox!.height).toBe(removeBox!.height);
+    expect(cancelBox!.width).toBe(removeBox!.width);
+    expect(cancelBox!.height).toBeGreaterThanOrEqual(width < 768 ? 44 : 36);
+    await page.screenshot({ path: `test-results/skill-dialog-${width}.png` });
+    await cancel.click();
+    await expect(page.getByRole("button", { name: "Remove browser-one" })).toBeVisible();
+  }
   await page.getByRole("button", { name: "Remove browser-one" }).click();
   await page.getByRole("button", { name: "Remove skill", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove browser-one" })).toHaveCount(0);

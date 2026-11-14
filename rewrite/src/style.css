@@ -868,7 +868,9 @@ pre {
   }
 }
 
-[data-slot="button"] {
+[data-slot="button"],
+[data-slot="alert-dialog-cancel"],
+[data-slot="alert-dialog-action"] {
   min-height: 36px;
 }
 [data-slot="input"],
@@ -877,6 +879,8 @@ pre {
 }
 @media (max-width: 767px) {
   [data-slot="button"],
+  [data-slot="alert-dialog-cancel"],
+  [data-slot="alert-dialog-action"],
   [data-slot="input"],
   [data-slot="native-select"] {
     min-height: 44px;

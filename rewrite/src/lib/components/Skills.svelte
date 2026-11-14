@@ -291,7 +291,8 @@
       ></AlertDialog.Header
     >
     <AlertDialog.Footer
-      ><AlertDialog.Cancel>Cancel</AlertDialog.Cancel><Button
+      ><AlertDialog.Cancel class="min-w-[112px]">Cancel</AlertDialog.Cancel><Button
+        class="min-w-[112px]"
         variant="destructive"
         disabled={!!busy}
         onclick={() =>
