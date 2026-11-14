@@ -10,7 +10,11 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "build": "vite build && esbuild src/lib/server/startup.ts --bundle --platform=node --format=esm --packages=external --tsconfig=tsconfig.json --outfile=build/startup.js",
     "dev": "vite dev",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "desktop:dev": "pnpm build && node desktop/dev.mjs",
+    "desktop:prepare": "pnpm build && node desktop/prepare.mjs",
+    "desktop:package": "pnpm desktop:prepare && electron-builder --config desktop/electron-builder.yml --mac --publish never",
+    "desktop:smoke": "node desktop/smoke.mjs"
   },
   "dependencies": {
     "@earendil-works/chord": "1.5.2",
@@ -35,6 +39,8 @@
     "@tailwindcss/vite": "4.3.5",
     "@types/markdown-it": "14.2.0",
     "@types/node": "24.10.1",
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0",
     "esbuild": "0.28.2",
     "svelte": "5.45.6",
     "svelte-check": "4.3.4",

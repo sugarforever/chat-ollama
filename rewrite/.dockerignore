@@ -6,3 +6,5 @@ test-results
 playwright-report
 .env
 .git
+.desktop
+release

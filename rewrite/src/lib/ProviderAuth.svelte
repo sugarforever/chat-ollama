@@ -21,6 +21,9 @@
   let loginMethod = "browser";
   let loginWindow: Window | null = null;
   let openedUrl = "";
+  const desktop = () => (window as Window & {
+    chatOllamaDesktop?: { openExternal(url: string): Promise<void> };
+  }).chatOllamaDesktop;
   let popupBlocked = false;
   const answeredPrompts = new Set<string>();
   const browserMethod = (prompt: any) =>
@@ -69,7 +72,11 @@
         event &&
         safe(event.type === "auth_url" ? event.url : event.verificationUri);
       if (url && url !== openedUrl) {
-        if (loginWindow && !loginWindow.closed) {
+        if (desktop()) {
+          openedUrl = url;
+          try { await desktop()!.openExternal(url); }
+          catch { if (current === generation) popupBlocked = true; }
+        } else if (loginWindow && !loginWindow.closed) {
           openedUrl = url;
           loginWindow.location.href = url;
         } else popupBlocked = true;
@@ -123,7 +130,7 @@
       const top = Math.round(
         window.screenY + Math.max(0, (window.outerHeight - height) / 2),
       );
-      loginWindow = window.open(
+      loginWindow = desktop() ? null : window.open(
         "about:blank",
         "_blank",
         `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
@@ -133,7 +140,7 @@
         loginWindow.document.title = "Connecting account…";
         loginWindow.document.body.textContent =
           "Preparing secure sign-in. This window will continue to your provider automatically.";
-      } else popupBlocked = true;
+      } else if (!desktop()) popupBlocked = true;
     }
     try {
       if (action === "start") await beforeConnect();

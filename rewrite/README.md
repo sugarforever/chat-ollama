@@ -241,3 +241,8 @@ On a disposable Docker host, `sh tests/container-smoke.sh` builds the image in a
 ### Workspace interface
 
 The rewrite uses one neutral workspace style across chat, settings and error recovery pages. Chat keeps model selection in a compact **Change model** editor, with keyboard focus returned after applying or pressing Escape. On mobile the transcript scrolls independently while the composer remains visible. Provider logos are served locally. New-conversation setup, tool activity and source excerpts use the same controls and surfaces as Settings.
+
+## Desktop application (macOS)
+
+The Electron shell reuses this application and bundles its Node 24 backend.
+See [desktop development, data ownership, packaging and release instructions](docs/desktop.md).
