@@ -411,15 +411,15 @@
       <form class="composer-wrap" onsubmit={send}>
         {#if snapshot.queue?.length}
           <section class="message-queue" aria-label="Queued messages">
-            <div class="queue-heading"><strong>Queued messages · {snapshot.queue.length}</strong><span>{busy ? "Sent after this response" : "Paused — send a message to resume"}</span></div>
+            <div class="queue-heading"><strong>Queued messages · {snapshot.queue.length}</strong>{#if !busy}<span>Paused — send a message to resume</span>{/if}</div>
             <ul>{#each snapshot.queue as message (message.id)}
               <li><p>{message.content}</p>
-                {#if message.mode === "steer"}<span class="queue-status" role="status">Steering at next boundary</span>
+                {#if message.mode === "steer"}<span class="queue-status" role="status">Steering…</span>
                 {:else}<Button type="button" variant="outline" size="sm" disabled={!busy || !!steering || snapshot.status === "cancelling" || !!snapshot.mcpUncertainty} onclick={() => steer(message.id)}>Steer</Button>{/if}
               </li>
             {/each}</ul>
             {#if !busy}<Button type="button" variant="outline" size="sm" onclick={() => action("stop")}>Clear queue</Button>{/if}
-            <p class="queue-hint">Steer guides the current response after its next model or tool step. Stop clears the queue.</p>
+            <p class="queue-hint">Steer guides the next step. Stop clears the queue.</p>
           </section>
         {/if}
         {#if busy}<div class="composer-progress" role="status"><LoaderCircle size={14} class="animate-spin" aria-hidden="true" /><span>{snapshot.status === "cancelling" ? "Stopping…" : "Responding… You can queue another message."}</span></div>{/if}

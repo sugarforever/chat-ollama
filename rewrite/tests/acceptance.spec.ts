@@ -460,7 +460,7 @@ test("busy input, persisted partial reconnect and explicit Stop", async ({
   const queue = page.getByRole('region', {name:'Queued messages'});
   await expect(queue.getByText('Use a concise table', {exact:true})).toBeVisible();
   await queue.getByRole('button', {name:'Steer', exact:true}).click();
-  await expect(queue.getByText('Steering at next boundary')).toBeVisible();
+  await expect(queue.getByText('Steering…')).toBeVisible();
   await page.getByLabel('Message', {exact:true}).fill('Include a short example');
   await page.getByRole('button', {name:'Queue message', exact:true}).click();
   await expect(queue.getByRole('button', {name:'Steer', exact:true})).toBeVisible();
