@@ -88,7 +88,7 @@ test("native settings capture catalog metadata, redact secrets and cannot carry 
 });
 
 // Using the OpenAI adapter for Anthropic/Gemini would send the wrong path/body/auth.
-test.each(["anthropic", "google"])(
+test.each(["openai", "anthropic", "google"])(
   "Pi Durable dispatches %s using its native wire protocol",
   async (service) => {
     await setup();
@@ -135,6 +135,7 @@ test.each(["anthropic", "google"])(
       endpoint,
       resolveEndpoint: resolveChatEndpoint,
       defaultProviderId: () => "test",
+      loadSkillContext: () => "Available installed skills: fixture-helper",
     });
     try {
       const { id } = await manager.createConversation({
@@ -148,15 +149,27 @@ test.each(["anthropic", "google"])(
       await vi.waitFor(() => expect(requests.length).toBeGreaterThan(0), {
         timeout: 5000,
       });
+      expect(JSON.stringify(requests[0].body)).toContain("fixture-helper");
       if (service === "anthropic") {
         expect(new URL(requests[0].url, "http://fixture").pathname).toBe(
           "/v1/messages",
         );
         expect(requests[0].headers["x-api-key"]).toBe("native-key");
         expect(requests[0].body.messages[0].role).toBe("user");
+        expect(requests[0].body.system).toEqual(expect.arrayContaining([
+          expect.objectContaining({ type: "text", text: expect.stringContaining("ChatOllama") }),
+        ]));
+      } else if (service === "openai") {
+        expect(new URL(requests[0].url, "http://fixture").pathname).toBe("/responses");
+        expect(requests[0].body.input[0]).toMatchObject({
+          role: "developer",
+          content: expect.stringContaining("ChatOllama"),
+        });
       } else {
         expect(requests[0].url).toContain(":streamGenerateContent");
         expect(requests[0].body.contents[0].role).toBe("user");
+        expect(requests[0].body.systemInstruction).toBeDefined();
+        expect(JSON.stringify(requests[0].body.systemInstruction)).toContain("ChatOllama");
         expect(requests[0].headers["x-goog-api-key"]).toBe("native-key");
       }
       await session.stop();

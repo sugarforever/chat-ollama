@@ -29,6 +29,7 @@ import {
 } from "@earendil-works/pi-durable";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { projectState } from "./projection";
+import { ASSISTANT_INSTRUCTIONS } from "./prompt";
 import { ApiError } from "../errors";
 import type { ConversationSnapshot, ProviderSelection } from "../../contracts";
 // Fingerprints survive native withdrawal, when a queued input has no transcript entry.
@@ -114,6 +115,10 @@ export async function openAgentSession(
       : "";
   const registry = createRegistry();
   registry.install(CodingTools);
+  registry.install({
+    name: "assistant-policy",
+    sections: [{ key: "assistant", tag: false, render: () => ASSISTANT_INSTRUCTIONS }],
+  });
   let abortUncertainRun: () => Promise<void> = async () => {};
   const hooks = [
     hook(GenerationTask, {
@@ -132,14 +137,16 @@ export async function openAgentSession(
             "Acknowledge the uncertain MCP action before continuing",
           );
         }
-        return skillContext
-          ? {
-              messages: [
-                { role: "user" as const, content: skillContext, timestamp: 0 },
-                ...request.messages,
-              ],
-            }
-          : undefined;
+        if (!skillContext) return undefined;
+        // Providers that support positional system messages need the baseline first.
+        const offset = request.messages[0]?.role === "system" ? 1 : 0;
+        return {
+          messages: [
+            ...request.messages.slice(0, offset),
+            { role: "user" as const, content: skillContext, timestamp: 0 },
+            ...request.messages.slice(offset),
+          ],
+        };
       },
     }),
   ];
