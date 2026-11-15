@@ -130,10 +130,16 @@ test("saved legacy settings take precedence over environment defaults and remain
   db.prepare("INSERT INTO settings VALUES ('chat',?)").run(JSON.stringify({ baseUrl: "https://saved.test/v1", modelId: "saved-model", apiKey: "saved-secret" }));
   db.close();
   vi.stubEnv("CHAT_BASE_URL", "https://environment.test/v1");
-  expect(loadChatConfig()).toEqual({ baseUrl: "https://saved.test/v1", modelId: "saved-model", apiKey: "saved-secret" });
+  expect(loadChatConfig()).toMatchObject({
+    baseUrl: "https://saved.test/v1", modelId: "saved-model", apiKey: "saved-secret",
+    model: { id: "saved-model", contextWindow: 32768, maxTokens: 4096 },
+    modelMetadata: { source: "default", costSource: "unknown" },
+  });
   saveSettings({ providers: [
     { id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model" },
     { id: "new", name: "New", baseUrl: "https://new.test/v1", modelId: "new-model" },
   ], defaultProviderId: "new" });
-  expect((publicSettings() as any).providers[0]).toEqual({ id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model", hasApiKey: true });
+  expect((publicSettings() as any).providers[0]).toEqual({ id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model", hasApiKey: true, modelLimits: {},
+    effectiveModel: { modelId: "saved-model", contextWindow: 32768, maxTokens: 4096, source: "default", costSource: "unknown" },
+  });
 });

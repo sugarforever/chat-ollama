@@ -1,3 +1,4 @@
+import { effectiveModelMetadata, validateModelLimits } from "./model-limits";
 import { readCredential } from "./provider-credentials";
 import { randomUUID } from "node:crypto";
 import {
@@ -108,18 +109,33 @@ export function resolveChatEndpoint(
       "PROVIDER_NOT_FOUND",
       "Selected provider is unavailable; choose a provider in this conversation",
     );
-  // Legacy snapshots retain their original completions-only shape.
-  if (!provider.service)
-    return {
-      baseUrl: provider.baseUrl,
-      apiKey: provider.apiKey,
-      modelId: selection.modelId,
-    };
+
   const stored = provider.credentialId
     ? readCredential(provider.credentialId)
     : undefined;
-  return {
-    ...provider,
+  const model = captureModel(
+    provider.service ?? "custom",
+    selection.modelId,
+    provider.baseUrl,
+    provider.protocol,
+    provider.models,
+    provider.modelLimits,
+  );
+  const catalog =
+    provider.service &&
+    provider.service !== "custom" &&
+    nativeProvider(provider.service)
+      .getModels()
+      .some((m) => m.id === selection.modelId);
+  const source = catalog
+    ? "catalog"
+    : Object.hasOwn(provider.modelLimits ?? {}, selection.modelId)
+      ? "custom"
+      : "default";
+  const endpoint: ChatEndpointConfig = {
+    ...(provider.service
+      ? provider
+      : { baseUrl: provider.baseUrl, apiKey: provider.apiKey }),
     ...(stored?.type === "api_key" && provider.authMode === "api_key"
       ? {
           apiKey: stored.key ?? "",
@@ -132,14 +148,19 @@ export function resolveChatEndpoint(
         }
       : {}),
     modelId: selection.modelId,
-    model: captureModel(
-      provider.service,
-      selection.modelId,
-      provider.baseUrl,
-      provider.protocol,
-      provider.models,
-    ),
+    model,
+    modelMetadata: {
+      modelId: selection.modelId,
+      contextWindow: model.contextWindow,
+      maxTokens: model.maxTokens,
+      source,
+      costSource: catalog ? "catalog" : "unknown",
+    },
   };
+  return endpoint;
+}
+export function resolveModelMetadata(selection: ProviderSelection) {
+  return effectiveModelMetadata(resolveChatEndpoint(selection));
 }
 export const loadChatConfig = () => {
   const saved = loadProviders();
@@ -158,6 +179,7 @@ export function publicSettings() {
     credentialEnv,
     credentialId,
     model,
+    modelMetadata,
     useAmbientCredentials,
     ...value
   }: ChatEndpointConfig) => ({
@@ -175,7 +197,16 @@ export function publicSettings() {
     // Compatibility for existing clients. This alias always edits the default provider.
     chat: redact(loadChatConfig()),
     embedding: redact(loadEmbeddingConfig()),
-    providers: saved.providers.map((p) => redact(p) as PublicProvider),
+    providers: saved.providers.map(
+      (p) =>
+        ({
+          ...redact(p),
+          effectiveModel: resolveModelMetadata({
+            providerId: p.id,
+            modelId: p.modelId,
+          }),
+        }) as PublicProvider,
+    ),
     defaultProviderId: saved.defaultProviderId,
     catalog: providerCatalog(),
     customProtocols,
@@ -231,6 +262,14 @@ export function saveSettings(input: Record<string, unknown>) {
         throw Error("Invalid provider");
       ids.add(p.id);
       const old = current.providers.find((old) => old.id === p.id);
+      const sameService = old?.service === p.service;
+      const modelLimits = validateModelLimits(
+        p.modelLimits === undefined
+          ? sameService
+            ? (old?.modelLimits ?? {})
+            : {}
+          : p.modelLimits,
+      );
       if (p.service === undefined)
         return {
           ...patchEndpoint(
@@ -239,6 +278,7 @@ export function saveSettings(input: Record<string, unknown>) {
           ),
           id: p.id,
           name: p.name.trim(),
+          modelLimits,
         };
       if (typeof p.service !== "string") throw Error("Invalid service");
       const native =
@@ -316,8 +356,23 @@ export function saveSettings(input: Record<string, unknown>) {
       )
         throw Error("Invalid provider credential configuration");
       const models = p.models ?? (same ? old?.models : undefined);
-      if (models !== undefined && (!Array.isArray(models) || models.length > 2000 || models.some((id: unknown) => typeof id !== "string" || !id || id.length > 200))) throw Error("Invalid models");
-      captureModel(p.service, p.modelId, baseUrl, protocol, models);
+      if (
+        models !== undefined &&
+        (!Array.isArray(models) ||
+          models.length > 2000 ||
+          models.some(
+            (id: unknown) => typeof id !== "string" || !id || id.length > 200,
+          ))
+      )
+        throw Error("Invalid models");
+      captureModel(
+        p.service,
+        p.modelId,
+        baseUrl,
+        protocol,
+        models,
+        modelLimits,
+      );
       return {
         ...endpoint,
         id: p.id,
@@ -325,6 +380,7 @@ export function saveSettings(input: Record<string, unknown>) {
         service: p.service,
         authMode,
         protocol,
+        modelLimits,
         ...(models ? { models } : {}),
         ...(authMode === "api_key" &&
         p.service === "amazon-bedrock" &&
@@ -360,7 +416,15 @@ export function saveSettings(input: Record<string, unknown>) {
   if (input.chat !== undefined)
     providers = providers.map((p) =>
       p.id === defaultProviderId
-        ? { ...p, ...patchEndpoint(p, input.chat) }
+        ? {
+            ...p,
+            ...patchEndpoint(p, input.chat),
+            modelLimits: validateModelLimits(
+              (input.chat as Record<string, unknown>).modelLimits === undefined
+                ? (p.modelLimits ?? {})
+                : (input.chat as Record<string, unknown>).modelLimits,
+            ),
+          }
         : p,
     );
   const updates: [string, string][] = [

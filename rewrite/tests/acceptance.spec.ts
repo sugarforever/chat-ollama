@@ -1825,3 +1825,39 @@ test("conversation skills default to global inventory and persist isolated exclu
   // Mutations without the browser's same-origin header are rejected.
   expect((await fetch(base + endpoint, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ excludedSkillIds: [] }) })).status).toBe(403);
 });
+
+test('per-model limits validate, persist separately, reset and show native catalog values', async ({ page }) => {
+  await openWorkspace(page);
+  const prior = (await request(page, '/api/settings')).value;
+  const p = { id: 'limits-ui', name: 'Limits fixture', service: 'custom', authMode: 'none', baseUrl: modelUrl, modelId: 'fixture' };
+  expect((await request(page, '/api/settings', { providers: [...prior.providers, p] })).status).toBe(200);
+  await page.goto(`${base}/settings/providers/limits-ui`);
+  await page.getByLabel('Context window (tokens)', { exact: true }).fill('8192');
+  await page.getByLabel('Maximum output (tokens)', { exact: true }).fill('9000');
+  await page.getByRole('button', { name: 'Apply model limits', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('output must fit');
+  await page.getByLabel('Maximum output (tokens)', { exact: true }).fill('512');
+  await page.getByRole('button', { name: 'Apply model limits', exact: true }).click();
+  await expect.poll(async () => (await request(page, '/api/settings')).value.providers.find((v: any) => v.id === p.id).modelLimits?.fixture).toEqual({ contextWindow: 8192, maxTokens: 512 });
+  await page.getByLabel('Limits model ID', { exact: true }).fill('second-model');
+  await expect(page.getByLabel('Context window (tokens)', { exact: true })).toHaveValue('32768');
+  await page.getByLabel('Context window (tokens)', { exact: true }).fill('131072');
+  await page.getByLabel('Maximum output (tokens)', { exact: true }).fill('8192');
+  await page.getByRole('button', { name: 'Apply model limits', exact: true }).click();
+  await expect.poll(async () => (await request(page, '/api/settings')).value.providers.find((v: any) => v.id === p.id).modelLimits?.['second-model']).toEqual({ contextWindow: 131072, maxTokens: 8192 });
+  await page.reload();
+  await expect(page.getByLabel('Context window (tokens)', { exact: true })).toHaveValue('8192');
+  await page.getByRole('button', { name: 'Use default limits', exact: true }).click();
+  await expect.poll(async () => (await request(page, '/api/settings')).value.providers.find((v: any) => v.id === p.id).modelLimits?.fixture).toBeUndefined();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/model-limits-mobile.png', fullPage: true });
+  const settings = (await request(page, '/api/settings')).value;
+  const native = settings.catalog.find((v: any) => v.id === 'anthropic');
+  const model = native.models[0];
+  expect((await request(page, '/api/settings', { providers: [...settings.providers, { id: 'limits-native', name: 'Native limits', service: 'anthropic', authMode: 'api_key', modelId: model.id }] })).status).toBe(200);
+  await page.goto(`${base}/settings/providers/limits-native`);
+  await expect(page.getByLabel('Context window (tokens)', { exact: true })).toHaveValue(String(model.contextWindow));
+  await expect(page.getByLabel('Maximum output (tokens)', { exact: true })).toBeDisabled();
+  await expect(page.getByText('Source: native catalog.', { exact: false })).toBeVisible();
+});

@@ -58,6 +58,8 @@ export function runtimeProvider(endpoint: ChatEndpointConfig): Provider {
       endpoint.modelId,
       endpoint.baseUrl,
       endpoint.protocol,
+      [],
+      endpoint.modelLimits,
     );
   const native =
     service === "custom"
@@ -81,6 +83,48 @@ export function runtimeProvider(endpoint: ChatEndpointConfig): Provider {
           },
         })
       : nativeProvider(service);
+  // Native adapters may raise defaults (reasoning budgets, Responses' 16-token floor).
+  // Cap the final supported wire field as well as the options passed to Pi.
+  function boundedOptions<
+    O extends {
+      maxTokens?: number;
+      onPayload?: (payload: unknown, model: any) => unknown;
+    },
+  >(options: O | undefined) {
+    const ceiling = Math.min(
+      model.maxTokens,
+      options?.maxTokens && options.maxTokens > 0
+        ? options.maxTokens
+        : model.maxTokens,
+    );
+    return {
+      ...options,
+      maxTokens: ceiling,
+      onPayload: async (payload: unknown, dispatchedModel: any) => {
+        const replacement = await options?.onPayload?.(
+          payload,
+          dispatchedModel,
+        );
+        const value = (replacement ?? payload) as Record<string, any>;
+        if (value && typeof value === "object") {
+          for (const key of [
+            "max_tokens",
+            "max_completion_tokens",
+            "max_output_tokens",
+          ]) {
+            if (typeof value[key] === "number")
+              value[key] = Math.min(value[key], ceiling);
+          }
+          if (typeof value.config?.maxOutputTokens === "number")
+            value.config.maxOutputTokens = Math.min(
+              value.config.maxOutputTokens,
+              ceiling,
+            );
+        }
+        return value;
+      },
+    };
+  }
   // Keep Pi's private model reference stable while dispatching with the real provider identity.
   return {
     ...native,
@@ -93,12 +137,12 @@ export function runtimeProvider(endpoint: ChatEndpointConfig): Provider {
     getModels: () => [{ ...model, provider: "chat" }],
     stream: (m, c, o) =>
       native.stream({ ...m, provider: native.id }, c, {
-        ...o,
+        ...boundedOptions(o),
         env: { ...endpoint.credentialEnv, ...o?.env },
       } as typeof o),
     streamSimple: (m, c, o) =>
       native.streamSimple({ ...m, provider: native.id }, c, {
-        ...o,
+        ...boundedOptions(o),
         env: { ...endpoint.credentialEnv, ...o?.env },
       } as typeof o),
   };
