@@ -2,8 +2,9 @@
 
 ChatOllama is an open source agentic app for running AI agents across local and
 hosted models. Built on **Pi Durable**, it provides a **SvelteKit** web interface
-for persistent agent conversations, document knowledge bases, and tools. Data is stored locally in SQLite and files, with no separate
-database or vector service required.
+for persistent agent conversations, document knowledge bases, and tools. Data is
+stored locally in SQLite and files, with no separate database or vector service
+required.
 
 ## Features
 
