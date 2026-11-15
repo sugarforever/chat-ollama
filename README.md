@@ -1,8 +1,8 @@
 # ChatOllama
 
-ChatOllama is a self-hosted AI chat application with a SvelteKit web interface.
-It brings AI conversations, document knowledge bases, and agent tools together
-in one app. Data is stored locally in SQLite and files, with no separate
+ChatOllama is an open source agentic app for running AI agents across local and
+hosted models. Built on **Pi Durable**, it provides a **SvelteKit** web interface
+for persistent agent conversations, document knowledge bases, and tools. Data is stored locally in SQLite and files, with no separate
 database or vector service required.
 
 ## Features
@@ -17,6 +17,30 @@ database or vector service required.
   tools through Model Context Protocol (MCP).
 - **Reusable skills:** install skills and choose which ones are available in each
   conversation.
+
+## Architecture
+
+SvelteKit serves the web interface and API. Pi Durable runs agents and persists
+conversation state; Pi AI connects them to local and hosted models.
+
+```mermaid
+flowchart TD
+  UI["SvelteKit web interface"] <-->|"HTTP / SSE"| API["SvelteKit server API"]
+  subgraph App["Node.js application"]
+    API --> Runtime["Pi Durable agent runtime"]
+    Runtime --> Models["Pi AI provider adapters"]
+    Runtime --> Tools["File and shell tools"]
+    Runtime --> MCP["MCP integration"]
+    Runtime --> Knowledge["Knowledge retrieval"]
+    Skills["Installed skills"] --> Runtime
+    Runtime <--> Sessions["SQLite conversation storage"]
+    API --> Data["SQLite settings and local files"]
+    Knowledge <--> Data
+  end
+  Models <--> Providers["Local and hosted models"]
+  MCP <--> Servers["Local and remote MCP servers"]
+  Knowledge --> Embeddings["Embedding endpoint"]
+```
 
 ## Build and run locally
 
