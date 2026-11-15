@@ -94,7 +94,7 @@ test("open conversations discover installed skills, read instructions and suppor
   const [skill] = await store.install(found.importId, [""]);
   await session.submit("first", "Use test-skill");
   await expect.poll(async () => (await session.snapshot()).status).toBe("idle");
-  expect(requests[0].messages[0].content).toContain("test-skill");
+  expect(requests[0].messages[1]).toMatchObject({ role: "user", content: expect.stringContaining("Available installed skills") });
   expect(
     requests
       .at(-1)
@@ -122,9 +122,9 @@ test("open conversations discover installed skills, read instructions and suppor
       async () => (await (await manager.getSession("one")).snapshot()).status,
     )
     .toBe("idle");
-  expect(requests.at(-1).messages[0].content).toContain(
-    "Available installed skills",
-  );
+  expect(requests.at(-1).messages[1]).toMatchObject({
+    role: "user", content: expect.stringContaining("Available installed skills"),
+  });
   store.remove(skill.id);
   await (
     await manager.getSession("one")
@@ -144,6 +144,15 @@ test("open conversations discover installed skills, read instructions and suppor
           m.content.includes("Available installed skills"),
       ),
   ).toBe(false);
+  // Missing application sections, duplicate injection, or skill context before the
+  // leading instructions must be visible at the actual provider boundary.
+  for (const request of requests) {
+    expect(request.messages[0]).toMatchObject({
+      role: "system", content: expect.stringContaining("ChatOllama"),
+    });
+    expect(request.messages.filter((m: any) => m.role === "system")).toHaveLength(1);
+    expect(request.messages[0].content).not.toContain("Available installed skills");
+  }
 });
 
 test("conversation exclusions filter global discovery, persist after restart and allow new skills and re-enabling", async () => {

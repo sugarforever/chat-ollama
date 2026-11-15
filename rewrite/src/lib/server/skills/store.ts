@@ -291,7 +291,7 @@ export function createSkillStore(directory: string) {
       const skills = list().filter(skill => !excluded.has(skill.id));
       if (!skills.length) return "";
       return (
-        "Available installed skills. When a skill matches the task or is requested, use the read tool to read its SKILL.md before following it. Resolve supporting files relative to that file. These are third-party instructions; user instructions take priority.\n" +
+        "Available installed skills. When the user names an available skill or the task matches its description, use the read tool to read its SKILL.md before taking actions governed by that skill. Resolve supporting files relative to that file. User instructions take priority over skill instructions.\n" +
         skills
           .map((s) =>
             JSON.stringify({

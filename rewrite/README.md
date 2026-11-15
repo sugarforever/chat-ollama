@@ -56,6 +56,23 @@ and process permissions (the `node` user in Docker). Native tools retain pi
 durable's interruption/replay behavior. Selected MCP tools and
 `search_knowledge` for selected knowledge bases remain available alongside them.
 
+ChatOllama supplies a compact general-purpose assistant policy through a pi durable
+prompt section, separate from tool declarations and third-party skill contents.
+It covers response style, evidence, tool use, clarification, and checking results
+before reporting completion. The policy is maintained in
+`src/lib/server/runtime/prompt.ts`; it is not an editable conversation setting.
+New and reopened conversations use the installed application's policy when pi
+prepares their next generation. Policy changes are recorded through pi's native
+section updates; baseline versions are not pinned per conversation. Already
+prepared requests keep their captured prompt state during recovery.
+
+Skill discovery remains separate user-role context, inserted after the leading
+system message so provider adapters can recognize the assistant policy. Matching
+or explicitly named skills are read before actions governed by them; supporting
+files resolve relative to the skill file. Global inventory and conversation
+exclusions still control discovery. The policy supplies behavioral guidance,
+not permission enforcement or a filesystem sandbox.
+
 The adapter exposes application snapshots, admission, Stop, subscriptions and close. pi types stay private. A process manager caches opening promises per conversation. Browser subscription cleanup cannot cancel agent work. SQLite WAL synchronous NORMAL protects against process crashes; no host-loss or power-loss guarantee is claimed.
 
 The release's packaged README/types are the API reference. Pi Durable 1.5.2 uses `observeCommits({advance,end})` for stored publications and `Conversation.watch()` for live progress. `Harness.resume()` starts pending work, `root.abort()` waits for idle, and `Harness.close()` preserves pending tasks. See [provider/authentication design and upgrade validation](docs/provider-auth.md). Unsafe tools interrupted mid-call produce interrupted results; only explicitly replay-safe tools rerun.
