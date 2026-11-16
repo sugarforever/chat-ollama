@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, expect, test } from "vitest";
 import { execFileSync, fork } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { modelServer } from "./fixtures/model-server";
@@ -68,16 +68,17 @@ test("pages and APIs work without a password or session while mutations require 
 });
 // Real pi requests catch a settings-only implementation, key loss, or endpoint changes during a run.
 test("conversation model survives endpoint edits and active-run restart while later requests refresh URL and key", async () => {
-  const { start } = await setup();
+  const { start, dir } = await setup();
   const a = await modelServer(),
     b = await modelServer({ failure: true });
   cleanup.push(
     () => a.close(),
     () => b.close(),
   );
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ legacy: { "chosen-model": { contextWindow: 64000, maxTokens: 512 } } }));
   let app = await start();
   const save = await app.request("/api/settings", {
-    chat: { baseUrl: a.baseUrl, modelId: "fixture", apiKey: "private-key", modelLimits: { "chosen-model": { contextWindow: 64000, maxTokens: 512 } } },
+    chat: { baseUrl: a.baseUrl, modelId: "fixture", apiKey: "private-key" },
     embedding: { baseUrl: b.baseUrl, modelId: "embed", apiKey: "embed-secret" },
   });
   expect(save.status).toBe(200);
@@ -117,7 +118,8 @@ test("conversation model survives endpoint edits and active-run restart while la
   expect(a.requests[0].authorization).toBe("Bearer private-key");
   expect(JSON.parse(a.requests[0].prompt).model).toBe("chosen-model");
   expect(JSON.parse(a.requests[0].prompt).max_tokens ?? JSON.parse(a.requests[0].prompt).max_completion_tokens).toBe(512);
-  await app.request("/api/settings", { chat: { baseUrl: b.baseUrl, modelId: "edited-global", apiKey: "edited-key", modelLimits: { "chosen-model": { contextWindow: 128000, maxTokens: 1024 } } } });
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ legacy: { "chosen-model": { contextWindow: 128000, maxTokens: 1024 } } }));
+  await app.request("/api/settings", { chat: { baseUrl: b.baseUrl, modelId: "edited-global", apiKey: "edited-key" } });
   expect(b.requests).toHaveLength(0);
   app.proc.kill("SIGKILL");
   await new Promise((r) => app.proc.once("exit", r));
@@ -279,13 +281,14 @@ test("MCP discovery failure and removal leave built HTTP settings available afte
 
 // Catches resolving from the global default, mutating a live run, and losing history on switch.
 test("provider selection applies to subsequent input, survives SIGKILL and never falls back after deletion", async () => {
-  const { start } = await setup();
+  const { start, dir } = await setup();
   const a = await modelServer(), b = await modelServer();
   cleanup.push(() => a.close(), () => b.close());
   let app = await start();
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ a: { alpha: { contextWindow: 64000, maxTokens: 512 }, "alpha-next": { contextWindow: 64000, maxTokens: 768 } }, b: { "beta-2": { contextWindow: 128000, maxTokens: 2048 } } }));
   const providers = [
-    { id: "a", name: "Alpha", baseUrl: a.baseUrl, modelId: "alpha", apiKey: "secret-alpha", modelLimits: { alpha: { contextWindow: 64000, maxTokens: 512 }, "alpha-next": { contextWindow: 64000, maxTokens: 768 } } },
-    { id: "b", name: "Beta", baseUrl: b.baseUrl, modelId: "beta", apiKey: "secret-beta", modelLimits: { "beta-2": { contextWindow: 128000, maxTokens: 2048 } } },
+    { id: "a", name: "Alpha", baseUrl: a.baseUrl, modelId: "alpha", apiKey: "secret-alpha" },
+    { id: "b", name: "Beta", baseUrl: b.baseUrl, modelId: "beta", apiKey: "secret-beta" },
   ];
   expect((await app.request("/api/settings", { providers, defaultProviderId: "a" })).status).toBe(200);
   const created = await app.request("/api/conversations", { providerId: "a", modelId: "alpha", knowledgeBaseIds: [], mcpServerIds: [] });

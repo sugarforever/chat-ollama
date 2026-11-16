@@ -1,4 +1,4 @@
-import { effectiveModelMetadata, validateModelLimits } from "./model-limits";
+import { effectiveModelMetadata, configuredModelLimits } from "./model-limits";
 import { readCredential } from "./provider-credentials";
 import { randomUUID } from "node:crypto";
 import {
@@ -113,13 +113,14 @@ export function resolveChatEndpoint(
   const stored = provider.credentialId
     ? readCredential(provider.credentialId)
     : undefined;
+  const modelLimits = configuredModelLimits(provider.id);
   const model = captureModel(
     provider.service ?? "custom",
     selection.modelId,
     provider.baseUrl,
     provider.protocol,
     provider.models,
-    provider.modelLimits,
+    modelLimits,
   );
   const catalog =
     provider.service &&
@@ -129,8 +130,8 @@ export function resolveChatEndpoint(
       .some((m) => m.id === selection.modelId);
   const source = catalog
     ? "catalog"
-    : Object.hasOwn(provider.modelLimits ?? {}, selection.modelId)
-      ? "custom"
+    : Object.hasOwn(modelLimits, selection.modelId)
+      ? "config"
       : "default";
   const endpoint: ChatEndpointConfig = {
     ...(provider.service
@@ -262,14 +263,6 @@ export function saveSettings(input: Record<string, unknown>) {
         throw Error("Invalid provider");
       ids.add(p.id);
       const old = current.providers.find((old) => old.id === p.id);
-      const sameService = old?.service === p.service;
-      const modelLimits = validateModelLimits(
-        p.modelLimits === undefined
-          ? sameService
-            ? (old?.modelLimits ?? {})
-            : {}
-          : p.modelLimits,
-      );
       if (p.service === undefined)
         return {
           ...patchEndpoint(
@@ -278,7 +271,6 @@ export function saveSettings(input: Record<string, unknown>) {
           ),
           id: p.id,
           name: p.name.trim(),
-          modelLimits,
         };
       if (typeof p.service !== "string") throw Error("Invalid service");
       const native =
@@ -356,23 +348,8 @@ export function saveSettings(input: Record<string, unknown>) {
       )
         throw Error("Invalid provider credential configuration");
       const models = p.models ?? (same ? old?.models : undefined);
-      if (
-        models !== undefined &&
-        (!Array.isArray(models) ||
-          models.length > 2000 ||
-          models.some(
-            (id: unknown) => typeof id !== "string" || !id || id.length > 200,
-          ))
-      )
-        throw Error("Invalid models");
-      captureModel(
-        p.service,
-        p.modelId,
-        baseUrl,
-        protocol,
-        models,
-        modelLimits,
-      );
+      if (models !== undefined && (!Array.isArray(models) || models.length > 2000 || models.some((id: unknown) => typeof id !== "string" || !id || id.length > 200))) throw Error("Invalid models");
+      captureModel(p.service, p.modelId, baseUrl, protocol, models);
       return {
         ...endpoint,
         id: p.id,
@@ -380,7 +357,6 @@ export function saveSettings(input: Record<string, unknown>) {
         service: p.service,
         authMode,
         protocol,
-        modelLimits,
         ...(models ? { models } : {}),
         ...(authMode === "api_key" &&
         p.service === "amazon-bedrock" &&
@@ -416,17 +392,11 @@ export function saveSettings(input: Record<string, unknown>) {
   if (input.chat !== undefined)
     providers = providers.map((p) =>
       p.id === defaultProviderId
-        ? {
-            ...p,
-            ...patchEndpoint(p, input.chat),
-            modelLimits: validateModelLimits(
-              (input.chat as Record<string, unknown>).modelLimits === undefined
-                ? (p.modelLimits ?? {})
-                : (input.chat as Record<string, unknown>).modelLimits,
-            ),
-          }
+        ? { ...p, ...patchEndpoint(p, input.chat) }
         : p,
     );
+  // Validate deployment metadata before committing any settings changes.
+  configuredModelLimits(defaultProviderId);
   const updates: [string, string][] = [
     ["providers", JSON.stringify({ providers, defaultProviderId })],
   ];

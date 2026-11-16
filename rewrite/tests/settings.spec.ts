@@ -139,7 +139,7 @@ test("saved legacy settings take precedence over environment defaults and remain
     { id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model" },
     { id: "new", name: "New", baseUrl: "https://new.test/v1", modelId: "new-model" },
   ], defaultProviderId: "new" });
-  expect((publicSettings() as any).providers[0]).toEqual({ id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model", hasApiKey: true, modelLimits: {},
+  expect((publicSettings() as any).providers[0]).toEqual({ id: "legacy", name: "Imported", baseUrl: "https://saved.test/v1", modelId: "saved-model", hasApiKey: true,
     effectiveModel: { modelId: "saved-model", contextWindow: 32768, maxTokens: 4096, source: "default", costSource: "unknown" },
   });
 });

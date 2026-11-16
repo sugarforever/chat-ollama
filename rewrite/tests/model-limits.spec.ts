@@ -1,355 +1,92 @@
 import { normalizeContext } from "@earendil-works/pi-ai";
 import { afterEach, expect, test, vi } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  publicSettings,
-  saveSettings,
-  resolveChatEndpoint,
-  loadProviders,
-} from "../src/lib/server/settings";
+import { publicSettings, saveSettings, resolveChatEndpoint } from "../src/lib/server/settings";
+import { effectiveModelMetadata } from "../src/lib/server/model-limits";
 const dirs: string[] = [];
 afterEach(async () => {
   vi.unstubAllEnvs();
   for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true });
 });
-async function setup() {
-  const d = await mkdtemp(join(tmpdir(), "model-limits-"));
-  dirs.push(d);
-  vi.stubEnv("DATA_DIR", d);
+async function setup(config?: unknown) {
+  const dir = await mkdtemp(join(tmpdir(), "model-capabilities-"));
+  dirs.push(dir);
+  vi.stubEnv("DATA_DIR", dir);
+  if (config !== undefined) await writeFile(join(dir, "model-capabilities.json"), JSON.stringify(config));
+  return dir;
 }
-const provider = {
-  id: "local",
-  name: "Local",
-  baseUrl: "http://localhost:11434/v1",
-  modelId: "small",
-  apiKey: "secret",
-};
-test("legacy/custom per-model limits persist and switch without leaking credentials", async () => {
-  await setup();
-  saveSettings({
-    providers: [
-      {
-        ...provider,
-        modelLimits: {
-          small: { contextWindow: 1024, maxTokens: 128 },
-          large: { contextWindow: 1000000, maxTokens: 64000 },
-        },
-      },
-    ],
-    defaultProviderId: "local",
-  });
-  for (const [modelId, contextWindow, maxTokens] of [
-    ["small", 1024, 128],
-    ["large", 1000000, 64000],
-  ] as const) {
-    expect(
-      resolveChatEndpoint({ providerId: "local", modelId }).model,
-    ).toMatchObject({ id: modelId, contextWindow, maxTokens });
-  }
-  expect(loadProviders().providers[0]).toHaveProperty(
-    "modelLimits.large.maxTokens",
-    64000,
-  );
-  const settings = publicSettings() as any;
-  expect(settings.providers[0].effectiveModel).toMatchObject({
-    modelId: "small",
-    contextWindow: 1024,
-    maxTokens: 128,
-    source: "custom",
-    costSource: "unknown",
-  });
+const provider = { id: "local", name: "Local", baseUrl: "http://localhost:11434/v1", modelId: "small", apiKey: "secret" };
+const selection = { providerId: "local", modelId: "small" };
+test("deployment capabilities load per connection and model; API edits cannot override them", async () => {
+  await setup({ local: { small: { contextWindow: 8192, maxTokens: 256 }, large: { contextWindow: 131072, maxTokens: 8192 } }, other: { small: { contextWindow: 64000, maxTokens: 512 } } });
+  saveSettings({ providers: [provider, { ...provider, id: "other" }], defaultProviderId: "local" });
+  expect(resolveChatEndpoint(selection).model).toMatchObject({ contextWindow: 8192, maxTokens: 256 });
+  expect(resolveChatEndpoint({ ...selection, modelId: "large" }).model).toMatchObject({ contextWindow: 131072, maxTokens: 8192 });
+  expect(resolveChatEndpoint({ ...selection, providerId: "other" }).model).toMatchObject({ contextWindow: 64000, maxTokens: 512 });
+  saveSettings({ providers: [{ ...provider, modelLimits: { small: { contextWindow: 1024, maxTokens: 64 } } }] });
+  const settings = publicSettings();
+  expect(settings.providers[0]).not.toHaveProperty("modelLimits");
+  expect(settings.providers[0].effectiveModel).toMatchObject({ contextWindow: 8192, maxTokens: 256, source: "config", costSource: "unknown" });
   expect(JSON.stringify(settings)).not.toContain("secret");
-  expect(
-    resolveChatEndpoint({ providerId: "local", modelId: "other" }).model,
-  ).toMatchObject({ contextWindow: 32768, maxTokens: 4096 });
+  saveSettings({ chat: { modelLimits: { small: { contextWindow: 1024, maxTokens: 64 } } } });
+  expect(resolveChatEndpoint(selection).model!.maxTokens).toBe(256);
 });
-test.each([0, -1, 1.5, "8192", null, Number.MAX_SAFE_INTEGER + 1])(
-  "invalid limit %s fails atomically",
-  async (bad) => {
-    await setup();
-    const before = publicSettings();
-    expect(() =>
-      saveSettings({
-        providers: [
-          {
-            ...provider,
-            modelLimits: { small: { contextWindow: bad, maxTokens: 64 } },
-          },
-        ],
-        defaultProviderId: "local",
-        embedding: { modelId: "changed" },
-      }),
-    ).toThrow();
-    expect(publicSettings()).toEqual(before);
-  },
-);
-test("malformed entries and output above context fail without changing settings", async () => {
+test("native catalog capabilities win; uncatalogued discovery uses deployment configuration", async () => {
+  const dir = await setup();
+  const settings = publicSettings();
+  const native = settings.catalog.find(p => p.id === "anthropic")!.models[0];
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ local: { [native.id]: { contextWindow: 1024, maxTokens: 64 }, "new-model": { contextWindow: 8192, maxTokens: 256 } } }));
+  saveSettings({ providers: [{ ...provider, service: "anthropic", authMode: "api_key", modelId: native.id, models: ["new-model"] }], defaultProviderId: "local" });
+  expect(resolveChatEndpoint({ ...selection, modelId: native.id }).model).toMatchObject({ contextWindow: native.contextWindow, maxTokens: native.maxTokens });
+  expect(publicSettings().providers[0].effectiveModel).toMatchObject({ source: "catalog", costSource: "catalog" });
+  expect(resolveChatEndpoint({ ...selection, modelId: "new-model" }).model).toMatchObject({ contextWindow: 8192, maxTokens: 256 });
+});
+test("captured capabilities survive configuration changes while subsequent runs reload them", async () => {
+  const dir = await setup({ local: { small: { contextWindow: 8192, maxTokens: 256 } } });
+  saveSettings({ providers: [provider], defaultProviderId: "local" });
+  const captured = JSON.parse(JSON.stringify(resolveChatEndpoint(selection)));
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ local: { small: { contextWindow: 131072, maxTokens: 8192 } } }));
+  expect(effectiveModelMetadata(captured)).toMatchObject({ contextWindow: 8192, maxTokens: 256, source: "config" });
+  expect(resolveChatEndpoint(selection).model).toMatchObject({ contextWindow: 131072, maxTokens: 8192 });
+});
+test("missing deployment configuration preserves compatibility defaults", async () => {
   await setup();
-  const before = publicSettings();
-  for (const modelLimits of [
-    [],
-    null,
-    { small: {} },
-    { small: { contextWindow: 1024 } },
-    { small: { contextWindow: 64, maxTokens: 128 } },
-    { "": { contextWindow: 128, maxTokens: 16 } },
-  ]) {
-    expect(() =>
-      saveSettings({
-        providers: [{ ...provider, modelLimits }],
-        defaultProviderId: "local",
-      }),
-    ).toThrow();
-    expect(publicSettings()).toEqual(before);
+  saveSettings({ providers: [provider], defaultProviderId: "local" });
+  expect(publicSettings().providers[0].effectiveModel).toEqual({ modelId: "small", contextWindow: 32768, maxTokens: 4096, source: "default", costSource: "unknown" });
+  expect(effectiveModelMetadata(provider)).toMatchObject({ contextWindow: 32768, maxTokens: 4096, source: "default" });
+});
+test.each([null, [], { local: null }, { local: { small: { contextWindow: 0, maxTokens: 64 } } }, { local: { small: { contextWindow: 8192, maxTokens: 9000 } } }, { local: { small: { contextWindow: "8192", maxTokens: 64 } } }])("malformed deployment capabilities are rejected instead of silently falling back: %j", async config => {
+  await setup(config);
+  expect(() => saveSettings({ providers: [provider], defaultProviderId: "local" })).toThrow("Invalid model capabilities configuration");
+});
+test("invalid JSON is rejected without exposing file contents", async () => {
+  const dir = await setup();
+  await writeFile(join(dir, "model-capabilities.json"), "private-invalid-json");
+  expect(() => saveSettings({ providers: [provider], defaultProviderId: "local" })).toThrow("Invalid model capabilities configuration");
+});
+test("Pi derives the output request from captured metadata without an application cap", async () => {
+  await setup({ local: { small: { contextWindow: 8192, maxTokens: 256 } } });
+  const { createServer } = await import("node:http");
+  const { runtimeProvider } = await import("../src/lib/server/runtime/provider");
+  const requests: any[] = [];
+  const server = createServer(async (req, res) => {
+    let body = "";
+    for await (const c of req) body += c;
+    requests.push(JSON.parse(body));
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end("{}");
+  });
+  await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
+  try {
+    saveSettings({ providers: [{ ...provider, service: "custom", authMode: "none", baseUrl: `http://127.0.0.1:${(server.address() as any).port}` }], defaultProviderId: "local" });
+    const p = runtimeProvider(resolveChatEndpoint(selection));
+    await p.streamSimple(p.getModels()[0], normalizeContext({ messages: [{ role: "user", content: "hello", timestamp: Date.now() }] }), { apiKey: "fixture" }).result();
+    expect(requests).toHaveLength(1);
+    expect(requests[0].max_tokens ?? requests[0].max_completion_tokens).toBe(256);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>(r => server.close(() => r()));
   }
-});
-test("native catalog values remain authoritative while discovered models accept overrides", async () => {
-  await setup();
-  const catalog = (publicSettings() as any).catalog.find(
-    (p: any) => p.id === "anthropic",
-  );
-  const id = catalog.models[0].id;
-  saveSettings({
-    providers: [
-      {
-        ...provider,
-        service: "anthropic",
-        authMode: "api_key",
-        modelId: id,
-        models: ["new-model"],
-        modelLimits: {
-          [id]: { contextWindow: 1024, maxTokens: 64 },
-          "new-model": { contextWindow: 8192, maxTokens: 256 },
-        },
-      },
-    ],
-    defaultProviderId: "local",
-  });
-  const known = resolveChatEndpoint({ providerId: "local", modelId: id });
-  expect(known.model!.contextWindow).toBeGreaterThan(32768);
-  expect((publicSettings() as any).providers[0].effectiveModel).toMatchObject({
-    source: "catalog",
-    costSource: "catalog",
-  });
-  expect(catalog.models[0]).toHaveProperty("contextWindow");
-  expect(
-    resolveChatEndpoint({ providerId: "local", modelId: "new-model" }).model,
-  ).toMatchObject({ contextWindow: 8192, maxTokens: 256 });
-});
-
-// Exercise the native adapters against a real endpoint; metadata alone cannot prove a ceiling.
-test.each([
-  "openai-completions",
-  "openai-responses",
-  "anthropic-messages",
-  "google-generative-ai",
-] as const)(
-  "%s payload respects the configured output ceiling",
-  async (protocol) => {
-    await setup();
-    const { createServer } = await import("node:http");
-    const { runtimeProvider } = await import(
-      "../src/lib/server/runtime/provider"
-    );
-    const requests: any[] = [];
-    const server = createServer(async (req, res) => {
-      let body = "";
-      for await (const c of req) body += c;
-      requests.push(JSON.parse(body));
-      res.writeHead(400, { "content-type": "application/json" });
-      res.end("{}");
-    });
-    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-    try {
-      saveSettings({
-        providers: [
-          {
-            ...provider,
-            baseUrl: `http://127.0.0.1:${(server.address() as any).port}`,
-            service: "custom",
-            authMode: "none",
-            protocol,
-            modelLimits: { small: { contextWindow: 32768, maxTokens: 8 } },
-          },
-        ],
-        defaultProviderId: "local",
-      });
-      const endpoint = resolveChatEndpoint({
-        providerId: "local",
-        modelId: "small",
-      });
-      const p = runtimeProvider(endpoint);
-      // Both entry points must enforce the ceiling, including oversized callers.
-      for (const stream of [p.stream, p.streamSimple]) {
-        for (const mutate of [false, true]) {
-        const result = stream(
-          p.getModels()[0],
-          normalizeContext({
-            messages: [
-              { role: "user", content: "hello", timestamp: Date.now() },
-            ],
-          }),
-          { apiKey: "fixture", maxTokens: 9999, onPayload: (payload: any) => {
-            if (!mutate) return;
-            const next = structuredClone(payload);
-            for (const key of ['max_tokens', 'max_completion_tokens', 'max_output_tokens']) {
-              if (typeof next[key] === 'number') next[key] = 9999;
-            }
-            if (next.config) next.config.maxOutputTokens = 9999;
-            return next;
-          } },
-        );
-        await result.result();
-        }
-      }
-      expect(requests).toHaveLength(4);
-      for (const body of requests) {
-        const actual =
-          protocol === "openai-responses"
-            ? body.max_output_tokens
-            : protocol === "google-generative-ai"
-              ? body.generationConfig?.maxOutputTokens
-              : (body.max_tokens ?? body.max_completion_tokens);
-        expect(actual).toBe(8);
-      }
-    } finally {
-      server.closeAllConnections();
-      await new Promise<void>((r) => server.close(() => r()));
-    }
-  },
-);
-
-test("omitted overrides persist, explicit empty map clears, and changing service resets them", async () => {
-  await setup();
-  saveSettings({
-    providers: [
-      {
-        ...provider,
-        modelLimits: { small: { contextWindow: 8192, maxTokens: 256 } },
-      },
-    ],
-    defaultProviderId: "local",
-  });
-  saveSettings({ providers: [{ ...provider, name: "Renamed" }] });
-  expect(
-    resolveChatEndpoint({ providerId: "local", modelId: "small" }).model!
-      .maxTokens,
-  ).toBe(256);
-  saveSettings({ providers: [{ ...provider, modelLimits: {} }] });
-  expect(
-    resolveChatEndpoint({ providerId: "local", modelId: "small" }).model!
-      .maxTokens,
-  ).toBe(4096);
-  saveSettings({
-    providers: [
-      {
-        ...provider,
-        modelLimits: { small: { contextWindow: 8192, maxTokens: 256 } },
-      },
-    ],
-  });
-  saveSettings({
-    providers: [{ ...provider, service: "custom", authMode: "none" }],
-  });
-  expect(
-    resolveChatEndpoint({ providerId: "local", modelId: "small" }).model!
-      .maxTokens,
-  ).toBe(4096);
-});
-test("metadata reads captured model independently of subsequent settings and supports old sidecars", async () => {
-  await setup();
-  const { effectiveModelMetadata } = await import(
-    "../src/lib/server/model-limits"
-  );
-  saveSettings({
-    providers: [
-      {
-        ...provider,
-        modelLimits: { small: { contextWindow: 8192, maxTokens: 256 } },
-      },
-    ],
-    defaultProviderId: "local",
-  });
-  const captured = JSON.parse(
-    JSON.stringify(
-      resolveChatEndpoint({ providerId: "local", modelId: "small" }),
-    ),
-  );
-  saveSettings({
-    providers: [
-      {
-        ...provider,
-        modelLimits: { small: { contextWindow: 131072, maxTokens: 8192 } },
-      },
-    ],
-  });
-  expect(effectiveModelMetadata(captured)).toEqual({
-    modelId: "small",
-    contextWindow: 8192,
-    maxTokens: 256,
-    source: "custom",
-    costSource: "unknown",
-  });
-  expect(effectiveModelMetadata({ ...provider })).toEqual({
-    modelId: "small",
-    contextWindow: 32768,
-    maxTokens: 4096,
-    source: "default",
-    costSource: "unknown",
-  });
-});
-test.each([0, -1, 1.5, "128", null, Number.MAX_SAFE_INTEGER + 1])(
-  "invalid output limit %s fails atomically, including the legacy alias",
-  async (bad) => {
-    await setup();
-    const before = publicSettings();
-    for (const patch of [
-      {
-        providers: [
-          {
-            ...provider,
-            modelLimits: { small: { contextWindow: 8192, maxTokens: bad } },
-          },
-        ],
-        defaultProviderId: "local",
-      },
-      {
-        chat: {
-          modelLimits: { small: { contextWindow: 8192, maxTokens: bad } },
-        },
-        embedding: { modelId: "should-not-save" },
-      },
-      { chat: { modelLimits: null } },
-    ]) {
-      expect(() => saveSettings(patch)).toThrow();
-      expect(publicSettings()).toEqual(before);
-    }
-  },
-);
-test("identical model IDs on separate providers keep independent limits", async () => {
-  await setup();
-  saveSettings({
-    providers: [
-      {
-        ...provider,
-        modelLimits: { small: { contextWindow: 8192, maxTokens: 256 } },
-      },
-      {
-        ...provider,
-        id: "other",
-        modelLimits: { small: { contextWindow: 131072, maxTokens: 8192 } },
-      },
-    ],
-    defaultProviderId: "local",
-  });
-  expect(
-    resolveChatEndpoint({ providerId: "local", modelId: "small" }).model!
-      .contextWindow,
-  ).toBe(8192);
-  expect(
-    resolveChatEndpoint({ providerId: "other", modelId: "small" }).model!
-      .contextWindow,
-  ).toBe(131072);
 });

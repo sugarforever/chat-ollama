@@ -44,7 +44,6 @@ export type ChatEndpointConfig = {
   apiKey: string;
   modelId: string;
   models?: string[];
-  modelLimits?: Record<string, import("../../contracts").ModelLimits>;
   modelMetadata?: import("../../contracts").EffectiveModelMetadata;
   useAmbientCredentials?: boolean;
   service?: string;

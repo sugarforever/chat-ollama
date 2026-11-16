@@ -1,5 +1,4 @@
 <script lang="ts">
-  import ModelLimitsEditor from "$lib/ModelLimitsEditor.svelte";
   import Skills from "$lib/components/Skills.svelte";
   import KnowledgeCollections from "$lib/components/KnowledgeCollections.svelte";
   import SettingsNavigation from "$lib/components/shell/SettingsNavigation.svelte";
@@ -307,7 +306,6 @@
       baseUrl: p.baseUrl,
       modelId: p.modelId,
       ...(p.models ? { models: p.models } : {}),
-      ...(p.modelLimits ? { modelLimits: p.modelLimits } : {}),
       ...(p.service
         ? { service: p.service, authMode: p.authMode, protocol: p.protocol }
         : {}),
@@ -369,13 +367,7 @@
         ))
     )
       return;
-    if (usesDiscovery(p) && discoveryState !== "success") {
-      const initial = snapshot && JSON.parse(snapshot).providers.find((v: any) => v.id === p.id);
-      const withoutLimits = (value: any) => value && ({ ...editableProvider(value), modelLimits: undefined });
-      // Existing connections can update limits offline without forwarding edited credentials or URLs.
-      if (creatingConnection || providerKeys[p.id] || providerEnv[p.id] ||
-          JSON.stringify(withoutLimits(p)) !== JSON.stringify(withoutLimits(initial))) return;
-    }
+    if (usesDiscovery(p) && discoveryState !== "success") return;
     const signature = JSON.stringify([
       p,
       providerKeys[p.id],
@@ -951,9 +943,6 @@
                           ></label
                         >{/if}
                     {/if}
-                    <ModelLimitsEditor provider={p}
-                      catalog={settings.catalog.find((v: any) => v.id === p.service)?.models ?? []}
-                      onchange={() => { settings = { ...settings }; }} />
                     {#if p.service && p.service !== "custom" && !usesDiscovery(p)}{#key `${p.id}:${p.service}:${p.authMode}`}<ProviderAuth
                           id={p.id}
                           mode={p.authMode}

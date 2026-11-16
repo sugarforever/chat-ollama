@@ -38,16 +38,14 @@ export function providerCatalog() {
     ] as AuthMode[],
     apiKeyLabel: p.auth.apiKey?.name,
     oauthLabel: p.auth.oauth?.loginLabel ?? p.auth.oauth?.name,
-    models: p
-      .getModels()
-      .map((m) => ({
+    models: p.getModels().map((m) => ({
         id: m.id,
         name: m.name,
         api: m.api,
         contextWindow: m.contextWindow,
         maxTokens: m.maxTokens,
         cost: m.cost,
-      })),
+    })),
   }));
 }
 export function captureModel(

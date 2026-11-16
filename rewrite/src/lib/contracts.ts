@@ -35,7 +35,6 @@ export type PublicProvider = {
   id: string;
   modelId: string;
   models?: string[];
-  modelLimits?: Record<string, ModelLimits>;
   effectiveModel?: EffectiveModelMetadata;
   name: string;
   baseUrl: string;
@@ -67,7 +66,7 @@ export type SearchHit = {
 export type ModelLimits = { contextWindow: number; maxTokens: number };
 export type EffectiveModelMetadata = ModelLimits & {
   modelId: string;
-  source: "catalog" | "custom" | "default";
+  source: "catalog" | "config" | "default";
   costSource: "catalog" | "unknown";
   cost?: {
     input: number;

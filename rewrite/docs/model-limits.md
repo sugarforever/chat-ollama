@@ -1,55 +1,34 @@
-# Per-model context and output limits
+# System-managed model capabilities
 
-Issue #801 provides metadata and dispatch limits; compaction policy and context/usage display are separate features.
+Users select a connection and model. Context capacity and maximum supported output are managed by the application, with no token-limit controls in Settings.
 
-In **Settings → Providers → a connection → Model limits**, enter a model ID and its configured context window and maximum supported output token count, then click **Apply model limits**. Limits save with that connection. Repeat for each custom/discovered model ID; this does not change the connection's default model. **Use default limits** removes that model's override. Catalog models show read-only native limits. Valid overrides attached to a native catalog ID are retained but do not replace authoritative catalog metadata.
-
-A context window and maximum output are required together, must be positive safe integers, and output must not exceed context. The API validates the entire settings update before writing providers or embeddings. Model IDs are nonempty, at most 200 characters, and contain no control characters; at most 2,000 model overrides are allowed per connection. This is configuration supplied by the operator, not a discovery of the endpoint's actual capabilities.
-
-## Coding tasks and response length
-
-These settings describe endpoint capabilities per generation, not a desired answer length or a total task budget. Preserve native catalog limits. For custom endpoints, supply the actual configured context capacity and supported output maximum; account for reasoning tokens when the provider includes them in its output budget. Setting a larger context value here does not allocate memory or enable that capacity on the server.
-
-A coding task can make many model requests and file edits. Keep implementation complete and use instructions such as “summarize the changes briefly” to control the final explanation. The application policy directs coding work into files, splits large changes across tool calls, and keeps final summaries focused on results and verification. It also directs lengthy command output into files for focused inspection.
-
-Large tool results consume input context separately from generated output. Bounded MCP output/artifact budgets belong to #805; automatic compaction budgets belong to #802. This feature adds neither a reply-length slider nor a tool-output budget. Configure capabilities independently of those policies.
-
-## Compatibility and migration
-
-Existing rewrite settings need no manual migration. Native models continue using installed pi-ai 1.5.2 catalog metadata. Legacy, custom and uncatalogued discovered models without an override retain the previous **32,768 context / 4,096 output** defaults. Those defaults are compatibility values, not verified endpoint capabilities; configure the actual values for your model. Custom pricing remains unknown even though Pi requires zero placeholder costs on its Model object.
-
-Settings store an optional `modelLimits` map keyed by exact model ID on each provider. Omitting the map preserves it for the same service; `{}` clears all overrides. Switching service without supplying a map resets overrides. Different connections, model IDs and case variants do not share overrides. The legacy `chat` settings alias accepts the same map for its legacy default provider. Embedding settings are independent and do not use chat limits.
+Native models use the installed Pi catalog unchanged. For legacy, custom, or uncatalogued discovered models, deployments can supply `model-capabilities.json` in `DATA_DIR` (default `data/`). Entries are keyed by connection ID, then exact model ID:
 
 ```json
 {
-  "providers": [{
-    "id": "local", "name": "Local", "service": "custom", "authMode": "none",
-    "baseUrl": "http://127.0.0.1:11434/v1", "modelId": "example-small",
-    "modelLimits": {
-      "example-small": { "contextWindow": 8192, "maxTokens": 512 },
-      "example-large": { "contextWindow": 131072, "maxTokens": 8192 }
-    }
-  }],
-  "defaultProviderId": "local"
+  "legacy": {
+    "local-model": { "contextWindow": 32768, "maxTokens": 8192 }
+  },
+  "my-local-connection": {
+    "coding-model": { "contextWindow": 131072, "maxTokens": 16384 }
+  }
 }
 ```
 
-A new admission captures the resolved Pi Model in the existing atomic private endpoint sidecar. Editing settings or changing a conversation's selection affects the next run; queued/steered messages in an active run and recovered requests keep its captured model and limits. Old active sidecars retain their captured catalog model, or the former custom defaults if they predate captured models. No conversation rewrite or new admission mechanism is introduced. Keep backing up the whole data directory while stopped.
+Connection IDs are available from `GET /api/settings`. Native catalog entries remain authoritative even if the file includes matching IDs. Different connections can describe different server allocations for the same model ID. The file is read when resolving a new run; browser settings never write it. Replace it atomically when updating a running deployment.
 
-## Exported contract for follow-up features
+Both capacities must be positive safe integers, and maximum output must fit within context. Invalid configuration fails explicitly rather than silently using defaults. A missing file or model entry preserves the existing custom-model compatibility values: **32,768 context / 4,096 output tokens**. These are unverified fallback values. Configure the actual inference server capacity; declaring context here does not allocate server memory. No database migration is needed.
 
-- `src/lib/contracts.ts`: `ModelLimits = {contextWindow:number,maxTokens:number}` and `EffectiveModelMetadata = ModelLimits & {modelId,source,costSource,cost?}`. `source` is `catalog`, `custom`, or `default`; `costSource` is `catalog` or `unknown`. `cost` has Pi's per-million-token `input`, `output`, `cacheRead`, `cacheWrite` rates and is present only for catalog metadata.
-- `src/lib/server/settings.ts`: `resolveChatEndpoint(selection)` returns the next selection's endpoint with an effective Pi `model`. `resolveModelMetadata(selection)` returns its safe effective metadata. It can throw the existing unavailable-provider/model errors.
-- `src/lib/server/model-limits.ts`: `effectiveModelMetadata(endpoint)` reads an already captured endpoint, without resolving mutable settings. Use this for active runs. `DEFAULT_MODEL_LIMITS` provides the compatibility values. `validateModelLimits(value)` validates and copies a settings map.
-- `ChatEndpointConfig.model` remains the authoritative captured Pi Model for runtime budgets. `modelMetadata` records provenance alongside it; metadata counts/costs are derived from `model`, not trusted duplicate fields.
-- `GET /api/settings`: each public provider includes `modelLimits` when saved and `effectiveModel` for its default model. Catalog model entries also expose `contextWindow`, `maxTokens`, and native `cost`. Keys, credential environment, OAuth credentials and private endpoint details remain redacted. These additions do not add conversation usage UI.
+## Generation and recovery
 
-## Dispatch
+ChatOllama supplies the resolved Pi Model and leaves generation limits to Pi's adapters. There is no additional application output cap or payload rewriting. Pi normally derives a request budget from the model's maximum output and available context, with provider-specific reasoning adjustments. Adapters that omit an explicit output field, including Codex subscription requests, keep that behavior.
 
-Both native stream entry points receive an output ceiling no greater than the captured model's `maxTokens`. Pi retains its native protocol, authentication, context-fit reduction and reasoning behavior. A final payload hook also caps supported token fields after adapter adjustments: OpenAI `max_tokens` / `max_completion_tokens`, Responses `max_output_tokens`, Anthropic `max_tokens`, and Gemini `generationConfig.maxOutputTokens`. This includes overriding Responses' built-in 16-token floor for an endpoint explicitly configured below it; such an endpoint must accept that value. Actual generated output can be shorter, and Pi may reduce the budget to fit input/context safety margins.
+Capabilities describe one model generation, not a preferred answer length or a whole coding-task budget. A coding task can span many requests and file edits. Tool-output budgets, compaction, and usage UI remain separate features.
 
-Provider APIs that deliberately omit output-budget fields (for example Codex subscription requests) keep their native supported payload shape; this feature does not invent unsupported fields or promise a remotely enforceable ceiling on those APIs. Their catalog metadata remains available for subsequent budgeting features.
+The existing private endpoint snapshot captures the resolved model and provenance on admission. Active and recovered runs retain their captured metadata after configuration changes or provider/model switches; later runs resolve the current configuration. Older snapshots keep their existing model or compatibility fallback.
 
-Validation uses real local HTTP payloads for all four custom protocols, settings/metadata tests, and SIGKILL recovery and provider/model-switch tests. No external model credentials are required.
+## Safe metadata contract
 
-Verified on Node **v24.7.0** with `pnpm check` (0 errors/warnings), `pnpm build`, and `pnpm test` run serially: **24 files / 147 tests passed**. The focused Playwright test `per-model limits validate, persist separately, reset and show native catalog values` passed at desktop and mobile sizes. The reviewed change has no outstanding findings. The mobile capture is retained locally under ignored `test-results/model-limits-mobile.png`.
+`resolveModelMetadata(selection)` in `src/lib/server/settings.ts` returns metadata for the next run. `effectiveModelMetadata(endpoint)` in `src/lib/server/model-limits.ts` reads an already captured endpoint without consulting mutable configuration. The captured `endpoint.model` supplies runtime capacities.
+
+`GET /api/settings` exposes `effectiveModel` for each connection's default model, plus catalog capabilities. Metadata includes `modelId`, `contextWindow`, `maxTokens`, `source` (`catalog`, `config`, or `default`), and `costSource` (`catalog` or `unknown`). Catalog pricing uses Pi's per-million-token rates. Custom pricing is unknown; zero costs on Pi's required Model object are placeholders. Credentials and private runtime snapshots are redacted. Settings writes do not accept model-capability overrides.
