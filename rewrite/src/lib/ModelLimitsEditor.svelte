@@ -29,13 +29,15 @@
 </script>
 <div class="space-y-3 border-t pt-4">
   <h3>Model limits</h3>
+  <p class="text-sm text-muted-foreground">Enter the capabilities supported by this endpoint. Each limit applies to one model request; a coding task can continue across many requests.</p>
   <label class="block">Limits model ID<Input bind:value={modelId} aria-label="Limits model ID" /></label>
-  <p class="text-sm text-muted-foreground">{native ? 'Source: native catalog. These limits are managed by the provider catalog.' : override ? 'Source: custom configuration.' : 'Source: compatible defaults. Set the actual limits supported by your endpoint.'}</p>
+  <p class="text-sm text-muted-foreground">{native ? 'Source: native catalog. These limits are managed by the provider catalog.' : override ? 'Source: custom configuration.' : 'Source: unverified compatibility defaults. Configure the actual capabilities of your endpoint.'}</p>
   <label class="block">Context window (tokens)<Input type="number" min="1" step="1" disabled={!!native} bind:value={contextWindow} aria-label="Context window (tokens)" /></label>
-  <label class="block">Maximum output (tokens)<Input type="number" min="1" step="1" disabled={!!native} bind:value={maxTokens} aria-label="Maximum output (tokens)" /></label>
+  <label class="block">Maximum supported output (tokens)<Input type="number" min="1" step="1" disabled={!!native} bind:value={maxTokens} aria-label="Maximum supported output (tokens)" /></label>
+  <p class="text-sm text-muted-foreground">Use the model's supported maximum output, including any reasoning budget. Control answer length with your instructions. Tool results and logs have separate context costs.</p>
   {#if !native}
     <div class="flex gap-2"><Button variant="outline" onclick={apply}>Apply model limits</Button>{#if override}<Button variant="ghost" onclick={reset}>Use default limits</Button>{/if}</div>
-    <p class="text-sm text-muted-foreground">Saved per model ID for this connection. Apply limits before switching the ID. Changes affect the next run.</p>
+    <p class="text-sm text-muted-foreground">Saved per model ID for this connection. Match the server’s configured context window; this setting does not allocate server memory. Apply limits before switching the ID. Changes affect the next run.</p>
   {/if}
   {#if error}<p role="alert" class="text-sm text-destructive">{error}</p>{/if}
 </div>

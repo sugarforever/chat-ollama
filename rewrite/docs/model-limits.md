@@ -2,9 +2,17 @@
 
 Issue #801 provides metadata and dispatch limits; compaction policy and context/usage display are separate features.
 
-In **Settings → Providers → a connection → Model limits**, enter a model ID and its context window and maximum output token count, then click **Apply model limits**. Limits save with that connection. Repeat for each custom/discovered model ID; this does not change the connection's default model. **Use default limits** removes that model's override. Catalog models show read-only native limits. Valid overrides attached to a native catalog ID are retained but do not replace authoritative catalog metadata.
+In **Settings → Providers → a connection → Model limits**, enter a model ID and its configured context window and maximum supported output token count, then click **Apply model limits**. Limits save with that connection. Repeat for each custom/discovered model ID; this does not change the connection's default model. **Use default limits** removes that model's override. Catalog models show read-only native limits. Valid overrides attached to a native catalog ID are retained but do not replace authoritative catalog metadata.
 
 A context window and maximum output are required together, must be positive safe integers, and output must not exceed context. The API validates the entire settings update before writing providers or embeddings. Model IDs are nonempty, at most 200 characters, and contain no control characters; at most 2,000 model overrides are allowed per connection. This is configuration supplied by the operator, not a discovery of the endpoint's actual capabilities.
+
+## Coding tasks and response length
+
+These settings describe endpoint capabilities per generation, not a desired answer length or a total task budget. Preserve native catalog limits. For custom endpoints, supply the actual configured context capacity and supported output maximum; account for reasoning tokens when the provider includes them in its output budget. Setting a larger context value here does not allocate memory or enable that capacity on the server.
+
+A coding task can make many model requests and file edits. Keep implementation complete and use instructions such as “summarize the changes briefly” to control the final explanation. The application policy directs coding work into files, splits large changes across tool calls, and keeps final summaries focused on results and verification. It also directs lengthy command output into files for focused inspection.
+
+Large tool results consume input context separately from generated output. Bounded MCP output/artifact budgets belong to #805; automatic compaction budgets belong to #802. This feature adds neither a reply-length slider nor a tool-output budget. Configure capabilities independently of those policies.
 
 ## Compatibility and migration
 

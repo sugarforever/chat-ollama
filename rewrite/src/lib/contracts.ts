@@ -63,6 +63,7 @@ export type SearchHit = {
   score: number;
 };
 
+// Endpoint capabilities per generation, independent of reply style or tool-output budgets.
 export type ModelLimits = { contextWindow: number; maxTokens: number };
 export type EffectiveModelMetadata = ModelLimits & {
   modelId: string;
