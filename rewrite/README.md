@@ -320,3 +320,37 @@ retrying the remaining skills.
 
 The Electron shell reuses this application and bundles its Node 24 backend.
 See [desktop development, data ownership, packaging and release instructions](docs/desktop.md).
+
+## Automatic context compaction
+
+Automatic/background compaction uses Pi Durable's native summary tasks and valid
+history cut points. Each conversation stores a policy derived from its captured
+effective model limits. There is no new settings field or storage migration.
+Existing idle conversations receive the policy when reopened or next admitted;
+active recovered runs keep their stored policy and captured endpoint until they
+finish.
+
+The policy reserves the model's full output allowance twice (one answer and one
+summary), a conservative estimate
+of assistant instructions, skill discovery and all installed tool schemas, plus
+15% of the remaining window (at least 256 tokens) for summary growth, framing and
+estimation uncertainty. Of the space left, 25% is retained as recent verbatim
+history and 20% is the distance between background and blocking thresholds.
+The estimate charges ASCII at three characters per token and non-ASCII at up to
+one token per UTF-8 byte. These are safety estimates, not a provider tokenizer or
+a guarantee that every request fits. Pi uses reported usage when available and
+its native history estimator otherwise.
+
+Idle admission refreshes tools, endpoint and skills before deriving the policy.
+A background summary from the preceding run finishes before its captured provider
+is replaced. Queued or steered input keeps the active run's policy. A configuration
+that cannot leave 512 tokens of usable context fails admission with
+`CONTEXT_BUDGET`; existing history remains readable. Reduce fixed prompt/skill/tool
+overhead or choose a larger context window. A single oversized input or a history
+with no valid native cut point cannot be repaired by summarizing an older prefix;
+Pi retains its normal provider-error/overflow behavior in that case.
+
+`tests/automatic-compaction.spec.ts` uses deterministic local responses and real
+SQLite storage across Node processes. It records elapsed time, summary-inclusive
+reported tokens and completed external actions. These fixtures validate lifecycle
+and accounting, not summary quality or real-model recall.
