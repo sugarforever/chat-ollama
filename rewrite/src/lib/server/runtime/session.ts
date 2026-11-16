@@ -44,6 +44,7 @@ export type ChatEndpointConfig = {
   apiKey: string;
   modelId: string;
   models?: string[];
+  modelMetadata?: import("../../contracts").EffectiveModelMetadata;
   useAmbientCredentials?: boolean;
   service?: string;
   authMode?: import("../providers").AuthMode;

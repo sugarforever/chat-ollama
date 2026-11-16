@@ -1,3 +1,4 @@
+import { effectiveModelMetadata, configuredModelLimits } from "./model-limits";
 import { readCredential } from "./provider-credentials";
 import { randomUUID } from "node:crypto";
 import {
@@ -108,18 +109,34 @@ export function resolveChatEndpoint(
       "PROVIDER_NOT_FOUND",
       "Selected provider is unavailable; choose a provider in this conversation",
     );
-  // Legacy snapshots retain their original completions-only shape.
-  if (!provider.service)
-    return {
-      baseUrl: provider.baseUrl,
-      apiKey: provider.apiKey,
-      modelId: selection.modelId,
-    };
+
   const stored = provider.credentialId
     ? readCredential(provider.credentialId)
     : undefined;
-  return {
-    ...provider,
+  const modelLimits = configuredModelLimits(provider.id);
+  const model = captureModel(
+    provider.service ?? "custom",
+    selection.modelId,
+    provider.baseUrl,
+    provider.protocol,
+    provider.models,
+    modelLimits,
+  );
+  const catalog =
+    provider.service &&
+    provider.service !== "custom" &&
+    nativeProvider(provider.service)
+      .getModels()
+      .some((m) => m.id === selection.modelId);
+  const source = catalog
+    ? "catalog"
+    : Object.hasOwn(modelLimits, selection.modelId)
+      ? "config"
+      : "default";
+  const endpoint: ChatEndpointConfig = {
+    ...(provider.service
+      ? provider
+      : { baseUrl: provider.baseUrl, apiKey: provider.apiKey }),
     ...(stored?.type === "api_key" && provider.authMode === "api_key"
       ? {
           apiKey: stored.key ?? "",
@@ -132,14 +149,19 @@ export function resolveChatEndpoint(
         }
       : {}),
     modelId: selection.modelId,
-    model: captureModel(
-      provider.service,
-      selection.modelId,
-      provider.baseUrl,
-      provider.protocol,
-      provider.models,
-    ),
+    model,
+    modelMetadata: {
+      modelId: selection.modelId,
+      contextWindow: model.contextWindow,
+      maxTokens: model.maxTokens,
+      source,
+      costSource: catalog ? "catalog" : "unknown",
+    },
   };
+  return endpoint;
+}
+export function resolveModelMetadata(selection: ProviderSelection) {
+  return effectiveModelMetadata(resolveChatEndpoint(selection));
 }
 export const loadChatConfig = () => {
   const saved = loadProviders();
@@ -158,6 +180,7 @@ export function publicSettings() {
     credentialEnv,
     credentialId,
     model,
+    modelMetadata,
     useAmbientCredentials,
     ...value
   }: ChatEndpointConfig) => ({
@@ -175,7 +198,16 @@ export function publicSettings() {
     // Compatibility for existing clients. This alias always edits the default provider.
     chat: redact(loadChatConfig()),
     embedding: redact(loadEmbeddingConfig()),
-    providers: saved.providers.map((p) => redact(p) as PublicProvider),
+    providers: saved.providers.map(
+      (p) =>
+        ({
+          ...redact(p),
+          effectiveModel: resolveModelMetadata({
+            providerId: p.id,
+            modelId: p.modelId,
+          }),
+        }) as PublicProvider,
+    ),
     defaultProviderId: saved.defaultProviderId,
     catalog: providerCatalog(),
     customProtocols,
@@ -363,6 +395,8 @@ export function saveSettings(input: Record<string, unknown>) {
         ? { ...p, ...patchEndpoint(p, input.chat) }
         : p,
     );
+  // Validate deployment metadata before committing any settings changes.
+  configuredModelLimits(defaultProviderId);
   const updates: [string, string][] = [
     ["providers", JSON.stringify({ providers, defaultProviderId })],
   ];

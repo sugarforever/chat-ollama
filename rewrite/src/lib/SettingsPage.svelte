@@ -43,7 +43,7 @@
     query = state?.query ?? "";
   }
   const editableProvider = (p: any) =>
-    p ? (({ models, ...value }) => value)(p) : p;
+    p ? (({ models, effectiveModel, ...value }) => value)(p) : p;
   function isDirty() {
     if (!settings || !snapshot) return false;
     const initial = JSON.parse(snapshot);

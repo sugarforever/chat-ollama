@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, expect, test } from "vitest";
 import { execFileSync, fork } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { modelServer } from "./fixtures/model-server";
@@ -68,13 +68,14 @@ test("pages and APIs work without a password or session while mutations require 
 });
 // Real pi requests catch a settings-only implementation, key loss, or endpoint changes during a run.
 test("conversation model survives endpoint edits and active-run restart while later requests refresh URL and key", async () => {
-  const { start } = await setup();
+  const { start, dir } = await setup();
   const a = await modelServer(),
     b = await modelServer({ failure: true });
   cleanup.push(
     () => a.close(),
     () => b.close(),
   );
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ legacy: { "chosen-model": { contextWindow: 64000, maxTokens: 512 } } }));
   let app = await start();
   const save = await app.request("/api/settings", {
     chat: { baseUrl: a.baseUrl, modelId: "fixture", apiKey: "private-key" },
@@ -116,6 +117,8 @@ test("conversation model survives endpoint edits and active-run restart while la
     await new Promise((r) => setTimeout(r, 25));
   expect(a.requests[0].authorization).toBe("Bearer private-key");
   expect(JSON.parse(a.requests[0].prompt).model).toBe("chosen-model");
+  expect(JSON.parse(a.requests[0].prompt).max_tokens ?? JSON.parse(a.requests[0].prompt).max_completion_tokens).toBe(512);
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ legacy: { "chosen-model": { contextWindow: 128000, maxTokens: 1024 } } }));
   await app.request("/api/settings", { chat: { baseUrl: b.baseUrl, modelId: "edited-global", apiKey: "edited-key" } });
   expect(b.requests).toHaveLength(0);
   app.proc.kill("SIGKILL");
@@ -125,6 +128,7 @@ test("conversation model survives endpoint edits and active-run restart while la
   await expect.poll(() => a.requests.length, {timeout:10000}).toBe(2);
   expect(a.requests[1].authorization).toBe("Bearer private-key");
   expect(JSON.parse(a.requests[1].prompt).model).toBe("chosen-model");
+  expect(JSON.parse(a.requests[1].prompt).max_tokens ?? JSON.parse(a.requests[1].prompt).max_completion_tokens).toBe(512);
   a.release();
   for (let i = 0; i < 200; i++) {
     if (
@@ -144,6 +148,7 @@ test("conversation model survives endpoint edits and active-run restart while la
   expect(b.requests[0].path).toBe("/custom/v1/chat/completions");
   expect(b.requests[0].authorization).toBe("Bearer edited-key");
   expect(JSON.parse(b.requests[0].prompt).model).toBe("chosen-model");
+  expect(JSON.parse(b.requests[0].prompt).max_tokens ?? JSON.parse(b.requests[0].prompt).max_completion_tokens).toBe(1024);
   expect((await (await app.request("/api/conversations")).json()).find((c: any) => c.id === id).config.modelId).toBe("chosen-model");
   for (let i = 0; i < 200; i++) {
     if (
@@ -276,10 +281,11 @@ test("MCP discovery failure and removal leave built HTTP settings available afte
 
 // Catches resolving from the global default, mutating a live run, and losing history on switch.
 test("provider selection applies to subsequent input, survives SIGKILL and never falls back after deletion", async () => {
-  const { start } = await setup();
+  const { start, dir } = await setup();
   const a = await modelServer(), b = await modelServer();
   cleanup.push(() => a.close(), () => b.close());
   let app = await start();
+  await writeFile(join(dir, "model-capabilities.json"), JSON.stringify({ a: { alpha: { contextWindow: 64000, maxTokens: 512 }, "alpha-next": { contextWindow: 64000, maxTokens: 768 } }, b: { "beta-2": { contextWindow: 128000, maxTokens: 2048 } } }));
   const providers = [
     { id: "a", name: "Alpha", baseUrl: a.baseUrl, modelId: "alpha", apiKey: "secret-alpha" },
     { id: "b", name: "Beta", baseUrl: b.baseUrl, modelId: "beta", apiKey: "secret-beta" },
@@ -313,6 +319,7 @@ test("provider selection applies to subsequent input, survives SIGKILL and never
   await expect.poll(() => a.requests.length, {timeout:10000}).toBe(2);
   expect(a.requests[1].authorization).toBe("Bearer secret-alpha");
   expect(JSON.parse(a.requests[1].prompt).model).toBe("alpha");
+  expect(JSON.parse(a.requests[1].prompt).max_tokens ?? JSON.parse(a.requests[1].prompt).max_completion_tokens).toBe(512);
   expect(b.requests).toHaveLength(0);
   a.release();
   await expect.poll(async () => (await (await app.request(path)).json()).status).toBe("idle");
@@ -321,6 +328,7 @@ test("provider selection applies to subsequent input, survives SIGKILL and never
   await expect.poll(() => b.requests.length).toBe(1);
   const prompt = JSON.parse(b.requests[0].prompt);
   expect(prompt.model).toBe("beta-2");
+  expect(prompt.max_tokens ?? prompt.max_completion_tokens).toBe(2048);
   expect(b.requests[0].authorization).toBe("Bearer secret-beta");
   expect(prompt.messages).toEqual(expect.arrayContaining([expect.objectContaining({ role: "user", content: "Remember Alpha" }), expect.objectContaining({ role: "assistant", content: "Recovered answer" })]));
   await expect.poll(async () => (await (await app.request(path)).json()).status).toBe("idle");
@@ -344,4 +352,5 @@ test("provider selection applies to subsequent input, survives SIGKILL and never
   expect((await app.request(path + "/messages", { requestId: "fixed", content: "Recovered selection" })).status).toBe(202);
   await expect.poll(() => a.requests.length).toBe(3);
   expect(JSON.parse(a.requests[2].prompt).model).toBe("alpha-next");
+  expect(JSON.parse(a.requests[2].prompt).max_tokens ?? JSON.parse(a.requests[2].prompt).max_completion_tokens).toBe(768);
 });

@@ -1,3 +1,5 @@
+import type { ModelLimits } from "../contracts";
+import { DEFAULT_MODEL_LIMITS } from "./model-limits";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { Provider } from "@earendil-works/pi-ai/models";
@@ -21,14 +23,29 @@ export function providerCatalog() {
     id: p.id,
     name: p.name,
     baseUrl: p.baseUrl ?? "",
-    apiSetup: !!p.baseUrl && !!p.auth.apiKey && ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"].includes(p.getModels()[0]?.api ?? ""),
+    apiSetup:
+      !!p.baseUrl &&
+      !!p.auth.apiKey &&
+      [
+        "openai-completions",
+        "openai-responses",
+        "anthropic-messages",
+        "google-generative-ai",
+      ].includes(p.getModels()[0]?.api ?? ""),
     authModes: [
       ...(p.auth.apiKey ? ["api_key", "ambient"] : []),
       ...(p.auth.oauth ? ["oauth"] : []),
     ] as AuthMode[],
     apiKeyLabel: p.auth.apiKey?.name,
     oauthLabel: p.auth.oauth?.loginLabel ?? p.auth.oauth?.name,
-    models: p.getModels().map((m) => ({ id: m.id, name: m.name, api: m.api })),
+    models: p.getModels().map((m) => ({
+        id: m.id,
+        name: m.name,
+        api: m.api,
+        contextWindow: m.contextWindow,
+        maxTokens: m.maxTokens,
+        cost: m.cost,
+    })),
   }));
 }
 export function captureModel(
@@ -37,13 +54,32 @@ export function captureModel(
   baseUrl: string,
   protocol: CustomProtocol = "openai-completions",
   discoveredModels: string[] = [],
+  modelLimits: Record<string, ModelLimits> = {},
 ): Model<Api> {
   if (service !== "custom") {
     const provider = nativeProvider(service);
     const models = provider.getModels();
-    const model = models.find((m) => m.id === id) ??
-      (discoveredModels.includes(id) && models[0] && ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"].includes(models[0].api)
-        ? { ...captureModel("custom", id, baseUrl, models[0].api as CustomProtocol), provider: service }
+    const model =
+      models.find((m) => m.id === id) ??
+      (discoveredModels.includes(id) &&
+      models[0] &&
+      [
+        "openai-completions",
+        "openai-responses",
+        "anthropic-messages",
+        "google-generative-ai",
+      ].includes(models[0].api)
+        ? {
+            ...captureModel(
+              "custom",
+              id,
+              baseUrl,
+              models[0].api as CustomProtocol,
+              [],
+              modelLimits,
+            ),
+            provider: service,
+          }
         : undefined);
     if (!model)
       throw new ApiError(
@@ -64,8 +100,9 @@ export function captureModel(
     baseUrl,
     input: ["text"],
     reasoning: false,
-    contextWindow: 32768,
-    maxTokens: 4096,
+    ...(Object.hasOwn(modelLimits, id)
+      ? modelLimits[id]
+      : DEFAULT_MODEL_LIMITS),
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   };
 }

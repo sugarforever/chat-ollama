@@ -16,7 +16,11 @@ export type PublicEntry = {
   partial?: boolean;
   timestamp?: number;
 };
-export type QueuedMessage = { id: string; content: string; mode: "followUp" | "steer" };
+export type QueuedMessage = {
+  id: string;
+  content: string;
+  mode: "followUp" | "steer";
+};
 export type ConversationSnapshot = {
   queue?: QueuedMessage[];
   id: string;
@@ -31,11 +35,12 @@ export type PublicProvider = {
   id: string;
   modelId: string;
   models?: string[];
+  effectiveModel?: EffectiveModelMetadata;
   name: string;
   baseUrl: string;
   hasApiKey: boolean;
   service?: string;
-  authMode?: 'api_key' | 'oauth' | 'ambient' | 'none';
+  authMode?: "api_key" | "oauth" | "ambient" | "none";
   protocol?: string;
 };
 export type ConversationConfig = {
@@ -55,4 +60,18 @@ export type SearchHit = {
   text: string;
   page?: number;
   score: number;
+};
+
+// Endpoint capabilities per generation, independent of reply style or tool-output budgets.
+export type ModelLimits = { contextWindow: number; maxTokens: number };
+export type EffectiveModelMetadata = ModelLimits & {
+  modelId: string;
+  source: "catalog" | "config" | "default";
+  costSource: "catalog" | "unknown";
+  cost?: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+  };
 };

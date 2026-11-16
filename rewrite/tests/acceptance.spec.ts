@@ -1825,3 +1825,28 @@ test("conversation skills default to global inventory and persist isolated exclu
   // Mutations without the browser's same-origin header are rejected.
   expect((await fetch(base + endpoint, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ excludedSkillIds: [] }) })).status).toBe(403);
 });
+
+test('model capabilities are managed by deployment configuration without user controls', async ({ page }) => {
+  await openWorkspace(page);
+  await writeFile(join(dir, 'model-capabilities.json'), JSON.stringify({ 'capabilities-ui': { fixture: { contextWindow: 8192, maxTokens: 512 } } }));
+  const prior = (await request(page, '/api/settings')).value;
+  const p = { id: 'capabilities-ui', name: 'Local model', service: 'custom', authMode: 'none', baseUrl: modelUrl, modelId: 'fixture' };
+  expect((await request(page, '/api/settings', { providers: [...prior.providers, p] })).status).toBe(200);
+  await page.goto(`${base}/settings/providers/capabilities-ui`);
+  await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Context window (tokens)', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Maximum supported output (tokens)', { exact: true })).toHaveCount(0);
+  // A normal connection edit preserves the deployment-owned metadata.
+  await expect(page.getByText('Connection verified', { exact: false })).toBeVisible();
+  await page.getByLabel('Name', { exact: true }).fill('Local coding model');
+  await expect.poll(async () => (await request(page, '/api/settings')).value.providers.find((v: any) => v.id === p.id).name).toBe('Local coding model');
+  await page.reload();
+  const saved = (await request(page, '/api/settings')).value.providers.find((v: any) => v.id === p.id);
+  expect(saved.effectiveModel).toMatchObject({ contextWindow: 8192, maxTokens: 512, source: 'config' });
+  expect(saved.modelLimits).toBeUndefined();
+  await expect(page.getByText('Connection verified', { exact: false })).toBeVisible();
+  await page.screenshot({ path: 'test-results/model-capabilities-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/model-capabilities-mobile.png', fullPage: true });
+});
