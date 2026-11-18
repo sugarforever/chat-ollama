@@ -31,6 +31,8 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { projectState } from "./projection";
 import { ASSISTANT_INSTRUCTIONS } from "./prompt";
 import { ApiError } from "../errors";
+import { effectiveModelMetadata } from "../model-limits";
+import { automaticCompactionPolicy, estimateFixedTokens } from "./compaction";
 import type { ConversationSnapshot, ProviderSelection } from "../../contracts";
 // Fingerprints survive native withdrawal, when a queued input has no transcript entry.
 const InputReceipts = defineDoc({
@@ -165,6 +167,13 @@ export async function openAgentSession(
     models.setProvider(runtimeProvider(value));
   }
   configure(endpoint);
+  function compactionBudget() {
+    const schemas = registry.snapshot().tools().map(({ tool }) => ({
+      name: tool.name, description: tool.description, parameters: tool.parameters,
+    }));
+    return automaticCompactionPolicy(effectiveModelMetadata(endpoint),
+      estimateFixedTokens(ASSISTANT_INSTRUCTIONS + skillContext + JSON.stringify(schemas)));
+  }
   const storage = await openNodeSqliteStorage(file);
   let harness;
   try {
@@ -202,6 +211,15 @@ export async function openAgentSession(
     const initialRun = (
       committed.value.docs["pi.live"] as LiveState | undefined
     )?.run;
+    if (!initialRun && !(committed.value.docs["pi.live"] as LiveState | undefined)?.compactions?.length) {
+      try {
+        await root.configure({ compaction: compactionBudget() }, context);
+      } catch (error) {
+        // Keep existing history readable when fixed context no longer fits.
+        // Admission repeats validation and returns the actionable error.
+        if (!(error instanceof ApiError && error.code === "CONTEXT_BUDGET")) throw error;
+      }
+    }
     if (
       initialRun &&
       (await harness.getTask(initialRun.taskId, context))?.abortRequested
@@ -314,6 +332,12 @@ export async function openAgentSession(
               "MCP_UNCERTAIN",
               "Acknowledge the uncertain MCP action first",
             );
+          if (!["running", "cancelling"].includes(snapshot().status)) {
+            // An answered generation may still have a background summary using
+            // its captured provider. Finish that native work before replacing it.
+            for (const compaction of (committed.value.docs["pi.live"] as LiveState | undefined)?.compactions ?? [])
+              await harness.waitForTask(compaction.taskId, context);
+          }
           if (
             toolOptions.loadMcpConfigs &&
             !["running", "cancelling"].includes(snapshot().status)
@@ -337,10 +361,6 @@ export async function openAgentSession(
             !["running", "cancelling"].includes(snapshot().status)
           ) {
             configure(loadEndpoint());
-            await root.configure(
-              { model: { provider: "chat", modelId: endpoint.modelId } },
-              context,
-            );
           }
           if (
             endpoint.service &&
@@ -373,6 +393,14 @@ export async function openAgentSession(
               { mode: 0o600 },
             );
             renameSync(`${skillContextFile}.tmp`, skillContextFile);
+          }
+          if (!["running", "cancelling"].includes(snapshot().status)) {
+            // Persist alongside the native agent. Recovery keeps the captured
+            // policy; queued/steered input never changes the active run budget.
+            await root.configure({
+              model: { provider: "chat", modelId: endpoint.modelId },
+              compaction: compactionBudget(),
+            }, context);
           }
           try {
             return await root.commit(async tx => {
