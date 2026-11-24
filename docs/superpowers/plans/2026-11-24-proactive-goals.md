@@ -37,13 +37,13 @@ Interfaces: parseGoalInput(unknown), parseAgreement(unknown), nextWindow(goalId,
 Files: rewrite/src/lib/server/goals/{documents,runtime}.ts and tests/goals-runtime.spec.ts,
 tests/fixtures/goals-child.ts. Interfaces: openGoalRuntime({file,resolveEndpoint,now?}),
 create(input), list(), snapshot(id), control(id,request), close().
-- [ ] Write failing real-storage tests for once/weekly, verification rejection,
+- [x] Write failing real-storage tests for once/weekly, verification rejection,
   standing authorization, independent goals, budgets, pause races and process restart.
-- [ ] Add session document families, atomic command receipts and native loop task.
-- [ ] Add constrained interpretation/review/work/verification/retrospect conversations,
+- [x] Add session document families, atomic command receipts and native loop task.
+- [x] Add constrained interpretation/review/work/verification/retrospect conversations,
   current-time context, owned submissions, host checks and persistent sleeps.
-- [ ] Validate bounded request accounting and generation fencing with real HTTP fixture.
-- [ ] Run all checks sequentially; commit and create PR based on PR 1.
+- [x] Validate bounded request accounting and generation fencing with real HTTP fixture.
+- [x] Run check/build/full test (171 tests), then new regression cases (19 Goal tests); commit and create PR based on PR 1.
 
 ## Task 3 / PR 3: application integration
 
