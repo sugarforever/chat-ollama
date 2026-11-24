@@ -46,3 +46,15 @@ test("independently bundled startup modules share one process owner", async () =
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// A failed Goal close must not strand chat/knowledge ownership or mask the original error.
+test("cleanup attempts every owner in dependency order and preserves its first error", async () => {
+  const { closeOwners } = await import('../src/lib/server/lifecycle');
+  const calls: string[] = []; const first = Error('goal close failed');
+  await expect(closeOwners([
+    async () => { calls.push('goals'); throw first; },
+    async () => { calls.push('chat'); throw Error('chat close failed'); },
+    async () => { calls.push('knowledge'); },
+  ])).rejects.toBe(first);
+  expect(calls).toEqual(['goals', 'chat', 'knowledge']);
+});

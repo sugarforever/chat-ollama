@@ -50,10 +50,10 @@ create(input), list(), snapshot(id), control(id,request), close().
 Files: startup.ts, server/api.ts, routes/api/goals/**, routes/goals/+page.svelte,
 ChatNavigation.svelte, tests/goals-http.spec.ts and browser acceptance.
 Interfaces: GET/POST /api/goals; GET /api/goals/:id; POST /api/goals/:id/commands.
-- [ ] Write failing production-server API tests including cross-origin and duplicate commands.
-- [ ] Bootstrap Goal runtime once; close it with the application. Add workbench and controls.
-- [ ] Test browser creation, result read, recurring active state, pause/revoke and mobile layout.
-- [ ] Run check/build/test/browser checks; record evidence, review diff and create stacked PR.
+- [x] Write failing production-server API tests including cross-origin and duplicate commands.
+- [x] Bootstrap Goal runtime once; close it with the application. Add workbench and controls.
+- [x] Test browser creation, result read, recurring active state, pause/revoke and mobile layout.
+- [x] Run check/build/test/browser checks (178 Vitest tests and 50 browser tests); record evidence, review diff and create stacked PR.
 
 ## Self-review
 
@@ -61,3 +61,5 @@ The product's arbitrary capabilities exceed this first text-work slice. Expose m
 capabilities explicitly; do not describe text-only completion as live research, account
 actions or a fully evaluated general-purpose autonomous agent. Future tool integrations
 must reuse their existing security/uncertainty guarantees rather than bypassing them.
+
+Validation evidence: [Goal runtime/workbench](../../../rewrite/docs/goals-evidence.md). Browser attachment upload remains blocked by the client browser connector; ignored local screenshots are retained.
