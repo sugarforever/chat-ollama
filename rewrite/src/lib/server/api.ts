@@ -3,6 +3,10 @@ import { ApiError } from "./errors";
 import type { ConversationConfig } from "../contracts";
 
 const publicErrors: Record<string, [number, string]> = {
+  GOAL_NOT_FOUND: [404, "Goal or result not found"],
+  GOAL_CONFLICT: [409, "Goal changed; refresh before trying again"],
+  GOAL_TERMINAL: [409, "This Goal has ended"],
+  GOAL_LIMIT: [429, "Goal storage limit reached"],
   INVALID_SKILL: [400, "No valid skills found, or invalid skill files. Each skill needs SKILL.md with name and description frontmatter; paths must be relative and unique."],
   SKILL_URL: [400, "Enter a public HTTPS GitHub repository or tree/folder URL without credentials, query or fragment."],
   SKILL_LIMIT: [413, "Skill resource limit exceeded: 1,000 files, 100 skills, 20 MiB total, 5 MiB per file and 128 KiB per SKILL.md."],

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from "$app/paths";
   import { Dialog } from "bits-ui";
-  import { Menu, SquarePen, Settings, X } from "@lucide/svelte";
+  import { Menu, SquarePen, Settings, Target, X } from "@lucide/svelte";
   import Button from "$lib/components/ui/button/button.svelte";
   let {
     conversations,
@@ -62,6 +62,7 @@
     {:else}<p class="muted">No conversations yet</p>{/each}
   </nav>
   <div class="sidebar-footer">
+    <a href="/goals"><Target size={18} />Goals</a>
     <a href="/settings"><Settings size={18} />Settings</a>
   </div>
 {/snippet}

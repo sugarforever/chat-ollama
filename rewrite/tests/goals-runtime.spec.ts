@@ -6,7 +6,7 @@ import { openGoalRuntime } from '../src/lib/server/goals/runtime';
 import { goalModel } from './fixtures/goal-model';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const fn of cleanup.reverse()) await fn(); cleanup.length = 0; });
-async function setup(options: { reject?: boolean; weekly?: boolean; missing?: boolean; maintain?: boolean; unresolvedWeekly?: boolean; now?: () => number; phaseTimeoutMs?: number; globalDailyRequests?: number; retrospectMinutes?: number } = {}) {
+async function setup(options: { reject?: boolean; weekly?: boolean; missing?: boolean; maintain?: boolean; unresolvedWeekly?: boolean; collapsedWindow?: boolean; prepareUnscheduled?: boolean; now?: () => number; phaseTimeoutMs?: number; globalDailyRequests?: number; retrospectMinutes?: number } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'goals-test-'));
   cleanup.push(() => rm(dir, { recursive: true, force: true }));
   const model = await goalModel(options); cleanup.push(() => model.close());
@@ -152,4 +152,50 @@ test('revocation fences old work while other Goals continue and subsequent resum
   await until(() => runtime.snapshot(other.id), s => s.goal.lifecycle === 'completed');
   expect((await runtime.snapshot(id)).goal.authorized).toBe(false);
   expect((await runtime.snapshot(id)).artifacts).toHaveLength(0);
+});
+
+test('an unanswered missing-capability question retains a durable review without repeating notifications', async () => {
+  let clock = Date.parse('2026-11-24T08:00Z');
+  const { runtime, model, open } = await setup({ missing: true, now: () => clock });
+  const { id } = await runtime.create(input);
+  const first = await until(() => runtime.snapshot(id), s => !!s.goal.question);
+  expect(first.goal.nextReviewAt).toBeGreaterThan(clock);
+  await runtime.close(); clock += 86400000;
+  const reopened = await open();
+  await until(() => reopened.snapshot(id), s => s.activity.filter(a => a.kind === 'review').length === 2);
+  const second = await reopened.snapshot(id);
+  expect(second.goal.lifecycle).toBe('active');
+  expect(second.activity.filter(a => a.kind === 'question')).toHaveLength(1);
+  expect(model.calls.filter(c => c.purpose === 'review')).toHaveLength(2);
+});
+test('a collapsed DST window stays an explicit decision after the date passes instead of skipping silently', async () => {
+  let clock = Date.parse('2027-03-28T00:00Z');
+  const { runtime, open } = await setup({ collapsedWindow: true, now: () => clock });
+  const { id } = await runtime.create(input);
+  await until(() => runtime.snapshot(id), s => s.goal.question?.includes('DST') === true);
+  await runtime.close(); clock += 86400000;
+  const reopened = await open();
+  const again = await until(() => reopened.snapshot(id), s => s.activity.filter(a => a.kind === 'review').length === 2);
+  expect(again.goal.question).toContain('DST'); expect(again.occurrences).toHaveLength(0);
+  expect(again.activity.filter(a => a.kind === 'question')).toHaveLength(1);
+  expect(again.goal.lifecycle).toBe('active');
+});
+
+test('completed preparation stays succeeded while missing weekly scheduling is reviewed without duplicate results', async () => {
+  let clock = Date.parse('2026-11-24T08:00Z');
+  const { runtime, open } = await setup({ unresolvedWeekly: true, prepareUnscheduled: true, now: () => clock });
+  const { id } = await runtime.create(input);
+  const prepared = await until(() => runtime.snapshot(id), s => s.artifacts.length === 1 && !!s.goal.question);
+  expect(prepared.occurrences[0].state).toBe('succeeded');
+  let current = runtime;
+  for (let n = 0; n < 2; n++) {
+    await current.close(); clock += 86400000; current = await open();
+    await until(() => current.snapshot(id), s => s.goal.nextReviewAt! > clock);
+    const saved = await current.snapshot(id);
+    expect(saved.artifacts).toHaveLength(1);
+    expect(saved.occurrences).toHaveLength(1);
+    expect(saved.occurrences[0].state).toBe('succeeded');
+    expect(saved.activity.filter(a => a.kind === 'result')).toHaveLength(1);
+    expect(saved.activity.filter(a => a.kind === 'question')).toHaveLength(1);
+  }
 });

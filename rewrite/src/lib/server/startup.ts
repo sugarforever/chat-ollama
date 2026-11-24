@@ -1,3 +1,5 @@
+import { closeOwners } from "./lifecycle";
+import { openGoalRuntime } from "./goals/runtime";
 import { skillStore } from "./skills/store";
 import { knowledge } from "./knowledge";
 import { loadMcpServers } from "./mcp/config";
@@ -23,12 +25,16 @@ async function start() {
         ? [sources.createKnowledgeTool(config.knowledgeBaseIds)]
         : [],
   });
-  await manager.resume();
+  let goals;
+  try {
+    await manager.resume();
+    goals = await openGoalRuntime({ file: resolve(process.env.DATA_DIR || "data", "goals.sqlite"), resolveEndpoint: resolveChatEndpoint });
+  } catch (error) { await closeOwners([() => manager.close(), () => sources.close()]).catch(() => {}); throw error; }
   return {
+    goals,
     ...manager,
     async close() {
-      await manager.close();
-      await sources.close();
+      await closeOwners([() => goals.close(), () => manager.close(), () => sources.close()]);
     },
   };
 }

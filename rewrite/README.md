@@ -354,3 +354,73 @@ Pi retains its normal provider-error/overflow behavior in that case.
 SQLite storage across Node processes. It records elapsed time, summary-inclusive
 reported tokens and completed external actions. These fixtures validate lifecycle
 and accounting, not summary quality or real-model recall.
+
+## Goal workbench
+
+Open **Goals** from the chat sidebar or `/goals`. Describe the result in natural
+language, select a provider/model, and explicitly allow ongoing supplied-text
+analysis and Markdown work. That standing permission is reusable until revoked;
+ordinary answers cannot grant it. Review the interpreted result agreement and
+correct it with **Edit agreement** when needed.
+
+The first executable capability slice analyzes the text you provide and saves
+Markdown results. It can prepare a real document without a URL, review progress
+without external changes, verify the saved content in a separate model conversation,
+and distinguish each weekly delivery from the continuing Goal. Missing live data,
+web access, shell, MCP actions or external publication capabilities lead to a concrete
+question; Goal creation does not inherit chat's unrestricted CodingTools. Independent
+Goals continue when another Goal is waiting. A general work graph with independently
+blocked subtasks within one Goal and scoped MCP/knowledge capabilities are not yet
+implemented by this text-work slice.
+
+Weekly agreements need a resolved IANA timezone, weekdays and local preparation/
+delivery times. The next admitted window retains its identity across restart;
+Dublin DST is covered by tests. A DST change that leaves no preparation/delivery
+window asks for corrected times. A late existing period resumes through Pi Durable;
+there is no application skip/backfill policy. Stopping the host stops execution until
+restart. Closing the browser does not stop the Goal.
+
+Defaults are engineering limits: two simultaneous Goal model phases globally,
+60 provider requests per UTC day globally, 12 per Goal (adjustable), a 90-second
+phase deadline, four actual requests per phase including recovery, and at most
+two content revisions after failed acceptance. Every provider-body dispatch reserves
+budget durably; provider-internal retries are disabled. Unknown request outcomes
+remain charged. **Change provider or limits** can change the saved selection,
+priority, daily budget and explicit hard stop. Expected delivery time is separate
+from the hard stop. Pause and revoke persist a generation fence before cancelling
+old work; Resume does not reinstate revoked authorization.
+
+**Saved results** displays/downloads Markdown; saving alone does not mean acceptance.
+Host checks require a saved artifact plus quoted evidence for every agreement criterion
+from independent verification. These checks do not prove real-world factual correctness
+or subjective quality. Evidence gaps ask for a decision; there is no manual-success
+button that bypasses acceptance. **Activity and retrospect** preserves routine work,
+verification and evidence-based strategy changes without push messages. The workbench
+shows the latest 50 activity/period/artifact records; older documents are retained and
+an artifact's stable API URL remains readable. External notifications, question expiry
+and general resource-event subscriptions are not implemented in this first slice.
+
+HTTP endpoints use the existing single-administrator network-access model and
+same-origin mutation checks:
+
+- `GET/POST /api/goals`: list/create; creation returns a committed Goal ID (201),
+  not a promise that background work is already complete.
+- `GET /api/goals/:id`: current agreement, status, periods, artifacts and activity.
+- `POST /api/goals/:id/commands`: `{requestId, expectedRevision, action}` for
+  pause/resume/cancel/review/authorize/revoke; answer/edit also require `text`.
+  `configure` accepts explicit provider/model selection, priority, dailyRequests
+  or nullable deadlineAt. Repeated identical IDs return the original receipt;
+  conflicting content or stale revisions return 409.
+- `GET /api/goals/:id/artifacts/:artifactId`: scoped artifact JSON; `?download=1`
+  downloads inert Markdown.
+
+`DATA_DIR/goals.sqlite` owns Goal documents, command receipts, budgets, native model
+conversations and loop checkpoints. Include it and its WALs in the existing stopped
+whole-directory backup. This is additive storage; no legacy monitor or chat migration
+is performed. Keep the matching task definitions available while pending Goals exist.
+
+`tests/goals-runtime.spec.ts`, `goals-recovery.spec.ts`, `goals-http.spec.ts` and
+`goals.acceptance.ts` exercise real SQLite and local protocol fixtures, including
+separate-process SIGKILL during generation and verification. These are execution and
+state guarantees on an intact volume, not real-model quality, live sports forecasts,
+power-loss recovery or external side-effect exactly-once guarantees.
