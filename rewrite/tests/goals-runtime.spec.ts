@@ -130,8 +130,12 @@ test('answer resolves missing calendar information through constrained interpret
   const { id } = await runtime.create(input);
   const waiting = await until(() => runtime.snapshot(id), s => s.goal.question?.includes('timezone') === true);
   expect(waiting.goal.agreement?.schedule).toBeNull();
+  model.hold('review');
   await runtime.control(id, { requestId: 'clarify', expectedRevision: waiting.goal.revision, action: 'answer', text: 'Europe/Dublin, Friday preparation 09:00, delivery 12:00.' });
-  const scheduled = await until(() => runtime.snapshot(id), s => s.goal.agreement?.schedule?.timezone === 'Europe/Dublin' && !!s.goal.nextReviewAt && !s.goal.question);
+  const interpreted = await until(() => runtime.snapshot(id), s => s.goal.agreement?.schedule?.timezone === 'Europe/Dublin' && !s.goal.question);
+  expect(interpreted.goal.nextReviewAt).toBe(clock); // Interpreted is not yet scheduled.
+  model.release('review');
+  const scheduled = await until(() => runtime.snapshot(id), s => s.goal.agreement?.schedule?.timezone === 'Europe/Dublin' && s.goal.waiting === 'Waiting for the next delivery window');
   expect(scheduled.goal.nextReviewAt).toBe(Date.parse('2026-11-27T09:00Z'));
   expect(scheduled.goal.authorized).toBe(true);
   expect(model.calls.filter(c => c.purpose === 'interpret')).toHaveLength(2);
