@@ -1,0 +1,155 @@
+import { afterEach, expect, test } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { openGoalRuntime } from '../src/lib/server/goals/runtime';
+import { goalModel } from './fixtures/goal-model';
+const cleanup: (() => Promise<unknown>)[] = [];
+afterEach(async () => { for (const fn of cleanup.reverse()) await fn(); cleanup.length = 0; });
+async function setup(options: { reject?: boolean; weekly?: boolean; missing?: boolean; maintain?: boolean; unresolvedWeekly?: boolean; now?: () => number; phaseTimeoutMs?: number; globalDailyRequests?: number; retrospectMinutes?: number } = {}) {
+  const dir = await mkdtemp(join(tmpdir(), 'goals-test-'));
+  cleanup.push(() => rm(dir, { recursive: true, force: true }));
+  const model = await goalModel(options); cleanup.push(() => model.close());
+  const open = async () => {
+    const runtime = await openGoalRuntime({ file: join(dir, 'goals.sqlite'), resolveEndpoint: () => model.endpoint, now: options.now, phaseTimeoutMs: options.phaseTimeoutMs, globalDailyRequests: options.globalDailyRequests, retrospectMinutes: options.retrospectMinutes });
+    cleanup.push(() => runtime.close()); return runtime;
+  };
+  const runtime = await open();
+  return { model, runtime, open };
+}
+const input = { text: 'Write an introduction: background is a goal-driven assistant; uses are durable text work.', requestId: 'create', providerId: 'fixture', modelId: 'fixture', authorizeTextWork: true };
+async function until<T>(read: () => Promise<T>, predicate: (value: T) => boolean): Promise<T> {
+  const end = Date.now() + 10000;
+  while (Date.now() < end) { const value = await read(); if (predicate(value)) return value; await new Promise(r => setTimeout(r, 20)); }
+  throw new Error('Goal did not reach expected state');
+}
+test('once goal produces saved content and separate evidence before completion; retries and reopen retain identity', async () => {
+  const { runtime, model, open } = await setup();
+  const created = await runtime.create(input);
+  expect(await runtime.create(input)).toEqual(created);
+  await expect(runtime.create({ ...input, text: 'Changed' })).rejects.toMatchObject({ code: 'REQUEST_CONFLICT' });
+  const done = await until(() => runtime.snapshot(created.id), s => s.goal.lifecycle === 'completed');
+  expect(done.artifacts[0].content).toContain('## Background');
+  expect(done.occurrences[0].evidence.length).toBeGreaterThan(0);
+  expect(done.activity.filter(a => a.kind === 'result')).toHaveLength(1);
+  expect(model.calls.map(c => c.purpose)).toEqual(['interpret', 'review', 'work', 'verify']);
+  expect(model.calls.every(c => !c.body.tools?.length)).toBe(true);
+  await runtime.close(); const reopened = await open();
+  expect(await reopened.create(input)).toEqual(created);
+  expect((await reopened.snapshot(created.id)).artifacts).toEqual(done.artifacts);
+  expect(model.calls).toHaveLength(4);
+});
+test('no authorization means draft; explicit standing authorization enables work and ordinary answers never grant it', async () => {
+  const { runtime, model } = await setup();
+  const created = await runtime.create({ ...input, authorizeTextWork: false });
+  const draft = await runtime.snapshot(created.id);
+  expect(draft.goal.lifecycle).toBe('draft'); expect(model.calls).toHaveLength(0);
+  await runtime.control(created.id, { requestId: 'answer', expectedRevision: draft.goal.revision, action: 'answer', text: 'Yes' });
+  expect((await runtime.snapshot(created.id)).goal.authorized).toBe(false);
+  await runtime.control(created.id, { requestId: 'grant', expectedRevision: draft.goal.revision + 1, action: 'authorize' });
+  await until(() => runtime.snapshot(created.id), s => s.goal.lifecycle === 'completed');
+});
+test('pause fences an in-flight result; resume keeps saved artifact and does not regenerate it', async () => {
+  const { runtime, model } = await setup(); model.hold('verify');
+  const { id } = await runtime.create(input);
+  const verifying = await until(() => runtime.snapshot(id), s => s.artifacts.length === 1);
+  const command = { requestId: 'pause', expectedRevision: verifying.goal.revision, action: 'pause' as const };
+  await runtime.control(id, command); await runtime.control(id, command);
+  model.release('verify');
+  expect((await runtime.snapshot(id)).goal.lifecycle).toBe('paused');
+  expect((await runtime.snapshot(id)).activity.filter(a => a.kind === 'result')).toHaveLength(0);
+  const paused = await runtime.snapshot(id);
+  await runtime.control(id, { requestId: 'resume', expectedRevision: paused.goal.revision, action: 'resume' });
+  const done = await until(() => runtime.snapshot(id), s => s.goal.lifecycle === 'completed');
+  expect(done.artifacts).toHaveLength(1);
+  expect(model.calls.filter(c => c.purpose === 'work')).toHaveLength(1);
+});
+test('rejected verification never produces success and revisions stop at the bound', async () => {
+  const { runtime } = await setup({ reject: true });
+  const { id } = await runtime.create(input);
+  const blocked = await until(() => runtime.snapshot(id), s => !!s.goal.question && s.artifacts.length > 0);
+  expect(blocked.goal.lifecycle).toBe('active');
+  expect(blocked.occurrences[0].state).toBe('waiting');
+  expect(blocked.activity.filter(a => a.kind === 'result')).toHaveLength(0);
+  expect(blocked.artifacts).toHaveLength(3);
+});
+test('missing live capability asks concretely without claiming delivery', async () => {
+  const { runtime } = await setup({ missing: true });
+  const { id } = await runtime.create(input);
+  const blocked = await until(() => runtime.snapshot(id), s => s.goal.question?.includes('current evidence') === true);
+  expect(blocked.goal.lifecycle).toBe('active');
+  expect(blocked.artifacts).toHaveLength(0);
+});
+
+test('Friday work and retrospect survive reopen; each completed period leaves weekly Goal active', async () => {
+  let clock = Date.parse('2026-11-27T08:00Z');
+  const { runtime, model, open } = await setup({ weekly: true, now: () => clock });
+  const { id } = await runtime.create(input);
+  const waiting = await until(() => runtime.snapshot(id), s => s.goal.waiting === 'Waiting for the next delivery window');
+  expect(waiting.artifacts).toHaveLength(0);
+  await runtime.close(); clock = Date.parse('2026-11-27T09:00Z');
+  const friday = await open();
+  const first = await until(() => friday.snapshot(id), s => s.activity.some(a => a.kind === 'result'));
+  expect(first.goal.lifecycle).toBe('active');
+  expect(first.occurrences[0].key).toBe(`${id}:1:2026-11-27`);
+  expect(first.occurrences[0].dueAt).toBe(Date.parse('2026-11-27T12:00Z'));
+  await friday.close(); clock = Date.parse('2026-12-04T09:00Z');
+  const next = await open();
+  const second = await until(() => next.snapshot(id), s => s.activity.filter(a => a.kind === 'result').length === 2);
+  expect(second.goal.lifecycle).toBe('active'); expect(second.artifacts).toHaveLength(2);
+  expect(second.occurrences[1].key).toBe(`${id}:1:2026-12-04`);
+  expect(second.activity.some(a => a.kind === 'retrospect' && a.evidence.length)).toBe(true);
+  expect(model.calls.filter(c => c.purpose === 'work')).toHaveLength(2);
+});
+test('persistent per-goal and global reservations stop model attempts across restart', async () => {
+  const { runtime, model, open } = await setup({ globalDailyRequests: 2 });
+  const { id } = await runtime.create(input);
+  await until(() => runtime.snapshot(id), s => s.goal.waiting === 'Daily model budget exhausted');
+  expect(model.calls).toHaveLength(2);
+  await runtime.close(); const reopened = await open();
+  expect((await reopened.snapshot(id)).artifacts).toHaveLength(0);
+  expect(model.calls).toHaveLength(2);
+});
+test('independent authorized work advances while another Goal lacks authorization or information', async () => {
+  const { runtime } = await setup();
+  await runtime.create({ ...input, requestId: 'blocked', authorizeTextWork: false });
+  const { id } = await runtime.create(input);
+  expect((await until(() => runtime.snapshot(id), s => s.goal.lifecycle === 'completed')).artifacts).toHaveLength(1);
+});
+test('hard phase deadline cancels a held provider request and exposes a concrete failure', async () => {
+  const { runtime, model } = await setup({ phaseTimeoutMs: 100 }); model.hold('work');
+  const { id } = await runtime.create(input);
+  const blocked = await until(() => runtime.snapshot(id), s => !!s.goal.question);
+  expect(blocked.artifacts).toHaveLength(0);
+  expect(model.calls.filter(c => c.purpose === 'work').length).toBeLessThanOrEqual(2);
+});
+
+test('answer resolves missing calendar information through constrained interpretation without granting tools', async () => {
+  const clock = Date.parse('2026-11-27T08:00Z');
+  const { runtime, model } = await setup({ unresolvedWeekly: true, now: () => clock });
+  const { id } = await runtime.create(input);
+  const waiting = await until(() => runtime.snapshot(id), s => s.goal.question?.includes('timezone') === true);
+  expect(waiting.goal.agreement?.schedule).toBeNull();
+  model.hold('review');
+  await runtime.control(id, { requestId: 'clarify', expectedRevision: waiting.goal.revision, action: 'answer', text: 'Europe/Dublin, Friday preparation 09:00, delivery 12:00.' });
+  const interpreted = await until(() => runtime.snapshot(id), s => s.goal.agreement?.schedule?.timezone === 'Europe/Dublin' && !s.goal.question);
+  expect(interpreted.goal.nextReviewAt).toBe(clock); // Interpreted is not yet scheduled.
+  model.release('review');
+  const scheduled = await until(() => runtime.snapshot(id), s => s.goal.agreement?.schedule?.timezone === 'Europe/Dublin' && s.goal.waiting === 'Waiting for the next delivery window');
+  expect(scheduled.goal.nextReviewAt).toBe(Date.parse('2026-11-27T09:00Z'));
+  expect(scheduled.goal.authorized).toBe(true);
+  expect(model.calls.filter(c => c.purpose === 'interpret')).toHaveLength(2);
+});
+test('revocation fences old work while other Goals continue and subsequent resume cannot regrant', async () => {
+  const { runtime, model } = await setup(); model.hold('work');
+  const { id } = await runtime.create(input);
+  const running = await until(() => runtime.snapshot(id), s => s.activity.some(a => a.kind === 'review'));
+  await runtime.control(id, { requestId: 'revoke', expectedRevision: running.goal.revision, action: 'revoke' });
+  model.release('work');
+  const revoked = await runtime.snapshot(id);
+  await runtime.control(id, { requestId: 'resume', expectedRevision: revoked.goal.revision, action: 'resume' });
+  const other = await runtime.create({ ...input, requestId: 'other' });
+  await until(() => runtime.snapshot(other.id), s => s.goal.lifecycle === 'completed');
+  expect((await runtime.snapshot(id)).goal.authorized).toBe(false);
+  expect((await runtime.snapshot(id)).artifacts).toHaveLength(0);
+});
