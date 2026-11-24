@@ -20,6 +20,7 @@
     "@earendil-works/chord": "1.5.2",
     "@earendil-works/pi-ai": "1.5.2",
     "@earendil-works/pi-durable": "1.5.2",
+    "@js-temporal/polyfill": "0.5.1",
     "@lucide/svelte": "1.72.0",
     "@modelcontextprotocol/sdk": "1.25.3",
     "@sinclair/typebox": "0.34.41",
