@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { parseAgreement, parseGoalInput } from '../src/lib/goals/contracts';
-import { nextWindow } from '../src/lib/server/goals/schedule';
+import { nextWindow, ScheduleConflict } from '../src/lib/server/goals/schedule';
 
 test('text-only goals require no URL and model interpretation cannot grant tools', () => {
   expect(parseGoalInput({ text: 'Write an introduction', providerId: 'legacy', modelId: 'fixture', requestId: 'one' }).text).toBe('Write an introduction');
@@ -24,4 +24,12 @@ test('invalid or unresolved calendar contracts cannot silently become intervals'
   const base = { objective: 'Forecast', criteria: ['Coverage'], mode: 'weekly', missing: [] };
   expect(() => parseAgreement({ ...base, schedule: { timezone: '', weekdays: [5], startLocalTime: '09:00', dueLocalTime: '12:00', endDate: null } })).toThrow();
   expect(() => parseAgreement({ ...base, schedule: { timezone: 'Europe/Dublin', weekdays: [5], startLocalTime: '13:00', dueLocalTime: '12:00', endDate: null } })).toThrow();
+});
+
+test('impossible ISO end dates are rejected at admission', () => {
+  for (const endDate of ['2027-02-30', '2027-13-01'])
+    expect(() => parseAgreement({ objective: 'Forecast', criteria: ['Coverage'], mode: 'weekly', missing: [], schedule: { timezone: 'Europe/Dublin', weekdays: [5], startLocalTime: '09:00', dueLocalTime: '12:00', endDate } })).toThrow();
+});
+test('DST-collapsed window surfaces a recoverable schedule conflict instead of inventing a deadline', () => {
+  expect(() => nextWindow('g', 1, { timezone: 'Europe/Dublin', weekdays: [7], startLocalTime: '01:30', dueLocalTime: '02:00', endDate: null }, Date.parse('2027-03-28T00:00Z'))).toThrow(ScheduleConflict);
 });

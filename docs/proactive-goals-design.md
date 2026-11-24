@@ -77,7 +77,9 @@ records evidence and changes the next plan; it cannot end an open Goal by itself
 
 Weekly scheduling uses Temporal 0.5.1 with explicit IANA zone, ISO weekdays, local
 preparation/delivery times and optional inclusive end date. Compatible DST resolution
-shifts gaps and chooses earlier folds. Stable keys include Goal ID, schedule revision
+shifts gaps and chooses earlier folds. If that collapses or reverses a particular
+preparation/delivery window, return a typed ScheduleConflict for the host to
+surface as a concrete user decision; never invent a later deadline or skip the period. Stable keys include Goal ID, schedule revision
 and local date. Expected delivery is distinct from explicit hard expiry. Recovery
 retains submitted periods even when their expected dates pass.
 

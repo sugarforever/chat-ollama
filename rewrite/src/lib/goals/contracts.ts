@@ -9,7 +9,10 @@ export const weeklySchema = z.object({
   weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7),
   startLocalTime: clock,
   dueLocalTime: clock,
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }, 'Invalid calendar date').nullable(),
 }).strict().refine(value => value.dueLocalTime > value.startLocalTime, 'Delivery must follow preparation on the same local day');
 export const agreementSchema = z.object({
   objective: shortText,

@@ -1,6 +1,12 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { weeklySchema, type WeeklySchedule } from '../../goals/contracts';
 
+export class ScheduleConflict extends Error {
+  constructor(public localDate: string) {
+    super(`DST leaves no valid preparation/delivery window on ${localDate}. Choose different local times.`);
+  }
+}
+
 /** Future windows only. Existing admitted work is never replaced by this calculation. */
 export function nextWindow(goalId: string, revision: number, input: WeeklySchedule, after: number) {
   const schedule = weeklySchema.parse(input);
@@ -15,7 +21,7 @@ export function nextWindow(goalId: string, revision: number, input: WeeklySchedu
     const startAt = instant(schedule.startLocalTime);
     if (startAt < after) continue;
     const dueAt = instant(schedule.dueLocalTime);
-    if (dueAt <= startAt) throw new RangeError('Delivery must follow resolved start');
+    if (dueAt <= startAt) throw new ScheduleConflict(String(day));
     return { key: `${goalId}:${revision}:${day}`, startAt, dueAt };
   }
   return null;
