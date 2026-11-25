@@ -1,5 +1,10 @@
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export type Passage = { text: string; page?: number };
+// Chunk sizes are measured in UTF-16 units, but slices must not split a code point.
+function codePointBoundary(text: string, offset: number): number {
+  return (text.codePointAt(offset - 1) ?? 0) > 0xffff ? offset - 1 : offset;
+}
+
 export async function extract(
   bytes: Uint8Array,
   extension: string,
@@ -61,10 +66,11 @@ export async function extract(
           if (sentence > start + 600) end = sentence + 1;
         }
       }
+      end = codePointBoundary(text, end);
       const chunk = text.slice(start, end).trim();
       if (chunk) result.push({ text: chunk, page: page.page });
       if (end === text.length) break;
-      start = Math.max(start + 1, end - 150);
+      start = codePointBoundary(text, Math.max(start + 1, end - 150));
     }
   }
   if (!result.length) throw Error("Document contains no text");
