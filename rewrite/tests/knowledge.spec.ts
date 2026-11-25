@@ -106,6 +106,25 @@ test("English and Chinese semantic search, stable citations, PDF page refs, isol
   expect(() => service.source(oceanSource)).toThrow();
 });
 
+test.each([
+  { boundary: "end", prefix: 1199, suffix: 300, copies: [false, true] },
+  { boundary: "overlap", prefix: 1049, suffix: 450, copies: [true, true] },
+])("keeps supplementary characters intact at the chunk $boundary", async ({ prefix, suffix, copies }) => {
+  const { service, endpoint } = await setup();
+  const c = service.createCollection("Unicode boundaries");
+  const doc = await upload(
+    service,
+    c.id,
+    "a".repeat(prefix) + "🐳" + "b".repeat(suffix),
+  );
+  await service.idle();
+  expect(service.document(doc.id).status).toBe("ready");
+
+  const inputs = endpoint.requests.flatMap(({ input }) => input);
+  expect(inputs.map((text) => text.isWellFormed())).toEqual([true, true]);
+  expect(inputs.map((text) => text.includes("🐳"))).toEqual(copies);
+});
+
 test("bounded uploads, unsupported types, empty/scanned PDFs and sanitized retry failures", async () => {
   const { service, endpoint } = await setup();
   const c = service.createCollection("Limits");
