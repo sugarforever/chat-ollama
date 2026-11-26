@@ -33,3 +33,71 @@ test('impossible ISO end dates are rejected at admission', () => {
 test('DST-collapsed window surfaces a recoverable schedule conflict instead of inventing a deadline', () => {
   expect(() => nextWindow('g', 1, { timezone: 'Europe/Dublin', weekdays: [7], startLocalTime: '01:30', dueLocalTime: '02:00', endDate: null }, Date.parse('2027-03-28T00:00Z'))).toThrow(ScheduleConflict);
 });
+
+test('deliverables contract validates once-only multi-deliverable specs and rejects invalid shapes', () => {
+  const valid = parseAgreement({
+    objective: 'Prepare release package',
+    criteria: ['Release notes', 'Short summary', 'Compat notes'],
+    mode: 'once',
+    schedule: null,
+    missing: [],
+    deliverables: [
+      { id: 'release-notes', title: '发布说明', criteria: ['包含变更'] },
+      { id: 'short-summary', title: '更新介绍', criteria: ['150字以内'], missing: [] },
+      { id: 'compat-notes', title: '兼容性说明', criteria: ['引用实测记录'], missing: ['缺少实测记录'] },
+    ],
+  });
+  expect(valid.deliverables).toHaveLength(3);
+  expect(valid.deliverables?.[0].missing).toEqual([]);
+
+  // Max 5 deliverables
+  expect(() => parseAgreement({
+    objective: 'Too many',
+    criteria: ['All'],
+    mode: 'once',
+    schedule: null,
+    missing: [],
+    deliverables: Array.from({ length: 6 }, (_, i) => ({ id: `item-${i}`, title: `Item ${i}`, criteria: ['Done'], missing: [] })),
+  })).toThrow();
+
+  // Unique IDs
+  expect(() => parseAgreement({
+    objective: 'Dup IDs',
+    criteria: ['All'],
+    mode: 'once',
+    schedule: null,
+    missing: [],
+    deliverables: [
+      { id: 'dup', title: 'One', criteria: ['A'], missing: [] },
+      { id: 'dup', title: 'Two', criteria: ['B'], missing: [] },
+    ],
+  })).toThrow();
+
+  // Invalid ID slug
+  expect(() => parseAgreement({
+    objective: 'Bad ID',
+    criteria: ['All'],
+    mode: 'once',
+    schedule: null,
+    missing: [],
+    deliverables: [{ id: 'Bad_ID!', title: 'One', criteria: ['A'], missing: [] }],
+  })).toThrow();
+
+  // Non-once modes cannot have non-empty deliverables
+  expect(() => parseAgreement({
+    objective: 'Weekly',
+    criteria: ['Coverage'],
+    mode: 'weekly',
+    schedule: { timezone: 'Europe/Dublin', weekdays: [5], startLocalTime: '09:00', dueLocalTime: '12:00', endDate: null },
+    missing: [],
+    deliverables: [{ id: 'one', title: 'One', criteria: ['A'], missing: [] }],
+  })).toThrow();
+  expect(() => parseAgreement({
+    objective: 'Maintain',
+    criteria: ['Coverage'],
+    mode: 'maintain',
+    schedule: null,
+    missing: [],
+    deliverables: [{ id: 'one', title: 'One', criteria: ['A'], missing: [] }],
+  })).toThrow();
+});

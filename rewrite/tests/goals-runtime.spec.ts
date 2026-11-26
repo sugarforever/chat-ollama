@@ -6,7 +6,7 @@ import { openGoalRuntime } from '../src/lib/server/goals/runtime';
 import { goalModel } from './fixtures/goal-model';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const fn of cleanup.reverse()) await fn(); cleanup.length = 0; });
-async function setup(options: { reject?: boolean; weekly?: boolean; missing?: boolean; maintain?: boolean; unresolvedWeekly?: boolean; collapsedWindow?: boolean; prepareUnscheduled?: boolean; now?: () => number; phaseTimeoutMs?: number; globalDailyRequests?: number; retrospectMinutes?: number } = {}) {
+async function setup(options: { reject?: boolean; weekly?: boolean; missing?: boolean; maintain?: boolean; unresolvedWeekly?: boolean; collapsedWindow?: boolean; prepareUnscheduled?: boolean; deliverables?: boolean; deliverableAskId?: string; deliverableRejectId?: string; deliverableNeedsUserId?: string; deliverableBadVerify?: { id: string; mode: 'criterion-mismatch' | 'evidence-mismatch' }; now?: () => number; phaseTimeoutMs?: number; globalDailyRequests?: number; retrospectMinutes?: number } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'goals-test-'));
   cleanup.push(() => rm(dir, { recursive: true, force: true }));
   const model = await goalModel(options); cleanup.push(() => model.close());
@@ -199,3 +199,149 @@ test('completed preparation stays succeeded while missing weekly scheduling is r
     expect(saved.activity.filter(a => a.kind === 'question')).toHaveLength(1);
   }
 });
+
+test('multi-deliverable once goal completes ready items, blocks on missing item, and answering preserves prior accepted deliverables identically', async () => {
+  const { runtime, model } = await setup({ deliverables: true });
+  const { id } = await runtime.create({ ...input, text: '准备发布说明、150字以内更新介绍和基于实测记录的兼容性说明' });
+  const blocked = await until(() => runtime.snapshot(id), s => s.goal.questionDeliverableId === 'compat-notes' && !!s.goal.question);
+  expect(blocked.goal.lifecycle).toBe('active');
+  expect(blocked.deliverables.map(d => [d.id, d.state])).toEqual([
+    ['release-notes', 'succeeded'],
+    ['short-summary', 'succeeded'],
+    ['compat-notes', 'waiting'],
+  ]);
+  expect(blocked.artifacts).toHaveLength(2);
+  expect(blocked.artifacts.map(a => a.deliverableId)).toEqual(['release-notes', 'short-summary']);
+
+  // Answering an already succeeded deliverable must be rejected with 409 DELIVERABLE_COMPLETED
+  await expect(runtime.control(id, {
+    requestId: 'ans-completed', expectedRevision: blocked.goal.revision,
+    action: 'answer', deliverableId: 'release-notes', text: 'Do not redo',
+  })).rejects.toMatchObject({ status: 409, code: 'DELIVERABLE_COMPLETED' });
+
+  // Capture immutable snapshots of first two deliverables before answering the 3rd
+  const firstTwoDeliverablesBefore = structuredClone(blocked.deliverables.slice(0, 2));
+  const firstTwoArtifactsBefore = structuredClone(blocked.artifacts);
+  const firstTwoResultsBefore = structuredClone(blocked.activity.filter(a => a.kind === 'result'));
+  const callsBeforeAnswer = model.calls.length;
+  expect(firstTwoResultsBefore.map(a => a.deliverableId)).toEqual(['release-notes', 'short-summary']);
+
+  // Supply missing test records for the 3rd deliverable
+  await runtime.control(id, {
+    requestId: 'ans-compat', expectedRevision: blocked.goal.revision,
+    action: 'answer', deliverableId: 'compat-notes', text: '实测环境：macOS 15 + Node 24.7，历史 SQLite 升级通过。',
+  });
+  const done = await until(() => runtime.snapshot(id), s => s.goal.lifecycle === 'completed');
+  expect(done.deliverables.map(d => [d.id, d.state])).toEqual([
+    ['release-notes', 'succeeded'],
+    ['short-summary', 'succeeded'],
+    ['compat-notes', 'succeeded'],
+  ]);
+  expect(done.artifacts).toHaveLength(4);
+  const compatArtifact = done.artifacts.find(a => a.deliverableId === 'compat-notes');
+  expect(compatArtifact?.content).toContain('macOS 15 + Node 24.7');
+
+  // Strict immutability assertions: prior accepted deliverables, artifacts, and result activities are completely unchanged
+  expect(done.deliverables.slice(0, 2)).toEqual(firstTwoDeliverablesBefore);
+  expect(done.artifacts.filter(a => a.deliverableId && a.deliverableId !== 'compat-notes')).toEqual(firstTwoArtifactsBefore);
+  expect(done.activity.filter(a => a.kind === 'result' && a.deliverableId !== 'compat-notes')).toEqual(firstTwoResultsBefore);
+  expect(done.activity.filter(a => a.kind === 'result')).toHaveLength(3);
+
+  // Model calls after answering only targeted compat-notes (no interpret, no work/verify for release-notes or short-summary)
+  const callsAfterAnswer = model.calls.slice(callsBeforeAnswer);
+  expect(callsAfterAnswer.map(c => c.purpose)).toEqual(['review', 'work', 'verify', 'verify']);
+  expect(callsAfterAnswer.slice(0, 3).every(c => c.deliverableId === 'compat-notes')).toBe(true);
+  expect(callsAfterAnswer[3].deliverableId).toBeNull();
+});
+
+test('answer without deliverableId auto-routes to waiting deliverable and preserves prior accepted results', async () => {
+  const { runtime, model } = await setup({ deliverables: true });
+  const { id } = await runtime.create(input);
+  const blocked = await until(() => runtime.snapshot(id), s => s.goal.questionDeliverableId === 'compat-notes');
+  const priorArtifacts = structuredClone(blocked.artifacts);
+  const callsBefore = model.calls.length;
+
+  await runtime.control(id, {
+    requestId: 'implicit-answer', expectedRevision: blocked.goal.revision,
+    action: 'answer', text: '实测记录：Ubuntu 24.04 + Node 24 回归全绿。',
+  });
+  const done = await until(() => runtime.snapshot(id), s => s.goal.lifecycle === 'completed');
+  expect(done.artifacts.slice(0, 2)).toEqual(priorArtifacts);
+  expect(done.artifacts[2].deliverableId).toBe('compat-notes');
+  expect(done.artifacts[2].content).toContain('Ubuntu 24.04');
+  expect(model.calls.slice(callsBefore).filter(c => c.deliverableId).every(c => c.deliverableId === 'compat-notes')).toBe(true);
+});
+
+test('single deliverable blocked by review ask or verify needsUser still lets other ready deliverables finish', async () => {
+  const { runtime } = await setup({ deliverables: true, deliverableAskId: 'release-notes' });
+  const { id } = await runtime.create(input);
+  const blocked = await until(() => runtime.snapshot(id), s => !!s.goal.question && s.deliverables.some(d => d.id === 'short-summary' && d.state === 'succeeded'));
+  expect(blocked.goal.lifecycle).toBe('active');
+  expect(blocked.deliverables.find(d => d.id === 'release-notes')?.state).toBe('waiting');
+  expect(blocked.deliverables.find(d => d.id === 'short-summary')?.state).toBe('succeeded');
+  expect(blocked.deliverables.find(d => d.id === 'compat-notes')?.state).toBe('waiting');
+  expect(blocked.goal.questionDeliverableId).toBe('release-notes');
+
+  const second = await setup({ deliverables: true, deliverableNeedsUserId: 'release-notes' });
+  const { id: id2 } = await second.runtime.create(input);
+  const blocked2 = await until(() => second.runtime.snapshot(id2), s => !!s.goal.question && s.deliverables.some(d => d.id === 'short-summary' && d.state === 'succeeded'));
+  expect(blocked2.deliverables.find(d => d.id === 'release-notes')?.state).toBe('waiting');
+  expect(blocked2.deliverables.find(d => d.id === 'short-summary')?.state).toBe('succeeded');
+});
+
+test('pause and resume during deliverable verify resumes verification without regenerating work', async () => {
+  const { runtime, model } = await setup({ deliverables: true });
+  model.hold('verify:release-notes');
+  const { id } = await runtime.create(input);
+  const verifying = await until(() => runtime.snapshot(id), s => s.deliverables.find(d => d.id === 'release-notes')?.state === 'verifying');
+  await runtime.control(id, { requestId: 'pause-d', expectedRevision: verifying.goal.revision, action: 'pause' });
+  model.release('verify:release-notes');
+  const paused = await runtime.snapshot(id);
+  expect(paused.goal.lifecycle).toBe('paused');
+  expect(paused.deliverables.find(d => d.id === 'release-notes')?.state).toBe('verifying');
+  await runtime.control(id, { requestId: 'resume-d', expectedRevision: paused.goal.revision, action: 'resume' });
+  const waiting = await until(() => runtime.snapshot(id), s => s.goal.questionDeliverableId === 'compat-notes');
+  expect(waiting.deliverables.find(d => d.id === 'release-notes')?.state).toBe('succeeded');
+  expect(waiting.deliverables.find(d => d.id === 'short-summary')?.state).toBe('succeeded');
+  expect(model.calls.filter(c => c.purpose === 'work' && c.deliverableId === 'release-notes')).toHaveLength(1);
+});
+
+for (const [mode, expectedDiag] of [
+  ['criterion-mismatch', 'missing exact criterion'],
+  ['evidence-mismatch', 'not a literal contiguous substring'],
+] as const) {
+  test(`contradictory verify output (${mode}) is strictly rejected and exposes programmatic reason in activity, revision plan, and waiting question`, async () => {
+    const { runtime, model } = await setup({ deliverables: true, deliverableBadVerify: { id: 'compat-notes', mode } });
+    const { id } = await runtime.create({ ...input, dailyRequests: 20 });
+    const waitingMissing = await until(() => runtime.snapshot(id), s => s.goal.questionDeliverableId === 'compat-notes');
+    await runtime.control(id, {
+      requestId: `ans-${mode}`, expectedRevision: waitingMissing.goal.revision,
+      action: 'answer', deliverableId: 'compat-notes', text: 'macOS 15 + Node 24 实测通过',
+    });
+    const blocked = await until(
+      () => runtime.snapshot(id),
+      s => s.goal.questionDeliverableId === 'compat-notes' && (s.deliverables.find(d => d.id === 'compat-notes')?.revisions ?? 0) === 2 && s.deliverables.find(d => d.id === 'compat-notes')?.state === 'waiting',
+    );
+    expect(blocked.goal.lifecycle).toBe('active');
+    const compat = blocked.deliverables.find(d => d.id === 'compat-notes')!;
+    expect(compat.state).toBe('waiting');
+    expect(blocked.activity.filter(a => a.kind === 'result' && a.deliverableId === 'compat-notes')).toHaveLength(0);
+
+    // Verification activities record the programmatic rejection reason
+    const verifications = blocked.activity.filter(a => a.kind === 'verification' && a.deliverableId === 'compat-notes');
+    expect(verifications).toHaveLength(3);
+    expect(verifications.every(a => a.summary.includes('Strict verification check failed') && a.summary.includes(expectedDiag))).toBe(true);
+
+    // Retry work prompts received the programmatic failure reason in plan
+    const compatWorks = model.calls.filter(c => c.purpose === 'work' && c.deliverableId === 'compat-notes');
+    expect(compatWorks).toHaveLength(3);
+    const retryPrompt = JSON.parse(compatWorks[1].body.messages.find((m: any) => m.role === 'user').content);
+    expect(retryPrompt.plan).toContain('Strict verification check failed');
+    expect(retryPrompt.plan).toContain(expectedDiag);
+
+    // Waiting question exposes the real programmatic rejection reason instead of only the misleading model claim
+    expect(compat.question).toContain('Strict verification check failed');
+    expect(compat.question).toContain(expectedDiag);
+    expect(blocked.goal.question).toContain(expectedDiag);
+  });
+}
