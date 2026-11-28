@@ -84,6 +84,13 @@ export async function openGoalRuntime(options: {
     }
     return out;
   }
+  async function preserveDeliveredQuestion(tx: Tx, s: GoalState) {
+    const { questionDeliverableId, question } = s.goal!;
+    if (!questionDeliverableId || !question) return;
+    const d = (await tx.doc(Deliverables, deliverableKey(s.goal!.id, questionDeliverableId), null)).value;
+    // Retain a published question from older documents before controls clear its Goal pointer.
+    if (d && d.deliveredQuestion === undefined && d.question === question) d.deliveredQuestion = question;
+  }
   async function loadDeliverablesSnapshot(s: GoalState, ctx: typeof context): Promise<Deliverable[]> {
     const out: Deliverable[] = [];
     for (const id of s.deliverableIds ?? []) {
@@ -198,7 +205,18 @@ export async function openGoalRuntime(options: {
           if (!valid(g, task.input.generation)) { await release(tx, task.input.id, task.id); return done(); }
           if (g!.deadlineAt !== null && now() >= g!.deadlineAt) { return blocked(tx, s, 'The hard deadline has passed. Decide whether to change the agreement.'); }
           if (g!.nextReviewAt !== null && g!.nextReviewAt > now()) return { status: 'sleeping', until: g!.nextReviewAt, checkpoint: { phase: 'select' } };
+          if (g!.agreement && g!.nextRetrospectAt !== null && g!.nextRetrospectAt <= now()) {
+            let hasWork = false;
+            for (let n = g!.retrospectCursor + 1; n <= Math.min(s.activities, g!.retrospectCursor + 50); n++) {
+              const record = (await tx.doc(Activities, `${g!.id}:${n}`, null)).value;
+              if (record && ['work', 'verification', 'result', 'failure'].includes(record.kind)) hasWork = true;
+            }
+            if (hasWork) return { status: 'running', checkpoint: { phase: 'admit', purpose: 'retrospect' } };
+            g!.retrospectCursor = Math.min(s.activities, g!.retrospectCursor + 50);
+            g!.nextRetrospectAt = now() + (options.retrospectMinutes ?? 1440) * MINUTE;
+          }
           if (hasDeliverables(s)) {
+            await preserveDeliveredQuestion(tx, s);
             const list = await loadDeliverablesTx(tx, s);
             if (list.length > 0 && list.every(d => d.state === 'succeeded')) {
               // Item acceptance cannot substitute for cross-document agreement acceptance.
@@ -219,19 +237,23 @@ export async function openGoalRuntime(options: {
               p.state = 'verifying'; g!.activeDeliverableId = null; g!.questionDeliverableId = null;
               return { status: 'running', checkpoint: { phase: 'admit', purpose: 'verify' } };
             }
-            for (const d of list) if (d.state === 'waiting' && d.nextReviewAt === undefined) d.nextReviewAt = now() + (options.reviewMinutes ?? 1440) * MINUTE;
+            for (const d of list) {
+              if (d.state === 'waiting' && d.nextReviewAt === undefined) d.nextReviewAt = now() + (options.reviewMinutes ?? 1440) * MINUTE;
+            }
             const next = pickNextDeliverable(list);
             if (!next) {
               const waiting = list.find(d => d.state === 'waiting' && d.question) ?? list.find(d => d.state === 'waiting');
               g!.activeDeliverableId = null;
               if (waiting) {
                 const reason = waiting.question;
-                const sameQuestion = g!.question === reason && g!.questionDeliverableId === (reason ? waiting.id : null);
                 g!.waiting = reason || 'Waiting for the next deliverable review';
                 g!.question = reason; g!.questionDeliverableId = reason ? waiting.id : null;
-                g!.nextReviewAt = Math.min(...list.filter(d => d.state === 'waiting').map(d => d.nextReviewAt!));
+                g!.nextReviewAt = Math.min(g!.nextRetrospectAt ?? Infinity, ...list.filter(d => d.state === 'waiting').map(d => d.nextReviewAt!));
                 if (g!.occurrenceKey) { const p = (await tx.doc(Periods, g!.occurrenceKey, null)).value; if (p && !['succeeded', 'failed'].includes(p.state)) p.state = 'waiting'; }
-                if (reason && !sameQuestion) await activity(tx, s, 'question', reason, [], waiting.id);
+                if (reason && waiting.deliveredQuestion !== reason) {
+                  await activity(tx, s, 'question', reason, [], waiting.id);
+                  waiting.deliveredQuestion = reason;
+                }
                 return { status: 'sleeping' as const, until: g!.nextReviewAt, checkpoint: { phase: 'select' as const } };
               }
               g!.questionDeliverableId = null;
@@ -245,15 +267,6 @@ export async function openGoalRuntime(options: {
           let purpose: Purpose = !g!.agreement ? 'interpret' : 'review';
           const current = g!.occurrenceKey ? (await tx.doc(Periods, g!.occurrenceKey, null)).value : null;
           if (g!.agreement && current && current.state !== 'succeeded') purpose = g!.question ? 'review' : current.artifactId ? 'verify' : 'review';
-          if (g!.agreement && g!.nextRetrospectAt !== null && g!.nextRetrospectAt <= now() && s.activities > g!.retrospectCursor) {
-            let hasWork = false;
-            for (let n = g!.retrospectCursor + 1; n <= Math.min(s.activities, g!.retrospectCursor + 50); n++) {
-              const record = (await tx.doc(Activities, `${g!.id}:${n}`, null)).value;
-              if (record && ['work', 'verification', 'result', 'failure'].includes(record.kind)) hasWork = true;
-            }
-            if (hasWork) purpose = 'retrospect';
-            else { g!.retrospectCursor = Math.min(s.activities, g!.retrospectCursor + 50); g!.nextRetrospectAt = now() + (options.retrospectMinutes ?? 1440) * MINUTE; }
-          }
           return { status: 'running', checkpoint: { phase: 'admit', purpose } };
         }, ctx);
       },
@@ -358,7 +371,7 @@ export async function openGoalRuntime(options: {
                   (await tx.doc(Deliverables, deliverableKey(g!.id, spec.id), null)).value = {
                     id: spec.id, goalId: g!.id, title: spec.title, criteria: [...spec.criteria], missing: [...missing],
                     state: missing.length > 0 ? 'waiting' : 'ready', artifactId: null, evidence: [],
-                    question: missing.length > 0 ? missing.join('; ') : null, nextReviewAt: now() + (options.reviewMinutes ?? 1440) * MINUTE, revisions: 0, clarifications: [], updatedAt: now(),
+                    question: missing.length > 0 ? missing.join('; ') : null, deliveredQuestion: null, nextReviewAt: now() + (options.reviewMinutes ?? 1440) * MINUTE, revisions: 0, clarifications: [], updatedAt: now(),
                   };
                 }
                 g!.activeDeliverableId = null; g!.questionDeliverableId = null;
@@ -577,6 +590,7 @@ export async function openGoalRuntime(options: {
         const s = await tx.doc(Goals, id, null), g = s.goal!;
         if (g.revision !== input.expectedRevision) throw new ApiError(409, 'GOAL_CONFLICT', 'Goal changed');
         if (['completed', 'cancelled'].includes(g.lifecycle)) throw new ApiError(409, 'GOAL_TERMINAL', 'Goal has ended');
+        await preserveDeliveredQuestion(tx, s);
         let answerDeliverableId: string | null = null;
         let aggregateAnswer = false;
         if (input.action === 'answer') {
@@ -626,7 +640,7 @@ export async function openGoalRuntime(options: {
           if (answerDeliverableId !== null) {
             const d = (await tx.doc(Deliverables, deliverableKey(g.id, answerDeliverableId), null)).value!;
             d.clarifications.push(input.text!);
-            d.missing = []; d.question = null; d.revisions = 0; d.state = 'ready'; d.updatedAt = now();
+            d.missing = []; d.question = null; d.deliveredQuestion = null; d.revisions = 0; d.state = 'ready'; d.updatedAt = now();
             if (g.questionDeliverableId === answerDeliverableId) { g.question = null; g.questionDeliverableId = null; }
             g.waiting = null; s.calendarConflict = null;
           } else if (aggregateAnswer) {

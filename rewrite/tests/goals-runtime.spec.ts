@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openGoalRuntime } from '../src/lib/server/goals/runtime';
 import { goalModel } from './fixtures/goal-model';
+import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
+import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const fn of cleanup.reverse()) await fn(); cleanup.length = 0; });
 async function setup(options: { reject?: boolean; weekly?: boolean; missing?: boolean; maintain?: boolean; unresolvedWeekly?: boolean; collapsedWindow?: boolean; prepareUnscheduled?: boolean; deliverables?: boolean; deliverableAskId?: string; deliverableRejectId?: string; deliverableNeedsUserId?: string; deliverableBadVerify?: { id: string; mode: 'criterion-mismatch' | 'evidence-mismatch' }; now?: () => number; phaseTimeoutMs?: number; globalDailyRequests?: number; retrospectMinutes?: number } = {}) {
@@ -15,7 +17,7 @@ async function setup(options: { reject?: boolean; weekly?: boolean; missing?: bo
     cleanup.push(() => runtime.close()); return runtime;
   };
   const runtime = await open();
-  return { model, runtime, open };
+  return { model, runtime, open, dir };
 }
 const input = { text: 'Write an introduction: background is a goal-driven assistant; uses are durable text work.', requestId: 'create', providerId: 'fixture', modelId: 'fixture', authorizeTextWork: true };
 async function until<T>(read: () => Promise<T>, predicate: (value: T) => boolean): Promise<T> {
@@ -345,3 +347,89 @@ for (const [mode, expectedDiag] of [
     expect(blocked.goal.question).toContain(expectedDiag);
   });
 }
+
+
+test('multi-deliverable waits wake for due retrospect without changing accepted work', async () => {
+  let clock = Date.now();
+  const { runtime, open } = await setup({ deliverables: true, now: () => clock, retrospectMinutes: 1 });
+  const { id } = await runtime.create(input);
+  const waiting = await until(() => runtime.snapshot(id), s => !!s.goal.questionDeliverableId);
+  expect(waiting.goal.nextReviewAt).toBe(clock + 60000);
+  await runtime.close(); clock += 60001;
+  const reopened = await open();
+  const reviewed = await until(() => reopened.snapshot(id), s => s.activity.some(a => a.kind === 'retrospect'));
+  const retro = reviewed.activity.find(a => a.kind === 'retrospect')!;
+  expect(retro.evidence.length).toBeGreaterThan(0);
+  expect(retro.evidence.every(id => waiting.activity.some(a => a.id === id && ['work', 'verification', 'result', 'failure'].includes(a.kind)))).toBe(true);
+  expect(reviewed.goal.retrospectCursor).toBeGreaterThan(waiting.goal.retrospectCursor);
+  expect(reviewed.artifacts).toEqual(waiting.artifacts);
+  expect(reviewed.deliverables).toEqual(waiting.deliverables);
+  await reopened.close();
+  // Once all recorded work is covered, empty retrospective intervals still sleep.
+  for (let interval = 0; interval < 2; interval++) {
+    clock += 60001;
+    const idle = await open();
+    const sleeping = await until(() => idle.snapshot(id), s => s.goal.nextReviewAt !== null && s.goal.nextReviewAt > clock);
+    expect(sleeping.activity.filter(a => a.kind === 'retrospect')).toHaveLength(1);
+    expect(sleeping.artifacts).toEqual(waiting.artifacts);
+    await idle.close();
+  }
+});
+
+test('manual review does not bypass overdue retrospect for multi-deliverable work', async () => {
+  let clock = Date.now();
+  const { runtime, model, open } = await setup({ deliverables: true, now: () => clock, retrospectMinutes: 1 });
+  const { id } = await runtime.create(input);
+  await until(() => runtime.snapshot(id), s => !!s.goal.questionDeliverableId);
+  await runtime.close(); clock += 120000;
+  const reopened = await open();
+  const snapshot = await reopened.snapshot(id);
+  await reopened.control(id, { requestId: 'review-due-retrospect', expectedRevision: snapshot.goal.revision, action: 'review' });
+  await until(() => reopened.snapshot(id), s => !!s.goal.question && model.calls.filter(c => c.purpose === 'review').length >= 3);
+  expect(model.calls.some(c => c.purpose === 'retrospect')).toBe(true);
+});
+
+test('unchanged blocked deliverables do not repeat questions across durable reviews', async () => {
+  let clock = Date.now();
+  const { runtime, open } = await setup({ deliverables: true, deliverableAskId: 'release-notes', now: () => clock });
+  const { id } = await runtime.create(input);
+  const waiting = await until(() => runtime.snapshot(id), s => !!s.goal.questionDeliverableId);
+  const initialQuestions = waiting.activity.filter(a => a.kind === 'question');
+  expect(initialQuestions).toHaveLength(1);
+  await runtime.close();
+  for (let day = 0; day < 2; day++) {
+    clock += 86400001;
+    const reopened = await open();
+    const reviewed = await until(() => reopened.snapshot(id), s => s.goal.nextReviewAt !== null && s.goal.nextReviewAt > clock);
+    expect(reviewed.activity.filter(a => a.kind === 'question')).toEqual(initialQuestions);
+    expect(reviewed.artifacts).toEqual(waiting.artifacts);
+    await reopened.close();
+  }
+});
+
+
+test('manual review preserves a delivered question from documents without per-item delivery state', async () => {
+  const { runtime, open, dir } = await setup({ deliverables: true, deliverableAskId: 'release-notes' });
+  const { id } = await runtime.create(input);
+  const waiting = await until(() => runtime.snapshot(id), s => !!s.goal.questionDeliverableId);
+  const questions = waiting.activity.filter(a => a.kind === 'question');
+  await runtime.close();
+  // Reproduce the persisted shape used before deliveredQuestion was introduced.
+  const storage = await openNodeSqliteStorage(join(dir, 'goals.sqlite'));
+  try {
+    const record = await storage.findDocument({ kind: 'app.goal-deliverable', scope: { kind: 'session' }, key: `${id}:deliverable:${waiting.goal.questionDeliverableId}` }, 'current', context);
+    const doc = (await storage.document(record!.id, 'current', context))!;
+    const value = structuredClone(doc.value);
+    delete (value.value as Record<string, unknown>).deliveredQuestion;
+    await storage.commit([[{ type: 'document.change', id: record!.id, content: { kind: 'base', version: doc.version, value } }]], () => {}, context);
+  } finally { await storage.close(context); }
+  const reopened = await open();
+  const before = await reopened.snapshot(id);
+  expect(before.deliverables.find(d => d.id === waiting.goal.questionDeliverableId)).not.toHaveProperty('deliveredQuestion');
+  await reopened.control(id, { requestId: 'review-older-question', expectedRevision: before.goal.revision, action: 'review' });
+  const reviewed = await until(() => reopened.snapshot(id), s => !!s.goal.question && s.goal.nextReviewAt !== null && s.goal.nextReviewAt > Date.now());
+  expect(reviewed.activity.filter(a => a.kind === 'question')).toEqual(questions);
+  await reopened.close();
+  const persisted = await open();
+  expect((await persisted.snapshot(id)).activity.filter(a => a.kind === 'question')).toEqual(questions);
+});

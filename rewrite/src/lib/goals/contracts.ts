@@ -52,7 +52,7 @@ export type DeliverableState = 'ready' | 'running' | 'verifying' | 'waiting' | '
 export type Deliverable = {
   id: string; goalId: string; title: string; criteria: string[]; missing: string[];
   state: DeliverableState; artifactId: string | null; evidence: string[];
-  question: string | null; nextReviewAt?: number; revisions: number; clarifications: string[]; updatedAt: number;
+  question: string | null; deliveredQuestion?: string | null; nextReviewAt?: number; revisions: number; clarifications: string[]; updatedAt: number;
 };
 export type Goal = {
   id: string; originalText: string; providerId: string; modelId: string;

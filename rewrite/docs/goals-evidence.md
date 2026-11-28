@@ -161,3 +161,41 @@ extension is stacked on #812. No PR was merged and no release was published.
 The November 26 screenshot upload check reached GitHub, but the automation browser
 was signed out and could not upload PR attachments. Only the agent-created inspection
 tab was closed; user tabs/windows were left open. Screenshots remain ignored locally.
+
+## Review follow-up — 2026-11-28
+
+Two PR review defects were reproduced before changing production code:
+
+- The multi-deliverable selection branch returned before due retrospect handling.
+  Retrospect eligibility now runs before item selection, and a waiting Goal's next
+  durable wake includes its next retrospect time. Accepted item artifacts/evidence
+  remain unchanged. Empty covered-history intervals advance to another sleep without
+  inventing retrospective evidence or repeatedly waking at an elapsed timestamp.
+- Question delivery deduplication depended on the currently selected Goal question.
+  Each item now persists its last delivered question, so switching among blocked
+  items and restarting does not create another delivery for the same question.
+  Explicit clarification starts a new question cycle. An optional field preserves
+  old document shapes; the currently published older question is retained before
+  controls clear its Goal pointer.
+
+Four added native-storage regressions cover scheduled retrospect, manual overdue
+review, repeated blocked-item reviews across two restarts, and a persisted older
+item without per-item delivery state followed by manual Review and reopen. The
+last case was first observed failing, then passed with preservation before controls.
+Both independent review axes rechecked the focused patch; no remaining actionable
+findings were reported. No scheduler framework, new task kind, or unrelated artifact
+refactor was introduced.
+
+Final frozen-snapshot validation (Node 24.7.0 / pnpm 10.8.1):
+
+- `pnpm check`: zero errors / zero warnings from svelte-check.
+- `pnpm build`: passed, including the standalone startup bundle.
+- Focused Goal suite: 42 passed.
+- Full `pnpm test`: 31 files / 200 cases passed (253.79 seconds).
+- `pnpm exec playwright test tests/goals.acceptance.ts`: six passed (18.2 seconds),
+  after all rebuilding tests. The earlier full 53-case browser result remains the
+  November 26 batch, rather than a full-browser rerun for this backend-only patch.
+- `git diff --check`: passed. No live-model or deployment validation was added.
+
+The original worktree's revert and unrelated uncommitted work were left intact;
+these fixes were prepared separately from PR head `ae4c328` for the existing #814.
