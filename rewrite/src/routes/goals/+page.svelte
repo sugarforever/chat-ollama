@@ -5,6 +5,7 @@
   import Input from '$lib/components/ui/input/input.svelte';
   import Textarea from '$lib/components/ui/textarea/textarea.svelte';
   import ModelSelector from '$lib/components/ModelSelector.svelte';
+  import DeliverablesPanel from '$lib/components/goals/DeliverablesPanel.svelte';
   import { ArrowLeft, Target, Pause, Play, ShieldCheck, RefreshCw } from '@lucide/svelte';
   import MarkdownIt from 'markdown-it';
   import { api } from '$lib/client';
@@ -52,8 +53,8 @@
     } catch (e) { error = (e as Error).message; }
     finally { busy = false; }
   }
-  async function command(action: string, extra: Record<string, unknown> = {}) {
-    if (!snapshot || busy) return; busy = true; error = '';
+  async function command(action: string, extra: Record<string, unknown> = {}): Promise<boolean> {
+    if (!snapshot || busy) return false; busy = true; error = '';
     const id = current, own = generation; pendingGoal = id; reads++;
     const payload = JSON.stringify({ id, action, ...extra });
     if (!commandReceipt || commandReceipt.payload !== payload) commandReceipt = { payload, requestId: crypto.randomUUID(), expectedRevision: snapshot.goal.revision };
@@ -62,7 +63,8 @@
       await api(`/api/goals/${id}/commands`, { requestId: pending.requestId, expectedRevision: pending.expectedRevision, action, ...extra });
       if (commandReceipt === pending) commandReceipt = undefined;
       if (!disposed && own === generation && current === id) { answer = ''; editing = false; await refresh(); if (snapshot) limits(snapshot.goal); }
-    } catch (e) { if (!disposed && own === generation && current === id) { error = (e as Error).message; await refresh().catch(() => {}); } }
+      return true;
+    } catch (e) { if (!disposed && own === generation && current === id) { error = (e as Error).message; await refresh().catch(() => {}); } return false; }
     finally { busy = false; if (pendingGoal === id) pendingGoal = ''; }
   }
   onMount(() => {
@@ -117,6 +119,9 @@
       {#if snapshot}
         {@const goal = snapshot.goal}
         {@const terminal = ['completed', 'cancelled'].includes(goal.lifecycle)}
+        {@const deliverables = snapshot.deliverables ?? []}
+        {@const deliverableTitles = new Map(deliverables.map(d => [d.id, d.title]))}
+        {@const deliverableHandlesQuestion = deliverables.length > 0 && deliverables.some(d => d.state === 'waiting' && Boolean(d.question || (goal.questionDeliverableId === d.id && goal.question)))}
         <section class="panel">
           <div class="heading"><h2>Result agreement</h2><span class="status" data-testid="goal-lifecycle">{goal.lifecycle}</span></div>
           <p class="objective">{goal.agreement?.objective ?? 'The agreement will be interpreted after authorization.'}</p>
@@ -143,9 +148,24 @@
           </details>{/if}
           {#if editing}<form onsubmit={event => { event.preventDefault(); void command('edit', { text: editText }); }}><label for="edit-goal">Revised request</label><Textarea id="edit-goal" bind:value={editText} disabled={busy && pendingGoal === current} rows={5} required /><Button type="submit" disabled={busy}>Save revised request</Button></form>{/if}
         </section>
-        {#if goal.question}<section class="panel question"><h2>Your decision</h2><p>{goal.question}</p><form onsubmit={event => { event.preventDefault(); void command('answer', { text: answer }); }}><label for="goal-answer">Clarification</label><Textarea id="goal-answer" bind:value={answer} disabled={busy && pendingGoal === current} required rows={3} /><p class="muted">A reply supplies information. It does not grant tool access.</p><Button type="submit" disabled={busy || !answer.trim()}>Send answer</Button></form></section>{/if}
+        {#if deliverables.length > 0}
+          {#key goal.id}
+            <DeliverablesPanel
+              {goal}
+              {deliverables}
+              artifacts={snapshot.artifacts}
+              {busy}
+              {pendingGoal}
+              currentGoalId={current}
+              renderMarkdown={content => md.render(content)}
+              formatTime={when}
+              onAnswer={(deliverableId, value) => command('answer', { text: value, deliverableId })}
+            />
+          {/key}
+        {/if}
+        {#if goal.question && !deliverableHandlesQuestion}<section class="panel question"><h2>Your decision</h2><p>{goal.question}</p><form onsubmit={event => { event.preventDefault(); void command('answer', { text: answer }); }}><label for="goal-answer">Clarification</label><Textarea id="goal-answer" bind:value={answer} disabled={busy && pendingGoal === current} required rows={3} /><p class="muted">A reply supplies information. It does not grant tool access.</p><Button type="submit" disabled={busy || !answer.trim()}>Send answer</Button></form></section>{/if}
         <section class="panel"><h2>Deliveries and decisions</h2>{#each snapshot.activity.filter(a => ['result', 'question'].includes(a.kind)).slice().reverse() as item (item.id)}<p>{item.summary}<br /><small class="muted">{when(item.at)}</small></p>{:else}<p class="muted">Results and necessary decisions appear here. Routine work stays in activity.</p>{/each}</section>
-        <section class="panel"><h2>Saved results</h2>{#each snapshot.artifacts.slice().reverse() as artifact (artifact.id)}<article class="artifact"><div class="heading"><small>{when(artifact.createdAt)}</small><a href={`/api/goals/${goal.id}/artifacts/${encodeURIComponent(artifact.id)}?download=1`}>Download Markdown</a></div><div class="markdown">{@html md.render(artifact.content)}</div></article>{:else}<p class="muted">No saved result yet. Generated work still needs acceptance.</p>{/each}</section>
+        <section class="panel"><h2>Saved results</h2>{#each snapshot.artifacts.slice().reverse() as artifact (artifact.id)}<article class="artifact"><div class="heading"><small>{#if artifact.deliverableId && deliverableTitles.has(artifact.deliverableId)}{deliverableTitles.get(artifact.deliverableId)} · {/if}{when(artifact.createdAt)}</small><a href={`/api/goals/${goal.id}/artifacts/${encodeURIComponent(artifact.id)}?download=1`}>Download Markdown</a></div><div class="markdown">{@html md.render(artifact.content)}</div></article>{:else}<p class="muted">No saved result yet. Generated work still needs acceptance.</p>{/each}</section>
         <section class="panel"><h2>Periods and acceptance</h2>{#each snapshot.occurrences.slice().reverse() as period (period.key)}<div class="period"><strong>{period.state}</strong><p>Started {when(period.startAt)} · expected delivery {when(period.dueAt)}</p><p class="muted">{period.evidence.length ? 'Saved result and independent verification recorded.' : 'Not accepted yet.'}</p>{#if period.evidence.length}<details><summary>Evidence references</summary><small>{period.evidence.join(' · ')}</small></details>{/if}</div>{:else}<p class="muted">No period admitted yet.</p>{/each}</section>
         <section class="panel"><h2>Activity and retrospect</h2><p class="muted">Latest 50 records. Earlier records and results stay in durable storage.</p>{#each snapshot.activity.slice().reverse() as item (item.id)}<div class="activity"><small>{item.kind} · {when(item.at)}</small><p>{item.summary}</p>{#if item.evidence.length}<details><summary>Evidence references</summary><small class="muted">{item.evidence.join(' · ')}</small></details>{/if}</div>{/each}</section>
       {:else}<section class="panel empty"><Target size={36} /><h2>Work toward an outcome</h2><p>Create a Goal or select one to see its agreement, saved results and next review.</p></section>{/if}

@@ -34,3 +34,35 @@ for (const interrupted of ['work', 'verify']) test(`SIGKILL during ${interrupted
   const third = await child(); expect((await third.snapshot(id)).artifacts).toEqual(done.artifacts);
   expect(model.calls).toHaveLength(calls);
 });
+
+test('SIGKILL during deliverable verify resumes verification without regenerating prior deliverables', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'goal-crash-deliv-')); cleanup.push(() => rm(dir, { recursive: true, force: true }));
+  const model = await goalModel({ deliverables: true }); cleanup.push(() => model.close());
+  model.hold('verify:short-summary');
+  async function child() {
+    const messages: any[] = []; let stderr = '';
+    const proc = fork('tests/fixtures/goals-child.ts', [], { execArgv: ['--import', 'tsx'], env: { ...process.env, DATA_DIR: dir, BASE_URL: model.endpoint.baseUrl }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    proc.stderr?.on('data', d => stderr += d); proc.on('message', m => messages.push(m));
+    cleanup.push(async () => { if (proc.exitCode === null && proc.signalCode === null) { proc.kill('SIGKILL'); await new Promise(r => proc.once('exit', r)); } });
+    await until(() => { if (proc.exitCode !== null || messages.some(m => m.event === 'error')) throw Error(stderr + JSON.stringify(messages)); return messages; }, m => m.some(v => v.event === 'ready'));
+    return { proc, messages, async snapshot(id: string) { const n = messages.length; proc.send({ command: 'snapshot', id }); const next = await until(() => messages.slice(n), m => m.some(v => v.event === 'snapshot')); return next.find(v => v.event === 'snapshot').snapshot; }, async close() { proc.send({ command: 'close' }); await new Promise(r => proc.once('exit', r)); } };
+  }
+  const first = await child();
+  first.proc.send({ command: 'create', input: { requestId: 'deliv-crash', text: '准备发布说明、更新介绍与兼容性说明', providerId: 'fixture', modelId: 'fixture', authorizeTextWork: true } });
+  await until(() => model.calls, m => m.some(v => v.purpose === 'verify' && v.deliverableId === 'short-summary'));
+  const id = first.messages.find(m => m.event === 'created').id;
+  first.proc.kill('SIGKILL'); await new Promise(r => first.proc.once('exit', r));
+  model.release('verify:short-summary');
+
+  const second = await child();
+  const waiting = await until(() => second.snapshot(id), s => s.goal.questionDeliverableId === 'compat-notes');
+  expect(waiting.deliverables.map((d: any) => [d.id, d.state])).toEqual([
+    ['release-notes', 'succeeded'],
+    ['short-summary', 'succeeded'],
+    ['compat-notes', 'waiting'],
+  ]);
+  expect(waiting.artifacts).toHaveLength(2);
+  expect(model.calls.filter(c => c.purpose === 'work' && c.deliverableId === 'release-notes')).toHaveLength(1);
+  expect(model.calls.filter(c => c.purpose === 'work' && c.deliverableId === 'short-summary')).toHaveLength(1);
+  await second.close();
+});

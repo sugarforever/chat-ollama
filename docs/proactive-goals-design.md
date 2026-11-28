@@ -103,3 +103,31 @@ SIGKILL recovery with a local HTTP provider. Fixtures establish protocol/state b
 not real-model quality or live sports facts. Record any remaining unsupported capability
 or untested failure window explicitly. No deployment, external messages or source-project
 migration is included.
+
+
+## Once-Goal independent deliverables — 2026-11-26
+
+The fourth stacked layer extends the text slice with up to five independent once-Goal
+items, not a general dependency graph. A new native session document family stores
+item criteria, missing inputs, state, current artifact/evidence, clarifications and
+next review. Optional fields preserve the old single-output/weekly/maintain shapes.
+The existing Goal task serially advances ready items; Pi Durable still owns all
+submission/checkpoint/sleep/restart behavior. No application replay queue is added.
+
+Each item is accepted independently. Only its explicit clarification changes its
+pending work; ambiguous unscoped replies conflict instead of reinterpreting and
+resetting previously accepted items. Resume and review reuse saved verification
+artifacts. Timed waits remain distinct from user questions and retain their requested
+review time. Scheduled and manual reviews reconsider unfinished items only.
+
+Item acceptance is necessary but not sufficient: after all items succeed, a saved
+combined artifact receives an independent check against every overall criterion.
+Aggregate rejection preserves the accepted items and permits a separate overall
+clarification followed by strict re-verification. Editing the agreement is an explicit
+new interpretation; old artifacts remain historical, and cards use only the current
+artifact ID so reused item slugs cannot display old output as current work.
+
+The November 25 live Gemini demo predates these integration-review fixes. Its three
+accepted item artifacts establish that demo's execution, not live-model acceptance
+of the later aggregate verification. See rewrite/docs/goals-evidence.md for batch
+boundaries, provider configuration, recovery intervention and final regression results.

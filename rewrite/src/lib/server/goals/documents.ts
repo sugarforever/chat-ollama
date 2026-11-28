@@ -1,12 +1,13 @@
 import { defineDoc, defineDocFamily } from '@earendil-works/pi-durable';
-import type { Activity, Artifact, Goal, Occurrence } from '../../goals/contracts';
-export type GoalState = { goal: Goal | null; periods: number; artifacts: number; activities: number; revisions: number; plan: string; phaseDeadline: number; phaseRequests: number; scheduleRevision: number; calendarConflict: string | null; window: { key: string; startAt: number; dueAt: number } | null };
+import type { Activity, Artifact, Deliverable, Goal, Occurrence } from '../../goals/contracts';
+export type GoalState = { goal: Goal | null; periods: number; artifacts: number; activities: number; revisions: number; plan: string; phaseDeadline: number; phaseRequests: number; scheduleRevision: number; calendarConflict: string | null; window: { key: string; startAt: number; dueAt: number } | null; acceptanceClarifications?: string[]; deliverableIds?: string[] };
 export const Goals = defineDocFamily<GoalState, null>({
   kind: 'app.goal', scope: 'session', family: true, version: 1,
-  initial: () => ({ goal: null, periods: 0, artifacts: 0, activities: 0, revisions: 0, plan: '', phaseDeadline: 0, phaseRequests: 0, scheduleRevision: 1, calendarConflict: null, window: null }), checkpointWhen: () => true,
+  initial: () => ({ goal: null, periods: 0, artifacts: 0, activities: 0, revisions: 0, plan: '', phaseDeadline: 0, phaseRequests: 0, scheduleRevision: 1, calendarConflict: null, window: null, deliverableIds: [] }), checkpointWhen: () => true,
 });
 export const GoalIndex = defineDoc({ kind: 'app.goal-index', scope: 'session', version: 1, initial: () => ({ ids: [] as string[] }), checkpointWhen: () => true });
 export const Periods = defineDocFamily<{ value: Occurrence | null }, null>({ kind: 'app.goal-period', scope: 'session', family: true, version: 1, initial: () => ({ value: null }), checkpointWhen: () => true });
+export const Deliverables = defineDocFamily<{ value: Deliverable | null }, null>({ kind: 'app.goal-deliverable', scope: 'session', family: true, version: 1, initial: () => ({ value: null }), checkpointWhen: () => true });
 export const Artifacts = defineDocFamily<{ value: Artifact | null }, null>({ kind: 'app.goal-artifact', scope: 'session', family: true, version: 1, initial: () => ({ value: null }), checkpointWhen: () => true });
 export const Activities = defineDocFamily<{ value: Activity | null }, null>({ kind: 'app.goal-activity', scope: 'session', family: true, version: 1, initial: () => ({ value: null }), checkpointWhen: () => true });
 export const Receipts = defineDocFamily<{ hash: string; id: string }, null>({ kind: 'app.goal-receipt', scope: 'session', family: true, version: 1, initial: () => ({ hash: '', id: '' }), checkpointWhen: () => true });

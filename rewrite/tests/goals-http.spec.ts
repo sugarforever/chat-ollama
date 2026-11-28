@@ -28,3 +28,58 @@ test('production entrypoint admits a Goal once, fences mutations, and serves sco
   expect((await app.request('/api/goals/unknown')).status).toBe(404);
   expect(JSON.stringify(saved)).not.toContain('fixture-secret');
 });
+
+test('HTTP API exposes deliverables, rejects answering completed deliverable with 409, and completes after answering waiting deliverable', async () => {
+  const model = await goalModel({ deliverables: true }); cleanup.push(() => model.close());
+  const app = await goalApp(model.endpoint.baseUrl); cleanup.push(() => app.close());
+  const input = { text: '准备发布说明、150字以内更新介绍和兼容性说明', providerId: 'legacy', modelId: 'fixture', requestId: 'deliv-http', authorizeTextWork: true };
+  const created = await app.request('/api/goals', input); expect(created.status).toBe(201);
+  const { id } = await created.json();
+
+  await expect.poll(async () => (await (await app.request(`/api/goals/${id}`)).json()).goal.questionDeliverableId, { timeout: 10000 }).toBe('compat-notes');
+  const waiting = await (await app.request(`/api/goals/${id}`)).json();
+  expect(waiting.deliverables.map((d: any) => [d.id, d.state])).toEqual([
+    ['release-notes', 'succeeded'],
+    ['short-summary', 'succeeded'],
+    ['compat-notes', 'waiting'],
+  ]);
+  const priorArtifacts = structuredClone(waiting.artifacts);
+
+  const dup = await app.request(`/api/goals/${id}/commands`, {
+    requestId: 'ans-done', expectedRevision: waiting.goal.revision,
+    action: 'answer', deliverableId: 'release-notes', text: 'noop',
+  });
+  expect(dup.status).toBe(409);
+
+  const ans = await app.request(`/api/goals/${id}/commands`, {
+    requestId: 'ans-compat', expectedRevision: waiting.goal.revision,
+    action: 'answer', deliverableId: 'compat-notes', text: 'macOS 15 + Node 24 实测通过',
+  });
+  expect(ans.status).toBe(200);
+
+  await expect.poll(async () => (await (await app.request(`/api/goals/${id}`)).json()).goal.lifecycle, { timeout: 10000 }).toBe('completed');
+  const completed = await (await app.request(`/api/goals/${id}`)).json();
+  expect(completed.artifacts.slice(0, 2)).toEqual(priorArtifacts);
+  expect(completed.artifacts).toHaveLength(4);
+  const compatArtifact = completed.artifacts.find((a: any) => a.deliverableId === 'compat-notes');
+  const downloaded = await app.request(`/api/goals/${id}/artifacts/${encodeURIComponent(compatArtifact.id)}?download=1`);
+  expect(downloaded.status).toBe(200);
+  expect(await downloaded.text()).toContain('macOS 15 + Node 24 实测通过');
+});
+
+
+test('ambiguous multi-deliverable answers return a public conflict without changing accepted state', async () => {
+  const model = await goalModel({ deliverables: true, deliverableAskId: 'release-notes' }); cleanup.push(() => model.close());
+  const app = await goalApp(model.endpoint.baseUrl); cleanup.push(() => app.close());
+  const { id } = await (await app.request('/api/goals', { text: 'Three independent text deliveries', providerId: 'legacy', modelId: 'fixture', requestId: 'ambiguous-http', authorizeTextWork: true })).json();
+  await expect.poll(async () => (await (await app.request(`/api/goals/${id}`)).json()).goal.questionDeliverableId, { timeout: 10000 }).toBe('release-notes');
+  let snapshot = await (await app.request(`/api/goals/${id}`)).json();
+  for (const action of ['pause', 'review']) {
+    expect((await app.request(`/api/goals/${id}/commands`, { requestId: `ambiguous-${action}`, expectedRevision: snapshot.goal.revision, action })).status).toBe(200);
+    snapshot = await (await app.request(`/api/goals/${id}`)).json();
+  }
+  const reply = await app.request(`/api/goals/${id}/commands`, { requestId: 'unscoped', expectedRevision: snapshot.goal.revision, action: 'answer', text: 'Which item?' });
+  expect(reply.status).toBe(409);
+  expect((await reply.json()).error.code).toBe('DELIVERABLE_REQUIRED');
+  expect(await (await app.request(`/api/goals/${id}`)).json()).toEqual(snapshot);
+});
